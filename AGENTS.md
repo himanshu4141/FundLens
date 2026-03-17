@@ -7,6 +7,7 @@ This file defines how coding agents should plan and execute work in this reposit
 Agents must review these documents at the start of new work:
 - VISION.md — the product vision, core user problems, design principles, and what is out of scope. All decisions must align with this document.
 - docs/SCREENS.md — the screen map and navigation structure. Reference this when building any UI or planning flows.
+- docs/TECH-DISCOVERY.md — tech stack decisions, data sources, and key constraints. Do not revisit closed decisions without strong justification.
 
 ## ExecPlans
 When writing complex features, multi-day efforts, or significant refactors, use an ExecPlan as described in `docs/process/PLANS.md` from design through implementation.
