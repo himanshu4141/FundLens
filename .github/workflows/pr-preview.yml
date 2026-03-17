@@ -1,0 +1,84 @@
+name: PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  checks:
+    name: Typecheck & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+
+  eas-update:
+    name: EAS Update (PR preview)
+    runs-on: ubuntu-latest
+    needs: checks
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Publish EAS Update
+        id: eas-update
+        run: |
+          OUTPUT=$(eas update \
+            --branch "pr-${{ github.event.number }}" \
+            --message "PR #${{ github.event.number }}: ${{ github.event.pull_request.title }}" \
+            --non-interactive \
+            --json 2>/dev/null || echo '[]')
+          UPDATE_URL=$(echo "$OUTPUT" | node -e "
+            const updates = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+            const first = Array.isArray(updates) ? updates[0] : null;
+            console.log(first ? 'https://expo.dev/accounts/'+first.actor?.username+'/projects/fundlens/updates/'+first.id : '');
+          " 2>/dev/null || echo "")
+          echo "update_url=$UPDATE_URL" >> "$GITHUB_OUTPUT"
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      - name: Comment QR on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const updateUrl = '${{ steps.eas-update.outputs.update_url }}';
+            const body = updateUrl
+              ? `### EAS Preview Update\n\nOpen in Expo Go or your development build:\n\n${updateUrl}`
+              : '### EAS Preview\n\nUpdate published. Check the [EAS dashboard](https://expo.dev) for the QR code.';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith('### EAS Preview'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
