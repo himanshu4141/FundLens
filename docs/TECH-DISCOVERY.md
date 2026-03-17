@@ -9,13 +9,12 @@ This document captures the outcome of the technical discovery session. It record
 | Layer | Decision | Reasoning |
 |---|---|---|
 | **Frontend** | Expo (React Native) + TypeScript | Familiar React ecosystem, native widgets on Android/iOS, single codebase covers Android + iOS + iPad + macOS + Web. New Architecture (stable 2024) closes performance gap with Flutter. |
-| **Backend** | Supabase (Postgres + Edge Functions) | Lightweight, handles DB + auth + scheduled jobs. Fits a personal-scale app. |
-| **CAS parsing service** | Python FastAPI on Fly.io (or Modal) | `casparser` is Python-only — Supabase Edge Functions are Deno (TypeScript only), so a separate lightweight Python microservice is required. No JS/TS equivalent of `casparser` exists. |
+| **Backend** | Supabase (Postgres + Edge Functions) | Lightweight, handles DB + auth + scheduled jobs. Fits a personal-scale app. No separate Python microservice needed. |
 | **NAV data** | mfapi.in | Free, JSON, no auth, 9000+ schemes, historical NAV going back years. Sourced from AMFI. |
 | **Index data** | `yfinance` (Python, server-side) | Free, sufficient for daily EOD fetch. Must be server-side — NSE direct calls fail in browser due to CORS. Fallback chain required (see below). |
 | **Benchmark mapping** | SEBI category lookup table (hardcoded) | mfapi.in and AMFI flat file contain no benchmark data. Using `scheme_category` from mfapi.in + hardcoded SEBI category-to-benchmark table covers ~80% of funds deterministically. |
-| **CAS import** | Manual CAS PDF upload (primary) | MFcentral QR flow is fully defunct — the backend API (`services.mfcentral.com`) was shut down Sept 2025 alongside the programmatic API. No live QR-to-CAS pipeline exists anymore. Manual PDF upload is now the most reliable option. |
-| **CAS parsing** | Open-source `casparser` Python library | Runs on our Python microservice (Fly.io). Supports CAMS, KFintech, FTAMIL. Zero third-party data sharing. |
+| **CAS import** | MFcentral redirect + QR flow via CASParser.in API | MFcentral QR flow is alive and used by Value Research today. However it requires MFcentral partner registration (AMFI approval) — not feasible for a personal app. CASParser.in is a registered MFcentral partner and exposes this as an API. We use them for PDF parsing only (no Gmail OAuth). Free tier: 10 credits/month, 1 credit per parse. |
+| **CAS parsing** | CASParser.in API (PDF upload only) | Supabase Edge Functions are Deno (TypeScript only) — no Python runtime, so self-hosted `casparser` is not possible without a separate service. CASParser.in keeps the entire backend on Supabase and avoids infrastructure complexity. Gmail OAuth feature is explicitly not used. |
 | **XIRR calculation** | Client-side TypeScript | Standard algorithm, no external dependency needed. Accounts for every SIP instalment timing. |
 
 ---
@@ -25,16 +24,11 @@ This document captures the outcome of the technical discovery session. It record
 ```
 Expo App (React Native)
     │
-    ├── Supabase (Postgres + Edge Functions)
-    │     ├── DB: funds, nav_history, index_history, transactions
-    │     ├── Daily cron: fetch NAVs from mfapi.in
-    │     ├── Daily cron: fetch index data via yfinance
-    │     └── On CAS upload: call Python parsing service
-    │
-    └── Python Parsing Service (Fly.io / Modal)
-          ├── Accepts CAS PDF upload
-          ├── Runs casparser
-          └── Returns structured JSON → written to Supabase DB
+    └── Supabase (Postgres + Edge Functions)
+          ├── DB: funds, nav_history, index_history, transactions
+          ├── Daily cron: fetch NAVs from mfapi.in
+          ├── Daily cron: fetch index data via yfinance
+          └── On CAS upload: POST PDF to CASParser.in API → store parsed JSON
 ```
 
 ---
@@ -94,24 +88,25 @@ Standard mappings:
 
 **Edge cases**: ELSS and thematic/sectoral funds are heterogeneous — category default may not be accurate. Override with per-fund data scraped from Value Research Online as needed.
 
-### CAS Import — Manual PDF Upload
+### CAS Import — MFcentral QR flow via CASParser.in
 
-The MFcentral QR flow is **no longer viable**. Research confirmed the backend API (`services.mfcentral.com/api/client/V1/submitcasdetailrequest`) was shut down in September 2025 alongside the programmatic API. Even if the user-facing portal generates a QR, there is no endpoint to redeem it for CAS data.
+The MFcentral QR flow is **alive and working** — confirmed via a live walkthrough of Value Research's import flow (March 2026). The flow works as follows:
 
-**Current flow:**
-1. User taps "Import / Refresh transactions" in app
-2. App shows step-by-step guide: go to camsonline.com → request CAS → download PDF
-3. User uploads PDF in FundLens
-4. App sends PDF to Python parsing service on Fly.io
-5. `casparser` parses PDF → structured JSON returned
-6. Supabase stores full transaction history
+1. App initiates import → redirects user to `mfc-cas.mfcentral.com`
+2. User authenticates via OTP (email from donotreply@mfcentral.com)
+3. User configures CAS: Regular + Direct, Transactions, All AMCs
+4. MFcentral generates QR code → user downloads it
+5. User returns to app and uploads the QR image
+6. App sends QR to CASParser.in API → they redeem it with MFcentral and return parsed JSON
+7. Supabase stores full transaction history
 
-**CAS parsing library**: [`casparser`](https://github.com/codereverser/casparser) (MIT, Python 3.10+)
-- Supports CAMS, KFintech, FTAMIL statements
-- Outputs: holdings, full transaction history (SIP instalments, lump sums, STPs, redemptions, switches), units, cost basis
-- Transaction history enables accurate XIRR calculation per fund
+**Why not implement MFcentral directly**: Value Research's flow uses a credit system ("Imports available: 53") backed by a registered MFcentral partner account. Becoming a partner requires AMFI approval — not feasible for a personal app.
 
-**Python parsing service**: FastAPI on [Fly.io](https://fly.io) (free tier: 3 shared-CPU VMs) or [Modal](https://modal.com) (serverless, pay-per-call — ideal for infrequent parsing)
+**Why CASParser.in**: They are a registered MFcentral partner and expose this entire flow (QR redemption + parsing) as an API. We use their PDF/QR parsing endpoint only — no Gmail OAuth.
+
+**CASParser.in pricing**: Free tier — 10 credits/month, 1 credit per CAS parse. Sufficient for personal use.
+
+**Fallback**: Manual CAS PDF download from camsonline.com + upload in-app → sent to CASParser.in for parsing.
 
 ---
 
@@ -132,9 +127,10 @@ This gives us everything needed to compute XIRR accurately for SIP investors.
 - **No Gmail OAuth** — rejected on privacy grounds.
 - **No CASParser.in API** — rejected to avoid third-party data sharing. Self-hosted parsing is sufficient.
 - **No Account Aggregator** — requires SEBI RIA license, ₹5-25L cost, 5-10 month implementation. Not viable.
-- **No MFcentral QR flow** — defunct since Sept 2025. Backend API shut down — no way to redeem QR for CAS data.
+- **No direct MFcentral integration** — requires AMFI partner registration, not feasible for a personal app. CASParser.in used instead as a registered intermediary.
+- **No Gmail OAuth** — CASParser.in's Gmail feature explicitly not used. PDF/QR upload only.
 - **Index data must be server-side** — CORS blocks browser-side NSE API calls.
-- **casparser cannot run in Supabase Edge Functions** — Edge Functions are Deno (TypeScript only). A separate Python microservice is required.
+- **No self-hosted casparser** — Supabase Edge Functions are Deno (TypeScript only), no Python runtime. Using CASParser.in API avoids needing a separate Python microservice.
 
 ---
 
