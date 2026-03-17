@@ -33,14 +33,14 @@ Two tabs:
 - Side-by-side comparison of returns, benchmark performance, XIRR
 
 ### 5. Onboarding (first launch)
-- **Option A (recommended)**: Upload CAS PDF or scan CAMS QR code → auto-import all funds, units, and transaction history
-- **Option B (fallback)**: Manually search and add funds, enter SIP details per fund
+- **Option A (recommended)**: MFcentral redirect flow — app opens MFcentral in browser, user authenticates with OTP, generates a QR code on MFcentral, returns to app and uploads the QR → app fetches and parses full transaction history automatically
+- **Option B (fallback)**: Manual CAS PDF upload — user downloads CAS from CAMS/KFintech themselves and uploads the PDF in-app
 
-> Note: CAMS changed their CAS request process ~March 2026. Research the current process before implementing this flow.
+> See docs/TECH-DISCOVERY.md for full details on why this flow was chosen and the constraints around CAS import.
 
 ### 6. Settings / Manage Funds
 - View and manage tracked funds (add / remove)
-- Refresh transactions (re-upload CAS or re-fetch via CAMS)
+- Refresh transactions (re-run MFcentral redirect flow or re-upload CAS PDF)
 - Change default market benchmark index
 
 ## Navigation Structure
