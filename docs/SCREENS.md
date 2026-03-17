@@ -33,14 +33,15 @@ Two tabs:
 - Side-by-side comparison of returns, benchmark performance, XIRR
 
 ### 5. Onboarding (first launch)
-- **Primary flow**: MFcentral redirect + QR — app redirects user to MFcentral, user authenticates via OTP, configures CAS, downloads QR code, returns to app and uploads it. App redeems QR via CASParser.in API and auto-imports all funds and full transaction history.
-- **Fallback**: Manual CAS PDF download from camsonline.com → upload in-app → parsed automatically
+- **Primary flow**: Email forwarding — app shows user their dedicated CASParser.in forwarding address. User forwards their CAMS CAS email to it. App auto-imports all funds and full transaction history via webhook.
+- **First-time / no email yet**: MFcentral redirect + QR — app redirects to MFcentral, user authenticates via OTP, configures CAS, downloads QR, returns to app and uploads it.
+- **Fallback**: Manual CAS PDF download from camsonline.com → upload in-app → parsed automatically.
 
-> See docs/TECH-DISCOVERY.md for full CAS import details, why direct MFcentral integration isn't feasible, and why CASParser.in is used as the intermediary.
+> See docs/TECH-DISCOVERY.md for full CAS import details and the reasoning behind each option.
 
 ### 6. Settings / Manage Funds
 - View and manage tracked funds (add / remove)
-- Refresh transactions (re-run MFcentral QR flow or re-upload CAS PDF)
+- Refresh transactions — forward latest CAMS email to dedicated address (primary), or re-run QR/PDF upload
 - Change default market benchmark index
 
 ## Navigation Structure
