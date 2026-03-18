@@ -11,8 +11,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
 
 export default function PDFScreen() {
@@ -46,11 +44,6 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-
       // Build multipart form — React Native fetch handles file:// URIs in FormData
       const form = new FormData();
       form.append('file', {
@@ -59,17 +52,13 @@ export default function PDFScreen() {
         type: 'application/pdf',
       } as unknown as Blob);
 
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/parse-cas-pdf`, {
+      // Use supabase.functions.invoke to avoid manual JWT auth issues
+      const { data, error } = await supabase.functions.invoke('parse-cas-pdf', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
         body: form,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error ?? `Upload failed (${res.status})`);
-      }
+      if (error) throw new Error(error.message);
 
       setResult({ funds: data.funds, transactions: data.transactions });
       setState('success');

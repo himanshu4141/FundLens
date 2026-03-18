@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-
 async function fetchSession(userId: string) {
   const { data } = await supabase
     .from('cas_inbound_session')
@@ -13,25 +11,15 @@ async function fetchSession(userId: string) {
 }
 
 async function callCreateSession(): Promise<string> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
-
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/create-inbound-session`, {
+  // Use supabase.functions.invoke so the client handles JWT auth headers
+  // and token refresh automatically — raw fetch with manual Bearer tokens
+  // can fail Supabase's built-in JWT gate on edge functions.
+  const { data, error } = await supabase.functions.invoke('create-inbound-session', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-    },
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Request failed: ${res.status}`);
-  }
-
-  const data = await res.json();
+  if (error) throw new Error(error.message);
+  if (!data?.inboundEmail) throw new Error('No inbound email returned');
   return data.inboundEmail as string;
 }
 
