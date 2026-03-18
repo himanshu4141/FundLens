@@ -11,6 +11,15 @@
 
 import { createServiceClient } from '../_shared/supabase-client.ts';
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+};
+
+function json(body: unknown, init?: ResponseInit): Response {
+  return Response.json(body, { ...init, headers: { ...CORS, ...(init?.headers ?? {}) } });
+}
+
 const BATCH_SIZE = 500;
 const MFAPI_BASE = 'https://api.mfapi.in/mf';
 

@@ -7,20 +7,24 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 // The URL CASParser will POST the processed file payload to.
 const CAS_WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/cas-webhook`;
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+};
+
+function json(body: unknown, init?: ResponseInit): Response {
+  return Response.json(body, { ...init, headers: { ...CORS, ...(init?.headers ?? {}) } });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, content-type',
-      },
-    });
+    return new Response(null, { headers: CORS });
   }
 
   // --- Auth ---
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
-    return Response.json({ error: 'Missing Authorization header' }, { status: 401 });
+    return json({ error: 'Missing Authorization header' }, { status: 401 });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -31,11 +35,11 @@ Deno.serve(async (req) => {
   } = await supabase.auth.getUser(jwt);
 
   if (authError || !user) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   if (!CASPARSER_API_KEY) {
-    return Response.json({ error: 'CASPARSER_API_KEY not configured' }, { status: 500 });
+    return json({ error: 'CASPARSER_API_KEY not configured' }, { status: 500 });
   }
 
   // --- Call CASParser inbound email API ---
@@ -54,7 +58,7 @@ Deno.serve(async (req) => {
   if (!casRes.ok) {
     const body = await casRes.text();
     console.error('CASParser API error', casRes.status, body);
-    return Response.json({ error: 'Failed to create inbound email session' }, { status: 502 });
+    return json({ error: 'Failed to create inbound email session' }, { status: 502 });
   }
 
   const casData = await casRes.json();
@@ -65,7 +69,7 @@ Deno.serve(async (req) => {
 
   if (!inboundEmailId || !inboundEmailAddress) {
     console.error('Unexpected CASParser response shape', casData);
-    return Response.json({ error: 'Unexpected response from CASParser' }, { status: 502 });
+    return json({ error: 'Unexpected response from CASParser' }, { status: 502 });
   }
 
   // --- Upsert session row ---
@@ -81,11 +85,8 @@ Deno.serve(async (req) => {
 
   if (dbError) {
     console.error('DB upsert error', dbError);
-    return Response.json({ error: 'Failed to save session' }, { status: 500 });
+    return json({ error: 'Failed to save session' }, { status: 500 });
   }
 
-  return Response.json(
-    { inboundEmail: inboundEmailAddress },
-    { headers: { 'Access-Control-Allow-Origin': '*' } },
-  );
+  return json({ inboundEmail: inboundEmailAddress });
 });

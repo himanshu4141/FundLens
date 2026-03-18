@@ -24,6 +24,15 @@ const CASPARSER_API_KEY = Deno.env.get('CASPARSER_API_KEY') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+};
+
+function json(body: unknown, init?: ResponseInit): Response {
+  return Response.json(body, { ...init, headers: { ...CORS, ...(init?.headers ?? {}) } });
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -45,13 +54,13 @@ Deno.serve(async (req) => {
   const userId = payload.reference;
   if (!userId) {
     console.error('Missing reference in webhook payload');
-    return Response.json({ error: 'Missing reference' }, { status: 400 });
+    return json({ error: 'Missing reference' }, { status: 400 });
   }
 
   const files = payload.files ?? [];
   if (files.length === 0) {
     console.warn('No files in payload for user', userId);
-    return Response.json({ ok: true, message: 'No files to process' });
+    return json({ ok: true, message: 'No files to process' });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -66,7 +75,7 @@ Deno.serve(async (req) => {
   if (!profile?.pan) {
     console.error('No PAN configured for user', userId);
     // Return 200 so CASParser does not retry — this requires user action
-    return Response.json({ ok: false, error: 'user PAN not configured' });
+    return json({ ok: false, error: 'user PAN not configured' });
   }
 
   // Create audit record
@@ -83,7 +92,7 @@ Deno.serve(async (req) => {
 
   if (importError || !importRecord) {
     console.error('Failed to create cas_import', importError);
-    return Response.json({ error: 'DB error' }, { status: 500 });
+    return json({ error: 'DB error' }, { status: 500 });
   }
 
   const importId = importRecord.id as string;
@@ -142,5 +151,5 @@ Deno.serve(async (req) => {
     })
     .eq('id', importId);
 
-  return Response.json({ ok: true, funds: totalFunds, transactions: totalTransactions });
+  return json({ ok: true, funds: totalFunds, transactions: totalTransactions });
 });
