@@ -17,6 +17,14 @@ import { useSession } from '@/src/hooks/useSession';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
+async function requestCAS(email: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('request-cas', {
+    method: 'POST',
+    body: { email },
+  });
+  if (error) throw new Error(error.message);
+}
+
 function CopyBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   async function handleCopy() {
@@ -48,6 +56,10 @@ export default function OnboardingScreen() {
   const [panSaved, setPanSaved] = useState(false);
   const [panSaving, setPanSaving] = useState(false);
   const [panError, setPanError] = useState<string | null>(null);
+
+  const [casEmail, setCasEmail] = useState(session?.user.email ?? '');
+  const [casRequesting, setCasRequesting] = useState(false);
+  const [casRequested, setCasRequested] = useState(false);
 
   async function handleSavePAN() {
     const upper = pan.trim().toUpperCase();
@@ -195,37 +207,69 @@ export default function OnboardingScreen() {
         </View>
       </View>
 
-      {/* ── Step 3 — Forward instructions ─────────────────────── */}
+      {/* ── Step 3 — Request CAS ───────────────────────────────── */}
       <View style={[styles.step, !step3Enabled && styles.stepDisabled]}>
         <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray]}>
-            <Text style={styles.stepNumText}>3</Text>
+          <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray, casRequested && styles.stepNumDone]}>
+            <Text style={styles.stepNumText}>{casRequested ? '✓' : '3'}</Text>
           </View>
           <Text style={[styles.stepTitle, !step3Enabled && styles.stepTitleGray]}>
-            Forward your CAS email
+            Request your CAS
           </Text>
         </View>
         <View style={styles.stepBody}>
-          <Text style={[styles.stepDesc, !step3Enabled && styles.stepDescGray]}>
-            Request a CAS from CAMS or KFintech, then forward the email to the address above.
-            Your transactions will appear in the app automatically.
-          </Text>
-          {step3Enabled && (
+          {casRequested ? (
             <View style={styles.hintCard}>
-              <Text style={styles.hintTitle}>How to request a CAS</Text>
+              <Text style={styles.hintTitle}>CAS requested!</Text>
               <Text style={styles.hintItem}>
-                <Text style={styles.bold}>CAMS: </Text>
-                camsonline.com → Statements → CAS → Detailed → email to yourself
+                KFintech will email your CAS to <Text style={styles.bold}>{casEmail}</Text> within
+                1–2 minutes.{'\n\n'}
+                When it arrives, forward that email to your import address above and your
+                transactions will import automatically.
               </Text>
-              <Text style={styles.hintItem}>
-                <Text style={styles.bold}>KFintech: </Text>
-                kfintech.com → MF → CAS → Request → email to yourself
-              </Text>
-              <Text style={styles.hintItem}>
-                <Text style={styles.bold}>MFcentral: </Text>
-                mfcentral.com → CAS → Detailed → email to yourself
-              </Text>
+              <TouchableOpacity onPress={() => setCasRequested(false)}>
+                <Text style={[styles.changeLink, { marginTop: 6 }]}>Request again</Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            <>
+              <Text style={[styles.stepDesc, !step3Enabled && styles.stepDescGray]}>
+                Enter the email registered with KFintech / CAMS. We&apos;ll request your CAS and
+                KFintech will email it to you within 1–2 minutes.
+              </Text>
+              <TextInput
+                style={[styles.panInput, !step3Enabled && styles.inputDisabled]}
+                placeholder="your@email.com"
+                placeholderTextColor="#999"
+                value={casEmail}
+                onChangeText={setCasEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={step3Enabled && !casRequesting}
+              />
+              <TouchableOpacity
+                style={[styles.primaryBtn, (!step3Enabled || casRequesting) && styles.btnDisabled]}
+                onPress={async () => {
+                  if (!casEmail.trim()) return;
+                  setCasRequesting(true);
+                  try {
+                    await requestCAS(casEmail.trim());
+                    setCasRequested(true);
+                  } catch (e) {
+                    Alert.alert('Error', (e as Error).message);
+                  } finally {
+                    setCasRequesting(false);
+                  }
+                }}
+                disabled={!step3Enabled || casRequesting}
+              >
+                {casRequesting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Request CAS</Text>
+                )}
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
@@ -276,6 +320,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, fontSize: 16, color: '#111', backgroundColor: '#fafafa',
     letterSpacing: 2,
   },
+  inputDisabled: { opacity: 0.4 },
   errorText: { color: '#e53e3e', fontSize: 13 },
 
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
