@@ -68,11 +68,13 @@ function SetupComplete({
   kftechEmail,
   onRefresh,
   onReset,
+  onGoToPortfolio,
 }: {
   inboundEmail: string;
   kftechEmail: string;
   onRefresh: () => Promise<void>;
   onReset: () => void;
+  onGoToPortfolio: () => void;
 }) {
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
@@ -158,6 +160,10 @@ function SetupComplete({
           </Text>
         </View>
       )}
+
+      <TouchableOpacity style={styles.portfolioBtn} onPress={onGoToPortfolio}>
+        <Text style={styles.portfolioBtnText}>Go to portfolio →</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.resetLink} onPress={onReset}>
         <Text style={styles.resetLinkText}>Change PAN or email</Text>
@@ -251,6 +257,7 @@ export default function OnboardingScreen() {
           setPanState('idle');
           queryClient.setQueryData(['user-profile', session?.user.id], null);
         }}
+        onGoToPortfolio={() => router.replace('/')}
       />
     );
   }
@@ -455,6 +462,11 @@ const styles = StyleSheet.create({
   tipStep: { fontSize: 13, color: '#1e40af', lineHeight: 20 },
   tipNote: { fontSize: 12, color: '#3730a3', fontStyle: 'italic', marginTop: 4 },
 
+  portfolioBtn: {
+    backgroundColor: '#1a56db', borderRadius: 10,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  portfolioBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   resetLink: { alignItems: 'center', paddingVertical: 8 },
   resetLinkText: { fontSize: 13, color: '#94a3b8' },
 
