@@ -199,7 +199,7 @@ export default function OnboardingScreen() {
   // Pre-populate inputs from saved profile when it loads
   useEffect(() => {
     if (profile?.pan && !pan) setPan(profile.pan);
-  }, [profile?.pan]);
+  }, [profile?.pan, pan]);
   useEffect(() => {
     if (profile?.kfintech_email) setCasEmail(profile.kfintech_email);
   }, [profile?.kfintech_email]);
