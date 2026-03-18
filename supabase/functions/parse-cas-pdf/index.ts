@@ -16,24 +16,28 @@ const CASPARSER_API_KEY = Deno.env.get('CASPARSER_API_KEY') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+};
+
+function json(body: unknown, init?: ResponseInit): Response {
+  return Response.json(body, { ...init, headers: { ...CORS, ...(init?.headers ?? {}) } });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, content-type',
-      },
-    });
+    return new Response(null, { headers: CORS });
   }
 
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response('Method not allowed', { status: 405, headers: CORS });
   }
 
   // Authenticate user
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
-    return Response.json({ error: 'Missing Authorization header' }, { status: 401 });
+    return json({ error: 'Missing Authorization header' }, { status: 401 });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -43,7 +47,7 @@ Deno.serve(async (req) => {
   } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
 
   if (authError || !user) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // Parse multipart form
@@ -51,12 +55,12 @@ Deno.serve(async (req) => {
   try {
     formData = await req.formData();
   } catch {
-    return Response.json({ error: 'Expected multipart/form-data' }, { status: 400 });
+    return json({ error: 'Expected multipart/form-data' }, { status: 400 });
   }
 
   const fileEntry = formData.get('file');
   if (!fileEntry || !(fileEntry instanceof File)) {
-    return Response.json({ error: 'Missing file field' }, { status: 400 });
+    return json({ error: 'Missing file field' }, { status: 400 });
   }
 
   // Password: use value from form if provided, else fall back to stored PAN
@@ -72,7 +76,7 @@ Deno.serve(async (req) => {
   }
 
   if (!password) {
-    return Response.json(
+    return json(
       { error: 'CAS PDF password required. Please set your PAN in the app settings.' },
       { status: 400 },
     );
@@ -90,7 +94,7 @@ Deno.serve(async (req) => {
     .single();
 
   if (importError || !importRecord) {
-    return Response.json({ error: 'Failed to create import record' }, { status: 500 });
+    return json({ error: 'Failed to create import record' }, { status: 500 });
   }
 
   const importId = importRecord.id as string;
@@ -116,7 +120,7 @@ Deno.serve(async (req) => {
       .eq('id', importId);
 
     const isPasswordError = parseRes.status === 400 && body.toLowerCase().includes('password');
-    return Response.json(
+    return json(
       {
         error: isPasswordError
           ? 'Wrong PDF password. Make sure your PAN is correct.'
@@ -142,8 +146,5 @@ Deno.serve(async (req) => {
     })
     .eq('id', importId);
 
-  return Response.json(
-    { ok: true, funds: fundsUpdated, transactions: transactionsAdded },
-    { headers: { 'Access-Control-Allow-Origin': '*' } },
-  );
+  return json({ ok: true, funds: fundsUpdated, transactions: transactionsAdded });
 });
