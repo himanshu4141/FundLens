@@ -164,3 +164,14 @@ Structure:
 - [x] Remove unused `formatXirrCompact` and `indexTo100` import
 - [x] `npm run typecheck` — zero errors
 - [x] `npm run lint` — zero warnings
+
+
+## Amendments (post-implementation)
+
+### FundSearchModal: useEffect anti-pattern fix
+
+The initial implementation had two bugs: `useState(() => { loadFunds(); })` (calling an async side-effect inside `useState` initializer — fires on every render but the return value is ignored) and `useCallback(() => {}, [])()` (IIFE on a memoised callback, ran once but never re-ran when `userId` changed). Fixed by using a proper `useEffect` that runs `loadFunds()` whenever `visible` or `userId` changes — ensures the full fund list is loaded each time the modal opens.
+
+### Shared utility reuse
+
+`buildCashflowsFromTransactions` and `filterToWindow` are imported from the shared utils rather than re-implemented, matching Milestones 4 and 5.

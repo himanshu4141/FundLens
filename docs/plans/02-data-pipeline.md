@@ -189,3 +189,24 @@ Schedule validation: set cron to run 1 minute from now in Supabase Dashboard →
 - [x] Verify `nav_history` and `index_history` rows populated
 - [x] `npm run typecheck` — zero errors
 - [x] `npm run lint` — zero warnings
+
+
+## Amendments (post-implementation)
+
+### Scheduling: pg_cron migration instead of Dashboard UI
+
+The original plan assumed cron schedules would be configured via the Supabase Dashboard. In practice, the `schedule` key in `supabase/config.toml` is not supported by Supabase CLI v2.78.1 and causes parse errors on `supabase functions deploy` and `supabase db push`. The cron schedule is now managed entirely via a SQL migration (`20260319000002_enable_cron_and_sync_schedules.sql`) using `pg_cron` + `pg_net`.
+
+Both sync functions are deployed with `--no-verify-jwt` so `pg_net.http_post` can call them from the database without needing a stored service role key.
+
+The `config.toml` still contains the `schedule` key for documentation purposes; the GitHub Actions deploy workflow strips those lines via `sed` before invoking the Supabase CLI.
+
+### CI/CD: GitHub Actions deploy workflow
+
+Added `.github/workflows/supabase-deploy.yml` (committed in this milestone) to automatically deploy edge functions and run migrations on push to `main` when `supabase/functions/**` or `supabase/migrations/**` change.
+
+Required GitHub secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_URL`.
+
+### Deno VS Code support
+
+Added `supabase/functions/deno.json` to fix TypeScript errors shown by VS Code's language server for edge function files (Deno-specific APIs like `Deno.serve`, `jsr:`, `npm:` were flagged as unknown). VS Code workspace settings scope the Deno language server to `supabase/functions/` only via `.vscode/settings.json` (gitignored; each developer sets this up locally).

@@ -25,3 +25,34 @@ ExecPlans must follow the formatting and content requirements in `docs/process/P
 - Prefer explicit assumptions over implicit ones.
 - Keep plans and progress up to date as work evolves.
 - Validate with runnable checks where possible.
+
+## Validation Checklist (required before closing any PR)
+
+Do not raise or mark a PR ready-for-review until all of the following pass:
+
+### TypeScript + Lint
+```bash
+npm run typecheck   # zero errors
+npm run lint        # zero warnings (--max-warnings 0)
+```
+
+### React hooks
+- All `useEffect`, `useCallback`, and `useMemo` hooks must include every variable they reference in their dependency array.
+- `react-hooks/exhaustive-deps` is set to `'error'` — lint will catch this, but review manually too.
+
+### Edge Functions
+- Any Edge Function that uses Deno APIs (`Deno.serve`, `jsr:`, `npm:`) must be in `supabase/functions/` and excluded from the root `tsconfig.json` and `eslint.config.js`.
+- After making changes to an Edge Function, verify it is deployed: check the function's last-deployed timestamp in the Supabase Dashboard or re-deploy explicitly.
+- Edge Functions called by pg_cron must be deployed with `--no-verify-jwt`.
+
+### Supabase migrations
+- After writing a new migration, apply it to the production DB (`supabase db push` or via the Supabase MCP tool) and confirm it ran without errors.
+- For cron schedule changes, verify the `cron.job` table reflects the new schedule.
+
+### Stacked PRs
+- When a bug fix is committed, it must go on the earliest milestone branch where the faulty code was introduced — not on the tip of the stack.
+- After adding commits to a lower branch, rebase all downstream branches and force-push.
+
+### Documentation
+- After implementation, add an "Amendments" section to the relevant ExecPlan(s) if the actual implementation diverged from the original plan.
+- Update the README "What works now" section to reflect any new capabilities.

@@ -172,3 +172,18 @@ Components (defined inline, not as separate files since they are only used here)
 - [x] Verify portfolio totals are correct after a test CAS import
 - [x] `npm run typecheck` — zero errors
 - [x] `npm run lint` — zero warnings
+
+
+## Amendments (post-implementation)
+
+### Apple-to-apple benchmark comparison
+
+The original "2-point market XIRR" approximation (`first investment date → current date, single lump sum`) produced misleading results. The implemented approach mirrors the user's actual cashflows into equivalent Nifty 50 unit purchases: for each user investment cashflow, compute how many Nifty 50 units that amount would have bought on that date, then compute the terminal value of those units at today's index level, and run XIRR on the mirrored cashflows. This makes the comparison genuinely like-for-like.
+
+### Sync button
+
+Added a manual Sync button to the home screen that invokes `sync-nav` and then refetches portfolio data. Allows the user to pull fresh NAV data without waiting for the next cron run.
+
+### Shared utilities
+
+`src/utils/formatCurrency.ts` and `src/utils/cashflows.ts` (`buildCashflowsFromTransactions`) were extracted as shared utilities in this milestone and reused in Milestones 5 and 6.

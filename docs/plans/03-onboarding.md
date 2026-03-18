@@ -213,3 +213,29 @@ Install `expo-clipboard` for copy-to-clipboard:
 - [x] Exclude `supabase/functions/` from `tsconfig.json` and `eslint.config.js`
 - [x] `npm run typecheck` — zero errors
 - [x] `npm run lint` — zero warnings
+
+
+## Amendments (post-implementation)
+
+### CAS import: CASParser inbound email API (not webhook)
+
+The original design assumed CASParser.in pushes a webhook payload to a Supabase Edge Function after parsing. In practice, CASParser.in's inbound email API works differently: it provides a unique inbound email address per account, and after parsing it makes the structured JSON available via a REST API (not a push webhook).
+
+The implemented flow:
+1. User sets their KFintech email in the app (stored in `user_profile.kfintech_email`)
+2. The app calls the CASParser generator API to request a CAS email be sent to the user's inbound address
+3. The `cas-webhook` function is called by the app (not by CASParser.in pushing) after the email arrives and CASParser returns JSON
+
+Additionally, `sync-nav` is auto-triggered after a successful CAS import so the new funds' NAV history is available immediately without waiting for the next cron run.
+
+### CORS fixes
+
+All edge functions (`cas-webhook`, `sync-nav`, `sync-index`) required explicit CORS headers to be called from the Expo web client. A shared CORS helper was extracted to `supabase/functions/_shared/cors.ts`.
+
+### PDF upload
+
+`app/onboarding/pdf.tsx` implements actual PDF file picking via `expo-document-picker` (not just instructions). The selected PDF is uploaded to Supabase Storage.
+
+### Migration: `cas_inbound_flow`
+
+Added `supabase/migrations/20260319000000_cas_inbound_flow.sql` and `20260319000001_user_profile_kfintech_email.sql` for the inbound email flow and user profile table.
