@@ -102,6 +102,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cas_inbound_session: {
+        Row: {
+          created_at: string
+          inbound_email_address: string
+          inbound_email_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          inbound_email_address: string
+          inbound_email_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          inbound_email_address?: string
+          inbound_email_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fund: {
         Row: {
           benchmark_index: string | null
@@ -249,23 +270,23 @@ export type Database = {
           },
         ]
       }
-      webhook_token: {
+      user_profile: {
         Row: {
           created_at: string
-          id: string
-          token: string
+          pan: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          id?: string
-          token?: string
+          pan: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
-          id?: string
-          token?: string
+          pan?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

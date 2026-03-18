@@ -7,26 +7,28 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { useWebhookToken } from '@/src/hooks/useWebhookToken';
+import { supabase } from '@/src/lib/supabase';
+import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
 
-function CopyBox({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  const [copied, setCopied] = useState(false);
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
+function CopyBox({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
   async function handleCopy() {
     await Clipboard.setStringAsync(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
-
   return (
     <View style={styles.copyBox}>
       <Text style={styles.copyLabel}>{label}</Text>
       <View style={styles.copyRow}>
-        <Text style={[styles.copyValue, mono && styles.mono]} numberOfLines={2} selectable>
+        <Text style={[styles.copyValue, styles.mono]} numberOfLines={2} selectable>
           {value}
         </Text>
         <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
@@ -40,135 +42,200 @@ function CopyBox({ label, value, mono = false }: { label: string; value: string;
 export default function OnboardingScreen() {
   const router = useRouter();
   const { session } = useSession();
-  const { token, webhookUrl, loading, createToken, regenerateToken } = useWebhookToken(
-    session?.user.id,
-  );
+  const { inboundEmail, isLoading, createSession } = useInboundSession(session?.user.id);
 
-  async function handleGetToken() {
+  const [pan, setPan] = useState('');
+  const [panSaved, setPanSaved] = useState(false);
+  const [panSaving, setPanSaving] = useState(false);
+  const [panError, setPanError] = useState<string | null>(null);
+
+  async function handleSavePAN() {
+    const upper = pan.trim().toUpperCase();
+    if (!PAN_REGEX.test(upper)) {
+      setPanError('Enter a valid PAN (e.g. ABCDE1234F)');
+      return;
+    }
+    setPanError(null);
+    setPanSaving(true);
+    const { error } = await supabase.from('user_profile').upsert(
+      { user_id: session!.user.id, pan: upper },
+      { onConflict: 'user_id' },
+    );
+    setPanSaving(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      setPan(upper);
+      setPanSaved(true);
+    }
+  }
+
+  async function handleGenerateAddress() {
     try {
-      await createToken.mutateAsync();
+      await createSession.mutateAsync();
     } catch (e) {
       Alert.alert('Error', (e as Error).message);
     }
   }
 
-  async function handleRegenerate() {
+  function handleRegenerate() {
     Alert.alert(
-      'Regenerate token?',
-      'Your current webhook URL will stop working. You will need to update CASParser.in with the new URL.',
+      'Generate new address?',
+      'A new forwarding address will be created. Old one continues to work until it expires.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Regenerate',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await regenerateToken.mutateAsync();
-            } catch (e) {
-              Alert.alert('Error', (e as Error).message);
-            }
-          },
-        },
+        { text: 'Generate', onPress: handleGenerateAddress },
       ],
     );
   }
+
+  const step2Enabled = panSaved;
+  const step3Enabled = !!inboundEmail;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Import your CAS</Text>
       <Text style={styles.subtitle}>
-        Connect CASParser.in to automatically import your transactions whenever you forward a CAS
-        email.
+        Set up automatic import of your mutual fund transactions. Takes about 2 minutes.
       </Text>
 
-      {/* Step 1 */}
+      {/* ── Step 1 — PAN ──────────────────────────────────────── */}
       <View style={styles.step}>
         <View style={styles.stepHeader}>
-          <View style={styles.stepNum}>
-            <Text style={styles.stepNumText}>1</Text>
+          <View style={[styles.stepNum, panSaved && styles.stepNumDone]}>
+            <Text style={styles.stepNumText}>{panSaved ? '✓' : '1'}</Text>
           </View>
-          <Text style={styles.stepTitle}>Get your webhook URL</Text>
+          <Text style={styles.stepTitle}>Enter your PAN</Text>
         </View>
+        <View style={styles.stepBody}>
+          <Text style={styles.stepDesc}>
+            Your PAN is used to decrypt the CAS PDF sent by CAMS / KFintech. It is stored securely
+            and never shared.
+          </Text>
+          {panSaved ? (
+            <View style={styles.savedRow}>
+              <Text style={styles.savedText}>PAN saved: {pan}</Text>
+              <TouchableOpacity onPress={() => setPanSaved(false)}>
+                <Text style={styles.changeLink}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <TextInput
+                style={styles.panInput}
+                placeholder="ABCDE1234F"
+                placeholderTextColor="#999"
+                value={pan}
+                onChangeText={(t) => {
+                  setPan(t.toUpperCase());
+                  setPanError(null);
+                }}
+                autoCapitalize="characters"
+                maxLength={10}
+                editable={!panSaving}
+              />
+              {panError && <Text style={styles.errorText}>{panError}</Text>}
+              <TouchableOpacity
+                style={[styles.primaryBtn, panSaving && styles.btnDisabled]}
+                onPress={handleSavePAN}
+                disabled={panSaving}
+              >
+                {panSaving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Save PAN</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
 
-        {loading ? (
-          <ActivityIndicator style={{ marginTop: 12 }} />
-        ) : token ? (
-          <View style={styles.stepBody}>
-            <CopyBox label="Webhook URL" value={webhookUrl!} mono />
-            <TouchableOpacity
-              style={styles.regenBtn}
-              onPress={handleRegenerate}
-              disabled={regenerateToken.isPending}
-            >
-              <Text style={styles.regenBtnText}>Regenerate URL</Text>
-            </TouchableOpacity>
+      {/* ── Step 2 — Generate address ──────────────────────────── */}
+      <View style={[styles.step, !step2Enabled && styles.stepDisabled]}>
+        <View style={styles.stepHeader}>
+          <View style={[styles.stepNum, !step2Enabled && styles.stepNumGray, !!inboundEmail && styles.stepNumDone]}>
+            <Text style={styles.stepNumText}>{inboundEmail ? '✓' : '2'}</Text>
           </View>
-        ) : (
-          <View style={styles.stepBody}>
+          <Text style={[styles.stepTitle, !step2Enabled && styles.stepTitleGray]}>
+            Get your import address
+          </Text>
+        </View>
+        <View style={styles.stepBody}>
+          <Text style={[styles.stepDesc, !step2Enabled && styles.stepDescGray]}>
+            We&apos;ll generate a unique email address for you. Forward your CAS email to it and
+            your transactions will import automatically.
+          </Text>
+          {isLoading ? (
+            <ActivityIndicator style={{ marginTop: 8 }} />
+          ) : inboundEmail ? (
+            <>
+              <CopyBox label="Forward your CAS to" value={inboundEmail} />
+              <TouchableOpacity
+                style={styles.regenBtn}
+                onPress={handleRegenerate}
+                disabled={createSession.isPending}
+              >
+                <Text style={styles.regenBtnText}>Generate new address</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
             <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={handleGetToken}
-              disabled={createToken.isPending}
+              style={[styles.primaryBtn, (!step2Enabled || createSession.isPending) && styles.btnDisabled]}
+              onPress={handleGenerateAddress}
+              disabled={!step2Enabled || createSession.isPending}
             >
-              {createToken.isPending ? (
+              {createSession.isPending ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.primaryBtnText}>Generate webhook URL</Text>
+                <Text style={styles.primaryBtnText}>Generate address</Text>
               )}
             </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* Step 2 */}
-      <View style={styles.step}>
-        <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, !token && styles.stepNumDisabled]}>
-            <Text style={styles.stepNumText}>2</Text>
-          </View>
-          <Text style={[styles.stepTitle, !token && styles.stepTitleDisabled]}>
-            Set up CASParser.in
-          </Text>
-        </View>
-        <View style={styles.stepBody}>
-          <Text style={styles.stepDesc}>
-            1. Visit{' '}
-            <Text style={styles.link}>casparser.in</Text>
-            {'\n'}
-            2. Sign up / log in{'\n'}
-            3. Go to <Text style={styles.bold}>Webhook Settings</Text>
-            {'\n'}
-            4. Paste your webhook URL above{'\n'}
-            5. Set the email format to <Text style={styles.bold}>JSON</Text>
-          </Text>
+          )}
         </View>
       </View>
 
-      {/* Step 3 */}
-      <View style={styles.step}>
+      {/* ── Step 3 — Forward instructions ─────────────────────── */}
+      <View style={[styles.step, !step3Enabled && styles.stepDisabled]}>
         <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, !token && styles.stepNumDisabled]}>
+          <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray]}>
             <Text style={styles.stepNumText}>3</Text>
           </View>
-          <Text style={[styles.stepTitle, !token && styles.stepTitleDisabled]}>
-            Set up email forwarding
+          <Text style={[styles.stepTitle, !step3Enabled && styles.stepTitleGray]}>
+            Forward your CAS email
           </Text>
         </View>
         <View style={styles.stepBody}>
-          <Text style={styles.stepDesc}>
-            Forward your CAS email (from CAMS / Karvy / MFcentral) to CASParser.in&apos;s forwarding
-            address (shown in their dashboard). CASParser.in will parse it and send the data to your
-            webhook automatically.
+          <Text style={[styles.stepDesc, !step3Enabled && styles.stepDescGray]}>
+            Request a CAS from CAMS or KFintech, then forward the email to the address above.
+            Your transactions will appear in the app automatically.
           </Text>
+          {step3Enabled && (
+            <View style={styles.hintCard}>
+              <Text style={styles.hintTitle}>How to request a CAS</Text>
+              <Text style={styles.hintItem}>
+                <Text style={styles.bold}>CAMS: </Text>
+                camsonline.com → Statements → CAS → Detailed → email to yourself
+              </Text>
+              <Text style={styles.hintItem}>
+                <Text style={styles.bold}>KFintech: </Text>
+                kfintech.com → MF → CAS → Request → email to yourself
+              </Text>
+              <Text style={styles.hintItem}>
+                <Text style={styles.bold}>MFcentral: </Text>
+                mfcentral.com → CAS → Detailed → email to yourself
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      {/* Alternative methods */}
+      {/* ── Alternative: PDF upload ────────────────────────────── */}
       <Text style={styles.altTitle}>Or import manually</Text>
       <View style={styles.altRow}>
         <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/qr')}>
           <Text style={styles.altCardTitle}>MFcentral QR</Text>
-          <Text style={styles.altCardSub}>Scan your QR code</Text>
+          <Text style={styles.altCardSub}>Scan QR code</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
           <Text style={styles.altCardTitle}>Upload PDF</Text>
@@ -186,71 +253,71 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#666', lineHeight: 21, marginBottom: 16 },
 
   step: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12,
+    padding: 16, marginBottom: 12,
   },
+  stepDisabled: { borderColor: '#f3f4f6', backgroundColor: '#fafafa' },
   stepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   stepNum: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#1a56db',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#1a56db', alignItems: 'center', justifyContent: 'center',
   },
-  stepNumDisabled: { backgroundColor: '#d1d5db' },
+  stepNumDone: { backgroundColor: '#16a34a' },
+  stepNumGray: { backgroundColor: '#d1d5db' },
   stepNumText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   stepTitle: { fontSize: 15, fontWeight: '600', color: '#111' },
-  stepTitleDisabled: { color: '#9ca3af' },
+  stepTitleGray: { color: '#9ca3af' },
   stepBody: { gap: 10 },
   stepDesc: { fontSize: 14, color: '#555', lineHeight: 22 },
+  stepDescGray: { color: '#c0c0c0' },
+
+  panInput: {
+    height: 48, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8,
+    paddingHorizontal: 14, fontSize: 16, color: '#111', backgroundColor: '#fafafa',
+    letterSpacing: 2,
+  },
+  errorText: { color: '#e53e3e', fontSize: 13 },
+
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  savedText: { fontSize: 14, color: '#16a34a', fontWeight: '600', flex: 1 },
+  changeLink: { fontSize: 13, color: '#1a56db' },
 
   copyBox: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 12,
-    gap: 6,
+    backgroundColor: '#f8fafc', borderRadius: 8,
+    borderWidth: 1, borderColor: '#e2e8f0', padding: 12, gap: 6,
   },
   copyLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
   copyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  copyValue: { flex: 1, fontSize: 13, color: '#334155' },
-  mono: { fontFamily: 'Courier', fontSize: 12 },
+  copyValue: { flex: 1, fontSize: 12, color: '#334155' },
+  mono: { fontFamily: 'Courier' },
   copyBtn: {
-    backgroundColor: '#e2e8f0',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: '#e2e8f0', borderRadius: 6,
+    paddingHorizontal: 10, paddingVertical: 5,
   },
   copyBtnText: { fontSize: 12, fontWeight: '600', color: '#475569' },
 
   primaryBtn: {
-    backgroundColor: '#1a56db',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
+    backgroundColor: '#1a56db', borderRadius: 8, paddingVertical: 12, alignItems: 'center',
   },
+  btnDisabled: { opacity: 0.4 },
   primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 
   regenBtn: { alignSelf: 'flex-start' },
-  regenBtnText: { color: '#e53e3e', fontSize: 13 },
+  regenBtnText: { color: '#1a56db', fontSize: 13 },
 
-  link: { color: '#1a56db' },
+  hintCard: {
+    backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
+    borderRadius: 10, padding: 14, gap: 8,
+  },
+  hintTitle: { fontSize: 13, fontWeight: '700', color: '#166534' },
+  hintItem: { fontSize: 13, color: '#15803d', lineHeight: 20 },
   bold: { fontWeight: '700' },
 
   altTitle: { fontSize: 14, fontWeight: '600', color: '#888', marginTop: 8, marginBottom: 10 },
   altRow: { flexDirection: 'row', gap: 10 },
   altCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-    padding: 14,
-    gap: 4,
+    flex: 1, borderWidth: 1, borderColor: '#e5e7eb',
+    borderRadius: 10, padding: 14, gap: 4,
   },
   altCardTitle: { fontSize: 14, fontWeight: '600', color: '#111' },
   altCardSub: { fontSize: 12, color: '#888' },
