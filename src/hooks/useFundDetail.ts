@@ -124,8 +124,8 @@ export function useFundDetail(fundId: string) {
   });
 }
 
-/** Filter NAV/index history to a given time window */
-export function filterToWindow(history: NavPoint[], window: TimeWindow): NavPoint[] {
+/** Filter any date-keyed series to a given time window */
+export function filterToWindow<T extends { date: string }>(history: T[], window: TimeWindow): T[] {
   if (window === 'All' || history.length === 0) return history;
 
   const today = new Date();

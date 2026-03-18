@@ -12,7 +12,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { xirr, type Cashflow } from '@/src/utils/xirr';
+import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
 import { filterToWindow, type TimeWindow, type NavPoint } from './useFundDetail';
 
 export interface CompareFundData {
@@ -87,31 +87,11 @@ async function fetchCompareData(fundIds: string[]): Promise<CompareData> {
 
     const currentNav = navHistory.length > 0 ? navHistory[navHistory.length - 1].value : 0;
 
-    // Cashflows for XIRR
-    let netUnits = 0;
-    const cashflows: Cashflow[] = [];
-
-    for (const tx of txs) {
-      const date = new Date(tx.transaction_date);
-      const isOutflow =
-        tx.transaction_type === 'purchase' ||
-        tx.transaction_type === 'switch_in' ||
-        tx.transaction_type === 'dividend_reinvest';
-      const isInflow =
-        tx.transaction_type === 'redemption' || tx.transaction_type === 'switch_out';
-
-      if (isOutflow) {
-        netUnits += tx.units;
-        cashflows.push({ date, amount: -tx.amount });
-      } else if (isInflow) {
-        netUnits -= tx.units;
-        cashflows.push({ date, amount: tx.amount });
-      }
-    }
-
+    // Cashflows for XIRR — pass currentValue=0 first to get netUnits, then recompute
+    const { historicalCashflows, netUnits } = buildCashflowsFromTransactions(txs, 0, new Date());
     const currentValue = netUnits * currentNav;
-    const fundXirrFlows: Cashflow[] = [...cashflows, { date: new Date(), amount: currentValue }];
-    const fundXirr = cashflows.length > 0 ? xirr(fundXirrFlows) : NaN;
+    const { xirrCashflows } = buildCashflowsFromTransactions(txs, currentValue, new Date());
+    const fundXirr = historicalCashflows.length > 0 ? xirr(xirrCashflows) : NaN;
 
     // 1Y return based on NAV
     const nav1Y = filterToWindow(navHistory, '1Y');
@@ -206,20 +186,7 @@ export function buildChartSeries(
   window: TimeWindow,
 ): { value: number }[][] {
   // Apply time window filter
-  let filtered = commonNavSeries;
-  if (window !== 'All' && commonNavSeries.length > 0) {
-    const today = new Date();
-    const cutoff = new Date(today);
-    switch (window) {
-      case '1M': cutoff.setMonth(today.getMonth() - 1); break;
-      case '3M': cutoff.setMonth(today.getMonth() - 3); break;
-      case '6M': cutoff.setMonth(today.getMonth() - 6); break;
-      case '1Y': cutoff.setFullYear(today.getFullYear() - 1); break;
-      case '3Y': cutoff.setFullYear(today.getFullYear() - 3); break;
-    }
-    const cutoffStr = cutoff.toISOString().split('T')[0];
-    filtered = commonNavSeries.filter((p) => p.date >= cutoffStr);
-  }
+  const filtered = filterToWindow(commonNavSeries, window);
 
   // Re-index to 100 from the first point in the filtered window
   const reindexed = filtered.map((entry) => {
