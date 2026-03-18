@@ -12,6 +12,16 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 
+/**
+ * On web, use window.location.origin so the redirect works on any domain
+ * (local dev, Vercel preview, production) without hardcoding anything.
+ * On native, use the deep-link scheme so Expo Router handles the callback.
+ */
+function getRedirectUrl(): string {
+  if (Platform.OS !== 'web') return 'fundlens://auth/confirm';
+  return `${window.location.origin}/auth/confirm`;
+}
+
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -30,7 +40,7 @@ export default function SignInScreen() {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: 'fundlens://auth/confirm',
+        emailRedirectTo: getRedirectUrl(),
       },
     });
 
