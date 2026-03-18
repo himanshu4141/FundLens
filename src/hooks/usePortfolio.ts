@@ -180,31 +180,64 @@ async function fetchPortfolioData(userId: string) {
   ];
   const portfolioXirrRate = allCashflows.length > 0 ? xirr(portfolioXirrFlows) : NaN;
 
-  // Market XIRR: simulate investing ₹1 on first investment date, redeeming on today
-  // using Nifty 50 index values
+  // Market XIRR: apple-to-apple comparison — simulate investing the SAME amounts
+  // on the SAME dates in Nifty 50, then compute XIRR on those flows.
+  // This gives the "what if I just bought Nifty on every SIP date?" return.
   let marketXirr = NaN;
   if (allCashflows.length > 0 && niftyRows?.length) {
-    const firstDate = allCashflows.reduce(
-      (min, cf) => (cf.date < min ? cf.date : min),
-      allCashflows[0].date,
-    );
-    const firstDateStr = firstDate.toISOString().split('T')[0];
-
-    // Find first available Nifty value on or after first investment date
     const sortedNifty = [...(niftyRows ?? [])].sort((a, b) =>
       (a.index_date as string).localeCompare(b.index_date as string),
     );
-    const firstEntry = sortedNifty.find((r) => (r.index_date as string) >= firstDateStr);
-    const lastEntry = sortedNifty[sortedNifty.length - 1];
 
-    if (firstEntry && lastEntry && firstEntry !== lastEntry) {
-      const firstVal = firstEntry.close_value as number;
-      const lastVal = lastEntry.close_value as number;
-      const marketFlows: Cashflow[] = [
-        { date: new Date(firstEntry.index_date as string), amount: -1 },
-        { date: new Date(lastEntry.index_date as string), amount: lastVal / firstVal },
-      ];
-      marketXirr = xirr(marketFlows);
+    // Build a date → close_value lookup with ±7 day fallback for weekends/holidays
+    const niftyValueMap = new Map<string, number>();
+    for (const row of sortedNifty) {
+      niftyValueMap.set(row.index_date as string, row.close_value as number);
+    }
+
+    function findNearestNifty(dateStr: string): number | null {
+      for (let offset = 0; offset <= 7; offset++) {
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() + offset);
+        const val = niftyValueMap.get(d.toISOString().split('T')[0]);
+        if (val) return val;
+        if (offset > 0) {
+          const d2 = new Date(dateStr);
+          d2.setDate(d2.getDate() - offset);
+          const val2 = niftyValueMap.get(d2.toISOString().split('T')[0]);
+          if (val2) return val2;
+        }
+      }
+      return null;
+    }
+
+    // Mirror each outflow (investment) into hypothetical Nifty units
+    let niftyUnits = 0;
+    const niftyFlows: Cashflow[] = [];
+
+    for (const cf of allCashflows) {
+      const dateStr = cf.date.toISOString().split('T')[0];
+      const niftyVal = findNearestNifty(dateStr);
+      if (!niftyVal) continue;
+
+      if (cf.amount < 0) {
+        // Outflow: buy Nifty units worth |amount|
+        niftyUnits += Math.abs(cf.amount) / niftyVal;
+        niftyFlows.push({ date: cf.date, amount: cf.amount });
+      } else {
+        // Inflow (redemption): pass through as a positive cashflow
+        niftyFlows.push({ date: cf.date, amount: cf.amount });
+      }
+    }
+
+    const latestNiftyEntry = sortedNifty[sortedNifty.length - 1];
+    if (niftyUnits > 0 && latestNiftyEntry && niftyFlows.length > 0) {
+      const niftyTerminalValue = niftyUnits * (latestNiftyEntry.close_value as number);
+      niftyFlows.push({
+        date: new Date(latestNiftyEntry.index_date as string),
+        amount: niftyTerminalValue,
+      });
+      marketXirr = xirr(niftyFlows);
     }
   }
 
