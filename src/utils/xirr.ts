@@ -94,3 +94,68 @@ export function formatXirr(rate: number, decimals = 2): string {
   if (!isFinite(rate) || isNaN(rate)) return 'N/A';
   return `${(rate * 100).toFixed(decimals)}%`;
 }
+
+export interface Transaction {
+  transaction_date: string;
+  transaction_type: string;
+  units: number;
+  amount: number;
+}
+
+export interface TransactionCashflows {
+  /** Historical cashflows derived from transactions (no terminal inflow). */
+  historicalCashflows: Cashflow[];
+  /** Full XIRR-ready cashflows: historical + terminal inflow at currentDate. */
+  xirrCashflows: Cashflow[];
+  netUnits: number;
+  investedAmount: number;
+}
+
+/**
+ * Converts a list of fund transactions into XIRR-ready cashflows.
+ *
+ * Outflows (purchase, switch_in, dividend_reinvest): negative cashflows.
+ * Inflows (redemption, switch_out): positive cashflows.
+ *
+ * Appends a terminal inflow of `currentValue` on `currentDate` to represent
+ * the current portfolio value, making the result directly usable with xirr().
+ *
+ * Returns both the historical-only cashflows (for aggregating across funds)
+ * and the full xirrCashflows (for per-fund XIRR), along with netUnits and
+ * investedAmount derived from the transactions.
+ */
+export function buildCashflowsFromTransactions(
+  transactions: Transaction[],
+  currentValue: number,
+  currentDate: Date,
+): TransactionCashflows {
+  let netUnits = 0;
+  let investedAmount = 0;
+  const historicalCashflows: Cashflow[] = [];
+
+  for (const tx of transactions) {
+    const date = new Date(tx.transaction_date);
+    const isOutflow =
+      tx.transaction_type === 'purchase' ||
+      tx.transaction_type === 'switch_in' ||
+      tx.transaction_type === 'dividend_reinvest';
+    const isInflow =
+      tx.transaction_type === 'redemption' || tx.transaction_type === 'switch_out';
+
+    if (isOutflow) {
+      netUnits += tx.units;
+      investedAmount += tx.amount;
+      historicalCashflows.push({ date, amount: -tx.amount });
+    } else if (isInflow) {
+      netUnits -= tx.units;
+      historicalCashflows.push({ date, amount: tx.amount });
+    }
+  }
+
+  const xirrCashflows: Cashflow[] = [
+    ...historicalCashflows,
+    { date: currentDate, amount: currentValue },
+  ];
+
+  return { historicalCashflows, xirrCashflows, netUnits, investedAmount };
+}

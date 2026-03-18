@@ -14,7 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { xirr, type Cashflow } from '@/src/utils/xirr';
+import { xirr, buildCashflowsFromTransactions, type Cashflow } from '@/src/utils/xirr';
 import { useSession } from '@/src/hooks/useSession';
 
 export interface FundCardData {
@@ -119,29 +119,14 @@ async function fetchPortfolioData(userId: string) {
 
     if (!navInfo || txs.length === 0) continue;
 
-    // Compute net units (purchases - redemptions)
-    let netUnits = 0;
-    let investedAmount = 0;
-    const fundCashflows: Cashflow[] = [];
+    const today = new Date();
 
-    for (const tx of txs) {
-      const date = new Date(tx.transaction_date);
-      const isOutflow = tx.transaction_type === 'purchase' ||
-        tx.transaction_type === 'switch_in' ||
-        tx.transaction_type === 'dividend_reinvest';
-      const isInflow = tx.transaction_type === 'redemption' || tx.transaction_type === 'switch_out';
-
-      if (isOutflow) {
-        netUnits += tx.units;
-        investedAmount += tx.amount;
-        fundCashflows.push({ date, amount: -tx.amount });
-        allCashflows.push({ date, amount: -tx.amount });
-      } else if (isInflow) {
-        netUnits -= tx.units;
-        fundCashflows.push({ date, amount: tx.amount });
-        allCashflows.push({ date, amount: tx.amount });
-      }
-    }
+    // First pass: get netUnits and historical cashflows (currentValue unknown yet)
+    const { historicalCashflows, netUnits, investedAmount } = buildCashflowsFromTransactions(
+      txs,
+      0,
+      today,
+    );
 
     if (netUnits <= 0) continue;
 
@@ -150,9 +135,15 @@ async function fetchPortfolioData(userId: string) {
     const dailyChangeAmount = currentValue - previousValue;
     const dailyChangePct = previousValue > 0 ? (dailyChangeAmount / previousValue) * 100 : 0;
 
-    // XIRR: add current value as final inflow (as of today)
-    const today = new Date();
-    const fundXirrFlows: Cashflow[] = [...fundCashflows, { date: today, amount: currentValue }];
+    // Accumulate historical cashflows for portfolio-level XIRR
+    allCashflows.push(...historicalCashflows);
+
+    // Build fund-level XIRR cashflows with terminal inflow
+    const { xirrCashflows: fundXirrFlows } = buildCashflowsFromTransactions(
+      txs,
+      currentValue,
+      today,
+    );
     const fundXirr = xirr(fundXirrFlows);
 
     fundCards.push({

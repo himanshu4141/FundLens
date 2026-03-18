@@ -13,20 +13,9 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { formatXirr } from '@/src/utils/xirr';
+import { formatCurrency, formatChange } from '@/src/utils/formatting';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
-
-function formatCurrency(value: number): string {
-  if (value >= 1_00_00_000) return `₹${(value / 1_00_00_000).toFixed(2)}Cr`;
-  if (value >= 1_00_000) return `₹${(value / 1_00_000).toFixed(2)}L`;
-  if (value >= 1_000) return `₹${(value / 1_000).toFixed(1)}K`;
-  return `₹${value.toFixed(0)}`;
-}
-
-function formatChange(amount: number, pct: number): string {
-  const sign = amount >= 0 ? '+' : '';
-  return `${sign}${formatCurrency(Math.abs(amount))} (${sign}${pct.toFixed(2)}%)`;
-}
 
 function PortfolioHeader({
   totalValue,
