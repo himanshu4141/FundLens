@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -48,36 +48,39 @@ function FundSearchModal({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<FundSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [allFunds, setAllFunds] = useState<FundSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const search = useCallback(
-    async (text: string) => {
-      setQuery(text);
-      if (text.trim().length < 2) {
-        setResults([]);
-        return;
-      }
-      setSearching(true);
-      try {
-        const { data } = await supabase
-          .from('fund')
-          .select('id, scheme_name, scheme_category')
-          .eq('user_id', userId)
-          .eq('is_active', true)
-          .ilike('scheme_name', `%${text}%`)
-          .limit(20);
-        setResults((data ?? []).filter((f) => !excludeIds.includes(f.id)));
-      } finally {
-        setSearching(false);
-      }
-    },
-    [userId, excludeIds],
+  const loadFunds = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const { data } = await supabase
+        .from('fund')
+        .select('id, scheme_name, scheme_category')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('scheme_name', { ascending: true })
+        .limit(100);
+      setAllFunds(data ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  // Load all funds when modal becomes visible
+  useEffect(() => {
+    if (visible) loadFunds();
+  }, [visible, loadFunds]);
+
+  const filtered = allFunds.filter(
+    (f) =>
+      !excludeIds.includes(f.id) &&
+      (query.trim() === '' || f.scheme_name.toLowerCase().includes(query.trim().toLowerCase())),
   );
 
   function handleClose() {
     setQuery('');
-    setResults([]);
     onClose();
   }
 
@@ -85,7 +88,7 @@ function FundSearchModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={modalStyles.container}>
         <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>Add Fund to Compare</Text>
+          <Text style={modalStyles.title}>Select Fund to Compare</Text>
           <TouchableOpacity onPress={handleClose} style={modalStyles.closeBtn}>
             <Text style={modalStyles.closeBtnText}>Cancel</Text>
           </TouchableOpacity>
@@ -94,26 +97,25 @@ function FundSearchModal({
         <View style={modalStyles.searchRow}>
           <TextInput
             style={modalStyles.searchInput}
-            placeholder="Search funds by name…"
+            placeholder="Filter by name…"
             value={query}
-            onChangeText={search}
+            onChangeText={setQuery}
             autoFocus
             placeholderTextColor="#94a3b8"
+            clearButtonMode="while-editing"
           />
-          {searching && <ActivityIndicator style={modalStyles.searchSpinner} color="#1a56db" />}
+          {loading && <ActivityIndicator style={modalStyles.searchSpinner} color="#1a56db" />}
         </View>
 
-        {query.length < 2 ? (
+        {filtered.length === 0 && !loading ? (
           <View style={modalStyles.hint}>
-            <Text style={modalStyles.hintText}>Type at least 2 characters to search</Text>
-          </View>
-        ) : results.length === 0 && !searching ? (
-          <View style={modalStyles.hint}>
-            <Text style={modalStyles.hintText}>No funds found</Text>
+            <Text style={modalStyles.hintText}>
+              {allFunds.length === 0 ? 'No funds in your portfolio' : 'No matching funds'}
+            </Text>
           </View>
         ) : (
           <FlatList
-            data={results}
+            data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TouchableOpacity

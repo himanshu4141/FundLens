@@ -120,7 +120,7 @@ export function useFundDetail(fundId: string) {
     queryKey: ['fund-detail', fundId],
     enabled: !!fundId,
     queryFn: () => fetchFundDetail(fundId),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0, // always fetch fresh so current value matches portfolio
   });
 }
 
