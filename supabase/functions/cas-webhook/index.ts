@@ -18,20 +18,12 @@
  */
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { json } from '../_shared/cors.ts';
 import { importCASData } from '../_shared/import-cas.ts';
 
 const CASPARSER_API_KEY = Deno.env.get('CASPARSER_API_KEY') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-};
-
-function json(body: unknown, init?: ResponseInit): Response {
-  return Response.json(body, { ...init, headers: { ...CORS, ...(init?.headers ?? {}) } });
-}
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {

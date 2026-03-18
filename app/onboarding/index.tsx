@@ -184,14 +184,12 @@ export default function OnboardingScreen() {
 
   // ── PAN step ────────────────────────────────────────────────────────────────
   const [pan, setPan] = useState('');
-  const [panSaved, setPanSaved] = useState(false);
-  const [panSaving, setPanSaving] = useState(false);
+  const [panState, setPanState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [panError, setPanError] = useState<string | null>(null);
 
   // ── CAS request step ────────────────────────────────────────────────────────
   const [casEmail, setCasEmail] = useState(session?.user.email ?? '');
-  const [casRequesting, setCasRequesting] = useState(false);
-  const [casRequested, setCasRequested] = useState(false);
+  const [casState, setCasState] = useState<'idle' | 'requesting' | 'requested' | 'error'>('idle');
 
   const isLoading = profileLoading || sessionLoading;
 
@@ -206,17 +204,17 @@ export default function OnboardingScreen() {
       return;
     }
     setPanError(null);
-    setPanSaving(true);
+    setPanState('saving');
     const { error } = await supabase.from('user_profile').upsert(
       { user_id: session!.user.id, pan: upper },
       { onConflict: 'user_id' },
     );
-    setPanSaving(false);
     if (error) {
+      setPanState('error');
       Alert.alert('Error', error.message);
     } else {
       setPan(upper);
-      setPanSaved(true);
+      setPanState('saved');
       queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
     }
   }
@@ -250,7 +248,7 @@ export default function OnboardingScreen() {
         kftechEmail={profile!.kfintech_email!}
         onRefresh={() => handleRequestCAS(profile!.kfintech_email!)}
         onReset={() => {
-          setPanSaved(false);
+          setPanState('idle');
           queryClient.setQueryData(['user-profile', session?.user.id], null);
         }}
       />
@@ -258,7 +256,7 @@ export default function OnboardingScreen() {
   }
 
   // ── First-time setup ────────────────────────────────────────────────────────
-  const panDone = panSaved || !!profile?.pan;
+  const panDone = panState === 'saved' || !!profile?.pan;
   const step2Enabled = panDone;
   const step3Enabled = !!inboundEmail;
 
@@ -284,7 +282,7 @@ export default function OnboardingScreen() {
           {panDone ? (
             <View style={styles.savedRow}>
               <Text style={styles.savedText}>PAN saved: {profile?.pan ?? pan}</Text>
-              <TouchableOpacity onPress={() => setPanSaved(false)}>
+              <TouchableOpacity onPress={() => setPanState('idle')}>
                 <Text style={styles.changeLink}>Change</Text>
               </TouchableOpacity>
             </View>
@@ -298,15 +296,15 @@ export default function OnboardingScreen() {
                 onChangeText={(t) => { setPan(t.toUpperCase()); setPanError(null); }}
                 autoCapitalize="characters"
                 maxLength={10}
-                editable={!panSaving}
+                editable={panState !== 'saving'}
               />
               {panError && <Text style={styles.errorText}>{panError}</Text>}
               <TouchableOpacity
-                style={[styles.primaryBtn, panSaving && styles.btnDisabled]}
+                style={[styles.primaryBtn, panState === 'saving' && styles.btnDisabled]}
                 onPress={handleSavePAN}
-                disabled={panSaving}
+                disabled={panState === 'saving'}
               >
-                {panSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Save PAN</Text>}
+                {panState === 'saving' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Save PAN</Text>}
               </TouchableOpacity>
             </>
           )}
@@ -349,15 +347,15 @@ export default function OnboardingScreen() {
       {/* ── Step 3 — Request CAS ───────────────────────────────── */}
       <View style={[styles.step, !step3Enabled && styles.stepDisabled]}>
         <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray, casRequested && styles.stepNumDone]}>
-            <Text style={styles.stepNumText}>{casRequested ? '✓' : '3'}</Text>
+          <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray, casState === 'requested' && styles.stepNumDone]}>
+            <Text style={styles.stepNumText}>{casState === 'requested' ? '✓' : '3'}</Text>
           </View>
           <Text style={[styles.stepTitle, !step3Enabled && styles.stepTitleGray]}>
             Request your CAS
           </Text>
         </View>
         <View style={styles.stepBody}>
-          {casRequested ? (
+          {casState === 'requested' ? (
             <View style={styles.hintCard}>
               <Text style={styles.hintTitle}>CAS requested!</Text>
               <Text style={styles.hintItem}>
@@ -367,7 +365,7 @@ export default function OnboardingScreen() {
                 syncs need only one tap. You can see the instructions from the import screen
                 after setup.
               </Text>
-              <TouchableOpacity onPress={() => setCasRequested(false)}>
+              <TouchableOpacity onPress={() => setCasState('idle')}>
                 <Text style={[styles.changeLink, { marginTop: 6 }]}>Request again</Text>
               </TouchableOpacity>
             </View>
@@ -385,25 +383,24 @@ export default function OnboardingScreen() {
                 onChangeText={setCasEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                editable={step3Enabled && !casRequesting}
+                editable={step3Enabled && casState !== 'requesting'}
               />
               <TouchableOpacity
-                style={[styles.primaryBtn, (!step3Enabled || casRequesting) && styles.btnDisabled]}
+                style={[styles.primaryBtn, (!step3Enabled || casState === 'requesting') && styles.btnDisabled]}
                 onPress={async () => {
                   if (!casEmail.trim()) return;
-                  setCasRequesting(true);
+                  setCasState('requesting');
                   try {
                     await handleRequestCAS(casEmail.trim());
-                    setCasRequested(true);
+                    setCasState('requested');
                   } catch (e) {
+                    setCasState('error');
                     Alert.alert('Error', (e as Error).message);
-                  } finally {
-                    setCasRequesting(false);
                   }
                 }}
-                disabled={!step3Enabled || casRequesting}
+                disabled={!step3Enabled || casState === 'requesting'}
               >
-                {casRequesting
+                {casState === 'requesting'
                   ? <ActivityIndicator color="#fff" />
                   : <Text style={styles.primaryBtnText}>Request CAS</Text>}
               </TouchableOpacity>

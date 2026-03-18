@@ -9,21 +9,11 @@
  * Auth: Bearer JWT in Authorization header (Supabase user token).
  */
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { CORS, json } from '../_shared/cors.ts';
+import { getUserFromRequest } from '../_shared/auth.ts';
 import { importCASData } from '../_shared/import-cas.ts';
 
 const CASPARSER_API_KEY = Deno.env.get('CASPARSER_API_KEY') ?? '';
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-};
-
-function json(body: unknown, init?: ResponseInit): Response {
-  return Response.json(body, { ...init, headers: { ...CORS, ...(init?.headers ?? {}) } });
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -35,19 +25,9 @@ Deno.serve(async (req) => {
   }
 
   // Authenticate user
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    return json({ error: 'Missing Authorization header' }, { status: 401 });
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-
-  if (authError || !user) {
-    return json({ error: 'Unauthorized' }, { status: 401 });
+  const { user, supabase, error: authError } = await getUserFromRequest(req);
+  if (authError || !user || !supabase) {
+    return json({ error: authError ?? 'Unauthorized' }, { status: 401 });
   }
 
   // Parse multipart form
