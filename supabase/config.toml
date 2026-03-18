@@ -368,6 +368,14 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Sync NAV data daily after Indian market close (~7 PM IST = 1:30 PM UTC)
+[functions.sync-nav]
+schedule = "30 13 * * 1-5"
+
+# Sync benchmark index data daily, 15 min after sync-nav
+[functions.sync-index]
+schedule = "45 13 * * 1-5"
+
 [analytics]
 enabled = true
 port = 54327
