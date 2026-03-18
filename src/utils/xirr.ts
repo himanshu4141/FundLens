@@ -111,6 +111,58 @@ export interface TransactionCashflows {
   investedAmount: number;
 }
 
+export interface RealizedGains {
+  /** Total realized profit/loss from all redemptions (can be negative). */
+  realizedGain: number;
+  /** Total proceeds from all redemptions. */
+  realizedAmount: number;
+  /** Total units redeemed across all redemption transactions. */
+  redeemedUnits: number;
+}
+
+/**
+ * Computes realized gains from a list of fund transactions using the
+ * average cost method.
+ *
+ * On each purchase, the running average cost per unit is updated.
+ * On each redemption, gain = proceeds - (units × avg_cost_at_redemption).
+ */
+export function computeRealizedGains(transactions: Transaction[]): RealizedGains {
+  const sorted = [...transactions].sort((a, b) =>
+    a.transaction_date.localeCompare(b.transaction_date),
+  );
+
+  let totalCost = 0;
+  let totalUnits = 0;
+  let realizedGain = 0;
+  let realizedAmount = 0;
+  let redeemedUnits = 0;
+
+  for (const tx of sorted) {
+    const isOutflow =
+      tx.transaction_type === 'purchase' ||
+      tx.transaction_type === 'switch_in' ||
+      tx.transaction_type === 'dividend_reinvest';
+    const isInflow =
+      tx.transaction_type === 'redemption' || tx.transaction_type === 'switch_out';
+
+    if (isOutflow) {
+      totalUnits += tx.units;
+      totalCost += tx.amount;
+    } else if (isInflow) {
+      const avgCost = totalUnits > 0 ? totalCost / totalUnits : 0;
+      const costBasis = tx.units * avgCost;
+      realizedGain += tx.amount - costBasis;
+      realizedAmount += tx.amount;
+      redeemedUnits += tx.units;
+      totalCost = Math.max(0, totalCost - costBasis);
+      totalUnits = Math.max(0, totalUnits - tx.units);
+    }
+  }
+
+  return { realizedGain, realizedAmount, redeemedUnits };
+}
+
 /**
  * Converts a list of fund transactions into XIRR-ready cashflows.
  *

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,19 +14,42 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-gifted-charts';
 import { useSession } from '@/src/hooks/useSession';
-import { useCompare, buildChartSeries, type CompareFundData } from '@/src/hooks/useCompare';
+import { useCompare, type CompareFundData } from '@/src/hooks/useCompare';
+import {
+  usePerformanceTimeline,
+  buildTimelineSeries,
+  buildXAxisLabels,
+  formatDateShort,
+} from '@/src/hooks/usePerformanceTimeline';
 import { formatXirr } from '@/src/utils/xirr';
 import { supabase } from '@/src/lib/supabase';
 import { type TimeWindow } from '@/src/hooks/useFundDetail';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
-const MAX_FUNDS = 3;
+const MAX_ITEMS = 3;
 
-// Distinct chart colors for up to 3 funds
-const FUND_COLORS = ['#1a56db', '#16a34a', '#f59e0b'];
+// Fixed colors assigned by slot position when added
+const SERIES_COLORS = ['#1a56db', '#16a34a', '#f59e0b'];
+// Lighter version of each color for index lines (append opacity suffix)
+const INDEX_LINE_COLORS = ['#1a56dbb0', '#16a34ab0', '#f59e0bb0'];
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
+
+// Fixed list of trackable benchmark indexes
+const INDEX_OPTIONS = [
+  { symbol: '^NSEI', name: 'Nifty 50' },
+  { symbol: '^NSEBANK', name: 'Nifty Bank' },
+  { symbol: '^BSESN', name: 'SENSEX' },
+  { symbol: '^CNXIT', name: 'Nifty IT' },
+];
+
+interface SelectedItem {
+  type: 'fund' | 'index';
+  id: string;      // fund ID or index symbol
+  name: string;
+  color: string;   // from SERIES_COLORS, assigned when added
+}
 
 interface FundSearchResult {
   id: string;
@@ -34,7 +57,14 @@ interface FundSearchResult {
   scheme_category: string | null;
 }
 
-function FundSearchModal({
+interface SearchItem {
+  id: string;
+  name: string;
+  sub: string;
+  type: 'fund' | 'index';
+}
+
+function AddItemModal({
   visible,
   userId,
   excludeIds,
@@ -44,7 +74,7 @@ function FundSearchModal({
   visible: boolean;
   userId: string;
   excludeIds: string[];
-  onSelect: (fund: FundSearchResult) => void;
+  onSelect: (item: { type: 'fund' | 'index'; id: string; name: string }) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -68,16 +98,34 @@ function FundSearchModal({
     }
   }, [userId]);
 
-  // Load all funds when modal becomes visible
   useEffect(() => {
     if (visible) loadFunds();
   }, [visible, loadFunds]);
 
-  const filtered = allFunds.filter(
-    (f) =>
-      !excludeIds.includes(f.id) &&
-      (query.trim() === '' || f.scheme_name.toLowerCase().includes(query.trim().toLowerCase())),
-  );
+  const filteredFunds: SearchItem[] = allFunds
+    .filter(
+      (f) =>
+        !excludeIds.includes(f.id) &&
+        (query.trim() === '' || f.scheme_name.toLowerCase().includes(query.trim().toLowerCase())),
+    )
+    .map((f) => ({ id: f.id, name: f.scheme_name, sub: f.scheme_category ?? '', type: 'fund' as const }));
+
+  const filteredIndexes: SearchItem[] = INDEX_OPTIONS.filter(
+    (idx) =>
+      !excludeIds.includes(idx.symbol) &&
+      (query.trim() === '' || idx.name.toLowerCase().includes(query.trim().toLowerCase())),
+  ).map((idx) => ({ id: idx.symbol, name: idx.name, sub: 'Benchmark Index', type: 'index' as const }));
+
+  // Build unified list with section headers interleaved
+  const listItems: ({ kind: 'header'; title: string } | { kind: 'item' } & SearchItem)[] = [];
+  if (filteredFunds.length > 0) {
+    listItems.push({ kind: 'header', title: 'Your Funds' });
+    filteredFunds.forEach((f) => listItems.push({ kind: 'item', ...f }));
+  }
+  if (filteredIndexes.length > 0) {
+    listItems.push({ kind: 'header', title: 'Benchmark Indexes' });
+    filteredIndexes.forEach((idx) => listItems.push({ kind: 'item', ...idx }));
+  }
 
   function handleClose() {
     setQuery('');
@@ -85,10 +133,15 @@ function FundSearchModal({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
+    >
       <SafeAreaView style={modalStyles.container}>
         <View style={modalStyles.header}>
-          <Text style={modalStyles.title}>Select Fund to Compare</Text>
+          <Text style={modalStyles.title}>Add to Compare</Text>
           <TouchableOpacity onPress={handleClose} style={modalStyles.closeBtn}>
             <Text style={modalStyles.closeBtnText}>Cancel</Text>
           </TouchableOpacity>
@@ -97,7 +150,7 @@ function FundSearchModal({
         <View style={modalStyles.searchRow}>
           <TextInput
             style={modalStyles.searchInput}
-            placeholder="Filter by name…"
+            placeholder="Search funds or indexes…"
             value={query}
             onChangeText={setQuery}
             autoFocus
@@ -107,28 +160,40 @@ function FundSearchModal({
           {loading && <ActivityIndicator style={modalStyles.searchSpinner} color="#1a56db" />}
         </View>
 
-        {filtered.length === 0 && !loading ? (
+        {listItems.length === 0 && !loading ? (
           <View style={modalStyles.hint}>
             <Text style={modalStyles.hintText}>
-              {allFunds.length === 0 ? 'No funds in your portfolio' : 'No matching funds'}
+              {allFunds.length === 0 ? 'No funds in your portfolio' : 'No matches'}
             </Text>
           </View>
         ) : (
           <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={modalStyles.resultItem}
-                onPress={() => {
-                  onSelect(item);
-                  handleClose();
-                }}
-              >
-                <Text style={modalStyles.resultName}>{item.scheme_name}</Text>
-                <Text style={modalStyles.resultCategory}>{item.scheme_category ?? ''}</Text>
-              </TouchableOpacity>
-            )}
+            data={listItems}
+            keyExtractor={(item, i) => item.kind === 'header' ? `hdr-${i}` : item.id}
+            renderItem={({ item }) => {
+              if (item.kind === 'header') {
+                return (
+                  <View style={modalStyles.sectionHeader}>
+                    <Text style={modalStyles.sectionHeaderText}>{item.title}</Text>
+                  </View>
+                );
+              }
+              return (
+                <TouchableOpacity
+                  style={modalStyles.resultItem}
+                  onPress={() => {
+                    onSelect({ type: item.type, id: item.id, name: item.name });
+                    handleClose();
+                  }}
+                >
+                  {item.type === 'index' && <Text style={modalStyles.indexBadge}>INDEX</Text>}
+                  <View style={modalStyles.resultText}>
+                    <Text style={modalStyles.resultName}>{item.name}</Text>
+                    <Text style={modalStyles.resultCategory}>{item.sub}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
             contentContainerStyle={modalStyles.resultList}
           />
         )}
@@ -137,20 +202,19 @@ function FundSearchModal({
   );
 }
 
-function CompareTable({ funds }: { funds: CompareFundData[] }) {
+function CompareTable({ funds, fundColors }: { funds: CompareFundData[]; fundColors: string[] }) {
+  if (funds.length === 0) return null;
   return (
     <View style={styles.compareTable}>
-      {/* Header row */}
       <View style={styles.tableRow}>
         <Text style={styles.tableHeaderCell}>Metric</Text>
         {funds.map((f, i) => (
-          <Text key={f.id} style={[styles.tableHeaderCell, { color: FUND_COLORS[i] }]} numberOfLines={2}>
+          <Text key={f.id} style={[styles.tableHeaderCell, { color: fundColors[i] }]} numberOfLines={2}>
             {f.schemeName.split(' ').slice(0, 3).join(' ')}
           </Text>
         ))}
       </View>
 
-      {/* XIRR row */}
       <View style={[styles.tableRow, styles.tableRowAlt]}>
         <Text style={styles.tableLabelCell}>XIRR</Text>
         {funds.map((f) => (
@@ -158,7 +222,6 @@ function CompareTable({ funds }: { funds: CompareFundData[] }) {
         ))}
       </View>
 
-      {/* 1Y return row */}
       <View style={styles.tableRow}>
         <Text style={styles.tableLabelCell}>1Y Return</Text>
         {funds.map((f) => (
@@ -168,7 +231,6 @@ function CompareTable({ funds }: { funds: CompareFundData[] }) {
         ))}
       </View>
 
-      {/* Current NAV row */}
       <View style={[styles.tableRow, styles.tableRowAlt]}>
         <Text style={styles.tableLabelCell}>NAV</Text>
         {funds.map((f) => (
@@ -176,7 +238,6 @@ function CompareTable({ funds }: { funds: CompareFundData[] }) {
         ))}
       </View>
 
-      {/* Category row */}
       <View style={styles.tableRow}>
         <Text style={styles.tableLabelCell}>Category</Text>
         {funds.map((f) => (
@@ -193,34 +254,93 @@ export default function CompareScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
-  const [selectedFundIds, setSelectedFundIds] = useState<string[]>([]);
-  const [selectedFundNames, setSelectedFundNames] = useState<Record<string, string>>({});
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
   const [window, setWindow] = useState<TimeWindow>('1Y');
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const focusedIndexRef = useRef<number | null>(null);
 
-  const { data, isLoading } = useCompare(selectedFundIds);
+  const selectedFundItems = selectedItems
+    .filter((i) => i.type === 'fund')
+    .map((i) => ({ id: i.id, name: i.name }));
+  const selectedIndexItems = selectedItems
+    .filter((i) => i.type === 'index')
+    .map((i) => ({ symbol: i.id, name: i.name }));
+  const selectedFundIds = selectedFundItems.map((f) => f.id);
 
-  function removeFund(id: string) {
-    setSelectedFundIds((prev) => prev.filter((fid) => fid !== id));
-    setSelectedFundNames((prev) => {
-      const next = { ...prev };
-      delete next[id];
+  const { data: timelineData, isLoading: timelineLoading } = usePerformanceTimeline(
+    selectedFundItems,
+    selectedIndexItems,
+  );
+  const { data: compareData, isLoading: compareLoading } = useCompare(selectedFundIds);
+
+  const isLoading = timelineLoading || compareLoading;
+
+  // Visible items (exclude hidden)
+  const visibleItems = selectedItems.filter((item) => !hiddenIds.has(item.id));
+  const visibleIds = visibleItems.map((i) => i.id);
+
+  const { points: chartPoints, dates: chartDates } =
+    timelineData && visibleIds.length > 0
+      ? buildTimelineSeries(timelineData.entries, visibleIds, window)
+      : { points: [], dates: [] };
+
+  const hasChartData = chartPoints.length > 0 && chartPoints[0].length > 1;
+  const xAxisLabels = hasChartData ? buildXAxisLabels(chartDates) : [];
+
+  function addItem(item: { type: 'fund' | 'index'; id: string; name: string }) {
+    if (selectedItems.length >= MAX_ITEMS) return;
+    // Check not already added
+    if (selectedItems.some((s) => s.id === item.id)) return;
+    const colorIndex = selectedItems.length;
+    setSelectedItems((prev) => [
+      ...prev,
+      { ...item, color: SERIES_COLORS[colorIndex] },
+    ]);
+  }
+
+  function removeItem(id: string) {
+    setSelectedItems((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      // Re-assign colors by new position
+      return next.map((item, i) => ({ ...item, color: SERIES_COLORS[i] }));
+    });
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
+    setFocusedIndex(null);
+    focusedIndexRef.current = null;
   }
 
-  function addFund(fund: FundSearchResult) {
-    if (selectedFundIds.length >= MAX_FUNDS) return;
-    setSelectedFundIds((prev) => [...prev, fund.id]);
-    setSelectedFundNames((prev) => ({ ...prev, [fund.id]: fund.scheme_name }));
+  function toggleHidden(id: string) {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    setFocusedIndex(null);
+    focusedIndexRef.current = null;
   }
 
-  const chartSeries =
-    data && selectedFundIds.length > 0
-      ? buildChartSeries(data.commonNavSeries, selectedFundIds, window)
-      : [];
+  const excludeIds = selectedItems.map((i) => i.id);
 
-  const hasChartData = chartSeries.length > 0 && chartSeries[0].length > 1;
+  // Tooltip position: clamp to chart bounds
+  function tooltipLeft(idx: number): number {
+    if (chartDates.length <= 1) return 0;
+    const raw = (idx / (chartDates.length - 1)) * (CHART_WIDTH - 60);
+    return Math.max(4, Math.min(raw, CHART_WIDTH - 120));
+  }
+
+  // For the metrics table, build fund colors in the same order as compareData.funds
+  const fundItemsInOrder = selectedItems.filter((i) => i.type === 'fund');
+  const fundColors = fundItemsInOrder.map((i) => i.color);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -229,48 +349,49 @@ export default function CompareScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Fund selector chips */}
+        {/* Item selector chips */}
         <View style={styles.chipSection}>
           <Text style={styles.chipSectionLabel}>
-            Selected funds ({selectedFundIds.length}/{MAX_FUNDS})
+            Selected ({selectedItems.length}/{MAX_ITEMS})
           </Text>
           <View style={styles.chipRow}>
-            {selectedFundIds.map((id, i) => (
-              <View key={id} style={[styles.fundChip, { borderColor: FUND_COLORS[i] }]}>
-                <View style={[styles.chipDot, { backgroundColor: FUND_COLORS[i] }]} />
+            {selectedItems.map((item, i) => (
+              <View key={item.id} style={[styles.fundChip, { borderColor: SERIES_COLORS[i] }]}>
+                <View style={[styles.chipDot, { backgroundColor: SERIES_COLORS[i] }]} />
                 <Text style={styles.chipName} numberOfLines={1}>
-                  {(selectedFundNames[id] ?? '').split(' ').slice(0, 4).join(' ')}
+                  {item.name.split(' ').slice(0, 4).join(' ')}
                 </Text>
-                <TouchableOpacity onPress={() => removeFund(id)} style={styles.chipRemove}>
+                {item.type === 'index' && <Text style={styles.chipIndexTag}>IDX</Text>}
+                <TouchableOpacity onPress={() => removeItem(item.id)} style={styles.chipRemove}>
                   <Text style={styles.chipRemoveText}>×</Text>
                 </TouchableOpacity>
               </View>
             ))}
 
-            {selectedFundIds.length < MAX_FUNDS && (
+            {selectedItems.length < MAX_ITEMS && (
               <TouchableOpacity
                 style={styles.addChip}
                 onPress={() => setShowModal(true)}
                 disabled={!userId}
               >
-                <Text style={styles.addChipText}>+ Add fund</Text>
+                <Text style={styles.addChipText}>+ Add</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
 
-        {selectedFundIds.length === 0 ? (
+        {selectedItems.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Compare your funds</Text>
+            <Text style={styles.emptyTitle}>Compare funds & indexes</Text>
             <Text style={styles.emptySub}>
-              Select up to {MAX_FUNDS} funds to compare their performance side-by-side.
+              Select up to {MAX_ITEMS} funds or benchmark indexes to compare their % return on the same chart.
             </Text>
             <TouchableOpacity
               style={styles.emptyBtn}
               onPress={() => setShowModal(true)}
               disabled={!userId}
             >
-              <Text style={styles.emptyBtnText}>Add first fund</Text>
+              <Text style={styles.emptyBtnText}>Add first item</Text>
             </TouchableOpacity>
           </View>
         ) : isLoading ? (
@@ -286,7 +407,11 @@ export default function CompareScreen() {
                   <TouchableOpacity
                     key={w}
                     style={[styles.windowPill, window === w && styles.windowPillActive]}
-                    onPress={() => setWindow(w)}
+                    onPress={() => {
+                      setWindow(w);
+                      setFocusedIndex(null);
+                      focusedIndexRef.current = null;
+                    }}
                   >
                     <Text style={[styles.windowPillText, window === w && styles.windowPillTextActive]}>
                       {w}
@@ -298,54 +423,121 @@ export default function CompareScreen() {
 
             {/* Chart */}
             <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>NAV indexed to 100</Text>
+              <Text style={styles.chartTitle}>% Return from start of period</Text>
 
               {hasChartData ? (
                 <>
-                  <LineChart
-                    data={chartSeries[0]}
-                    data2={chartSeries[1]}
-                    data3={chartSeries[2]}
-                    width={CHART_WIDTH - 32}
-                    height={200}
-                    hideDataPoints
-                    color1={FUND_COLORS[0]}
-                    color2={FUND_COLORS[1]}
-                    color3={FUND_COLORS[2]}
-                    thickness1={2}
-                    thickness2={2}
-                    thickness3={2}
-                    hideYAxisText
-                    xAxisColor="#e2e8f0"
-                    yAxisColor="transparent"
-                    rulesColor="#f1f5f9"
-                    rulesType="solid"
-                    noOfSections={4}
-                  />
-                  <View style={styles.chartLegend}>
-                    {selectedFundIds.map((id, i) => (
-                      <View key={id} style={styles.legendItem}>
-                        <View style={[styles.legendDot, { backgroundColor: FUND_COLORS[i] }]} />
-                        <Text style={styles.legendLabel} numberOfLines={1}>
-                          {(selectedFundNames[id] ?? '').split(' ').slice(0, 3).join(' ')}
+                  <View style={{ position: 'relative' }}>
+                    <LineChart
+                      data={chartPoints[0]}
+                      data2={chartPoints[1]}
+                      data3={chartPoints[2]}
+                      width={CHART_WIDTH - 32}
+                      height={200}
+                      hideDataPoints
+                      showDataPointOnFocus
+                      showStripOnFocus
+                      stripColor="#94a3b8"
+                      stripOpacity={0.2}
+                      stripWidth={1}
+                      focusedDataPointColor={visibleItems[0]?.color ?? SERIES_COLORS[0]}
+                      onFocus={(_item: unknown, index: number) => {
+                        focusedIndexRef.current = index;
+                        setFocusedIndex(index);
+                      }}
+                      color1={visibleItems[0]?.type === 'index' ? INDEX_LINE_COLORS[0] : (visibleItems[0]?.color ?? SERIES_COLORS[0])}
+                      color2={visibleItems[1]?.type === 'index' ? INDEX_LINE_COLORS[1] : (visibleItems[1]?.color ?? SERIES_COLORS[1])}
+                      color3={visibleItems[2]?.type === 'index' ? INDEX_LINE_COLORS[2] : (visibleItems[2]?.color ?? SERIES_COLORS[2])}
+                      thickness1={visibleItems[0]?.type === 'index' ? 1.5 : 2.5}
+                      thickness2={visibleItems[1]?.type === 'index' ? 1.5 : 2.5}
+                      thickness3={visibleItems[2]?.type === 'index' ? 1.5 : 2.5}
+                      hideYAxisText={false}
+                      yAxisTextStyle={styles.yAxisText}
+                      xAxisColor="#e2e8f0"
+                      yAxisColor="transparent"
+                      rulesColor="#f1f5f9"
+                      rulesType="solid"
+                      noOfSections={4}
+                      xAxisLabelTexts={xAxisLabels}
+                      xAxisLabelTextStyle={styles.xAxisText}
+                    />
+
+                    {/* Crosshair tooltip */}
+                    {focusedIndex !== null && chartDates[focusedIndex] && (
+                      <View
+                        style={[
+                          styles.tooltip,
+                          { left: tooltipLeft(focusedIndex) },
+                        ]}
+                        pointerEvents="none"
+                      >
+                        <Text style={styles.tooltipDate}>
+                          {formatDateShort(chartDates[focusedIndex])}
                         </Text>
+                        {visibleItems.map((item, si) => {
+                          const val = chartPoints[si]?.[focusedIndex]?.value;
+                          if (val === undefined) return null;
+                          return (
+                            <Text key={item.id} style={[styles.tooltipValue, { color: item.color }]}>
+                              {item.name.split(' ')[0]}: {val >= 0 ? '+' : ''}{val.toFixed(1)}%
+                            </Text>
+                          );
+                        })}
                       </View>
-                    ))}
+                    )}
+                  </View>
+
+                  {/* Legend with show/hide toggles */}
+                  <View style={styles.legendSection}>
+                    {selectedItems.map((item, i) => {
+                      const isHidden = hiddenIds.has(item.id);
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[styles.legendItem, isHidden && styles.legendItemHidden]}
+                          onPress={() => toggleHidden(item.id)}
+                        >
+                          <View
+                            style={[
+                              styles.legendLine,
+                              {
+                                backgroundColor: isHidden ? '#cbd5e1' : SERIES_COLORS[i],
+                                height: item.type === 'index' ? 2 : 3,
+                              },
+                            ]}
+                          />
+                          <Text
+                            style={[styles.legendLabel, isHidden && styles.legendLabelHidden]}
+                            numberOfLines={1}
+                          >
+                            {item.name.split(' ').slice(0, 3).join(' ')}
+                            {item.type === 'index' ? ' (Index)' : ''}
+                          </Text>
+                          <Text style={[styles.legendEye, isHidden && styles.legendEyeHidden]}>
+                            {isHidden ? '○' : '●'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </>
               ) : (
                 <View style={styles.noData}>
                   <Text style={styles.noDataText}>
-                    {selectedFundIds.length < 2
-                      ? 'Add at least 2 funds to see the comparison chart.'
-                      : 'No overlapping NAV data available for this time window.'}
+                    {selectedItems.length < 2
+                      ? 'Add at least 2 items to see the chart.'
+                      : visibleItems.length < 2
+                      ? 'Show at least 2 items in the legend to compare.'
+                      : 'No overlapping data for this time window.'}
                   </Text>
                 </View>
               )}
             </View>
 
-            {/* Metrics table */}
-            {data && data.funds.length > 0 && <CompareTable funds={data.funds} />}
+            {/* Metrics table — fund items only */}
+            {compareData && compareData.funds.length > 0 && (
+              <CompareTable funds={compareData.funds} fundColors={fundColors} />
+            )}
           </>
         )}
 
@@ -353,11 +545,11 @@ export default function CompareScreen() {
       </ScrollView>
 
       {userId && (
-        <FundSearchModal
+        <AddItemModal
           visible={showModal}
           userId={userId}
-          excludeIds={selectedFundIds}
-          onSelect={addFund}
+          excludeIds={excludeIds}
+          onSelect={addItem}
           onClose={() => setShowModal(false)}
         />
       )}
@@ -388,10 +580,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     gap: 6,
-    maxWidth: 180,
+    maxWidth: 200,
   },
   chipDot: { width: 8, height: 8, borderRadius: 4 },
   chipName: { flex: 1, fontSize: 12, fontWeight: '600', color: '#111' },
+  chipIndexTag: { fontSize: 9, fontWeight: '700', color: '#64748b', backgroundColor: '#f1f5f9', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 3 },
   chipRemove: { padding: 2 },
   chipRemoveText: { fontSize: 16, color: '#94a3b8', fontWeight: '700', lineHeight: 18 },
   addChip: {
@@ -434,10 +627,31 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   chartTitle: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  chartLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontSize: 12, color: '#334155', maxWidth: 120 },
+  yAxisText: { fontSize: 10, color: '#94a3b8' },
+  xAxisText: { fontSize: 9, color: '#94a3b8' },
+
+  tooltip: {
+    position: 'absolute',
+    top: 6,
+    backgroundColor: 'rgba(17,17,17,0.88)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    minWidth: 100,
+    gap: 3,
+    zIndex: 10,
+  },
+  tooltipDate: { fontSize: 11, color: '#e2e8f0', fontWeight: '600', marginBottom: 2 },
+  tooltipValue: { fontSize: 12, fontWeight: '700' },
+
+  legendSection: { gap: 8, marginTop: 4 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
+  legendItemHidden: { opacity: 0.5 },
+  legendLine: { width: 20, borderRadius: 2 },
+  legendLabel: { flex: 1, fontSize: 12, color: '#334155', fontWeight: '500' },
+  legendLabelHidden: { color: '#94a3b8' },
+  legendEye: { fontSize: 12, color: '#334155', width: 16 },
+  legendEyeHidden: { color: '#94a3b8' },
 
   noData: { paddingVertical: 32, alignItems: 'center' },
   noDataText: { fontSize: 13, color: '#94a3b8', textAlign: 'center', lineHeight: 20 },
@@ -489,16 +703,38 @@ const modalStyles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 12, color: '#111' },
   searchSpinner: { marginLeft: 8 },
 
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  sectionHeaderText: { fontSize: 11, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' },
+
   hint: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hintText: { fontSize: 14, color: '#94a3b8' },
 
-  resultList: { paddingHorizontal: 16, gap: 0 },
+  resultList: { paddingBottom: 32 },
   resultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
-    gap: 3,
+    gap: 10,
   },
+  indexBadge: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#1a56db',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  resultText: { flex: 1, gap: 3 },
   resultName: { fontSize: 14, fontWeight: '600', color: '#111' },
   resultCategory: { fontSize: 12, color: '#94a3b8' },
 });
