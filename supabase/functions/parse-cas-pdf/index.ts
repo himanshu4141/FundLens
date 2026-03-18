@@ -111,6 +111,8 @@ Deno.serve(async (req) => {
   }
 
   const parsed = await parseRes.json();
+  console.log('CASParser parse response: folios=%d', (parsed?.mutual_funds ?? []).length);
+
   const { fundsUpdated, transactionsAdded, errors } = await importCASData(
     supabase, user.id, importId, parsed,
   );

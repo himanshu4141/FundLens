@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -195,6 +195,14 @@ export default function OnboardingScreen() {
 
   // ── CAS request step ────────────────────────────────────────────────────────
   const [casEmail, setCasEmail] = useState(session?.user.email ?? '');
+
+  // Pre-populate inputs from saved profile when it loads
+  useEffect(() => {
+    if (profile?.pan && !pan) setPan(profile.pan);
+  }, [profile?.pan]);
+  useEffect(() => {
+    if (profile?.kfintech_email) setCasEmail(profile.kfintech_email);
+  }, [profile?.kfintech_email]);
   const [casState, setCasState] = useState<'idle' | 'requesting' | 'requested' | 'error'>('idle');
 
   const isLoading = profileLoading || sessionLoading;

@@ -12,7 +12,8 @@
  * Steps:
  * 1. Identify user from `reference` field.
  * 2. Look up user PAN from user_profile (needed to decrypt CAS PDF).
- * 3. For each file URL: download raw PDF → POST to CASParser /v4/smart/parse.
+ * 3. For each file: pass its presigned URL directly to CASParser /v4/smart/parse
+ *    (URL-based parsing — no need to download and re-upload the PDF).
  * 4. Import parsed mutual funds and transactions.
  * 5. Always return HTTP 200 so CASParser does not retry on transient errors.
  */
@@ -94,30 +95,22 @@ Deno.serve(async (req) => {
 
   for (const file of files) {
     try {
-      // Download raw PDF bytes from CASParser presigned URL
-      const fileRes = await fetch(file.url);
-      if (!fileRes.ok) {
-        throw new Error(`Download failed: ${fileRes.status} ${fileRes.statusText}`);
-      }
-      const fileBytes = await fileRes.arrayBuffer();
-
-      // POST to CASParser smart/parse — PAN is the CAS PDF password
-      const form = new FormData();
-      form.append('file', new Blob([fileBytes], { type: 'application/pdf' }), 'cas.pdf');
-      form.append('password', profile.pan);
-
+      // Pass the presigned URL directly to CASParser — no need to download and re-upload.
+      // PAN is the CAS PDF password (KFintech and CAMS use plain PAN as password).
       const parseRes = await fetch('https://api.casparser.in/v4/smart/parse', {
         method: 'POST',
-        headers: { 'x-api-key': CASPARSER_API_KEY },
-        body: form,
+        headers: { 'x-api-key': CASPARSER_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdf_url: file.url, password: profile.pan }),
       });
 
       if (!parseRes.ok) {
-        const body = await parseRes.text();
-        throw new Error(`CASParser parse failed: ${parseRes.status} ${body}`);
+        const errBody = await parseRes.text();
+        throw new Error(`CASParser parse failed: ${parseRes.status} ${errBody}`);
       }
 
       const parsed = await parseRes.json();
+      console.log('CASParser parse response: folios=%d', (parsed?.mutual_funds ?? []).length);
+
       const { fundsUpdated, transactionsAdded, errors } = await importCASData(
         supabase, userId, importId, parsed,
       );
@@ -142,6 +135,16 @@ Deno.serve(async (req) => {
       error_message: allErrors.length > 0 ? allErrors.join('; ') : null,
     })
     .eq('id', importId);
+
+  // After a successful import, trigger sync-nav in the background so NAV data
+  // is populated immediately without waiting for the daily cron job.
+  if (totalFunds > 0) {
+    const syncNavUrl = `${SUPABASE_URL}/functions/v1/sync-nav`;
+    fetch(syncNavUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    }).catch((err) => console.error('sync-nav trigger failed:', err));
+  }
 
   return json({ ok: true, funds: totalFunds, transactions: totalTransactions });
 });
