@@ -14,7 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { xirr, type Cashflow } from '@/src/utils/xirr';
+import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
 
 export type TimeWindow = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'All';
 
@@ -59,28 +59,8 @@ async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
   if (txError) throw txError;
 
   // Compute net units and cashflows
-  let netUnits = 0;
-  let investedAmount = 0;
-  const cashflows: Cashflow[] = [];
-
-  for (const tx of txs ?? []) {
-    const date = new Date(tx.transaction_date);
-    const isOutflow =
-      tx.transaction_type === 'purchase' ||
-      tx.transaction_type === 'switch_in' ||
-      tx.transaction_type === 'dividend_reinvest';
-    const isInflow =
-      tx.transaction_type === 'redemption' || tx.transaction_type === 'switch_out';
-
-    if (isOutflow) {
-      netUnits += tx.units;
-      investedAmount += tx.amount;
-      cashflows.push({ date, amount: -tx.amount });
-    } else if (isInflow) {
-      netUnits -= tx.units;
-      cashflows.push({ date, amount: tx.amount });
-    }
-  }
+  const { historicalCashflows: cashflows, netUnits, investedAmount } =
+    buildCashflowsFromTransactions(txs ?? [], 0, new Date());
 
   // Load full NAV history
   const { data: navRows, error: navError } = await supabase
@@ -100,8 +80,8 @@ async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
   const currentValue = netUnits * currentNav;
 
   // XIRR
-  const xirrFlows: Cashflow[] = [...cashflows, { date: new Date(), amount: currentValue }];
-  const fundXirr = cashflows.length > 0 ? xirr(xirrFlows) : NaN;
+  const { xirrCashflows } = buildCashflowsFromTransactions(txs ?? [], currentValue, new Date());
+  const fundXirr = cashflows.length > 0 ? xirr(xirrCashflows) : NaN;
 
   // Load benchmark index history (if available)
   let indexHistory: NavPoint[] = [];

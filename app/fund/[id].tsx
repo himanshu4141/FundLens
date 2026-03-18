@@ -18,18 +18,12 @@ import {
   type TimeWindow,
 } from '@/src/hooks/useFundDetail';
 import { formatXirr } from '@/src/utils/xirr';
+import { formatCurrency } from '@/src/utils/formatting';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
-
-function formatCurrency(value: number): string {
-  if (value >= 1_00_00_000) return `₹${(value / 1_00_00_000).toFixed(2)}Cr`;
-  if (value >= 1_00_000) return `₹${(value / 1_00_000).toFixed(2)}L`;
-  if (value >= 1_000) return `₹${(value / 1_000).toFixed(1)}K`;
-  return `₹${value.toFixed(0)}`;
-}
 
 function TimeWindowSelector({
   selected,
