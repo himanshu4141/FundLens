@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -9,8 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { formatXirr } from '@/src/utils/xirr';
+import { supabase } from '@/src/lib/supabase';
+import { useSession } from '@/src/hooks/useSession';
 
 function formatCurrency(value: number): string {
   if (value >= 1_00_00_000) return `₹${(value / 1_00_00_000).toFixed(2)}Cr`;
@@ -137,8 +141,42 @@ function EmptyState({ onImport }: { onImport: () => void }) {
   );
 }
 
+type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
+
 export default function HomeScreen() {
   const router = useRouter();
+  const { session } = useSession();
+  const userId = session?.user.id;
+
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_profile')
+        .select('kfintech_email')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+
+  async function handleSync() {
+    if (!profile?.kfintech_email) {
+      router.push('/onboarding');
+      return;
+    }
+    setSyncState('syncing');
+    const { error } = await supabase.functions.invoke('request-cas', {
+      method: 'POST',
+      body: { email: profile.kfintech_email },
+    });
+    setSyncState(error ? 'error' : 'requested');
+    setTimeout(() => setSyncState('idle'), 4000);
+  }
+
   const { data, isLoading, isError, refetch, isRefetching } = usePortfolio();
 
   const fundCards = data?.fundCards ?? [];
@@ -148,10 +186,36 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Portfolio</Text>
-        <TouchableOpacity onPress={() => router.push('/onboarding')}>
-          <Text style={styles.importLink}>Import CAS</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.syncBtn, syncState === 'syncing' && styles.syncBtnDisabled]}
+            onPress={handleSync}
+            disabled={syncState === 'syncing'}
+          >
+            {syncState === 'syncing' ? (
+              <ActivityIndicator size="small" color="#1a56db" />
+            ) : (
+              <Text style={styles.syncBtnText}>↻ Sync</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/onboarding')}>
+            <Text style={styles.importLink}>Import</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {syncState === 'requested' && (
+        <View style={styles.syncBanner}>
+          <Text style={styles.syncBannerText}>
+            CAS requested! Check your email — forward it to your inbound address.
+          </Text>
+        </View>
+      )}
+      {syncState === 'error' && (
+        <View style={[styles.syncBanner, styles.syncBannerError]}>
+          <Text style={styles.syncBannerText}>Sync failed. Please try again.</Text>
+        </View>
+      )}
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -216,7 +280,22 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   title: { fontSize: 22, fontWeight: '700', color: '#111' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  syncBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderColor: '#c7d7f5', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 6, minWidth: 64, justifyContent: 'center',
+  },
+  syncBtnDisabled: { opacity: 0.6 },
+  syncBtnText: { color: '#1a56db', fontSize: 13, fontWeight: '600' },
   importLink: { color: '#1a56db', fontSize: 14, fontWeight: '600' },
+
+  syncBanner: {
+    backgroundColor: '#eff6ff', borderBottomWidth: 1, borderBottomColor: '#bfdbfe',
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  syncBannerError: { backgroundColor: '#fef2f2', borderBottomColor: '#fecaca' },
+  syncBannerText: { fontSize: 13, color: '#1e40af', lineHeight: 18 },
 
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   errorText: { fontSize: 15, color: '#555' },
