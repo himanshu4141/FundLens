@@ -106,6 +106,12 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Persist the email so subsequent refreshes never need to ask again
+  await supabase
+    .from('user_profile')
+    .update({ kfintech_email: email })
+    .eq('user_id', user.id);
+
   return Response.json(
     { ok: true },
     { headers: { 'Access-Control-Allow-Origin': '*' } },

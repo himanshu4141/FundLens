@@ -10,12 +10,24 @@ import {
   TextInput,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+// ── Data fetching ────────────────────────────────────────────────────────────
+
+async function fetchProfile(userId: string) {
+  const { data } = await supabase
+    .from('user_profile')
+    .select('pan, kfintech_email')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data ?? null;
+}
 
 async function requestCAS(email: string): Promise<void> {
   const { error } = await supabase.functions.invoke('request-cas', {
@@ -24,6 +36,8 @@ async function requestCAS(email: string): Promise<void> {
   });
   if (error) throw new Error(error.message);
 }
+
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function CopyBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -47,19 +61,143 @@ function CopyBox({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ── Already-set-up view ───────────────────────────────────────────────────────
+
+function SetupComplete({
+  inboundEmail,
+  kftechEmail,
+  onRefresh,
+  onReset,
+}: {
+  inboundEmail: string;
+  kftechEmail: string;
+  onRefresh: () => Promise<void>;
+  onReset: () => void;
+}) {
+  const [requesting, setRequesting] = useState(false);
+  const [requested, setRequested] = useState(false);
+  const [showAutoForward, setShowAutoForward] = useState(false);
+
+  async function handleRefresh() {
+    setRequesting(true);
+    setRequested(false);
+    try {
+      await onRefresh();
+      setRequested(true);
+    } catch (e) {
+      Alert.alert('Error', (e as Error).message);
+    } finally {
+      setRequesting(false);
+    }
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Import CAS</Text>
+      <Text style={styles.subtitle}>
+        Setup is complete. Tap refresh to pull your latest transactions.
+      </Text>
+
+      <View style={styles.refreshCard}>
+        <TouchableOpacity
+          style={[styles.refreshBtn, requesting && styles.btnDisabled]}
+          onPress={handleRefresh}
+          disabled={requesting}
+        >
+          {requesting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.refreshBtnText}>↻  Refresh portfolio</Text>
+          )}
+        </TouchableOpacity>
+
+        {requested && (
+          <View style={styles.requestedBanner}>
+            <Text style={styles.requestedText}>
+              CAS requested! KFintech will email <Text style={styles.bold}>{kftechEmail}</Text>.
+              {'\n'}
+              {showAutoForward
+                ? 'Your auto-forward filter will handle the rest.'
+                : 'Forward that email to your import address below.'}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <CopyBox label="Your import address" value={inboundEmail} />
+
+      {/* Auto-forward tip */}
+      <TouchableOpacity
+        style={styles.tipToggle}
+        onPress={() => setShowAutoForward((v) => !v)}
+      >
+        <Text style={styles.tipToggleText}>
+          {showAutoForward ? '▾' : '▸'} Set up auto-forward (skip the manual step forever)
+        </Text>
+      </TouchableOpacity>
+
+      {showAutoForward && (
+        <View style={styles.tipCard}>
+          <Text style={styles.tipTitle}>Auto-forward filter (Gmail)</Text>
+          <Text style={styles.tipStep}>
+            1. Open Gmail → Settings → Filters → Create new filter
+          </Text>
+          <Text style={styles.tipStep}>
+            2. In <Text style={styles.bold}>From</Text>, enter:{' '}
+            <Text style={styles.mono}>donotreply@kfintech.com</Text>
+          </Text>
+          <Text style={styles.tipStep}>
+            3. Click <Text style={styles.bold}>Create filter</Text> →{' '}
+            tick <Text style={styles.bold}>Forward to</Text> → add your import address above
+          </Text>
+          <Text style={styles.tipStep}>
+            4. Save. From now on, hitting <Text style={styles.bold}>Refresh</Text> is all you need.
+          </Text>
+          <Text style={styles.tipNote}>
+            Outlook: Settings → Rules → New rule → From address → Forward to import address.
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity style={styles.resetLink} onPress={onReset}>
+        <Text style={styles.resetLinkText}>Change PAN or email</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+// ── First-time setup view ─────────────────────────────────────────────────────
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const { session } = useSession();
-  const { inboundEmail, isLoading, createSession } = useInboundSession(session?.user.id);
+  const queryClient = useQueryClient();
+  const { inboundEmail, isLoading: sessionLoading, createSession } = useInboundSession(
+    session?.user.id,
+  );
 
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['user-profile', session?.user.id],
+    queryFn: () => fetchProfile(session!.user.id),
+    enabled: !!session?.user.id,
+  });
+
+  // ── PAN step ────────────────────────────────────────────────────────────────
   const [pan, setPan] = useState('');
   const [panSaved, setPanSaved] = useState(false);
   const [panSaving, setPanSaving] = useState(false);
   const [panError, setPanError] = useState<string | null>(null);
 
+  // ── CAS request step ────────────────────────────────────────────────────────
   const [casEmail, setCasEmail] = useState(session?.user.email ?? '');
   const [casRequesting, setCasRequesting] = useState(false);
   const [casRequested, setCasRequested] = useState(false);
+
+  const isLoading = profileLoading || sessionLoading;
+
+  // Once profile + inbound address both exist → show the "already set up" view
+  const isSetupComplete =
+    !isLoading && !!profile?.pan && !!profile?.kfintech_email && !!inboundEmail;
 
   async function handleSavePAN() {
     const upper = pan.trim().toUpperCase();
@@ -79,6 +217,7 @@ export default function OnboardingScreen() {
     } else {
       setPan(upper);
       setPanSaved(true);
+      queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
     }
   }
 
@@ -90,43 +229,61 @@ export default function OnboardingScreen() {
     }
   }
 
-  function handleRegenerate() {
-    Alert.alert(
-      'Generate new address?',
-      'A new forwarding address will be created. Old one continues to work until it expires.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Generate', onPress: handleGenerateAddress },
-      ],
+  async function handleRequestCAS(email: string) {
+    await requestCAS(email);
+    queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1a56db" />
+      </View>
     );
   }
 
-  const step2Enabled = panSaved;
+  // ── Already set up ──────────────────────────────────────────────────────────
+  if (isSetupComplete) {
+    return (
+      <SetupComplete
+        inboundEmail={inboundEmail!}
+        kftechEmail={profile!.kfintech_email!}
+        onRefresh={() => handleRequestCAS(profile!.kfintech_email!)}
+        onReset={() => {
+          setPanSaved(false);
+          queryClient.setQueryData(['user-profile', session?.user.id], null);
+        }}
+      />
+    );
+  }
+
+  // ── First-time setup ────────────────────────────────────────────────────────
+  const panDone = panSaved || !!profile?.pan;
+  const step2Enabled = panDone;
   const step3Enabled = !!inboundEmail;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Import your CAS</Text>
       <Text style={styles.subtitle}>
-        Set up automatic import of your mutual fund transactions. Takes about 2 minutes.
+        One-time setup — takes about 2 minutes. After this, syncing is a single tap.
       </Text>
 
       {/* ── Step 1 — PAN ──────────────────────────────────────── */}
       <View style={styles.step}>
         <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, panSaved && styles.stepNumDone]}>
-            <Text style={styles.stepNumText}>{panSaved ? '✓' : '1'}</Text>
+          <View style={[styles.stepNum, panDone && styles.stepNumDone]}>
+            <Text style={styles.stepNumText}>{panDone ? '✓' : '1'}</Text>
           </View>
           <Text style={styles.stepTitle}>Enter your PAN</Text>
         </View>
         <View style={styles.stepBody}>
           <Text style={styles.stepDesc}>
-            Your PAN is used to decrypt the CAS PDF sent by CAMS / KFintech. It is stored securely
-            and never shared.
+            Used to decrypt your CAS PDF. Stored securely, never shared, never asked again.
           </Text>
-          {panSaved ? (
+          {panDone ? (
             <View style={styles.savedRow}>
-              <Text style={styles.savedText}>PAN saved: {pan}</Text>
+              <Text style={styles.savedText}>PAN saved: {profile?.pan ?? pan}</Text>
               <TouchableOpacity onPress={() => setPanSaved(false)}>
                 <Text style={styles.changeLink}>Change</Text>
               </TouchableOpacity>
@@ -138,10 +295,7 @@ export default function OnboardingScreen() {
                 placeholder="ABCDE1234F"
                 placeholderTextColor="#999"
                 value={pan}
-                onChangeText={(t) => {
-                  setPan(t.toUpperCase());
-                  setPanError(null);
-                }}
+                onChangeText={(t) => { setPan(t.toUpperCase()); setPanError(null); }}
                 autoCapitalize="characters"
                 maxLength={10}
                 editable={!panSaving}
@@ -152,18 +306,14 @@ export default function OnboardingScreen() {
                 onPress={handleSavePAN}
                 disabled={panSaving}
               >
-                {panSaving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Save PAN</Text>
-                )}
+                {panSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Save PAN</Text>}
               </TouchableOpacity>
             </>
           )}
         </View>
       </View>
 
-      {/* ── Step 2 — Generate address ──────────────────────────── */}
+      {/* ── Step 2 — Inbound address ───────────────────────────── */}
       <View style={[styles.step, !step2Enabled && styles.stepDisabled]}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepNum, !step2Enabled && styles.stepNumGray, !!inboundEmail && styles.stepNumDone]}>
@@ -175,33 +325,22 @@ export default function OnboardingScreen() {
         </View>
         <View style={styles.stepBody}>
           <Text style={[styles.stepDesc, !step2Enabled && styles.stepDescGray]}>
-            We&apos;ll generate a unique email address for you. Forward your CAS email to it and
-            your transactions will import automatically.
+            A permanent address unique to you. Forward any CAS email to it and transactions
+            import automatically. You only generate this once.
           </Text>
-          {isLoading ? (
+          {sessionLoading ? (
             <ActivityIndicator style={{ marginTop: 8 }} />
           ) : inboundEmail ? (
-            <>
-              <CopyBox label="Forward your CAS to" value={inboundEmail} />
-              <TouchableOpacity
-                style={styles.regenBtn}
-                onPress={handleRegenerate}
-                disabled={createSession.isPending}
-              >
-                <Text style={styles.regenBtnText}>Generate new address</Text>
-              </TouchableOpacity>
-            </>
+            <CopyBox label="Your import address" value={inboundEmail} />
           ) : (
             <TouchableOpacity
               style={[styles.primaryBtn, (!step2Enabled || createSession.isPending) && styles.btnDisabled]}
               onPress={handleGenerateAddress}
               disabled={!step2Enabled || createSession.isPending}
             >
-              {createSession.isPending ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryBtnText}>Generate address</Text>
-              )}
+              {createSession.isPending
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.primaryBtnText}>Generate address</Text>}
             </TouchableOpacity>
           )}
         </View>
@@ -223,9 +362,10 @@ export default function OnboardingScreen() {
               <Text style={styles.hintTitle}>CAS requested!</Text>
               <Text style={styles.hintItem}>
                 KFintech will email your CAS to <Text style={styles.bold}>{casEmail}</Text> within
-                1–2 minutes.{'\n\n'}
-                When it arrives, forward that email to your import address above and your
-                transactions will import automatically.
+                1–2 minutes. Forward that email to your import address above.{'\n\n'}
+                <Text style={styles.bold}>Tip:</Text> Set up an auto-forward filter so future
+                syncs need only one tap. You can see the instructions from the import screen
+                after setup.
               </Text>
               <TouchableOpacity onPress={() => setCasRequested(false)}>
                 <Text style={[styles.changeLink, { marginTop: 6 }]}>Request again</Text>
@@ -234,11 +374,11 @@ export default function OnboardingScreen() {
           ) : (
             <>
               <Text style={[styles.stepDesc, !step3Enabled && styles.stepDescGray]}>
-                Enter the email registered with KFintech / CAMS. We&apos;ll request your CAS and
-                KFintech will email it to you within 1–2 minutes.
+                Enter the email registered with KFintech. We&apos;ll request your CAS — it
+                arrives in 1–2 minutes. This email is saved so future refreshes need no input.
               </Text>
               <TextInput
-                style={[styles.panInput, !step3Enabled && styles.inputDisabled]}
+                style={[styles.emailInput, !step3Enabled && styles.inputDisabled]}
                 placeholder="your@email.com"
                 placeholderTextColor="#999"
                 value={casEmail}
@@ -253,7 +393,7 @@ export default function OnboardingScreen() {
                   if (!casEmail.trim()) return;
                   setCasRequesting(true);
                   try {
-                    await requestCAS(casEmail.trim());
+                    await handleRequestCAS(casEmail.trim());
                     setCasRequested(true);
                   } catch (e) {
                     Alert.alert('Error', (e as Error).message);
@@ -263,11 +403,9 @@ export default function OnboardingScreen() {
                 }}
                 disabled={!step3Enabled || casRequesting}
               >
-                {casRequesting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Request CAS</Text>
-                )}
+                {casRequesting
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.primaryBtnText}>Request CAS</Text>}
               </TouchableOpacity>
             </>
           )}
@@ -293,9 +431,37 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 20, gap: 4, paddingBottom: 40 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 6 },
   subtitle: { fontSize: 14, color: '#666', lineHeight: 21, marginBottom: 16 },
 
+  // Setup-complete view
+  refreshCard: { gap: 12 },
+  refreshBtn: {
+    backgroundColor: '#1a56db', borderRadius: 10, paddingVertical: 16,
+    alignItems: 'center',
+  },
+  refreshBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  requestedBanner: {
+    backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
+    borderRadius: 10, padding: 14,
+  },
+  requestedText: { fontSize: 14, color: '#166534', lineHeight: 22 },
+
+  tipToggle: { paddingVertical: 4 },
+  tipToggleText: { fontSize: 13, color: '#1a56db', fontWeight: '600' },
+  tipCard: {
+    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
+    borderRadius: 10, padding: 14, gap: 8,
+  },
+  tipTitle: { fontSize: 13, fontWeight: '700', color: '#1e40af' },
+  tipStep: { fontSize: 13, color: '#1e40af', lineHeight: 20 },
+  tipNote: { fontSize: 12, color: '#3730a3', fontStyle: 'italic', marginTop: 4 },
+
+  resetLink: { alignItems: 'center', paddingVertical: 8 },
+  resetLinkText: { fontSize: 13, color: '#94a3b8' },
+
+  // First-time setup
   step: {
     borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12,
     padding: 16, marginBottom: 12,
@@ -319,6 +485,10 @@ const styles = StyleSheet.create({
     height: 48, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8,
     paddingHorizontal: 14, fontSize: 16, color: '#111', backgroundColor: '#fafafa',
     letterSpacing: 2,
+  },
+  emailInput: {
+    height: 48, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8,
+    paddingHorizontal: 14, fontSize: 15, color: '#111', backgroundColor: '#fafafa',
   },
   inputDisabled: { opacity: 0.4 },
   errorText: { color: '#e53e3e', fontSize: 13 },
@@ -346,9 +516,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.4 },
   primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-
-  regenBtn: { alignSelf: 'flex-start' },
-  regenBtnText: { color: '#1a56db', fontSize: 13 },
 
   hintCard: {
     backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
