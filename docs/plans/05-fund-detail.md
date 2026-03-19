@@ -168,3 +168,14 @@ Structure:
 - [x] Fix `hideXAxisText` → remove (invalid prop for this chart library version)
 - [x] `npm run typecheck` — zero errors
 - [x] `npm run lint` — zero warnings
+
+
+## Amendments (post-implementation)
+
+### Shared utility refactoring
+
+`buildCashflowsFromTransactions` (introduced in Milestone 4) and `formatCurrency` are reused here rather than duplicated. The fund detail hook imports from `src/utils/cashflows.ts` and `src/utils/formatCurrency.ts`.
+
+### staleTime: 0 on useFundDetail
+
+`useFundDetail` uses `staleTime: 0` (no cache) to ensure tapping a fund card from the home screen always shows data consistent with the portfolio screen. A positive `staleTime` caused the fund detail to show stale values when navigating quickly.

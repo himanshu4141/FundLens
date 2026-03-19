@@ -187,7 +187,11 @@ export default function HomeScreen() {
               <Text style={styles.syncBtnText}>↻ Sync</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/onboarding')}>
+          <TouchableOpacity
+            onPress={() =>
+              router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')
+            }
+          >
             <Text style={styles.importLink}>Import</Text>
           </TouchableOpacity>
         </View>
