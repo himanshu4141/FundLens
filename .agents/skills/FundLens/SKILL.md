@@ -28,7 +28,7 @@ Activate this skill when:
 
 ## Commit Conventions
 
-Follow these commit message conventions based on 105 analyzed commits.
+Follow these commit message conventions based on 116 analyzed commits.
 
 ### Commit Style: Conventional Commits
 
@@ -189,108 +189,83 @@ Standard feature implementation workflow
 **Example commit sequence**:
 ```
 feat: add FundLens ECC bundle (.codex/agents/explorer.toml)
-feat: add FundLens ECC bundle (.codex/agents/reviewer.toml)
 feat: add FundLens ECC bundle (.codex/agents/docs-researcher.toml)
+feat: add FundLens ECC bundle (.codex/agents/reviewer.toml)
 ```
 
 ### Add Ecc Bundle
 
-Adds a new ECC bundle for FundLens, including command documentation, agent/skill definitions, and configuration files.
+Adds a new ECC bundle for FundLens, including agent configs, skill documentation, and supporting command files.
 
 **Frequency**: ~4 times per month
 
 **Steps**:
 1. Add or update .claude/commands/add-ecc-bundle.md
-2. Add or update .claude/identity.json
-3. Add or update .claude/ecc-tools.json
-4. Add or update .agents/skills/FundLens/SKILL.md
-5. Add or update .claude/skills/FundLens/SKILL.md
-6. Add or update agent configuration files in .codex/agents/ (docs-researcher.toml, reviewer.toml, explorer.toml)
-7. Add or update .agents/skills/FundLens/agents/openai.yaml
+2. Add or update .claude/commands/feature-development.md
+3. Add or update .claude/commands/update-skill-and-agent-documentation.md or similar documentation command files
+4. Add or update .claude/identity.json
+5. Add or update .claude/ecc-tools.json
+6. Add or update .claude/skills/FundLens/SKILL.md
+7. Add or update .agents/skills/FundLens/SKILL.md
+8. Add or update .agents/skills/FundLens/agents/openai.yaml
+9. Add or update .codex/agents/docs-researcher.toml
+10. Add or update .codex/agents/reviewer.toml
+11. Add or update .codex/agents/explorer.toml
 
 **Files typically involved**:
 - `.claude/commands/add-ecc-bundle.md`
+- `.claude/commands/feature-development.md`
+- `.claude/commands/update-skill-and-agent-documentation.md`
+- `.claude/commands/update-skill-documentation.md`
+- `.claude/commands/update-agent-and-skill-documentation.md`
+- `.claude/commands/add-ecc-bundle-files.md`
 - `.claude/identity.json`
 - `.claude/ecc-tools.json`
-- `.agents/skills/FundLens/SKILL.md`
 - `.claude/skills/FundLens/SKILL.md`
+- `.agents/skills/FundLens/SKILL.md`
+- `.agents/skills/FundLens/agents/openai.yaml`
 - `.codex/agents/docs-researcher.toml`
 - `.codex/agents/reviewer.toml`
 - `.codex/agents/explorer.toml`
-- `.agents/skills/FundLens/agents/openai.yaml`
 
 **Example commit sequence**:
 ```
 Add or update .claude/commands/add-ecc-bundle.md
+Add or update .claude/commands/feature-development.md
+Add or update .claude/commands/update-skill-and-agent-documentation.md or similar documentation command files
 Add or update .claude/identity.json
 Add or update .claude/ecc-tools.json
-Add or update .agents/skills/FundLens/SKILL.md
 Add or update .claude/skills/FundLens/SKILL.md
-Add or update agent configuration files in .codex/agents/ (docs-researcher.toml, reviewer.toml, explorer.toml)
+Add or update .agents/skills/FundLens/SKILL.md
 Add or update .agents/skills/FundLens/agents/openai.yaml
+Add or update .codex/agents/docs-researcher.toml
+Add or update .codex/agents/reviewer.toml
+Add or update .codex/agents/explorer.toml
 ```
 
 ### Update Skill And Agent Documentation
 
-Updates documentation for FundLens skills and agents, ensuring documentation files are current.
+Updates documentation related to skills and agents for FundLens ECC bundles.
 
 **Frequency**: ~3 times per month
 
 **Steps**:
-1. Edit or add .claude/commands/update-skill-and-agent-documentation.md or similar documentation files
-2. Update .agents/skills/FundLens/SKILL.md and/or .claude/skills/FundLens/SKILL.md
+1. Add or update .claude/commands/update-skill-and-agent-documentation.md or similar documentation command files
+2. Add or update .claude/skills/FundLens/SKILL.md
+3. Add or update .agents/skills/FundLens/SKILL.md
 
 **Files typically involved**:
 - `.claude/commands/update-skill-and-agent-documentation.md`
 - `.claude/commands/update-skill-documentation.md`
 - `.claude/commands/update-agent-and-skill-documentation.md`
-- `.agents/skills/FundLens/SKILL.md`
 - `.claude/skills/FundLens/SKILL.md`
+- `.agents/skills/FundLens/SKILL.md`
 
 **Example commit sequence**:
 ```
-Edit or add .claude/commands/update-skill-and-agent-documentation.md or similar documentation files
-Update .agents/skills/FundLens/SKILL.md and/or .claude/skills/FundLens/SKILL.md
-```
-
-### Feature Development Command Docs
-
-Adds or updates feature development command documentation for FundLens ECC bundle.
-
-**Frequency**: ~4 times per month
-
-**Steps**:
-1. Add or update .claude/commands/feature-development.md
-
-**Files typically involved**:
-- `.claude/commands/feature-development.md`
-
-**Example commit sequence**:
-```
-Add or update .claude/commands/feature-development.md
-```
-
-### Add Codex Agent Configs
-
-Adds or updates Codex agent configuration files for FundLens ECC bundle.
-
-**Frequency**: ~4 times per month
-
-**Steps**:
-1. Add or update .codex/agents/docs-researcher.toml
-2. Add or update .codex/agents/reviewer.toml
-3. Add or update .codex/agents/explorer.toml
-
-**Files typically involved**:
-- `.codex/agents/docs-researcher.toml`
-- `.codex/agents/reviewer.toml`
-- `.codex/agents/explorer.toml`
-
-**Example commit sequence**:
-```
-Add or update .codex/agents/docs-researcher.toml
-Add or update .codex/agents/reviewer.toml
-Add or update .codex/agents/explorer.toml
+Add or update .claude/commands/update-skill-and-agent-documentation.md or similar documentation command files
+Add or update .claude/skills/FundLens/SKILL.md
+Add or update .agents/skills/FundLens/SKILL.md
 ```
 
 
