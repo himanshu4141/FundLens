@@ -10,16 +10,16 @@ Use this workflow when working on **add-ecc-bundle** in `FundLens`.
 
 ## Goal
 
-Adds a new ECC (Extensible Cognitive Component) bundle for FundLens, including agent definitions, skill documentation, commands, and configuration files.
+Adds a new ECC (Extensible Command/Component) bundle for FundLens, including agent configurations, skill documentation, identity, and command templates.
 
 ## Common Files
 
-- `.claude/commands/feature-development.md`
-- `.claude/commands/refactoring.md`
-- `.claude/commands/database-migration.md`
 - `.claude/identity.json`
-- `.claude/ecc-tools.json`
+- `.agents/skills/FundLens/SKILL.md`
 - `.claude/skills/FundLens/SKILL.md`
+- `.claude/ecc-tools.json`
+- `.codex/agents/docs-researcher.toml`
+- `.codex/agents/reviewer.toml`
 
 ## Suggested Sequence
 
@@ -30,11 +30,11 @@ Adds a new ECC (Extensible Cognitive Component) bundle for FundLens, including a
 
 ## Typical Commit Signals
 
-- Add or update .claude/commands/*.md files (such as feature-development.md, refactoring.md, database-migration.md)
-- Add or update .claude/identity.json
-- Add or update .claude/ecc-tools.json
+- Create or update .claude/identity.json
+- Add or update .agents/skills/FundLens/SKILL.md
 - Add or update .claude/skills/FundLens/SKILL.md
-- Add or update .agents/skills/FundLens/agents/openai.yaml
+- Add or update .claude/ecc-tools.json
+- Add or update .codex/agents/docs-researcher.toml
 
 ## Notes
 
