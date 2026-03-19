@@ -1,18 +1,19 @@
 /**
  * FundLens design tokens — single source of truth for colours, spacing, and typography.
  *
- * Palette: deep navy primary, warm white surface, slate accents.
- * Chosen to feel trustworthy (financial), not gimmicky.
+ * Palette: deep forest teal primary — growth, patience, long-term investing.
+ * Teal is visually distinct from the semantic green (gains/losses) while
+ * encoding the product's core meaning: wealth that grows over time.
  */
 
 export const Colors = {
   // Brand
-  primary: '#1a56db',      // Electric blue — CTAs, interactive elements
-  primaryDark: '#1341a8',  // Pressed state, dark contexts
-  primaryLight: '#eff4ff', // Tint for banners, selected states
+  primary: '#0f6b57',      // Deep forest teal — growth, patience, long-term
+  primaryDark: '#0a4a3c',  // Darker teal — pressed states, gradient start
+  primaryLight: '#edfaf6', // Very light tint — banners, highlights
 
   // Semantic
-  positive: '#16a34a', // Green — gains, beats benchmark
+  positive: '#16a34a', // Green — gains, beats benchmark (distinct from brand teal)
   negative: '#dc2626', // Red — losses, lags benchmark
   warning: '#d97706',  // Amber — caution states
 
@@ -33,7 +34,7 @@ export const Colors = {
 
   // Gradients (start/end for LinearGradient)
   gradientHero: ['#0f172a', '#1e3a5f'] as [string, string],
-  gradientCard: ['#1a56db', '#1341a8'] as [string, string],
+  gradientHeader: ['#0a2e25', '#0f6b57'] as [string, string], // immersive dark forest → teal
 };
 
 export const Spacing = {
