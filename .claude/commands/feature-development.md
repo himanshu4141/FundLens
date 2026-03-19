@@ -14,9 +14,7 @@ Standard feature implementation workflow
 
 ## Common Files
 
-- `app/(tabs)/*`
-- `app/*`
-- `app/auth/*`
+- Inspect the files touched by the related commits before editing.
 
 ## Suggested Sequence
 
