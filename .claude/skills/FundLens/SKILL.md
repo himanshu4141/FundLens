@@ -28,7 +28,7 @@ Activate this skill when:
 
 ## Commit Conventions
 
-Follow these commit message conventions based on 72 analyzed commits.
+Follow these commit message conventions based on 83 analyzed commits.
 
 ### Commit Style: Conventional Commits
 
@@ -46,7 +46,7 @@ Follow these commit message conventions based on 72 analyzed commits.
 *Commit message example*
 
 ```text
-feat: add FundLens ECC bundle (.claude/commands/update-agent-and-skill-documentation.md)
+feat: add FundLens ECC bundle (.claude/commands/update-skill-documentation.md)
 ```
 
 *Commit message example*
@@ -76,7 +76,7 @@ initial: project setup
 *Commit message example*
 
 ```text
-feat: add FundLens ECC bundle (.claude/commands/add-ecc-bundle-files.md)
+feat: add FundLens ECC bundle (.claude/commands/add-ecc-bundle.md)
 ```
 
 *Commit message example*
@@ -188,98 +188,81 @@ Standard feature implementation workflow
 
 **Example commit sequence**:
 ```
+feat: add FundLens ECC bundle (.codex/agents/explorer.toml)
 feat: add FundLens ECC bundle (.codex/agents/reviewer.toml)
 feat: add FundLens ECC bundle (.codex/agents/docs-researcher.toml)
-feat: add FundLens ECC bundle (.claude/homunculus/instincts/inherited/FundLens-instincts.yaml)
 ```
 
 ### Add Ecc Bundle
 
-Adds a new ECC (Extensible Cognitive Component) bundle for FundLens, including agent definitions, skill documentation, commands, and configuration files.
+Adds a new ECC (Extensible Command/Component) bundle for FundLens, including agent configurations, skill documentation, identity, and command templates.
 
 **Frequency**: ~4 times per month
 
 **Steps**:
-1. Add or update .claude/commands/*.md files (such as feature-development.md, refactoring.md, database-migration.md)
-2. Add or update .claude/identity.json
-3. Add or update .claude/ecc-tools.json
-4. Add or update .claude/skills/FundLens/SKILL.md
-5. Add or update .agents/skills/FundLens/agents/openai.yaml
-6. Add or update .agents/skills/FundLens/SKILL.md
-7. Add or update .codex/agents/*.toml (docs-researcher.toml, reviewer.toml, explorer.toml)
+1. Create or update .claude/identity.json
+2. Add or update .agents/skills/FundLens/SKILL.md
+3. Add or update .claude/skills/FundLens/SKILL.md
+4. Add or update .claude/ecc-tools.json
+5. Add or update .codex/agents/docs-researcher.toml
+6. Add or update .codex/agents/reviewer.toml
+7. Add or update .codex/agents/explorer.toml
+8. Add or update .agents/skills/FundLens/agents/openai.yaml
+9. Add or update .claude/commands/*.md (such as feature-development.md, refactoring.md, database-migration.md, etc.)
 
 **Files typically involved**:
-- `.claude/commands/feature-development.md`
-- `.claude/commands/refactoring.md`
-- `.claude/commands/database-migration.md`
 - `.claude/identity.json`
+- `.agents/skills/FundLens/SKILL.md`
+- `.claude/skills/FundLens/SKILL.md`
 - `.claude/ecc-tools.json`
-- `.claude/skills/FundLens/SKILL.md`
+- `.codex/agents/docs-researcher.toml`
+- `.codex/agents/reviewer.toml`
+- `.codex/agents/explorer.toml`
 - `.agents/skills/FundLens/agents/openai.yaml`
-- `.agents/skills/FundLens/SKILL.md`
-- `.codex/agents/docs-researcher.toml`
-- `.codex/agents/reviewer.toml`
-- `.codex/agents/explorer.toml`
+- `.claude/commands/*.md`
 
 **Example commit sequence**:
 ```
-Add or update .claude/commands/*.md files (such as feature-development.md, refactoring.md, database-migration.md)
-Add or update .claude/identity.json
+Create or update .claude/identity.json
+Add or update .agents/skills/FundLens/SKILL.md
+Add or update .claude/skills/FundLens/SKILL.md
 Add or update .claude/ecc-tools.json
-Add or update .claude/skills/FundLens/SKILL.md
-Add or update .agents/skills/FundLens/agents/openai.yaml
-Add or update .agents/skills/FundLens/SKILL.md
-Add or update .codex/agents/*.toml (docs-researcher.toml, reviewer.toml, explorer.toml)
-```
-
-### Update Skill Documentation
-
-Updates or adds documentation for FundLens skills, ensuring SKILL.md files are present and current in both .agents and .claude directories.
-
-**Frequency**: ~4 times per month
-
-**Steps**:
-1. Add or update .agents/skills/FundLens/SKILL.md
-2. Add or update .claude/skills/FundLens/SKILL.md
-
-**Files typically involved**:
-- `.agents/skills/FundLens/SKILL.md`
-- `.claude/skills/FundLens/SKILL.md`
-
-**Example commit sequence**:
-```
-Add or update .agents/skills/FundLens/SKILL.md
-Add or update .claude/skills/FundLens/SKILL.md
-```
-
-### Add Or Update Codex Agent
-
-Adds or updates Codex agent configuration files for FundLens, such as docs-researcher, reviewer, and explorer.
-
-**Frequency**: ~4 times per month
-
-**Steps**:
-1. Add or update .codex/agents/docs-researcher.toml
-2. Add or update .codex/agents/reviewer.toml
-3. Add or update .codex/agents/explorer.toml
-
-**Files typically involved**:
-- `.codex/agents/docs-researcher.toml`
-- `.codex/agents/reviewer.toml`
-- `.codex/agents/explorer.toml`
-
-**Example commit sequence**:
-```
 Add or update .codex/agents/docs-researcher.toml
 Add or update .codex/agents/reviewer.toml
 Add or update .codex/agents/explorer.toml
+Add or update .agents/skills/FundLens/agents/openai.yaml
+Add or update .claude/commands/*.md (such as feature-development.md, refactoring.md, database-migration.md, etc.)
 ```
 
-### Add Or Update Claude Commands
+### Update Skill And Agent Documentation
 
-Adds or updates Claude command markdown files related to workflows such as feature development, refactoring, and database migration.
+Updates documentation for FundLens skills and agents, ensuring SKILL.md and related command documentation are current.
 
-**Frequency**: ~4 times per month
+**Frequency**: ~2 times per month
+
+**Steps**:
+1. Edit .agents/skills/FundLens/SKILL.md
+2. Edit .claude/skills/FundLens/SKILL.md
+3. Edit or add .claude/commands/update-skill-documentation.md or update-agent-and-skill-documentation.md
+
+**Files typically involved**:
+- `.agents/skills/FundLens/SKILL.md`
+- `.claude/skills/FundLens/SKILL.md`
+- `.claude/commands/update-skill-documentation.md`
+- `.claude/commands/update-agent-and-skill-documentation.md`
+
+**Example commit sequence**:
+```
+Edit .agents/skills/FundLens/SKILL.md
+Edit .claude/skills/FundLens/SKILL.md
+Edit or add .claude/commands/update-skill-documentation.md or update-agent-and-skill-documentation.md
+```
+
+### Add Or Update Command Templates
+
+Adds or updates command template markdown files for common workflows like feature development, refactoring, or database migration.
+
+**Frequency**: ~3 times per month
 
 **Steps**:
 1. Add or update .claude/commands/feature-development.md
