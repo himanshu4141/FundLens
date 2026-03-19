@@ -154,10 +154,13 @@ function PortfolioHeader({
 
 function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }) {
   const isPositiveDay = fund.dailyChangeAmount >= 0;
-  const xirrPositive = fund.returnXirr >= 0;
   const accentColor = categoryColor(fund.schemeCategory);
-  const hasRealizedGains = fund.redeemedUnits > 0;
-  const realizedPositive = fund.realizedGain >= 0;
+  const hasRedemptions = fund.redeemedUnits > 0;
+
+  // Unrealized P&L on current holdings
+  const unrealizedGain = fund.currentValue - fund.investedAmount;
+  const unrealizedPct = fund.investedAmount > 0 ? (unrealizedGain / fund.investedAmount) * 100 : 0;
+  const unrealizedPositive = unrealizedGain >= 0;
 
   return (
     <TouchableOpacity style={styles.fundCard} onPress={onPress} activeOpacity={0.78}>
@@ -165,6 +168,7 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
       <View style={[styles.fundCardAccent, { backgroundColor: accentColor }]} />
 
       <View style={styles.fundCardInner}>
+        {/* Fund name + daily change */}
         <View style={styles.fundCardTop}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>
@@ -178,37 +182,48 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
             <Text style={styles.fundValue}>{formatCurrency(fund.currentValue)}</Text>
             <View style={styles.dailyChangePill}>
               <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
-                {fund.dailyChangePct >= 0 ? '+' : ''}
-                {fund.dailyChangePct.toFixed(2)}%
+                {fund.dailyChangePct >= 0 ? '+' : ''}{fund.dailyChangePct.toFixed(2)}% today
               </Text>
             </View>
           </View>
         </View>
 
+        {/* P&L row: Invested → Current → Gain/Loss */}
         <View style={styles.fundCardBottom}>
           <View style={styles.fundMeta}>
             <Text style={styles.fundMetaLabel}>Invested</Text>
             <Text style={styles.fundMetaValue}>{formatCurrency(fund.investedAmount)}</Text>
           </View>
+          <View style={styles.fundMetaDivider} />
           <View style={styles.fundMeta}>
-            <Text style={styles.fundMetaLabel}>NAV</Text>
-            <Text style={styles.fundMetaValue}>₹{fund.currentNav.toFixed(3)}</Text>
+            <Text style={styles.fundMetaLabel}>Current</Text>
+            <Text style={styles.fundMetaValue}>{formatCurrency(fund.currentValue)}</Text>
           </View>
+          <View style={styles.fundMetaDivider} />
           <View style={styles.fundMeta}>
-            <Text style={styles.fundMetaLabel}>XIRR</Text>
-            <Text style={[styles.fundMetaValue, { color: xirrPositive ? Colors.positive : Colors.negative }]}>
-              {formatXirr(fund.returnXirr)}
+            <Text style={styles.fundMetaLabel}>Gain / Loss</Text>
+            <Text style={[styles.fundMetaValue, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+              {unrealizedPositive ? '+' : ''}{formatCurrency(Math.abs(unrealizedGain))}
+            </Text>
+            <Text style={[styles.fundMetaSub, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+              ({unrealizedPositive ? '+' : ''}{unrealizedPct.toFixed(1)}%)
             </Text>
           </View>
         </View>
 
-        {hasRealizedGains && (
+        {/* Redemption summary row */}
+        {hasRedemptions && (
           <View style={styles.realizedRow}>
-            <Text style={styles.realizedLabel}>Realized P&amp;L</Text>
-            <Text style={[styles.realizedValue, { color: realizedPositive ? Colors.positive : Colors.negative }]}>
-              {realizedPositive ? '+' : ''}{formatCurrency(Math.abs(fund.realizedGain))}
-              {!realizedPositive && fund.realizedGain < 0 ? ' loss' : ''}
-            </Text>
+            <View style={styles.realizedItem}>
+              <Text style={styles.realizedLabel}>Redeemed</Text>
+              <Text style={styles.realizedValue}>{formatCurrency(fund.realizedAmount)}</Text>
+            </View>
+            <View style={styles.realizedItem}>
+              <Text style={styles.realizedLabel}>Realized P&amp;L</Text>
+              <Text style={[styles.realizedValue, { color: fund.realizedGain >= 0 ? Colors.positive : Colors.negative }]}>
+                {fund.realizedGain >= 0 ? '+' : ''}{formatCurrency(Math.abs(fund.realizedGain))}
+              </Text>
+            </View>
           </View>
         )}
       </View>
@@ -545,6 +560,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   fundMetaValue: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  fundMetaDivider: { width: 1, backgroundColor: Colors.borderLight, marginHorizontal: 4 },
+  fundMetaSub: { fontSize: 11, fontWeight: '500' },
 
   realizedRow: {
     flexDirection: 'row',
