@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-gifted-charts';
 import { useSession } from '@/src/hooks/useSession';
 import { useCompare, type CompareFundData } from '@/src/hooks/useCompare';
@@ -24,15 +25,16 @@ import {
 import { formatXirr } from '@/src/utils/xirr';
 import { supabase } from '@/src/lib/supabase';
 import { type TimeWindow } from '@/src/hooks/useFundDetail';
+import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
 const MAX_ITEMS = 3;
 
-// Fixed colors assigned by slot position when added
-const SERIES_COLORS = ['#1a56db', '#16a34a', '#f59e0b'];
-// Lighter version of each color for index lines (append opacity suffix)
-const INDEX_LINE_COLORS = ['#1a56dbb0', '#16a34ab0', '#f59e0bb0'];
+// Visually distinct colours for each selected item
+const SERIES_COLORS = [Colors.primary, Colors.positive, '#f59e0b'];
+// Lighter versions for index benchmark lines
+const INDEX_LINE_COLORS = [Colors.primary + 'b0', Colors.positive + 'b0', '#f59e0bb0'];
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
@@ -148,20 +150,22 @@ function AddItemModal({
         </View>
 
         <View style={modalStyles.searchRow}>
+          <Ionicons name="search-outline" size={16} color={Colors.textTertiary} style={{ marginRight: 6 }} />
           <TextInput
             style={modalStyles.searchInput}
             placeholder="Search funds or indexes…"
             value={query}
             onChangeText={setQuery}
             autoFocus
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={Colors.textTertiary}
             clearButtonMode="while-editing"
           />
-          {loading && <ActivityIndicator style={modalStyles.searchSpinner} color="#1a56db" />}
+          {loading && <ActivityIndicator style={modalStyles.searchSpinner} color={Colors.primary} />}
         </View>
 
         {listItems.length === 0 && !loading ? (
           <View style={modalStyles.hint}>
+            <Ionicons name="search-outline" size={32} color={Colors.textTertiary} />
             <Text style={modalStyles.hintText}>
               {allFunds.length === 0 ? 'No funds in your portfolio' : 'No matches'}
             </Text>
@@ -382,6 +386,9 @@ export default function CompareScreen() {
 
         {selectedItems.length === 0 ? (
           <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="bar-chart-outline" size={40} color={Colors.primary} />
+            </View>
             <Text style={styles.emptyTitle}>Compare funds & indexes</Text>
             <Text style={styles.emptySub}>
               Select up to {MAX_ITEMS} funds or benchmark indexes to compare their % return on the same chart.
@@ -390,13 +397,15 @@ export default function CompareScreen() {
               style={styles.emptyBtn}
               onPress={() => setShowModal(true)}
               disabled={!userId}
+              activeOpacity={0.85}
             >
+              <Ionicons name="add" size={16} color="#fff" />
               <Text style={styles.emptyBtnText}>Add first item</Text>
             </TouchableOpacity>
           </View>
         ) : isLoading ? (
           <View style={styles.loading}>
-            <ActivityIndicator size="large" color="#1a56db" />
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : (
           <>
@@ -558,67 +567,99 @@ export default function CompareScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Colors.background },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
     paddingBottom: 14,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.borderLight,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#111' },
+  title: { ...Typography.h2, color: Colors.textPrimary },
 
-  chipSection: { padding: 16, gap: 10 },
-  chipSectionLabel: { fontSize: 12, fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase' },
+  chipSection: { padding: Spacing.md, gap: 10 },
+  chipSectionLabel: { ...Typography.label, color: Colors.textTertiary, textTransform: 'uppercase' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   fundChip: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 20,
+    borderRadius: Radii.full,
     paddingHorizontal: 10,
     paddingVertical: 6,
     gap: 6,
     maxWidth: 200,
   },
   chipDot: { width: 8, height: 8, borderRadius: 4 },
-  chipName: { flex: 1, fontSize: 12, fontWeight: '600', color: '#111' },
-  chipIndexTag: { fontSize: 9, fontWeight: '700', color: '#64748b', backgroundColor: '#f1f5f9', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 3 },
+  chipName: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
+  chipIndexTag: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    backgroundColor: Colors.borderLight,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
   chipRemove: { padding: 2 },
-  chipRemoveText: { fontSize: 16, color: '#94a3b8', fontWeight: '700', lineHeight: 18 },
+  chipRemoveText: { fontSize: 16, color: Colors.textTertiary, fontWeight: '700', lineHeight: 18 },
   addChip: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#1a56db',
-    borderRadius: 20,
+    borderColor: Colors.primary,
+    borderRadius: Radii.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  addChipText: { fontSize: 13, color: '#1a56db', fontWeight: '600' },
+  addChipText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
 
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 32, gap: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
-  emptySub: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22 },
-  emptyBtn: { backgroundColor: '#1a56db', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
-  emptyBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  emptyTitle: { ...Typography.h2, color: Colors.textPrimary },
+  emptySub: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.primary,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 13,
+    marginTop: Spacing.sm,
+  },
+  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
   loading: { paddingVertical: 60, alignItems: 'center' },
 
-  windowSection: { paddingHorizontal: 16, marginBottom: 4 },
+  windowSection: { paddingHorizontal: Spacing.md, marginBottom: 4 },
   windowRow: { flexDirection: 'row', gap: 6 },
-  windowPill: { flex: 1, paddingVertical: 7, borderRadius: 20, alignItems: 'center', backgroundColor: '#f1f5f9' },
-  windowPillActive: { backgroundColor: '#1a56db' },
-  windowPillText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  windowPill: { flex: 1, paddingVertical: 7, borderRadius: Radii.full, alignItems: 'center', backgroundColor: Colors.borderLight },
+  windowPillActive: { backgroundColor: Colors.primary },
+  windowPillText: { fontSize: 12, fontWeight: '600', color: Colors.textTertiary },
   windowPillTextActive: { color: '#fff' },
 
   chartCard: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: Colors.surface,
+    margin: Spacing.md,
+    borderRadius: Radii.md,
+    padding: Spacing.md,
     gap: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -626,15 +667,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  chartTitle: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  yAxisText: { fontSize: 10, color: '#94a3b8' },
-  xAxisText: { fontSize: 9, color: '#94a3b8' },
+  chartTitle: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  yAxisText: { fontSize: 10, color: Colors.textTertiary },
+  xAxisText: { fontSize: 9, color: Colors.textTertiary },
 
   tooltip: {
     position: 'absolute',
     top: 6,
-    backgroundColor: 'rgba(17,17,17,0.88)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(15,23,42,0.92)',
+    borderRadius: Radii.sm,
     paddingHorizontal: 10,
     paddingVertical: 7,
     minWidth: 100,
@@ -646,21 +687,21 @@ const styles = StyleSheet.create({
 
   legendSection: { gap: 8, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
-  legendItemHidden: { opacity: 0.5 },
+  legendItemHidden: { opacity: 0.4 },
   legendLine: { width: 20, borderRadius: 2 },
-  legendLabel: { flex: 1, fontSize: 12, color: '#334155', fontWeight: '500' },
-  legendLabelHidden: { color: '#94a3b8' },
-  legendEye: { fontSize: 12, color: '#334155', width: 16 },
-  legendEyeHidden: { color: '#94a3b8' },
+  legendLabel: { flex: 1, fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
+  legendLabelHidden: { color: Colors.textTertiary },
+  legendEye: { fontSize: 12, color: Colors.textSecondary, width: 16 },
+  legendEyeHidden: { color: Colors.textTertiary },
 
-  noData: { paddingVertical: 32, alignItems: 'center' },
-  noDataText: { fontSize: 13, color: '#94a3b8', textAlign: 'center', lineHeight: 20 },
+  noData: { paddingVertical: 40, alignItems: 'center', gap: 10 },
+  noDataText: { ...Typography.body, color: Colors.textTertiary, textAlign: 'center', lineHeight: 20 },
 
   compareTable: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    borderRadius: 14,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -669,72 +710,72 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   tableRow: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 10 },
-  tableRowAlt: { backgroundColor: '#f8fafc' },
-  tableHeaderCell: { flex: 1, fontSize: 11, fontWeight: '700', color: '#64748b', textTransform: 'uppercase' },
-  tableLabelCell: { flex: 1, fontSize: 12, fontWeight: '600', color: '#64748b' },
-  tableValueCell: { flex: 1, fontSize: 13, fontWeight: '600', color: '#111' },
+  tableRowAlt: { backgroundColor: Colors.background },
+  tableHeaderCell: { flex: 1, fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase' },
+  tableLabelCell: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  tableValueCell: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
 
   bottomPad: { height: 32 },
 });
 
 const modalStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: Colors.surface },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.borderLight,
   },
-  title: { fontSize: 17, fontWeight: '700', color: '#111' },
+  title: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
   closeBtn: { padding: 4 },
-  closeBtnText: { fontSize: 15, color: '#1a56db', fontWeight: '600' },
+  closeBtnText: { fontSize: 15, color: Colors.primary, fontWeight: '600' },
 
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 16,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
+    margin: Spacing.md,
+    backgroundColor: Colors.background,
+    borderRadius: Radii.sm,
     paddingHorizontal: 14,
   },
-  searchInput: { flex: 1, fontSize: 15, paddingVertical: 12, color: '#111' },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 12, color: Colors.textPrimary },
   searchSpinner: { marginLeft: 8 },
 
   sectionHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#f8fafc',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Colors.borderLight,
   },
-  sectionHeaderText: { fontSize: 11, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' },
+  sectionHeaderText: { ...Typography.label, color: Colors.textTertiary, textTransform: 'uppercase' },
 
-  hint: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  hintText: { fontSize: 14, color: '#94a3b8' },
+  hint: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  hintText: { fontSize: 14, color: Colors.textTertiary },
 
   resultList: { paddingBottom: 32 },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Colors.borderLight,
     gap: 10,
   },
   indexBadge: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#1a56db',
-    backgroundColor: '#eff6ff',
+    color: Colors.primary,
+    backgroundColor: Colors.primaryLight,
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 4,
   },
   resultText: { flex: 1, gap: 3 },
-  resultName: { fontSize: 14, fontWeight: '600', color: '#111' },
-  resultCategory: { fontSize: 12, color: '#94a3b8' },
+  resultName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  resultCategory: { fontSize: 12, color: Colors.textTertiary },
 });
