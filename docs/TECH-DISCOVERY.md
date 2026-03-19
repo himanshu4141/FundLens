@@ -105,18 +105,17 @@ CASParser.in provides a dedicated inbox per user. The user forwards their CAMS C
 | Option | Privacy | Friction | Credits |
 |---|---|---|---|
 | Gmail OAuth | ❌ Persistent inbox access | Low | 0.2/parse |
-| MFcentral QR | ✅ User-controlled | High (redirect → OTP → QR → upload) | 1/parse |
+| ~~MFcentral QR~~ | ~~✅ User-controlled~~ | ~~High (redirect → OTP → QR → upload)~~ | ~~1/parse~~ |
 | PDF upload | ✅ User-controlled | Medium (download + upload) | 1/parse |
 | **Email forwarding** | ✅ **User-initiated, no persistent access** | **Low (one forward)** | **0.2/parse** |
 
-**Fallback flow — QR or PDF upload:**
+**Fallback flow — PDF upload:**
 For first import (before a CAMS monthly email arrives), or if email forwarding fails:
-- MFcentral QR flow: redirect to `mfc-cas.mfcentral.com` → OTP → configure → download QR → upload to app → sent to CASParser.in
 - Manual PDF: download CAS from camsonline.com → upload in-app → sent to CASParser.in
 
-**CASParser.in pricing**: Free tier — 10 credits/month. Email parsing costs 0.2 credits (50 refreshes/month). PDF/QR parsing costs 1 credit (10 parses/month).
+> MFcentral QR flow removed (March 2026) — high friction (OTP + redirect + QR scan) with no meaningful advantage over PDF upload. Email sync + PDF covers all practical cases.
 
-**MFcentral context**: The QR flow is alive (confirmed via Value Research walkthrough, March 2026) but requires AMFI partner registration to implement directly — not feasible for a personal app. CASParser.in is a registered MFcentral partner.
+**CASParser.in pricing**: Free tier — 10 credits/month. Email parsing costs 0.2 credits (50 refreshes/month). PDF parsing costs 1 credit (10 parses/month).
 
 ---
 
@@ -136,6 +135,7 @@ This gives us everything needed to compute XIRR accurately for SIP investors.
 
 - **No Gmail OAuth** — rejected on privacy grounds. CASParser.in's Gmail feature explicitly not used.
 - **No direct MFcentral integration** — requires AMFI partner registration, not feasible for a personal app.
+- **No MFcentral QR flow** — removed March 2026. High friction (OTP → redirect → QR scan) relative to PDF upload, which achieves the same outcome with less ceremony.
 - **No Account Aggregator** — requires SEBI RIA license, ₹5-25L cost, 5-10 month implementation. Not viable.
 - **No self-hosted casparser** — Supabase Edge Functions are Deno (TypeScript only), no Python runtime. CASParser.in avoids needing a separate microservice.
 - **Index data must be server-side** — CORS blocks browser-side NSE API calls.

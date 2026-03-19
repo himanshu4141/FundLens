@@ -189,6 +189,16 @@ Install `expo-clipboard` for copy-to-clipboard:
 - **Date format DD-MMM-YYYY** — CASParser.in uses month abbreviations (Jan, Feb, ...) not zero-padded numbers. The `MONTHS` map handles this explicitly.
 
 
+## Amendments
+
+### March 2026 — MFcentral QR flow removed
+**Decision**: Remove `app/onboarding/qr.tsx` and all references to the QR import path.
+
+**Reason**: Email sync (primary) and PDF upload (fallback) cover all practical cases. The QR flow added a screen, a nav entry, and ongoing maintenance overhead for a path that requires more steps from the user (MFcentral OTP → redirect → QR generation → return to app) and costs 5× more CASParser.in credits (1 credit vs 0.2 for email). No user-visible value justifies keeping it.
+
+**Changes**: Deleted `app/onboarding/qr.tsx`; removed Stack.Screen from `_layout.tsx`; replaced two-card alt row in `index.tsx` with a single PDF card; updated SCREENS.md, TECH-DISCOVERY.md, and this plan.
+
+
 ## Progress
 
 - [x] Write and apply `supabase/migrations/20260318000001_webhook_token.sql`

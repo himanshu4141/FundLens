@@ -426,16 +426,10 @@ export default function OnboardingScreen() {
 
       {/* ── Alternative: PDF upload ────────────────────────────── */}
       <Text style={styles.altTitle}>Or import manually</Text>
-      <View style={styles.altRow}>
-        <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/qr')}>
-          <Text style={styles.altCardTitle}>MFcentral QR</Text>
-          <Text style={styles.altCardSub}>Scan QR code</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
-          <Text style={styles.altCardTitle}>Upload PDF</Text>
-          <Text style={styles.altCardSub}>Upload CAS PDF directly</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
+        <Text style={styles.altCardTitle}>Upload PDF</Text>
+        <Text style={styles.altCardSub}>Upload CAS PDF directly</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -543,7 +537,6 @@ const styles = StyleSheet.create({
   bold: { fontWeight: '700' },
 
   altTitle: { fontSize: 14, fontWeight: '600', color: '#888', marginTop: 8, marginBottom: 10 },
-  altRow: { flexDirection: 'row', gap: 10 },
   altCard: {
     flex: 1, borderWidth: 1, borderColor: '#e5e7eb',
     borderRadius: 10, padding: 14, gap: 4,
