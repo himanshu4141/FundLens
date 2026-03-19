@@ -16,6 +16,37 @@ import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
+import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
+
+function BenchmarkSelector({
+  selected,
+  onChange,
+}: {
+  selected: string;
+  onChange: (symbol: string) => void;
+}) {
+  return (
+    <View style={styles.benchmarkRow}>
+      <Text style={styles.benchmarkRowLabel}>vs</Text>
+      {BENCHMARK_OPTIONS.map((opt) => (
+        <TouchableOpacity
+          key={opt.symbol}
+          style={[styles.benchmarkPill, selected === opt.symbol && styles.benchmarkPillActive]}
+          onPress={() => onChange(opt.symbol)}
+        >
+          <Text
+            style={[
+              styles.benchmarkPillText,
+              selected === opt.symbol && styles.benchmarkPillTextActive,
+            ]}
+          >
+            {opt.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
 
 function PortfolioHeader({
   totalValue,
@@ -23,17 +54,24 @@ function PortfolioHeader({
   dailyChangePct,
   xirr: xirrRate,
   marketXirr,
+  benchmarkSymbol,
+  onBenchmarkChange,
 }: {
   totalValue: number;
   dailyChangeAmount: number;
   dailyChangePct: number;
   xirr: number;
   marketXirr: number;
+  benchmarkSymbol: string;
+  onBenchmarkChange: (symbol: string) => void;
 }) {
   const isPositiveDay = dailyChangeAmount >= 0;
   const dayColor = isPositiveDay ? '#16a34a' : '#dc2626';
   const isAheadOfMarket =
     isFinite(xirrRate) && isFinite(marketXirr) ? xirrRate >= marketXirr : null;
+
+  const benchmarkLabel =
+    BENCHMARK_OPTIONS.find((b) => b.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
 
   return (
     <View style={styles.portfolioHeader}>
@@ -51,7 +89,7 @@ function PortfolioHeader({
         </View>
         <View style={styles.xirrDivider} />
         <View style={styles.xirrItem}>
-          <Text style={styles.xirrLabel}>Nifty 50</Text>
+          <Text style={styles.xirrLabel}>{benchmarkLabel}</Text>
           <Text style={styles.xirrValue}>{formatXirr(marketXirr)}</Text>
         </View>
         {isAheadOfMarket !== null && (
@@ -71,6 +109,8 @@ function PortfolioHeader({
           </>
         )}
       </View>
+
+      <BenchmarkSelector selected={benchmarkSymbol} onChange={onBenchmarkChange} />
     </View>
   );
 }
@@ -79,6 +119,8 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
   const isPositiveDay = fund.dailyChangeAmount >= 0;
   const dayColor = isPositiveDay ? '#16a34a' : '#dc2626';
   const xirrPositive = fund.returnXirr >= 0;
+  const hasRealizedGains = fund.redeemedUnits > 0;
+  const realizedPositive = fund.realizedGain >= 0;
 
   return (
     <TouchableOpacity style={styles.fundCard} onPress={onPress} activeOpacity={0.75}>
@@ -114,6 +156,16 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
           </Text>
         </View>
       </View>
+
+      {hasRealizedGains && (
+        <View style={styles.realizedRow}>
+          <Text style={styles.realizedLabel}>Realized P&amp;L</Text>
+          <Text style={[styles.realizedValue, { color: realizedPositive ? '#16a34a' : '#dc2626' }]}>
+            {realizedPositive ? '+' : ''}{formatCurrency(Math.abs(fund.realizedGain))}
+            {!realizedPositive && fund.realizedGain < 0 ? ' loss' : ''}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -136,6 +188,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
+
+  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', userId],
@@ -166,7 +220,7 @@ export default function HomeScreen() {
     setTimeout(() => setSyncState('idle'), 4000);
   }
 
-  const { data, isLoading, isError, refetch, isRefetching } = usePortfolio();
+  const { data, isLoading, isError, refetch, isRefetching } = usePortfolio(defaultBenchmarkSymbol);
 
   const fundCards = data?.fundCards ?? [];
   const summary = data?.summary ?? null;
@@ -236,6 +290,8 @@ export default function HomeScreen() {
             dailyChangePct={summary.dailyChangePct}
             xirr={summary.xirr}
             marketXirr={summary.marketXirr}
+            benchmarkSymbol={defaultBenchmarkSymbol}
+            onBenchmarkChange={setDefaultBenchmarkSymbol}
           />
 
           <View style={styles.fundListHeader}>
@@ -322,6 +378,27 @@ const styles = StyleSheet.create({
   xirrLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
   xirrValue: { fontSize: 15, fontWeight: '700', color: '#111' },
 
+  benchmarkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  benchmarkRowLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', marginRight: 2 },
+  benchmarkPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  benchmarkPillActive: { backgroundColor: '#1a56db' },
+  benchmarkPillText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  benchmarkPillTextActive: { color: '#fff' },
+
   fundListHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -363,6 +440,17 @@ const styles = StyleSheet.create({
   fundMeta: { flex: 1, alignItems: 'center', gap: 2 },
   fundMetaLabel: { fontSize: 10, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
   fundMetaValue: { fontSize: 13, fontWeight: '600', color: '#334155' },
+
+  realizedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  realizedLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
+  realizedValue: { fontSize: 13, fontWeight: '700' },
 
   emptyState: {
     flex: 1,

@@ -9,12 +9,17 @@
  *  - portfolioTotal: sum of all fund current values
  *  - dailyChange: total daily change in INR and %
  *  - portfolioXirr: overall portfolio XIRR using all transactions
- *  - vsMarket: portfolio XIRR vs Nifty 50 XIRR over same period
+ *  - vsMarket: portfolio XIRR vs selected benchmark XIRR over same period
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { xirr, buildCashflowsFromTransactions, type Cashflow } from '@/src/utils/xirr';
+import {
+  xirr,
+  buildCashflowsFromTransactions,
+  computeRealizedGains,
+  type Cashflow,
+} from '@/src/utils/xirr';
 import { useSession } from '@/src/hooks/useSession';
 
 export interface FundCardData {
@@ -30,6 +35,8 @@ export interface FundCardData {
   dailyChangeAmount: number;
   dailyChangePct: number;
   returnXirr: number;
+  realizedGain: number;
+  redeemedUnits: number;
 }
 
 export interface PortfolioSummary {
@@ -38,10 +45,11 @@ export interface PortfolioSummary {
   dailyChangeAmount: number;
   dailyChangePct: number;
   xirr: number;
-  marketXirr: number; // Nifty 50 XIRR over same period
+  marketXirr: number;
+  benchmarkSymbol: string;
 }
 
-async function fetchPortfolioData(userId: string) {
+async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
   // Load active funds
   const { data: funds, error: fundsError } = await supabase
     .from('fund')
@@ -93,16 +101,16 @@ async function fetchPortfolioData(userId: string) {
     }
   }
 
-  // Load Nifty 50 index history for market comparison
-  const { data: niftyRows } = await supabase
+  // Load benchmark index history for market comparison
+  const { data: benchmarkRows } = await supabase
     .from('index_history')
     .select('index_date, close_value')
-    .eq('index_symbol', '^NSEI')
+    .eq('index_symbol', benchmarkSymbol)
     .order('index_date', { ascending: true });
 
-  const niftyMap = new Map<string, number>();
-  for (const row of niftyRows ?? []) {
-    niftyMap.set(row.index_date as string, row.close_value as number);
+  const benchmarkMap = new Map<string, number>();
+  for (const row of benchmarkRows ?? []) {
+    benchmarkMap.set(row.index_date as string, row.close_value as number);
   }
 
   // Compute per-fund card data
@@ -146,6 +154,9 @@ async function fetchPortfolioData(userId: string) {
     );
     const fundXirr = xirr(fundXirrFlows);
 
+    // Realized gains for partially/fully redeemed funds
+    const { realizedGain, redeemedUnits } = computeRealizedGains(txs);
+
     fundCards.push({
       id: fund.id,
       schemeName: fund.scheme_name,
@@ -159,6 +170,8 @@ async function fetchPortfolioData(userId: string) {
       dailyChangeAmount,
       dailyChangePct,
       returnXirr: fundXirr,
+      realizedGain,
+      redeemedUnits,
     });
 
     portfolioTotalValue += currentValue;
@@ -181,63 +194,62 @@ async function fetchPortfolioData(userId: string) {
   const portfolioXirrRate = allCashflows.length > 0 ? xirr(portfolioXirrFlows) : NaN;
 
   // Market XIRR: apple-to-apple comparison — simulate investing the SAME amounts
-  // on the SAME dates in Nifty 50, then compute XIRR on those flows.
-  // This gives the "what if I just bought Nifty on every SIP date?" return.
+  // on the SAME dates in the selected benchmark, then compute XIRR on those flows.
   let marketXirr = NaN;
-  if (allCashflows.length > 0 && niftyRows?.length) {
-    const sortedNifty = [...(niftyRows ?? [])].sort((a, b) =>
+  if (allCashflows.length > 0 && benchmarkRows?.length) {
+    const sortedBenchmark = [...(benchmarkRows ?? [])].sort((a, b) =>
       (a.index_date as string).localeCompare(b.index_date as string),
     );
 
     // Build a date → close_value lookup with ±7 day fallback for weekends/holidays
-    const niftyValueMap = new Map<string, number>();
-    for (const row of sortedNifty) {
-      niftyValueMap.set(row.index_date as string, row.close_value as number);
+    const benchmarkValueMap = new Map<string, number>();
+    for (const row of sortedBenchmark) {
+      benchmarkValueMap.set(row.index_date as string, row.close_value as number);
     }
 
-    function findNearestNifty(dateStr: string): number | null {
+    function findNearestBenchmark(dateStr: string): number | null {
       for (let offset = 0; offset <= 7; offset++) {
         const d = new Date(dateStr);
         d.setDate(d.getDate() + offset);
-        const val = niftyValueMap.get(d.toISOString().split('T')[0]);
+        const val = benchmarkValueMap.get(d.toISOString().split('T')[0]);
         if (val) return val;
         if (offset > 0) {
           const d2 = new Date(dateStr);
           d2.setDate(d2.getDate() - offset);
-          const val2 = niftyValueMap.get(d2.toISOString().split('T')[0]);
+          const val2 = benchmarkValueMap.get(d2.toISOString().split('T')[0]);
           if (val2) return val2;
         }
       }
       return null;
     }
 
-    // Mirror each outflow (investment) into hypothetical Nifty units
-    let niftyUnits = 0;
-    const niftyFlows: Cashflow[] = [];
+    // Mirror each outflow (investment) into hypothetical benchmark units
+    let benchmarkUnits = 0;
+    const benchmarkFlows: Cashflow[] = [];
 
     for (const cf of allCashflows) {
       const dateStr = cf.date.toISOString().split('T')[0];
-      const niftyVal = findNearestNifty(dateStr);
-      if (!niftyVal) continue;
+      const benchmarkVal = findNearestBenchmark(dateStr);
+      if (!benchmarkVal) continue;
 
       if (cf.amount < 0) {
-        // Outflow: buy Nifty units worth |amount|
-        niftyUnits += Math.abs(cf.amount) / niftyVal;
-        niftyFlows.push({ date: cf.date, amount: cf.amount });
+        // Outflow: buy benchmark units worth |amount|
+        benchmarkUnits += Math.abs(cf.amount) / benchmarkVal;
+        benchmarkFlows.push({ date: cf.date, amount: cf.amount });
       } else {
         // Inflow (redemption): pass through as a positive cashflow
-        niftyFlows.push({ date: cf.date, amount: cf.amount });
+        benchmarkFlows.push({ date: cf.date, amount: cf.amount });
       }
     }
 
-    const latestNiftyEntry = sortedNifty[sortedNifty.length - 1];
-    if (niftyUnits > 0 && latestNiftyEntry && niftyFlows.length > 0) {
-      const niftyTerminalValue = niftyUnits * (latestNiftyEntry.close_value as number);
-      niftyFlows.push({
-        date: new Date(latestNiftyEntry.index_date as string),
-        amount: niftyTerminalValue,
+    const latestBenchmarkEntry = sortedBenchmark[sortedBenchmark.length - 1];
+    if (benchmarkUnits > 0 && latestBenchmarkEntry && benchmarkFlows.length > 0) {
+      const benchmarkTerminalValue = benchmarkUnits * (latestBenchmarkEntry.close_value as number);
+      benchmarkFlows.push({
+        date: new Date(latestBenchmarkEntry.index_date as string),
+        amount: benchmarkTerminalValue,
       });
-      marketXirr = xirr(niftyFlows);
+      marketXirr = xirr(benchmarkFlows);
     }
   }
 
@@ -248,19 +260,20 @@ async function fetchPortfolioData(userId: string) {
     dailyChangePct: portfolioDailyChangePct,
     xirr: portfolioXirrRate,
     marketXirr,
+    benchmarkSymbol,
   };
 
   return { fundCards, summary };
 }
 
-export function usePortfolio() {
+export function usePortfolio(benchmarkSymbol: string = '^NSEI') {
   const { session } = useSession();
   const userId = session?.user.id;
 
   return useQuery({
-    queryKey: ['portfolio', userId],
+    queryKey: ['portfolio', userId, benchmarkSymbol],
     enabled: !!userId,
-    queryFn: () => fetchPortfolioData(userId!),
+    queryFn: () => fetchPortfolioData(userId!, benchmarkSymbol),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

@@ -1,0 +1,249 @@
+/**
+ * usePerformanceTimeline — fetches raw NAV and index histories for a mix of
+ * funds and benchmark indexes. Used by the Compare screen to build the
+ * % return chart.
+ *
+ * Returns:
+ *  - entries: one entry per item (fund or index), with full sorted history
+ *
+ * buildTimelineSeries() converts entries into chart-ready % return series.
+ */
+
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/src/lib/supabase';
+import { filterToWindow, type TimeWindow, type NavPoint } from './useFundDetail';
+
+export interface TimelineEntry {
+  type: 'fund' | 'index';
+  id: string;       // fund ID or index symbol
+  name: string;
+  history: NavPoint[];  // sorted ascending by date
+}
+
+export interface PerformanceTimelineData {
+  entries: TimelineEntry[];
+}
+
+async function fetchPerformanceTimeline(
+  fundItems: { id: string; name: string }[],
+  indexItems: { symbol: string; name: string }[],
+): Promise<PerformanceTimelineData> {
+  const entries: TimelineEntry[] = [];
+
+  if (fundItems.length > 0) {
+    // Fetch scheme codes for the fund IDs
+    const { data: funds, error: fundsError } = await supabase
+      .from('fund')
+      .select('id, scheme_code, scheme_name')
+      .in('id', fundItems.map((f) => f.id));
+
+    if (fundsError) throw fundsError;
+
+    const schemeCodes = (funds ?? []).map((f) => f.scheme_code);
+
+    if (schemeCodes.length > 0) {
+      const { data: navRows, error: navError } = await supabase
+        .from('nav_history')
+        .select('scheme_code, nav_date, nav')
+        .in('scheme_code', schemeCodes)
+        .order('nav_date', { ascending: true });
+
+      if (navError) throw navError;
+
+      // Group NAV by scheme_code
+      const navByScheme = new Map<number, NavPoint[]>();
+      for (const row of navRows ?? []) {
+        const code = row.scheme_code as number;
+        const existing = navByScheme.get(code) ?? [];
+        existing.push({ date: row.nav_date as string, value: row.nav as number });
+        navByScheme.set(code, existing);
+      }
+
+      // Add entries in the order requested by fundItems
+      for (const fundItem of fundItems) {
+        const fund = (funds ?? []).find((f) => f.id === fundItem.id);
+        if (!fund) continue;
+        entries.push({
+          type: 'fund',
+          id: fundItem.id,
+          name: fundItem.name,
+          history: navByScheme.get(fund.scheme_code) ?? [],
+        });
+      }
+    }
+  }
+
+  if (indexItems.length > 0) {
+    const { data: idxRows, error: idxError } = await supabase
+      .from('index_history')
+      .select('index_symbol, index_date, close_value')
+      .in('index_symbol', indexItems.map((i) => i.symbol))
+      .order('index_date', { ascending: true });
+
+    if (idxError) throw idxError;
+
+    // Group by index_symbol
+    const idxBySymbol = new Map<string, NavPoint[]>();
+    for (const row of idxRows ?? []) {
+      const sym = row.index_symbol as string;
+      const existing = idxBySymbol.get(sym) ?? [];
+      existing.push({ date: row.index_date as string, value: row.close_value as number });
+      idxBySymbol.set(sym, existing);
+    }
+
+    for (const item of indexItems) {
+      entries.push({
+        type: 'index',
+        id: item.symbol,
+        name: item.name,
+        history: idxBySymbol.get(item.symbol) ?? [],
+      });
+    }
+  }
+
+  return { entries };
+}
+
+export function usePerformanceTimeline(
+  fundItems: { id: string; name: string }[],
+  indexItems: { symbol: string; name: string }[],
+) {
+  // Sort keys so query cache hits when order changes
+  const fundKey = [...fundItems.map((f) => f.id)].sort().join(',');
+  const indexKey = [...indexItems.map((i) => i.symbol)].sort().join(',');
+
+  return useQuery({
+    queryKey: ['performance-timeline', fundKey, indexKey],
+    enabled: fundItems.length + indexItems.length > 0,
+    queryFn: () => fetchPerformanceTimeline(fundItems, indexItems),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Builds chart-ready % return series from timeline entries.
+ *
+ * Y-axis: % return from start of window (0% = no change, +20% = 20% gain).
+ * All series share a common start date (latest first-date across all series).
+ * Only dates where ALL series have data are included.
+ * Sampled to ≤60 points for render performance.
+ *
+ * Returns:
+ *  - points: array of { value }[] arrays, one per id (in ids order)
+ *  - dates: parallel date strings for crosshair tooltips
+ */
+export function buildTimelineSeries(
+  entries: TimelineEntry[],
+  ids: string[],
+  window: TimeWindow,
+): { points: { value: number }[][]; dates: string[] } {
+  if (ids.length === 0 || entries.length === 0) return { points: [], dates: [] };
+
+  // Get entries for the requested ids in order
+  const ordered = ids
+    .map((id) => entries.find((e) => e.id === id))
+    .filter((e): e is TimelineEntry => e !== undefined);
+
+  if (ordered.length === 0) return { points: [], dates: [] };
+
+  // Filter each entry to the time window
+  const filtered = ordered.map((e) => ({
+    ...e,
+    history: filterToWindow(e.history, window),
+  }));
+
+  // Common start = latest "first date" so all series have data from that point
+  let commonStart = '';
+  for (const e of filtered) {
+    if (e.history.length > 0) {
+      const first = e.history[0].date;
+      if (!commonStart || first > commonStart) commonStart = first;
+    }
+  }
+
+  if (!commonStart) return { points: [], dates: [] };
+
+  // Trim to common start
+  const trimmed = filtered.map((e) => ({
+    ...e,
+    history: e.history.filter((p) => p.date >= commonStart),
+  }));
+
+  // Reference date list = series with most data
+  const reference = trimmed.reduce(
+    (best, e) => (e.history.length > best.history.length ? e : best),
+    trimmed[0],
+  );
+  const referenceDates = reference.history.map((p) => p.date);
+
+  if (referenceDates.length === 0) return { points: [], dates: [] };
+
+  // Build date → value maps
+  const dateMaps = trimmed.map((e) => {
+    const map = new Map<string, number>();
+    for (const p of e.history) map.set(p.date, p.value);
+    return map;
+  });
+
+  // Base values at common start
+  const baseValues = trimmed.map((_, i) => {
+    return dateMaps[i].get(commonStart) ?? dateMaps[i].get(referenceDates[0]) ?? 0;
+  });
+
+  // Build % return series — only dates where ALL series have data
+  const validDates: string[] = [];
+  const rawSeries: number[][] = trimmed.map(() => []);
+
+  for (const date of referenceDates) {
+    let allHaveData = true;
+    const values: number[] = [];
+
+    for (let i = 0; i < trimmed.length; i++) {
+      const val = dateMaps[i].get(date);
+      if (val === undefined || baseValues[i] === 0) {
+        allHaveData = false;
+        break;
+      }
+      values.push(((val / baseValues[i]) - 1) * 100);
+    }
+
+    if (allHaveData) {
+      validDates.push(date);
+      for (let i = 0; i < trimmed.length; i++) {
+        rawSeries[i].push(values[i]);
+      }
+    }
+  }
+
+  if (validDates.length === 0) return { points: [], dates: [] };
+
+  // Sample to ≤60 points
+  const step = Math.max(1, Math.ceil(validDates.length / 60));
+  const sampleIndices: number[] = [];
+  for (let i = 0; i < validDates.length; i++) {
+    if (i % step === 0 || i === validDates.length - 1) sampleIndices.push(i);
+  }
+
+  const sampledDates = sampleIndices.map((i) => validDates[i]);
+  const points = rawSeries.map((series) => sampleIndices.map((i) => ({ value: series[i] })));
+
+  return { points, dates: sampledDates };
+}
+
+/** Format a date string as "Jan '24" for X-axis labels */
+export function formatDateShort(dateStr: string): string {
+  const [year, month] = dateStr.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[parseInt(month, 10) - 1]} '${year.slice(2)}`;
+}
+
+/** Build 5 evenly-spaced X-axis labels from a dates array */
+export function buildXAxisLabels(dates: string[], count = 5): string[] {
+  if (dates.length === 0) return [];
+  if (dates.length <= count) return dates.map(formatDateShort);
+  const step = (dates.length - 1) / (count - 1);
+  return Array.from({ length: count }, (_, i) => {
+    const idx = Math.min(Math.round(i * step), dates.length - 1);
+    return formatDateShort(dates[idx]);
+  });
+}
