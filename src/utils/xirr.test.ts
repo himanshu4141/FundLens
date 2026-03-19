@@ -441,7 +441,6 @@ describe('xirr', () => {
         { date: d, amount: 1100 },
       ];
       // XIRR is undefined when all flows are simultaneous
-      const rate = xirr(flows);
       // Either NaN or an extreme value — at minimum it should not throw
       expect(() => xirr(flows)).not.toThrow();
     });

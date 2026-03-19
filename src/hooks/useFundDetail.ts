@@ -15,12 +15,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
+import type { NavPoint } from '@/src/utils/navUtils';
 
 // Pure windowing utils live in navUtils so they can be unit-tested without
 // pulling in React Native / Supabase dependencies.
 export { filterToWindow, indexTo100 } from '@/src/utils/navUtils';
 export type { TimeWindow, NavPoint } from '@/src/utils/navUtils';
-import type { NavPoint } from '@/src/utils/navUtils';
 
 export interface FundDetailData {
   id: string;
