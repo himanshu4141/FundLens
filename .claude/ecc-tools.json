@@ -2,7 +2,7 @@
   "version": "1.3",
   "schemaVersion": "1.0",
   "generatedBy": "ecc-tools",
-  "generatedAt": "2026-03-19T12:24:30.804Z",
+  "generatedAt": "2026-03-19T12:25:15.984Z",
   "repo": "https://github.com/himanshu4141/FundLens",
   "profiles": {
     "requested": "full",
@@ -120,8 +120,8 @@
     ".codex/agents/docs-researcher.toml",
     ".claude/homunculus/instincts/inherited/FundLens-instincts.yaml",
     ".claude/commands/feature-development.md",
-    ".claude/commands/add-ecc-bundle-files.md",
-    ".claude/commands/update-agent-and-skill-documentation.md"
+    ".claude/commands/add-ecc-bundle.md",
+    ".claude/commands/update-skill-documentation.md"
   ],
   "packageFiles": {
     "runtime-core": [
@@ -138,8 +138,8 @@
     ],
     "workflow-pack": [
       ".claude/commands/feature-development.md",
-      ".claude/commands/add-ecc-bundle-files.md",
-      ".claude/commands/update-agent-and-skill-documentation.md"
+      ".claude/commands/add-ecc-bundle.md",
+      ".claude/commands/update-skill-documentation.md"
     ]
   },
   "moduleFiles": {
@@ -157,8 +157,8 @@
     ],
     "workflow-pack": [
       ".claude/commands/feature-development.md",
-      ".claude/commands/add-ecc-bundle-files.md",
-      ".claude/commands/update-agent-and-skill-documentation.md"
+      ".claude/commands/add-ecc-bundle.md",
+      ".claude/commands/update-skill-documentation.md"
     ]
   },
   "files": [
@@ -219,13 +219,13 @@
     },
     {
       "moduleId": "workflow-pack",
-      "path": ".claude/commands/add-ecc-bundle-files.md",
-      "description": "Workflow command scaffold for add-ecc-bundle-files."
+      "path": ".claude/commands/add-ecc-bundle.md",
+      "description": "Workflow command scaffold for add-ecc-bundle."
     },
     {
       "moduleId": "workflow-pack",
-      "path": ".claude/commands/update-agent-and-skill-documentation.md",
-      "description": "Workflow command scaffold for update-agent-and-skill-documentation."
+      "path": ".claude/commands/update-skill-documentation.md",
+      "description": "Workflow command scaffold for update-skill-documentation."
     }
   ],
   "workflows": [
@@ -234,12 +234,12 @@
       "path": ".claude/commands/feature-development.md"
     },
     {
-      "command": "add-ecc-bundle-files",
-      "path": ".claude/commands/add-ecc-bundle-files.md"
+      "command": "add-ecc-bundle",
+      "path": ".claude/commands/add-ecc-bundle.md"
     },
     {
-      "command": "update-agent-and-skill-documentation",
-      "path": ".claude/commands/update-agent-and-skill-documentation.md"
+      "command": "update-skill-documentation",
+      "path": ".claude/commands/update-skill-documentation.md"
     }
   ],
   "adapters": {
@@ -248,8 +248,8 @@
       "identityPath": ".claude/identity.json",
       "commandPaths": [
         ".claude/commands/feature-development.md",
-        ".claude/commands/add-ecc-bundle-files.md",
-        ".claude/commands/update-agent-and-skill-documentation.md"
+        ".claude/commands/add-ecc-bundle.md",
+        ".claude/commands/update-skill-documentation.md"
       ]
     },
     "codex": {
