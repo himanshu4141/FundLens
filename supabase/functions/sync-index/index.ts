@@ -50,6 +50,8 @@ Deno.serve(async (req) => {
     return new Response('Method not allowed', { status: 405 });
   }
 
+  console.log('[sync-index] invoked, method=%s', req.method);
+
   const supabase = createServiceClient();
 
   // Get all distinct symbols from benchmark_mapping
@@ -59,6 +61,7 @@ Deno.serve(async (req) => {
     .order('benchmark_index_symbol');
 
   if (mappingsError) {
+    console.error('[sync-index] failed to fetch benchmark_mapping:', mappingsError.message);
     return Response.json({ success: false, error: mappingsError.message }, { status: 500 });
   }
 
@@ -67,6 +70,8 @@ Deno.serve(async (req) => {
   for (const m of mappings ?? []) {
     symbolMap.set(m.benchmark_index_symbol, m.benchmark_index);
   }
+
+  console.log('[sync-index] %d distinct benchmark symbols to sync', symbolMap.size);
 
   let totalUpserted = 0;
   const errors: string[] = [];
@@ -77,6 +82,7 @@ Deno.serve(async (req) => {
     const yfSymbol = symbol in YF_SYMBOL_MAP ? YF_SYMBOL_MAP[symbol as keyof typeof YF_SYMBOL_MAP] : symbol;
 
     if (yfSymbol === null) {
+      console.log('[sync-index] %s: no Yahoo Finance equivalent, skipping', symbol);
       skipped.push(symbol);
       continue;
     }
@@ -91,6 +97,7 @@ Deno.serve(async (req) => {
       });
 
       if (!res.ok) {
+        console.warn('[sync-index] %s (%s): HTTP %d', symbol, yfSymbol, res.status);
         errors.push(`${symbol} (${yfSymbol}): HTTP ${res.status}`);
         continue;
       }
@@ -99,6 +106,7 @@ Deno.serve(async (req) => {
       const result = json?.chart?.result?.[0];
 
       if (!result) {
+        console.warn('[sync-index] %s: no chart result in Yahoo Finance response', symbol);
         errors.push(`${symbol}: no chart result in response`);
         continue;
       }
@@ -107,6 +115,7 @@ Deno.serve(async (req) => {
       const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? [];
 
       if (timestamps.length === 0) {
+        console.warn('[sync-index] %s: no timestamp data', symbol);
         errors.push(`${symbol}: no timestamp data`);
         continue;
       }
@@ -125,6 +134,7 @@ Deno.serve(async (req) => {
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
 
+      let symbolUpserted = 0;
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
         const { error } = await supabase
@@ -132,12 +142,20 @@ Deno.serve(async (req) => {
           .upsert(batch, { onConflict: 'index_symbol,index_date', ignoreDuplicates: true });
 
         if (error) throw new Error(error.message);
+        symbolUpserted += batch.length;
         totalUpserted += batch.length;
       }
+      console.log('[sync-index] %s: upserted %d rows', symbol, symbolUpserted);
     } catch (err) {
+      console.error('[sync-index] %s error:', symbol, (err as Error).message);
       errors.push(`${symbol}: ${(err as Error).message}`);
     }
   }
+
+  console.log(
+    '[sync-index] done — processed=%d, skipped=%d, rows=%d, errors=%d',
+    symbolMap.size - skipped.length, skipped.length, totalUpserted, errors.length,
+  );
 
   return Response.json({
     success: true,

@@ -20,6 +20,8 @@ Deno.serve(async (req) => {
     return new Response('Method not allowed', { status: 405 });
   }
 
+  console.log('[sync-nav] invoked, method=%s', req.method);
+
   const supabase = createServiceClient();
 
   // Get all distinct active scheme_codes across all users
@@ -29,12 +31,15 @@ Deno.serve(async (req) => {
     .eq('is_active', true);
 
   if (fundsError) {
+    console.error('[sync-nav] failed to fetch active funds:', fundsError.message);
     return Response.json({ success: false, error: fundsError.message }, { status: 500 });
   }
 
   const schemeCodes = [...new Set((funds ?? []).map((f) => f.scheme_code as number))];
+  console.log('[sync-nav] %d distinct active scheme codes to sync', schemeCodes.length);
 
   if (schemeCodes.length === 0) {
+    console.log('[sync-nav] no active funds — nothing to do');
     return Response.json({ success: true, message: 'No active funds to sync', navRowsUpserted: 0 });
   }
 
@@ -48,6 +53,7 @@ Deno.serve(async (req) => {
       });
 
       if (!res.ok) {
+        console.warn('[sync-nav] scheme %d: HTTP %d', schemeCode, res.status);
         errors.push(`scheme ${schemeCode}: HTTP ${res.status}`);
         continue;
       }
@@ -56,6 +62,7 @@ Deno.serve(async (req) => {
       const rawData = json.data as Array<{ date: string; nav: string }> | undefined;
 
       if (!rawData?.length) {
+        console.warn('[sync-nav] scheme %d: empty response from mfapi', schemeCode);
         errors.push(`scheme ${schemeCode}: empty response`);
         continue;
       }
@@ -72,6 +79,7 @@ Deno.serve(async (req) => {
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
 
+      let schemeUpserted = 0;
       // Batch upsert — ignoreDuplicates avoids overwriting existing clean data
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
@@ -80,12 +88,20 @@ Deno.serve(async (req) => {
           .upsert(batch, { onConflict: 'scheme_code,nav_date', ignoreDuplicates: true });
 
         if (error) throw new Error(error.message);
+        schemeUpserted += batch.length;
         totalUpserted += batch.length;
       }
+      console.log('[sync-nav] scheme %d: upserted %d rows', schemeCode, schemeUpserted);
     } catch (err) {
+      console.error('[sync-nav] scheme %d error:', schemeCode, (err as Error).message);
       errors.push(`scheme ${schemeCode}: ${(err as Error).message}`);
     }
   }
+
+  console.log(
+    '[sync-nav] done — schemes=%d, rows=%d, errors=%d',
+    schemeCodes.length, totalUpserted, errors.length,
+  );
 
   return Response.json({
     success: true,
