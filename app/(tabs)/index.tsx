@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
@@ -17,6 +19,29 @@ import { formatCurrency, formatChange } from '@/src/utils/formatting';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
+import Logo from '@/src/components/Logo';
+import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+
+// Category → accent colour for fund card left-border indicator
+const CATEGORY_COLOR: Record<string, string> = {
+  'Equity':    Colors.primary,
+  'Large Cap': Colors.primary,
+  'Mid Cap':   '#7c3aed',
+  'Small Cap': Colors.negative,
+  'Flexi Cap': '#0891b2',
+  'Multi Cap': '#0891b2',
+  'ELSS':      Colors.positive,
+  'Debt':      Colors.warning,
+  'Hybrid':    '#db2777',
+};
+
+function categoryColor(category: string | null): string {
+  if (!category) return Colors.primary;
+  for (const [key, color] of Object.entries(CATEGORY_COLOR)) {
+    if (category.toLowerCase().includes(key.toLowerCase())) return color;
+  }
+  return Colors.primary;
+}
 
 function BenchmarkSelector({
   selected,
@@ -66,21 +91,31 @@ function PortfolioHeader({
   onBenchmarkChange: (symbol: string) => void;
 }) {
   const isPositiveDay = dailyChangeAmount >= 0;
-  const dayColor = isPositiveDay ? '#16a34a' : '#dc2626';
   const isAheadOfMarket =
     isFinite(xirrRate) && isFinite(marketXirr) ? xirrRate >= marketXirr : null;
-
   const benchmarkLabel =
     BENCHMARK_OPTIONS.find((b) => b.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
 
   return (
-    <View style={styles.portfolioHeader}>
+    <LinearGradient
+      colors={['#1341a8', '#1a56db']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.portfolioHeader}
+    >
       <Text style={styles.totalLabel}>Portfolio Value</Text>
       <Text style={styles.totalValue}>{formatCurrency(totalValue)}</Text>
 
-      <Text style={[styles.dailyChange, { color: dayColor }]}>
-        {formatChange(dailyChangeAmount, dailyChangePct)} today
-      </Text>
+      <View style={styles.dailyPill}>
+        <Ionicons
+          name={isPositiveDay ? 'trending-up' : 'trending-down'}
+          size={14}
+          color={isPositiveDay ? '#86efac' : '#fca5a5'}
+        />
+        <Text style={[styles.dailyChange, { color: isPositiveDay ? '#86efac' : '#fca5a5' }]}>
+          {formatChange(dailyChangeAmount, dailyChangePct)} today
+        </Text>
+      </View>
 
       <View style={styles.xirrRow}>
         <View style={styles.xirrItem}>
@@ -97,75 +132,86 @@ function PortfolioHeader({
             <View style={styles.xirrDivider} />
             <View style={styles.xirrItem}>
               <Text style={styles.xirrLabel}>vs Market</Text>
-              <Text
-                style={[
-                  styles.xirrValue,
-                  { color: isAheadOfMarket ? '#16a34a' : '#dc2626' },
-                ]}
-              >
-                {isAheadOfMarket ? 'Beating' : 'Lagging'}
-              </Text>
+              <View style={styles.verdictPill}>
+                <Text
+                  style={[
+                    styles.verdictText,
+                    { color: isAheadOfMarket ? '#86efac' : '#fca5a5' },
+                  ]}
+                >
+                  {isAheadOfMarket ? '↑ Beating' : '↓ Lagging'}
+                </Text>
+              </View>
             </View>
           </>
         )}
       </View>
 
       <BenchmarkSelector selected={benchmarkSymbol} onChange={onBenchmarkChange} />
-    </View>
+    </LinearGradient>
   );
 }
 
 function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }) {
   const isPositiveDay = fund.dailyChangeAmount >= 0;
-  const dayColor = isPositiveDay ? '#16a34a' : '#dc2626';
   const xirrPositive = fund.returnXirr >= 0;
+  const accentColor = categoryColor(fund.schemeCategory);
   const hasRealizedGains = fund.redeemedUnits > 0;
   const realizedPositive = fund.realizedGain >= 0;
 
   return (
-    <TouchableOpacity style={styles.fundCard} onPress={onPress} activeOpacity={0.75}>
-      <View style={styles.fundCardTop}>
-        <View style={styles.fundNameBlock}>
-          <Text style={styles.fundName} numberOfLines={2}>
-            {fund.schemeName}
-          </Text>
-          <Text style={styles.fundCategory}>{fund.schemeCategory}</Text>
-        </View>
-        <View style={styles.fundValueBlock}>
-          <Text style={styles.fundValue}>{formatCurrency(fund.currentValue)}</Text>
-          <Text style={[styles.fundDailyChange, { color: dayColor }]}>
-            {fund.dailyChangePct >= 0 ? '+' : ''}
-            {fund.dailyChangePct.toFixed(2)}% today
-          </Text>
-        </View>
-      </View>
+    <TouchableOpacity style={styles.fundCard} onPress={onPress} activeOpacity={0.78}>
+      {/* Category accent bar */}
+      <View style={[styles.fundCardAccent, { backgroundColor: accentColor }]} />
 
-      <View style={styles.fundCardBottom}>
-        <View style={styles.fundMeta}>
-          <Text style={styles.fundMetaLabel}>Invested</Text>
-          <Text style={styles.fundMetaValue}>{formatCurrency(fund.investedAmount)}</Text>
+      <View style={styles.fundCardInner}>
+        <View style={styles.fundCardTop}>
+          <View style={styles.fundNameBlock}>
+            <Text style={styles.fundName} numberOfLines={2}>
+              {fund.schemeName}
+            </Text>
+            <Text style={[styles.fundCategory, { color: accentColor + 'cc' }]}>
+              {fund.schemeCategory}
+            </Text>
+          </View>
+          <View style={styles.fundValueBlock}>
+            <Text style={styles.fundValue}>{formatCurrency(fund.currentValue)}</Text>
+            <View style={styles.dailyChangePill}>
+              <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
+                {fund.dailyChangePct >= 0 ? '+' : ''}
+                {fund.dailyChangePct.toFixed(2)}%
+              </Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.fundMeta}>
-          <Text style={styles.fundMetaLabel}>NAV</Text>
-          <Text style={styles.fundMetaValue}>₹{fund.currentNav.toFixed(3)}</Text>
-        </View>
-        <View style={styles.fundMeta}>
-          <Text style={styles.fundMetaLabel}>XIRR</Text>
-          <Text style={[styles.fundMetaValue, { color: xirrPositive ? '#16a34a' : '#dc2626' }]}>
-            {formatXirr(fund.returnXirr)}
-          </Text>
-        </View>
-      </View>
 
-      {hasRealizedGains && (
-        <View style={styles.realizedRow}>
-          <Text style={styles.realizedLabel}>Realized P&amp;L</Text>
-          <Text style={[styles.realizedValue, { color: realizedPositive ? '#16a34a' : '#dc2626' }]}>
-            {realizedPositive ? '+' : ''}{formatCurrency(Math.abs(fund.realizedGain))}
-            {!realizedPositive && fund.realizedGain < 0 ? ' loss' : ''}
-          </Text>
+        <View style={styles.fundCardBottom}>
+          <View style={styles.fundMeta}>
+            <Text style={styles.fundMetaLabel}>Invested</Text>
+            <Text style={styles.fundMetaValue}>{formatCurrency(fund.investedAmount)}</Text>
+          </View>
+          <View style={styles.fundMeta}>
+            <Text style={styles.fundMetaLabel}>NAV</Text>
+            <Text style={styles.fundMetaValue}>₹{fund.currentNav.toFixed(3)}</Text>
+          </View>
+          <View style={styles.fundMeta}>
+            <Text style={styles.fundMetaLabel}>XIRR</Text>
+            <Text style={[styles.fundMetaValue, { color: xirrPositive ? Colors.positive : Colors.negative }]}>
+              {formatXirr(fund.returnXirr)}
+            </Text>
+          </View>
         </View>
-      )}
+
+        {hasRealizedGains && (
+          <View style={styles.realizedRow}>
+            <Text style={styles.realizedLabel}>Realized P&amp;L</Text>
+            <Text style={[styles.realizedValue, { color: realizedPositive ? Colors.positive : Colors.negative }]}>
+              {realizedPositive ? '+' : ''}{formatCurrency(Math.abs(fund.realizedGain))}
+              {!realizedPositive && fund.realizedGain < 0 ? ' loss' : ''}
+            </Text>
+          </View>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -173,9 +219,16 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
 function EmptyState({ onImport }: { onImport: () => void }) {
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyTitle}>No portfolio data</Text>
-      <Text style={styles.emptySub}>Import your CAS statement to see your mutual fund portfolio here.</Text>
-      <TouchableOpacity style={styles.emptyBtn} onPress={onImport}>
+      <View style={styles.emptyIcon}>
+        <Ionicons name="pie-chart-outline" size={40} color={Colors.primary} />
+      </View>
+      <Text style={styles.emptyTitle}>No portfolio yet</Text>
+      <Text style={styles.emptySub}>
+        Import your CAS statement to see your mutual fund portfolio, XIRR, and how you compare to
+        the market.
+      </Text>
+      <TouchableOpacity style={styles.emptyBtn} onPress={onImport} activeOpacity={0.85}>
+        <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
         <Text style={styles.emptyBtnText}>Import CAS</Text>
       </TouchableOpacity>
     </View>
@@ -228,7 +281,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Portfolio</Text>
+        <Logo size={28} showWordmark />
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.syncBtn, syncState === 'syncing' && styles.syncBtnDisabled]}
@@ -236,7 +289,7 @@ export default function HomeScreen() {
             disabled={syncState === 'syncing'}
           >
             {syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color="#1a56db" />
+              <ActivityIndicator size="small" color={Colors.primary} />
             ) : (
               <Text style={styles.syncBtnText}>↻ Sync</Text>
             )}
@@ -266,7 +319,7 @@ export default function HomeScreen() {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#1a56db" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : isError ? (
         <View style={styles.centered}>
@@ -281,7 +334,7 @@ export default function HomeScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#1a56db" />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />
           }
         >
           <PortfolioHeader
@@ -315,68 +368,100 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Colors.background },
 
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
     paddingBottom: 14,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: Colors.borderLight,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#111' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   syncBtn: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: '#c7d7f5', borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 6, minWidth: 64, justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary + '44',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 64,
+    justifyContent: 'center',
   },
   syncBtnDisabled: { opacity: 0.6 },
-  syncBtnText: { color: '#1a56db', fontSize: 13, fontWeight: '600' },
-  importLink: { color: '#1a56db', fontSize: 14, fontWeight: '600' },
+  syncBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
+  importLink: { color: Colors.primary, fontSize: 14, fontWeight: '600' },
 
   syncBanner: {
-    backgroundColor: '#eff6ff', borderBottomWidth: 1, borderBottomColor: '#bfdbfe',
-    paddingHorizontal: 20, paddingVertical: 10,
+    backgroundColor: Colors.primaryLight,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primary + '33',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
   },
   syncBannerError: { backgroundColor: '#fef2f2', borderBottomColor: '#fecaca' },
-  syncBannerText: { fontSize: 13, color: '#1e40af', lineHeight: 18 },
+  syncBannerText: { fontSize: 13, color: Colors.primaryDark, lineHeight: 18 },
 
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  errorText: { fontSize: 15, color: '#555' },
-  retryLink: { fontSize: 14, color: '#1a56db', fontWeight: '600' },
+  errorText: { fontSize: 15, color: Colors.textSecondary },
+  retryLink: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
 
   portfolioHeader: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
-    padding: 20,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderRadius: Radii.lg,
+    padding: Spacing.lg,
+    gap: Spacing.xs,
   },
-  totalLabel: { fontSize: 12, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
-  totalValue: { fontSize: 32, fontWeight: '700', color: '#111', letterSpacing: -0.5 },
-  dailyChange: { fontSize: 14, fontWeight: '500', marginBottom: 4 },
+  totalLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  totalValue: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -1,
+  },
+  dailyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: Spacing.xs,
+  },
+  dailyChange: { fontSize: 14, fontWeight: '600' },
   xirrRow: {
     flexDirection: 'row',
-    marginTop: 8,
+    marginTop: Spacing.sm,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: 'rgba(255,255,255,0.15)',
   },
-  xirrItem: { flex: 1, alignItems: 'center', gap: 2 },
-  xirrDivider: { width: 1, backgroundColor: '#e2e8f0' },
-  xirrLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
-  xirrValue: { fontSize: 15, fontWeight: '700', color: '#111' },
+  xirrItem: { flex: 1, alignItems: 'center', gap: 3 },
+  xirrDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  xirrLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  xirrValue: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  verdictPill: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  verdictText: { fontSize: 12, fontWeight: '700' },
 
   benchmarkRow: {
     flexDirection: 'row',
@@ -386,60 +471,80 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: 'rgba(255,255,255,0.15)',
   },
-  benchmarkRowLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', marginRight: 2 },
+  benchmarkRowLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginRight: 2,
+  },
   benchmarkPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  benchmarkPillActive: { backgroundColor: '#1a56db' },
-  benchmarkPillText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
-  benchmarkPillTextActive: { color: '#fff' },
+  benchmarkPillActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
+  benchmarkPillText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
+  benchmarkPillTextActive: { color: Colors.primaryDark },
 
   fundListHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 8,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
-  fundListTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
-  fundCount: { fontSize: 13, color: '#94a3b8' },
+  fundListTitle: { ...Typography.h3, color: Colors.textPrimary },
+  fundCount: { fontSize: 13, color: Colors.textTertiary },
 
   fundCard: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.md,
     marginBottom: 10,
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    borderRadius: Radii.md,
+    flexDirection: 'row',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
+  fundCardAccent: { width: 4 },
+  fundCardInner: { flex: 1, padding: Spacing.md, gap: 10 },
   fundCardTop: { flexDirection: 'row', gap: 12 },
   fundNameBlock: { flex: 1, gap: 3 },
-  fundName: { fontSize: 14, fontWeight: '600', color: '#111', lineHeight: 20 },
-  fundCategory: { fontSize: 12, color: '#94a3b8' },
-  fundValueBlock: { alignItems: 'flex-end', gap: 3 },
-  fundValue: { fontSize: 16, fontWeight: '700', color: '#111' },
-  fundDailyChange: { fontSize: 12, fontWeight: '500' },
+  fundName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, lineHeight: 20 },
+  fundCategory: { fontSize: 12, fontWeight: '500' },
+  fundValueBlock: { alignItems: 'flex-end', gap: 4 },
+  fundValue: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  dailyChangePill: {
+    backgroundColor: Colors.background,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  fundDailyChange: { fontSize: 12, fontWeight: '600' },
 
   fundCardBottom: {
     flexDirection: 'row',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Colors.borderLight,
   },
   fundMeta: { flex: 1, alignItems: 'center', gap: 2 },
-  fundMetaLabel: { fontSize: 10, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
-  fundMetaValue: { fontSize: 13, fontWeight: '600', color: '#334155' },
+  fundMetaLabel: {
+    fontSize: 10,
+    color: Colors.textTertiary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  fundMetaValue: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
 
   realizedRow: {
     flexDirection: 'row',
@@ -447,28 +552,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Colors.borderLight,
   },
-  realizedLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
+  realizedLabel: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
   realizedValue: { fontSize: 13, fontWeight: '700' },
 
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
-    gap: 12,
+    padding: Spacing.xl,
+    gap: Spacing.md,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
-  emptySub: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22 },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  emptyTitle: { ...Typography.h2, color: Colors.textPrimary },
+  emptySub: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   emptyBtn: {
-    backgroundColor: '#1a56db',
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.primary,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 13,
+    marginTop: Spacing.sm,
   },
-  emptyBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
   bottomPad: { height: 32 },
 });

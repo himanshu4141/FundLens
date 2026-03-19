@@ -8,9 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
+import Logo from '@/src/components/Logo';
+import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 /**
  * On web, use window.location.origin so the redirect works on any domain
@@ -22,11 +26,18 @@ function getRedirectUrl(): string {
   return `${window.location.origin}/auth/confirm`;
 }
 
+const VALUE_PROPS = [
+  { icon: '📈', text: 'Your actual SIP returns, not misleading averages' },
+  { icon: '⚖️', text: 'Beat the market? Know in one glance' },
+  { icon: '🔍', text: 'Fund vs. benchmark, the honest way' },
+];
+
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMagicLinkInfo, setShowMagicLinkInfo] = useState(false);
 
   async function handleSendMagicLink() {
     if (!email.trim()) {
@@ -56,83 +67,193 @@ export default function SignInScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.inner}>
-        <Text style={styles.title}>FundLens</Text>
-        <Text style={styles.subtitle}>Track your mutual funds in one place.</Text>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Hero panel ── */}
+        <LinearGradient colors={Colors.gradientHero} style={styles.hero}>
+          <Logo size={52} showWordmark light />
 
-        <TextInput
-          style={styles.input}
-          placeholder="you@example.com"
-          placeholderTextColor="#999"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          editable={!loading}
-        />
+          <Text style={styles.heroTagline}>
+            Know if you&apos;re beating the market.{'\n'}No jargon. No noise.
+          </Text>
 
-        {error && <Text style={styles.error}>{error}</Text>}
+          {/* Value props */}
+          <View style={styles.valueProps}>
+            {VALUE_PROPS.map(({ icon, text }) => (
+              <View key={text} style={styles.valuePropRow}>
+                <Text style={styles.valuePropIcon}>{icon}</Text>
+                <Text style={styles.valuePropText}>{text}</Text>
+              </View>
+            ))}
+          </View>
+        </LinearGradient>
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSendMagicLink}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Send magic link</Text>
+        {/* ── Form panel ── */}
+        <View style={styles.formPanel}>
+          <Text style={styles.formTitle}>Sign in</Text>
+          <Text style={styles.formSubtitle}>
+            Enter your email — we&apos;ll send a secure link. No password needed.
+          </Text>
+
+          <TextInput
+            style={[styles.input, error ? styles.inputError : null]}
+            placeholder="you@example.com"
+            placeholderTextColor={Colors.textTertiary}
+            value={email}
+            onChangeText={(v) => { setEmail(v); setError(null); }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            autoCorrect={false}
+            editable={!loading}
+            returnKeyType="send"
+            onSubmitEditing={handleSendMagicLink}
+          />
+
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSendMagicLink}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Send secure link →</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Magic link explainer */}
+          <TouchableOpacity
+            style={styles.infoToggle}
+            onPress={() => setShowMagicLinkInfo((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.infoToggleText}>
+              {showMagicLinkInfo ? '▲' : '▼'} What is a magic link?
+            </Text>
+          </TouchableOpacity>
+
+          {showMagicLinkInfo && (
+            <View style={styles.infoBox}>
+              <Text style={styles.infoBoxText}>
+                A magic link is a one-time, expiring link we email you. Tap it to sign in
+                instantly — no password to remember, nothing to forget. The link expires in
+                10 minutes and can only be used once.
+              </Text>
+            </View>
           )}
-        </TouchableOpacity>
-      </View>
+
+          <Text style={styles.securityNote}>
+            🔒 Your data is private and encrypted. We never share it.
+          </Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.background,
   },
-  inner: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 16,
+  scroll: {
+    flexGrow: 1,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 4,
+
+  // ── Hero ──
+  hero: {
+    paddingTop: Platform.OS === 'ios' ? 64 : 48,
+    paddingBottom: Spacing.xxl,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.lg,
   },
-  subtitle: {
+  heroTagline: {
+    ...Typography.h2,
+    color: '#ffffff',
+    lineHeight: 32,
+    marginTop: Spacing.sm,
+  },
+  valueProps: {
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  valuePropRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  valuePropIcon: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
+    marginTop: 1,
   },
+  valuePropText: {
+    ...Typography.bodySmall,
+    color: 'rgba(255,255,255,0.80)',
+    flex: 1,
+    lineHeight: 20,
+  },
+
+  // ── Form ──
+  formPanel: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: Radii.xl,
+    borderTopRightRadius: Radii.xl,
+    marginTop: -Radii.xl,
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+    gap: Spacing.md,
+    // Subtle top shadow to lift panel over hero
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  formTitle: {
+    ...Typography.h1,
+    color: Colors.textPrimary,
+  },
+  formSubtitle: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginTop: -Spacing.sm,
+  },
+
   input: {
     height: 52,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.md,
     fontSize: 16,
-    color: '#111',
-    backgroundColor: '#fafafa',
+    color: Colors.textPrimary,
+    backgroundColor: Colors.surfaceAlt,
   },
-  error: {
-    color: '#e53e3e',
-    fontSize: 14,
+  inputError: {
+    borderColor: Colors.negative,
   },
+  errorText: {
+    color: Colors.negative,
+    fontSize: 13,
+    marginTop: -Spacing.sm,
+  },
+
   button: {
     height: 52,
-    backgroundColor: '#1a56db',
-    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    borderRadius: Radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -140,8 +261,37 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#fff',
+    color: Colors.textOnDark,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+
+  infoToggle: {
+    alignSelf: 'center',
+    paddingVertical: Spacing.xs,
+  },
+  infoToggleText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  infoBox: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radii.sm,
+    padding: Spacing.md,
+    marginTop: -Spacing.sm,
+  },
+  infoBoxText: {
+    ...Typography.bodySmall,
+    color: Colors.primaryDark,
+    lineHeight: 20,
+  },
+
+  securityNote: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
   },
 });
