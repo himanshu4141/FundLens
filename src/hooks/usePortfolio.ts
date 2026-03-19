@@ -51,7 +51,7 @@ export interface PortfolioSummary {
   benchmarkSymbol: string;
 }
 
-async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
+export async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
   // Load active funds
   const { data: funds, error: fundsError } = await supabase
     .from('fund')
@@ -116,6 +116,14 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
   }
   for (const [code, pts] of navHistoryByScheme) {
     navHistoryByScheme.set(code, [...pts].reverse());
+  }
+
+  // Slice sparkline data to the last 30 days (rows are now ascending; keep only recent)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const navCutoff30d = thirtyDaysAgo.toISOString().split('T')[0];
+  for (const [code, pts] of navHistoryByScheme) {
+    navHistoryByScheme.set(code, pts.filter((p) => p.date >= navCutoff30d));
   }
 
   // Load benchmark index history for market comparison

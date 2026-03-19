@@ -6,6 +6,11 @@
  */
 
 import { filterToWindow, indexTo100, type TimeWindow } from '@/src/utils/navUtils';
+import { fetchFundDetail } from '@/src/hooks/useFundDetail';
+import { supabase } from '@/src/lib/supabase';
+
+jest.mock('@tanstack/react-query', () => ({ useQuery: jest.fn() }));
+jest.mock('@/src/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -288,5 +293,109 @@ describe('indexTo100', () => {
     const result = indexTo100(history);
     expect(result[0].value).toBeCloseTo(100, 4);
     expect(result[1].value).toBeCloseTo(120, 4);
+  });
+});
+
+// ─── fetchFundDetail() ─────────────────────────────────────────────────────
+
+function makeChain(response: { data: unknown; error: unknown }): any {
+  const chain = {
+    data: response.data,
+    error: response.error,
+    select: jest.fn(),
+    eq: jest.fn(),
+    in: jest.fn(),
+    gte: jest.fn(),
+    order: jest.fn(),
+    single: jest.fn(),
+    maybeSingle: jest.fn(),
+  };
+  ['select', 'eq', 'in', 'gte', 'order'].forEach((m) =>
+    (chain as Record<string, jest.Mock>)[m].mockReturnValue(chain),
+  );
+  chain.single.mockReturnValue(response);
+  chain.maybeSingle.mockReturnValue(response);
+  return chain;
+}
+
+const mockFrom = supabase.from as jest.Mock;
+
+const MOCK_FUND = {
+  id: 'fund-1', scheme_code: 12345, scheme_name: 'Test Equity Fund',
+  scheme_category: 'Equity', benchmark_index: 'Nifty 50', benchmark_index_symbol: '^NSEI',
+};
+const MOCK_TXS = [
+  { transaction_date: '2023-01-01', transaction_type: 'purchase', units: 100, amount: 10000 },
+  { transaction_date: '2023-06-01', transaction_type: 'purchase', units: 50, amount: 6000 },
+];
+const MOCK_NAV = [
+  { nav_date: '2023-01-01', nav: 100 },
+  { nav_date: '2023-06-01', nav: 120 },
+  { nav_date: '2024-01-01', nav: 140 },
+];
+const MOCK_INDEX = [
+  { index_date: '2023-01-01', close_value: 17000 },
+  { index_date: '2024-01-01', close_value: 21000 },
+];
+
+describe('fetchFundDetail()', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('returns null when fund is not found', async () => {
+    mockFrom.mockImplementation(() => makeChain({ data: null, error: { message: 'not found' } }));
+    expect(await fetchFundDetail('missing-id')).toBeNull();
+  });
+
+  test('returns null when fund query returns no data', async () => {
+    mockFrom.mockImplementation(() => makeChain({ data: null, error: null }));
+    expect(await fetchFundDetail('fund-1')).toBeNull();
+  });
+
+  test('returns structured fund detail for a valid fund', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUND, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchFundDetail('fund-1');
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe('fund-1');
+    expect(result!.schemeName).toBe('Test Equity Fund');
+    expect(result!.currentNav).toBe(140);
+    expect(result!.currentUnits).toBe(150);
+    expect(result!.investedAmount).toBe(16000);
+    expect(result!.currentValue).toBeCloseTo(150 * 140, 5);
+    expect(result!.navHistory).toHaveLength(3);
+    expect(result!.indexHistory).toHaveLength(2);
+    expect(isFinite(result!.fundXirr)).toBe(true);
+  });
+
+  test('returns empty indexHistory when fund has no benchmark symbol', async () => {
+    const fundWithoutBenchmark = { ...MOCK_FUND, benchmark_index_symbol: null };
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: fundWithoutBenchmark, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchFundDetail('fund-1');
+    expect(result!.indexHistory).toHaveLength(0);
+  });
+
+  test('handles empty transaction list (zero units, NaN XIRR)', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUND, error: null });
+      if (table === 'transaction') return makeChain({ data: [], error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchFundDetail('fund-1');
+    expect(result!.currentUnits).toBe(0);
+    expect(result!.currentValue).toBe(0);
+    expect(result!.fundXirr).toBeNaN();
   });
 });

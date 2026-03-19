@@ -17,10 +17,10 @@ const config = {
     '!src/lib/supabase.ts',   // React Native + Supabase bootstrap — not runnable in Node
     '!src/lib/queryClient.ts',// trivial config object
   ],
-  // Global threshold reflects reality: hooks/screens are Supabase/RN coupled (untestable in Node).
-  // Pure utils (formatting, navUtils, xirr) achieve ~97% lines individually.
   coverageThreshold: {
-    global: { lines: 20 },
+    global: { lines: 70, statements: 70, branches: 60, functions: 55 },
+    // Pure utils (no RN/Supabase deps) must stay near full coverage
+    './src/utils/': { lines: 95, statements: 95, branches: 85, functions: 100 },
   },
   coverageReporters: ['text', 'lcov'],
 };

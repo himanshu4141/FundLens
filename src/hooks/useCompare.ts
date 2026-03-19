@@ -31,7 +31,7 @@ export interface CompareData {
   commonNavSeries: { date: string; funds: Record<string, number> }[]; // indexed to 100
 }
 
-async function fetchCompareData(fundIds: string[]): Promise<CompareData> {
+export async function fetchCompareData(fundIds: string[]): Promise<CompareData> {
   if (fundIds.length === 0) return { funds: [], commonNavSeries: [] };
 
   // Load metadata for all selected funds

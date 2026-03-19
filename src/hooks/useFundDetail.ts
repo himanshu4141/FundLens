@@ -38,7 +38,7 @@ export interface FundDetailData {
   indexHistory: NavPoint[];    // ascending by date (benchmark)
 }
 
-async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
+export async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
   // Load fund metadata
   const { data: fund, error: fundError } = await supabase
     .from('fund')
