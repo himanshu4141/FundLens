@@ -12,7 +12,7 @@
  *  - vsMarket: portfolio XIRR vs selected benchmark XIRR over same period
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import {
   xirr,
@@ -36,6 +36,7 @@ export interface FundCardData {
   dailyChangePct: number;
   returnXirr: number;
   realizedGain: number;
+  realizedAmount: number;
   redeemedUnits: number;
 }
 
@@ -155,7 +156,7 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
     const fundXirr = xirr(fundXirrFlows);
 
     // Realized gains for partially/fully redeemed funds
-    const { realizedGain, redeemedUnits } = computeRealizedGains(txs);
+    const { realizedGain, realizedAmount, redeemedUnits } = computeRealizedGains(txs);
 
     fundCards.push({
       id: fund.id,
@@ -171,6 +172,7 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
       dailyChangePct,
       returnXirr: fundXirr,
       realizedGain,
+      realizedAmount,
       redeemedUnits,
     });
 
@@ -275,5 +277,6 @@ export function usePortfolio(benchmarkSymbol: string = '^NSEI') {
     enabled: !!userId,
     queryFn: () => fetchPortfolioData(userId!, benchmarkSymbol),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    placeholderData: keepPreviousData, // no jarring flash when switching benchmark
   });
 }

@@ -64,6 +64,7 @@ function PerformanceTab({
   benchmarkIndex: string | null;
 }) {
   const [window, setWindow] = useState<TimeWindow>('1Y');
+  const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
 
   const filteredNav = filterToWindow(navHistory, window);
   const filteredIdx = filterToWindow(indexHistory, window);
@@ -76,10 +77,23 @@ function PerformanceTab({
     return arr.filter((_, i) => i % step === 0 || i === arr.length - 1);
   }
 
-  const navPoints = sample(indexedNav, 60).map((p) => ({ value: p.value }));
-  const benchmarkPoints = sample(indexedBenchmark, 60).map((p) => ({ value: p.value }));
+  const sampledNav = sample(indexedNav, 60);
+  const sampledBenchmark = sample(indexedBenchmark, 60);
+  const navPoints = sampledNav.map((p) => ({ value: p.value }));
+  const benchmarkPoints = sampledBenchmark.map((p) => ({ value: p.value }));
   const hasNavData = navPoints.length > 1;
   const hasBenchmarkData = benchmarkPoints.length > 1;
+
+  // X-axis date labels: show ~5 evenly spaced dates
+  const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
+  const xLabels = sampledNav.map((p, i) =>
+    i % labelInterval === 0 || i === sampledNav.length - 1
+      ? (window === '3Y' || window === 'All' ? p.date.slice(0, 7) : p.date.slice(5))
+      : ''
+  );
+
+  const focusedDate = focusedIdx !== null ? (sampledNav[focusedIdx]?.date ?? null) : null;
+  const focusedNavVal = focusedIdx !== null ? (sampledNav[focusedIdx]?.value ?? null) : null;
 
   const latestNav = indexedNav[indexedNav.length - 1]?.value ?? 100;
   const latestBenchmark = indexedBenchmark[indexedBenchmark.length - 1]?.value ?? 100;
@@ -108,7 +122,7 @@ function PerformanceTab({
             <View style={styles.xirrDivider} />
             <View style={styles.xirrStat}>
               <Text style={styles.statLabel}>{benchmarkIndex}</Text>
-              <Text style={styles.xirrValue}>{navReturn.toFixed(1)}%</Text>
+              <Text style={styles.xirrValue}>{benchmarkReturn.toFixed(1)}%</Text>
               <View style={styles.vsChip}>
                 <Text style={[styles.vsChipText, { color: isAhead ? Colors.positive : Colors.negative }]}>
                   {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
@@ -158,7 +172,22 @@ function PerformanceTab({
             rulesColor={Colors.borderLight}
             rulesType="solid"
             noOfSections={4}
+            xAxisLabelTexts={xLabels}
+            xAxisLabelTextStyle={styles.chartAxisLabel}
+            focusEnabled
+            showDataPointOnFocus
+            showStripOnFocus
+            stripColor={Colors.textTertiary + '66'}
+            stripWidth={1}
+            focusedDataPointRadius={4}
+            onFocus={(_item: unknown, index: number) => setFocusedIdx(index)}
           />
+          {focusedDate !== null && focusedNavVal !== null && (
+            <View style={styles.chartFocusRow}>
+              <Text style={styles.chartFocusDate}>{focusedDate}</Text>
+              <Text style={styles.chartFocusVal}>Fund: {focusedNavVal.toFixed(1)}</Text>
+            </View>
+          )}
 
           <View style={styles.returnSummary}>
             <View style={styles.returnRow}>
@@ -189,6 +218,7 @@ function PerformanceTab({
 
 function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const [window, setWindow] = useState<TimeWindow>('1Y');
+  const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
   const filtered = filterToWindow(navHistory, window);
 
   function sample<T>(arr: T[], max: number): T[] {
@@ -197,10 +227,21 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
     return arr.filter((_, i) => i % step === 0 || i === arr.length - 1);
   }
 
-  const points = sample(filtered, 90).map((p) => ({ value: p.value }));
+  const sampledFiltered = sample(filtered, 90);
+  const points = sampledFiltered.map((p) => ({ value: p.value }));
   const currentNav = filtered[filtered.length - 1]?.value;
   const startNav = filtered[0]?.value;
   const navChange = currentNav && startNav ? ((currentNav - startNav) / startNav) * 100 : null;
+
+  const labelInterval = Math.max(1, Math.floor(sampledFiltered.length / 5));
+  const xLabels = sampledFiltered.map((p, i) =>
+    i % labelInterval === 0 || i === sampledFiltered.length - 1
+      ? (window === '3Y' || window === 'All' ? p.date.slice(0, 7) : p.date.slice(5))
+      : ''
+  );
+
+  const focusedDate = focusedIdx !== null ? (sampledFiltered[focusedIdx]?.date ?? null) : null;
+  const focusedNavVal = focusedIdx !== null ? (sampledFiltered[focusedIdx]?.value ?? null) : null;
 
   return (
     <View style={styles.tabContent}>
@@ -227,7 +268,22 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             rulesColor={Colors.borderLight}
             rulesType="solid"
             noOfSections={4}
+            xAxisLabelTexts={xLabels}
+            xAxisLabelTextStyle={styles.chartAxisLabel}
+            focusEnabled
+            showDataPointOnFocus
+            showStripOnFocus
+            stripColor={Colors.textTertiary + '66'}
+            stripWidth={1}
+            focusedDataPointRadius={4}
+            onFocus={(_item: unknown, index: number) => setFocusedIdx(index)}
           />
+          {focusedDate !== null && focusedNavVal !== null && (
+            <View style={styles.chartFocusRow}>
+              <Text style={styles.chartFocusDate}>{focusedDate}</Text>
+              <Text style={styles.chartFocusVal}>NAV: ₹{focusedNavVal.toFixed(3)}</Text>
+            </View>
+          )}
 
           <View style={styles.navStatsRow}>
             <View style={styles.navStat}>
@@ -274,7 +330,7 @@ export default function FundDetailScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {isLoading ? 'Loading…' : (data?.schemeName ?? 'Fund Detail')}
+          Portfolio
         </Text>
       </View>
 
@@ -499,6 +555,18 @@ const styles = StyleSheet.create({
   windowPillActive: { backgroundColor: Colors.primary },
   windowPillText: { fontSize: 12, fontWeight: '600', color: Colors.textTertiary },
   windowPillTextActive: { color: '#fff' },
+
+  chartAxisLabel: { fontSize: 9, color: Colors.textTertiary },
+  chartFocusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    paddingHorizontal: 2,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  chartFocusDate: { fontSize: 11, color: Colors.textTertiary },
+  chartFocusVal: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
 
   noData: { padding: 40, alignItems: 'center', gap: 10 },
   noDataText: { ...Typography.body, color: Colors.textTertiary, textAlign: 'center' },

@@ -25,6 +25,9 @@ const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 // Some CRISIL/custom symbols have no YF equivalent — they are skipped
 const YF_SYMBOL_MAP: Record<string, string> = {
   '^NSEI': '^NSEI',        // Nifty 50
+  '^NSEBANK': '^NSEBANK',  // Nifty Bank
+  '^BSESN': '^BSESN',      // BSE Sensex
+  '^CNXIT': '^CNXIT',      // Nifty IT
   '^CNX100': '^CNX100',    // Nifty 100
   '^NIFTY100': '^CNX100',
   '^NIFTY500': '^CNX500',
