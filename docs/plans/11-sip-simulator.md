@@ -18,7 +18,11 @@ Research shows that users who interact with historical SIP return tools are 3× 
 ## Context
 
 
-Builds on Milestone 8. The Compare screen (`app/(tabs)/compare.tsx`) already supports multi-fund selection, a shared time window, indexed charts, and a metrics table. `usePerformanceTimeline` already fetches full NAV histories. The Simulator is added as a second **mode** on the Compare screen — no new tab or navigation entry needed. Users toggle between "Compare" mode (existing percentage-return chart) and "Simulate" mode (the new SIP backtest).
+Builds on Milestone 8. The Compare screen (`app/(tabs)/compare.tsx`) already supports multi-fund selection, a shared time window, indexed charts, and a metrics table (currently showing XIRR, 1Y return, NAV, category). This milestone makes two changes to the Compare screen:
+
+1. **Compare mode overhaul** — The existing XIRR metrics table is replaced with a period-returns table: 1Y, 3Y, 5Y, 10Y, 15Y, All returns for each selected fund, derived from NAV history. XIRR remains accessible on the fund detail screen. This simplifies the Compare screen's purpose to "compare historical performance" rather than duplicating the XIRR view already on the home screen and fund detail.
+
+2. **Simulate mode** — A new mode toggle adds the SIP backtest. Users pick funds, set a monthly SIP amount and start date, and see what would have happened using actual historical NAV prices.
 
 
 ## Branch
@@ -62,7 +66,10 @@ Builds on Milestone 8. The Compare screen (`app/(tabs)/compare.tsx`) already sup
 
 - `src/utils/sipSimulator.ts` — New file. Pure function `simulateSIP(navHistory, monthlyAmount, startDate)` → `SIPSimulationResult`.
 - `src/hooks/useSIPSimulator.ts` — New hook. Accepts selected fund IDs; fetches their full NAV histories (reuses the `nav_history` query already in `usePerformanceTimeline`); runs `simulateSIP` for each; returns results and the chart series.
-- `app/(tabs)/compare.tsx` — Add a mode toggle (Compare / Simulate). In Simulate mode: fund-only picker, shared SIP amount input, shared start date input, outcome chart, and results table. In Compare mode: existing behaviour unchanged.
+- `app/(tabs)/compare.tsx` — Two changes:
+  - Compare mode: replace the XIRR metrics table with a period-returns table (1Y, 3Y, 5Y, 10Y, 15Y, All) computed from NAV history. All other Compare mode behaviour (fund picker, chart, time window) unchanged.
+  - Simulate mode: add mode toggle (Compare / Simulate). In Simulate mode: fund-only picker, shared SIP amount input, shared start date input, corpus chart, and outcome results table.
+- `src/hooks/usePeriodReturns.ts` — New hook. Given a list of fund IDs and their NAV histories, computes point-to-point returns for each standard period.
 
 
 ## Out of Scope
@@ -126,7 +133,7 @@ Add a segmented control at the top of the Compare screen (above the add-item chi
 
 The toggle is a pair of pills (same style as time-window pills). The selected mode is stored in local state (`useState<'compare' | 'simulate'>('compare')`).
 
-In **Compare mode**: existing behaviour. Fund + index items, all time windows, % return chart.
+In **Compare mode**: fund + index items, time-window % return chart (unchanged). The XIRR metrics table that previously appeared below the chart is **replaced** with a period-returns table (see "Period Returns Table in Compare Mode" below).
 
 In **Simulate mode**:
 - Only fund items can be added (the Add Item modal filters out index options).
@@ -169,6 +176,37 @@ Gain is colour-coded (green if positive, red if negative). XIRR uses `formatXirr
 A note below the table: "Returns computed using actual historical NAV data. Past performance is not indicative of future results."
 
 
+### Period Returns Table in Compare Mode
+
+
+Replaces the existing XIRR / NAV / category metrics table in Compare mode. Shows point-to-point returns for standard periods using actual NAV history:
+
+    Period    Fund A         Fund B         Nifty 50
+    1Y        +18.4%         +12.1%         +16.2%
+    3Y        +15.2%         +10.8%         +13.4%
+    5Y        +22.1%         +16.3%         +18.9%
+    10Y       +19.5%         +14.2%         +16.8%
+    15Y         N/A            N/A           +15.1%
+    All-time  +24.3%         +18.7%         +17.2%
+
+A period return for period P is: `(NAV today / NAV on [today − P]) − 1`, expressed as a percentage. If NAV data does not extend back P years, the cell shows "N/A".
+
+The `usePeriodReturns` hook:
+
+    function usePeriodReturns(
+      items: { id: string; type: 'fund' | 'index'; history: NavPoint[] }[]
+    ): PeriodReturnsResult
+
+    interface PeriodReturnsResult {
+      periods: ('1Y' | '3Y' | '5Y' | '10Y' | '15Y' | 'All')[];
+      rows: { itemId: string; returns: (number | null)[] }[];
+    }
+
+Returns are colour-coded: positive = `Colors.positive`, negative = `Colors.negative`, N/A = `Colors.textTertiary`.
+
+This is purely a UI change within `compare.tsx` and a new hook — the existing chart and selection logic are untouched.
+
+
 ### `useSIPSimulator` Hook
 
 
@@ -188,12 +226,13 @@ XIRR computation is synchronous and fast for typical portfolios (≤ 240 months 
 
 - `src/utils/sipSimulator.ts`
 - `src/hooks/useSIPSimulator.ts`
+- `src/hooks/usePeriodReturns.ts`
 
 
 ## Modified Files
 
 
-- `app/(tabs)/compare.tsx` — mode toggle, simulate-mode UI, `useSIPSimulator` integration
+- `app/(tabs)/compare.tsx` — replace XIRR metrics table with period-returns table in Compare mode; add mode toggle and Simulate mode UI
 
 
 ## Validation
@@ -201,6 +240,12 @@ XIRR computation is synchronous and fast for typical portfolios (≤ 240 months 
 
     npm run lint        -- zero warnings
     npm run typecheck   -- zero errors
+
+    # Compare screen — Compare mode (updated):
+    # → Add 2 funds and 1 index → chart shows 3 % return lines as before
+    # → Below chart: period-returns table shows 1Y, 3Y, 5Y, 10Y, 15Y, All columns
+    # → N/A shown for periods where NAV history is too short
+    # → XIRR is no longer shown in the Compare screen (it remains on fund detail)
 
     # Compare screen — Simulate mode:
     # → Mode toggle appears at top of Compare screen
@@ -239,6 +284,7 @@ XIRR computation is synchronous and fast for typical portfolios (≤ 240 months 
 ## Decision Log
 
 
+- **XIRR removed from Compare mode metrics table** — PR review raised that XIRR in the Compare screen duplicates the fund detail screen and the home screen. The Compare screen's purpose is sharpened to "how did these funds perform over standard periods?" — a period-returns table (1Y, 3Y, 5Y, 10Y, 15Y, All) is more directly readable and is not available anywhere else in the app. XIRR remains on the fund detail screen.
 - **Simulate mode on Compare screen, not a new tab** — The user confirmed this. The Compare screen already has fund selection, charts, and a results table. Adding a mode toggle reuses all of this without adding navigation depth or a new tab bar entry.
 - **Historical backtest only, no forward projection** — Using actual NAV prices is honest and verifiable. Forward projections require assumed return rates that users will over-interpret as guarantees. Historical backtest is clearly labelled as such.
 - **SIP on the 1st of the month** — Standardises comparison across funds. The exact date chosen matters less than consistency; the 1st is convention. If NAV is unavailable (weekend/holiday), the next available date is used.

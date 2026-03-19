@@ -16,7 +16,7 @@ A first-time investor looking at their home screen today sees a portfolio value 
 ## Context
 
 
-Builds on Milestone 8. The app already computes XIRR, market XIRR (via mirrored benchmark cashflows), and fund category per holding. All the raw inputs for Phase 1 scoring are already available from `usePortfolio`. A third scoring factor — expense ratio — is deferred to Milestone 12 (Expense Ratio & Cost Transparency) because the data source does not yet exist in the app. The score is designed to accept a third dimension when that milestone lands.
+Builds on Milestone 8. The app already computes XIRR, market XIRR (via mirrored benchmark cashflows), current value per fund, and fund category per holding. All the raw inputs for Phase 1 scoring are already available from `usePortfolio`. Phase 1 uses three factors: XIRR vs benchmark, diversification across asset classes, and concentration risk. A fourth factor — expense ratio — is deferred to Milestone 12 because the data source does not yet exist in the app. The score is designed to accept a fourth dimension when that milestone lands.
 
 
 ## Branch
@@ -31,7 +31,7 @@ Builds on Milestone 8. The app already computes XIRR, market XIRR (via mirrored 
 - The user has at least one active fund holding. If the portfolio is empty the score card is hidden.
 - XIRR is finite and computable. If fewer than 2 transactions exist (XIRR cannot be solved), the XIRR factor contributes 0 points and a note is shown.
 - "Diversification" is measured by number of distinct top-level asset classes in the portfolio. A fund's asset class is derived from its `scheme_category` field (already stored on the `fund` table) via substring matching.
-- Phase 1 uses two factors totalling 100 points. Phase 2 (post Milestone 12) will re-weight to three factors still totalling 100 points. The plan documents both phases so they can be implemented incrementally.
+- Phase 1 uses three factors totalling 100 points. Phase 2 (post Milestone 12) adds a fourth factor (expense ratio) and re-weights all four to still total 100 points. The plan documents both phases so they can be implemented incrementally.
 - The score is computed client-side every time `usePortfolio` returns fresh data; no new backend call is needed.
 
 
@@ -47,6 +47,8 @@ Builds on Milestone 8. The app already computes XIRR, market XIRR (via mirrored 
 **Scheme category** — The AMFI-defined category of a fund, e.g. "Large Cap Fund", "Short Duration Fund". Stored in `fund.scheme_category`.
 
 **Asset class bucket** — A top-level grouping of scheme categories: Equity, Debt, Hybrid, Other. Used for diversification scoring.
+
+**Concentration risk** — The danger of being too heavily dependent on a single fund or a single sub-category within an asset class. Examples: one fund making up 70%+ of the portfolio, or all equity exposure in a single sector. High concentration amplifies the impact of any one fund performing badly.
 
 **Traffic light** — Three-state colour signal applied to the score: Green (≥70), Amber (40–69), Red (<40).
 
@@ -80,23 +82,23 @@ Builds on Milestone 8. The app already computes XIRR, market XIRR (via mirrored 
 ### Scoring Algorithm — Phase 1 (this milestone)
 
 
-Two factors, each contributing up to 50 points, for a total of 100.
+Three factors totalling 100 points.
 
 
-**Factor 1 — XIRR vs Benchmark (50 pts)**
+**Factor 1 — XIRR vs Benchmark (40 pts)**
 
     alpha = portfolioXirr - benchmarkXirr    (both as decimals, e.g. 0.14 = 14%)
 
-    alpha >= +0.05  →  50 pts   (beating market by 5 pp or more)
-    alpha >= +0.02  →  40 pts   (beating market by 2–5 pp)
-    alpha >=  0.00  →  30 pts   (at or just above market)
-    alpha >= -0.02  →  18 pts   (lagging by up to 2 pp)
-    alpha  < -0.02  →   8 pts   (lagging by more than 2 pp)
+    alpha >= +0.05  →  40 pts   (beating market by 5 pp or more)
+    alpha >= +0.02  →  32 pts   (beating market by 2–5 pp)
+    alpha >=  0.00  →  24 pts   (at or just above market)
+    alpha >= -0.02  →  14 pts   (lagging by up to 2 pp)
+    alpha  < -0.02  →   6 pts   (lagging by more than 2 pp)
 
     If either XIRR is non-finite (fewer than 2 transactions): 0 pts, flag xirrUnavailable: true.
 
 
-**Factor 2 — Diversification (50 pts)**
+**Factor 2 — Diversification (30 pts)**
 
 Map each fund's `scheme_category` to an asset class bucket using substring matching:
 
@@ -113,15 +115,37 @@ Map each fund's `scheme_category` to an asset class bucket using substring match
 
 Count the number of distinct buckets present in the portfolio.
 
-    4 buckets  →  50 pts
-    3 buckets  →  38 pts
-    2 buckets  →  22 pts
-    1 bucket   →   8 pts
+    4 buckets  →  30 pts
+    3 buckets  →  23 pts
+    2 buckets  →  13 pts
+    1 bucket   →   5 pts
 
-    Special rule: if portfolio has only 1 fund, cap Factor 2 at 22 pts regardless of bucket count.
+    Special rule: if portfolio has only 1 fund, cap Factor 2 at 13 pts regardless of bucket count.
 
 
-**Phase 1 total: Factor1 + Factor2 (max 100)**
+**Factor 3 — Concentration Risk (30 pts)**
+
+Concentration risk penalises portfolios where a single fund or sub-category dominates, because one bad outcome then has an outsized impact. The factor starts at 30 and deductions are applied:
+
+    Rule A — Single-fund dominance:
+      Largest fund by current value > 60% of total portfolio value  →  -15 pts
+      Largest fund > 40% of total portfolio value                   →  -8 pts
+
+    Rule B — Equity sub-category concentration:
+      Applies only if portfolio has any equity funds.
+      Look at equity funds only. If any single scheme_category
+      makes up > 70% of total equity value:                         →  -10 pts
+      (e.g. all equity in Small Cap funds)
+
+    Rule C — Thin portfolio:
+      Fewer than 3 distinct funds total                             →  -5 pts
+
+    Minimum: 0 pts (deductions do not go below zero).
+
+All inputs are already available from `usePortfolio` (`fundCards[*].currentValue`, `fundCards[*].schemeCategory`).
+
+
+**Phase 1 total: Factor1 + Factor2 + Factor3 (max 100)**
 
 Traffic light thresholds applied to total:
 
@@ -133,16 +157,17 @@ Traffic light thresholds applied to total:
 ### Scoring Algorithm — Phase 2 (Milestone 12, not implemented here)
 
 
-When `expense_ratio` is available on the `fund` table (added in Milestone 12), three factors replace the two-factor model. `computeHealthScore` already accepts an optional `avgExpenseRatio` param; when present, Phase 2 weights are used automatically.
+When `expense_ratio` is available on the `fund` table (added in Milestone 12), four factors replace the three-factor model. `computeHealthScore` already accepts an optional `avgExpenseRatio` param; when present, Phase 2 weights are used automatically.
 
-    Factor 1 — XIRR vs Benchmark:   40 pts max (same breakpoints, scaled to 40)
-    Factor 2 — Diversification:     30 pts max (same breakpoints, scaled to 30)
-    Factor 3 — Expense Ratio:       30 pts max
+    Factor 1 — XIRR vs Benchmark:      30 pts max (same breakpoints, scaled to 30)
+    Factor 2 — Diversification:        25 pts max (same breakpoints, scaled to 25)
+    Factor 3 — Concentration Risk:     25 pts max (same deduction rules, scaled to 25)
+    Factor 4 — Expense Ratio:          20 pts max
         Portfolio weighted-average expense ratio:
-          < 0.5%  →  30 pts   (mostly direct, low-cost funds)
-          0.5–1%  →  22 pts
-          1–1.5%  →  12 pts
-          > 1.5%  →   4 pts   (likely mostly regular plans)
+          < 0.5%  →  20 pts   (mostly direct, low-cost funds)
+          0.5–1%  →  15 pts
+          1–1.5%  →   8 pts
+          > 1.5%  →   3 pts   (likely mostly regular plans)
 
 
 ### Verdict Copy
@@ -177,42 +202,47 @@ When `expense_ratio` is available on the `fund` table (added in Milestone 12), t
 A `Modal` with `animationType="slide"` and a drag handle. Contains:
 
     ═══════════════════════════════════════════
-    Portfolio Health Score              74 / 100
+    Portfolio Health Score              72 / 100
 
     ─────────────────────────────────────────
-    ① XIRR vs Benchmark                 40 / 50
+    ① XIRR vs Benchmark                 32 / 40
        Your XIRR 14.2%  ·  Nifty 50 11.8%
        Alpha: +2.4 pp — beating the market
        ████████████████░░░░
 
-    ② Diversification                   34 / 50
+    ② Diversification                   23 / 30
        3 asset classes: Equity, Debt, Hybrid
        Add an Other-class fund to reach max
        ████████████████░░░░
 
-    ③ Expense Ratio                       —
+    ③ Concentration Risk                17 / 30
+       Largest fund 55% of portfolio — moderate
+       Spread across more funds to reduce risk
+       ████████████░░░░░░░░
+
+    ④ Expense Ratio                        —
        Coming in a future update  🔒
 
     ─────────────────────────────────────────
-    Total: 74 / 100  ·  Healthy
+    Total: 72 / 100  ·  Healthy
 
 Each factor row:
-- Factor name + fraction (e.g. 40/50) right-aligned.
+- Factor name + fraction (e.g. 32/40) right-aligned.
 - Progress bar (View with background colour at 30%, filled portion at 100% opacity).
 - One sentence using the user's actual numbers.
 - One sentence suggestion if points are below maximum.
 
-The third row (Expense Ratio) is always shown but locked until Milestone 12, so users understand the score is not yet final.
+The fourth row (Expense Ratio) is always shown but locked until Milestone 12, so users understand the score is not yet final.
 
 
 ### New File: `src/utils/healthScore.ts`
 
 
     export interface HealthScoreInput {
-      portfolioXirr: number;        // decimal, e.g. 0.142 for 14.2%
-      benchmarkXirr: number;        // decimal
-      schemeCategories: string[];   // one entry per active fund; may repeat
-      avgExpenseRatio?: number;     // optional; decimal, e.g. 0.008 for 0.8%
+      portfolioXirr: number;                          // decimal, e.g. 0.142 for 14.2%
+      benchmarkXirr: number;                          // decimal
+      funds: { name: string; category: string; currentValue: number }[];  // one per active fund
+      avgExpenseRatio?: number;                       // optional; decimal, e.g. 0.008 for 0.8%
     }
 
     export interface HealthScoreResult {
@@ -227,6 +257,13 @@ The third row (Expense Ratio) is always shown but locked until Milestone 12, so 
       diversificationFactor: {
         points: number; max: number;
         buckets: string[]; count: number;
+      };
+      concentrationRiskFactor: {
+        points: number; max: number;
+        largestFundPct: number;      // e.g. 0.55 for 55%
+        largestFundName: string;
+        equityConcentrated: boolean; // true if single equity sub-category > 70% of equity
+        deductions: string[];        // human-readable list of applied deductions
       };
       expenseRatioFactor: {
         points: number; max: number; available: boolean;
@@ -243,9 +280,11 @@ The third row (Expense Ratio) is always shown but locked until Milestone 12, so 
 
     usePortfolio(benchmarkSymbol)
       already returns:
-        summary.xirr         — portfolio XIRR (decimal)
-        summary.marketXirr   — benchmark XIRR (decimal)
+        summary.xirr                  — portfolio XIRR (decimal)
+        summary.marketXirr            — benchmark XIRR (decimal)
+        fundCards[*].schemeName
         fundCards[*].schemeCategory
+        fundCards[*].currentValue
       new output:
         summary.healthScore: HealthScoreResult
 
@@ -279,12 +318,13 @@ The third row (Expense Ratio) is always shown but locked until Milestone 12, so 
     # ScoreDetailSheet:
     # → Factor 1 shows actual portfolio XIRR, benchmark XIRR, alpha in pp
     # → Factor 2 shows bucket count and bucket names
-    # → Factor 3 shows "Coming soon 🔒"
+    # → Factor 3 shows largest fund %, any applied deductions, and suggestion
+    # → Factor 4 shows "Coming soon 🔒"
     # → Progress bars fill proportionally to score/max
     # → Sheet dismisses on drag-down or tap-outside
 
     # Edge cases:
-    # → 1-fund portfolio: diversification capped at 22/50; card renders correctly
+    # → 1-fund portfolio: diversification capped at 13/30; concentration deducts for thin portfolio
     # → XIRR not computable: XIRR factor shows 0 pts with "Not enough transaction data"
     # → Empty portfolio: card hidden entirely
 
@@ -305,7 +345,9 @@ The third row (Expense Ratio) is always shown but locked until Milestone 12, so 
 
 
 - **Number + traffic light combined** — The user confirmed this approach: the score numeral is the traffic light (its colour signals the state). This gives precision and instant signal in one glance, superior to a letter grade alone.
-- **Phase 1 skips expense ratio** — Expense ratio data requires a new sync pipeline not built until Milestone 12. Rather than block this feature on that dependency, Phase 1 scores from two factors; the missing factor is shown as a locked row in the breakdown so it is transparent, not silently absent.
+- **Risk added as Phase 1 factor** — The PR review raised the concern that a health score without risk is incomplete. Concentration risk (single-fund dominance, equity sub-category overload, thin portfolio) is computable from data already in `usePortfolio` — no new data fetch needed. It is universally applicable regardless of the user's age or risk tolerance, unlike volatility-based metrics (which require goal context).
+- **Concentration risk, not volatility** — Standard deviation and beta require NAV history series per fund and meaningful computation. Concentration risk is simpler, more actionable, and easier to explain to a first-time investor: "One fund makes up 55% of your portfolio — that's a lot of eggs in one basket."
+- **Phase 1 now has 3 factors; Phase 2 adds expense ratio as a 4th** — Expense ratio data requires a new sync pipeline not built until Milestone 12. Rather than block this feature on that dependency, Phase 1 scores from three factors; the missing fourth is shown as a locked row in the breakdown so it is transparent, not silently absent.
 - **Asset-class buckets, not AMFI sub-categories** — Counting 12 distinct AMFI sub-categories would punish small portfolios. Four buckets reward the decision that matters: cross-asset diversification.
 - **Client-side computation** — All inputs are already fetched for the home screen. No new backend API call needed; zero latency overhead.
 - **Score not stored** — There is no value in persisting historical scores before Phase 2 (incomplete data). When Phase 2 lands the score formula changes anyway, making old scores incomparable.
@@ -314,12 +356,12 @@ The third row (Expense Ratio) is always shown but locked until Milestone 12, so 
 ## Progress
 
 
-- [ ] Write `src/utils/healthScore.ts`
-- [ ] Manually verify scoring outputs for green / amber / red scenarios
-- [ ] Extend `PortfolioSummary` in `src/hooks/usePortfolio.ts`
+- [ ] Write `src/utils/healthScore.ts` (all three Phase 1 factors + Phase 2 hook)
+- [ ] Manually verify scoring: green scenario, amber (poor diversification), red (dominant fund + lagging market), XIRR unavailable
+- [ ] Extend `PortfolioSummary` in `src/hooks/usePortfolio.ts` (pass `funds` array with name, category, currentValue)
 - [ ] Add `HealthScoreCard` to `app/(tabs)/index.tsx`
-- [ ] Add `ScoreDetailSheet` modal to `app/(tabs)/index.tsx`
+- [ ] Add `ScoreDetailSheet` modal to `app/(tabs)/index.tsx` (4 rows: XIRR, Diversification, Concentration, Expense Ratio locked)
 - [ ] Verify / add `Colors.warning` in `src/constants/theme.ts`
 - [ ] `npm run lint` — zero warnings
 - [ ] `npm run typecheck` — zero errors
-- [ ] QA: green, amber, red, XIRR unavailable, 1-fund portfolio, empty portfolio
+- [ ] QA: green, amber, red, XIRR unavailable, 1-fund portfolio, dominant fund > 60%, all equity in one sub-category, empty portfolio

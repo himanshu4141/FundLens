@@ -78,21 +78,20 @@ No schema changes are required. All computation is client-side.
 ## Scope
 
 
-- `src/utils/taxGains.ts` — New file. Pure functions for tax classification, holding period estimation, and aggregation.
-- `src/hooks/useCapitalGains.ts` — New hook. Fetches all transactions for all user funds in one query; returns `CapitalGainsResult`.
-- `app/(tabs)/index.tsx` — Add `TaxSnapshotCard` component below the `HealthScoreCard` (or below the portfolio header if health score is not enabled).
-- `app/fund/[id].tsx` — Add a third tab "Tax" to the existing Performance / NAV History tab bar. Renders `TaxTab`.
+- `src/utils/taxGains.ts` — New file. Pure functions for tax classification, holding period estimation, aggregation, and tax-loss harvesting analysis. Accepts an optional `slabRate` parameter for debt fund estimates.
+- `src/hooks/useCapitalGains.ts` — New hook. Accepts `financialYear: string` (e.g. `"2025-26"`) and `slabRate: number | null`. Fetches all transactions; returns `CapitalGainsResult` including harvest opportunities.
+- `src/hooks/useTaxSettings.ts` — New lightweight hook backed by `AsyncStorage`. Persists the user's selected FY and slab rate between sessions.
+- `app/(tabs)/index.tsx` — Add `TaxSnapshotCard` component below the `HealthScoreCard`. Card header includes FY selector (pill row: last 3 FYs) and slab rate picker (inline dropdown or modal). Card footer shows harvest opportunities summary if any exist.
+- `app/fund/[id].tsx` — Add a third tab "Tax" to the existing Performance / NAV History tab bar. Renders `TaxTab`. Inherits selected FY from the same `useTaxSettings` hook. Tax tab includes a "Harvest opportunity" row for eligible funds.
 
 
 ## Out of Scope
 
 
-- Debt fund tax estimates in rupees (slab rate unknown).
-- Tax-loss harvesting suggestions (future milestone).
 - Form 26AS reconciliation.
-- Multiple financial years (only the current FY is shown).
 - SIP tax planning (which SIPs will become LTCG, when).
 - Exporting gains as a CSV or PDF.
+- Carryforward loss tracking across years (requires Form 26AS data).
 
 
 ## Approach
@@ -120,17 +119,18 @@ No schema changes are required. All computation is client-side.
     function computeTaxEstimate(
       gain: number,
       type: 'ltcg-equity' | 'stcg-equity' | 'debt-slab',
-      ltcgExemptionUsed: number   // cumulative LTCG already exempted this FY
+      ltcgExemptionUsed: number,   // cumulative LTCG already exempted this FY
+      slabRate: number | null      // e.g. 0.20 for 20%; null if user has not set it
     ): { taxable: number; rate: number | null; estimatedTax: number | null }
     // ltcg-equity: max(0, gain - max(0, 1_25_000 - ltcgExemptionUsed)) * 0.125
     // stcg-equity: gain * 0.20
-    // debt-slab: taxable = gain, rate = null (unknown), estimatedTax = null
+    // debt-slab: taxable = gain, rate = slabRate, estimatedTax = slabRate ? gain * slabRate : null
 
 
 ### `useCapitalGains` Hook
 
 
-Fetches in a single query all transactions for the current user across all funds. Groups by fund. For each fund that has at least one redemption in the current FY:
+Accepts `financialYear` (string, e.g. `"2025-26"`) and `slabRate` (number | null). Derives the FY date range: start = `1 April {year}`, end = `31 March {year+1}`. Fetches in a single query **all** transactions (not just current FY) because computing holding period requires the full purchase history prior to each redemption. Groups by fund. For each fund that has at least one redemption in the selected FY:
 
 1. Run `computeRealizedGains` (already exists) to get `realizedGain`, `realizedAmount`, `redeemedUnits`.
 2. Derive per-redemption records: for each redemption transaction in the current FY, compute holding days using the weighted-average purchase date of preceding purchases.
@@ -149,8 +149,9 @@ Fetches in a single query all transactions for the current user across all funds
 Return type:
 
     interface CapitalGainsResult {
-      currentFY: string;                // e.g. "2025–26"
-      ltcgEquity: number;               // total LTCG this FY
+      selectedFY: string;               // e.g. "2025–26"
+      slabRate: number | null;          // as provided by caller; null = not set
+      ltcgEquity: number;               // total LTCG in selected FY
       stcgEquity: number;               // total STCG this FY
       debtSlab: number;                 // total debt gains this FY (slab-rate)
       ltcgExemptionUsed: number;        // how much of ₹1.25L has been used
@@ -184,16 +185,22 @@ Return type:
 ### TaxSnapshotCard (Home Screen)
 
 
-Shown on the home screen only when `ltcgEquity + stcgEquity + debtSlab > 0` for the current FY. Hidden if no redemptions this year.
+Shown on the home screen only when there are any redemptions in the selected FY. Hidden if no redemptions.
+
+**FY Selector:** A horizontal pill row in the card header shows the last 3 financial years (e.g. "FY 24-25", "FY 25-26", "FY 26-27"). Tapping a pill updates the selected FY in `useTaxSettings` and triggers a recompute.
+
+**Slab Rate Picker:** A small "Tax slab: 20% ▾" tappable row below the FY selector. Tapping opens a bottom sheet with options: Not set, 5%, 10%, 15%, 20%, 25%, 30%. When "Not set" is chosen, debt gains show "At slab rate" with no rupee estimate. When a rate is chosen, debt gains show the computed estimate. The selection is persisted in `AsyncStorage` via `useTaxSettings`.
 
 Layout:
 
     ┌──────────────────────────────────────────────┐
-    │  Tax Snapshot · FY 2025–26         [Details] │
+    │  Tax Snapshot                      [Details] │
+    │  [FY 23-24]  [FY 24-25]  [FY 25-26]         │
+    │  Tax slab: 20% ▾                             │
     │                                              │
     │  LTCG (Equity)    ₹38,400   12.5% rate      │
     │  STCG (Equity)    ₹12,000   20% rate         │
-    │  Debt / Hybrid      ₹4,500   At slab rate    │
+    │  Debt / Hybrid    ₹4,500    ≈₹900 at 20%    │
     │                                              │
     │  ₹1.25L exemption:  ██████░░░░  ₹86,600 left│
     │  Estimated equity tax:  ₹2,100               │
@@ -203,11 +210,13 @@ Layout:
 
 "Details" button opens the fund-by-fund breakdown as a bottom sheet listing each `PerFundGains` row.
 
+Note: the FY selector on the card and the Tax tab on the fund detail screen share state via `useTaxSettings`, so switching FY on the home card also updates the fund detail Tax tab.
+
 
 ### Tax Tab (Fund Detail Screen)
 
 
-A third tab added to the Performance / NAV History tab bar. Shown for all funds but displays "No redemptions this FY" when `redemptions` is empty.
+A third tab added to the Performance / NAV History tab bar. Shown for all funds but displays "No redemptions in FY {selectedFY}" when `redemptions` is empty. The selected FY comes from `useTaxSettings` (shared with the home screen card).
 
 Layout per redemption:
 
@@ -218,6 +227,73 @@ Layout per redemption:
 Below the table: total per fund + fund-type disclaimer (for debt funds: "Gains taxed at income slab rate.").
 
 The `TaxTab` component receives `perFundGains` from the parent (passed down from `useCapitalGains`). The fund detail screen already calls `useFundDetail`; `useCapitalGains` is called at the same level and the relevant `perFund` entry passed in.
+
+
+### Tax-Loss Harvesting Suggestions
+
+
+Tax-loss harvesting is the practice of selling (redeeming) a fund that is currently showing an unrealised loss in order to crystallise that loss, which can then be offset against realised gains — reducing the current FY's tax liability. After selling, the user can immediately reinvest in the same or a similar fund to maintain market exposure.
+
+**Why it matters:** If a user has realised ₹80,000 of LTCG equity gains this FY but also holds a fund with an unrealised LTCG loss of ₹30,000, redeeming that losing fund brings their net LTCG down to ₹50,000 — saving up to ₹3,750 in tax.
+
+#### Identifying harvest candidates
+
+For each fund with an active (non-zero) holding, compute:
+
+    unrealisedGain = currentValue - investedAmount   // from usePortfolio
+
+A fund is a **harvest candidate** when `unrealisedGain < 0` (i.e. the holding is currently at a loss).
+
+For each candidate, also compute the **holding period** (weighted-average purchase date to today) using the same `estimateHoldingPeriodDays` function used for realised gains. This determines whether a harvest would produce an LTCG loss or STCG loss — both are valuable but LTCG losses are more flexible (offset against LTCG of any asset class).
+
+#### Harvest opportunity record
+
+    interface HarvestOpportunity {
+      fundId: string;
+      schemeName: string;
+      unrealisedLoss: number;          // positive value representing the loss amount
+      holdingDays: number;             // weighted-average holding period
+      gainType: 'ltcg-equity' | 'stcg-equity' | 'debt-slab';
+      potentialTaxSaving: number | null;  // null if no offsettable gains exist this FY
+      daysToLTCG: number | null;       // days remaining until loss becomes LTCG (null if already LTCG)
+    }
+
+`potentialTaxSaving` is calculated as:
+- For `ltcg-equity` loss: `min(unrealisedLoss, ltcgEquityTotal) × 0.125`
+- For `stcg-equity` loss: `min(unrealisedLoss, stcgEquityTotal) × 0.20`
+- For `debt-slab` loss: `min(unrealisedLoss, debtSlabTotal) × slabRate` (null if slabRate is null)
+
+`daysToLTCG`: if holding < 365 days, this is `365 - holdingDays`. If already ≥ 365 days, null. This tells the user whether it is worth waiting a few more days before harvesting to get the better LTCG loss classification.
+
+`CapitalGainsResult` gains a new field:
+
+    harvestOpportunities: HarvestOpportunity[];   // sorted by potentialTaxSaving desc
+
+#### Home screen card — harvest summary
+
+If `harvestOpportunities.length > 0`, a compact row is shown at the bottom of the `TaxSnapshotCard`:
+
+    💡 Harvest opportunity: 2 funds with losses could save up to ₹4,200 in tax  [View →]
+
+Tapping "View →" opens the same per-fund details sheet, scrolled to a "Harvest Opportunities" section listing each candidate.
+
+#### Fund detail Tax tab — harvest row
+
+For a fund that is a harvest candidate, the Tax tab shows a highlighted row below the redemption table (or in place of "No redemptions" message):
+
+    ┌─────────────────────────────────────────────────┐
+    │  💡 Harvest opportunity                          │
+    │  Unrealised loss: ₹12,400 (LTCG)               │
+    │  Redeeming now could save ≈₹1,550 in LTCG tax  │
+    │  Already qualifies as LTCG                      │
+    └─────────────────────────────────────────────────┘
+
+Or, if close to LTCG qualification:
+
+    │  23 days until this loss qualifies as LTCG —   │
+    │  waiting could save an additional ₹600 in tax  │
+
+Both the card summary and the fund detail row carry the standard disclaimer. Harvesting suggestions are clearly labelled as illustrative estimates only.
 
 
 ### Disclaimer
@@ -233,13 +309,14 @@ All tax-related UI surfaces include this footer in `Colors.textTertiary`:
 
 - `src/utils/taxGains.ts`
 - `src/hooks/useCapitalGains.ts`
+- `src/hooks/useTaxSettings.ts`
 
 
 ## Modified Files
 
 
-- `app/(tabs)/index.tsx` — add `TaxSnapshotCard`
-- `app/fund/[id].tsx` — add Tax tab to the tab bar; fetch and pass `PerFundGains`
+- `app/(tabs)/index.tsx` — add `TaxSnapshotCard` (with FY selector and slab picker)
+- `app/fund/[id].tsx` — add Tax tab; consume `useTaxSettings` for shared FY selection
 
 
 ## Validation
@@ -252,20 +329,24 @@ All tax-related UI surfaces include this footer in `Colors.textTertiary`:
     # → TaxSnapshotCard appears with correct LTCG, STCG, and estimated tax values
     # → Exemption progress bar fills proportionally (e.g. ₹38,400 of ₹1.25L used)
     # → Tapping "Details" opens per-fund breakdown sheet
+    # → If any held funds have unrealised losses, harvest summary row appears at card bottom
 
     # Home screen — no redemptions this FY:
-    # → TaxSnapshotCard is hidden entirely
+    # → TaxSnapshotCard is hidden entirely (even if harvest candidates exist — no context for savings)
 
     # Fund detail screen:
     # → "Tax" tab appears as third option in tab bar
     # → Tapping it shows redemption table for that fund
     # → For debt funds: "At slab rate" label, no rupee tax estimate
-    # → No redemptions: "No redemptions this financial year" message
+    # → No redemptions + fund has unrealised loss: harvest opportunity row shown
+    # → No redemptions + no loss: "No redemptions this financial year" message
+    # → daysToLTCG shown correctly when holding < 365 days; null when ≥ 365 days
 
     # Tax math validation (manual):
     # → Fund with ₹50,000 LTCG: estimated tax = (50,000 − 50,000 exemption used) * 0.125 = 0
     # → Second redemption with ₹1,00,000 LTCG: (1,00,000 − 75,000 remaining exemption) * 0.125 = ₹3,125
     # → STCG ₹20,000: estimated tax = 20,000 * 0.20 = ₹4,000
+    # → Fund with ₹12,400 unrealised LTCG loss, ₹80,000 realised LTCG: potentialTaxSaving = 12,400 * 0.125 = ₹1,550
 
 
 ## Risks And Mitigations
@@ -277,7 +358,7 @@ All tax-related UI surfaces include this footer in `Colors.textTertiary`:
 | Debt fund taxation rules changed in 2023; older transactions follow old rules | All transactions post-April 2023 are treated as debt-slab. Pre-April 2023 debt redemptions are rare and also shown as slab-rate (conservative). |
 | User's fund has no `scheme_category` | Falls into "hybrid" bucket → treated as debt (conservative, not under-estimated). |
 | Equity classification incorrect for a specific hybrid fund | Treated as debt → conservative tax estimate, not a tax shortfall. Disclaimer covers this. |
-| User in a zero-tax bracket wrongly sees "Estimated tax: ₹X" | The disclaimer clarifies these are estimates. The app cannot know the user's slab or other investments. |
+| User in a zero-tax bracket wrongly sees "Estimated tax: ₹X" | The slab picker defaults to "Not set". Users choose their slab deliberately; the disclaimer clarifies these are estimates and the app cannot account for other income. |
 
 
 ## Decision Log
@@ -285,19 +366,28 @@ All tax-related UI surfaces include this footer in `Colors.textTertiary`:
 
 - **Snapshot card + Tax tab, not a dedicated screen** — The user confirmed this two-surface approach: summary on home screen, detail on fund drill-down. A separate screen was considered but adds navigation depth without adding information.
 - **Average cost, not FIFO** — FIFO is legally valid for Indian capital gains but `computeRealizedGains` already uses average cost, which is also widely accepted. Re-implementing FIFO would require restructuring the realized gains logic and matching specific tax lots, adding significant complexity for marginal accuracy difference at this stage.
-- **Debt fund gains shown without rupee estimate** — The slab rate is unknown. Showing a wrong rupee number is worse than showing "slab rate applies". Debt gains are included in the display so users know they exist.
-- **FY-scoped view only** — Multi-year carryforward losses require Form 26AS reconciliation, which is out of scope. The current FY is the actionable window before filing.
+- **Slab rate picker for debt fund estimates** — PR review suggested letting users specify their slab. This is now included: users select their applicable rate (5%–30%) or leave it at "Not set". When set, debt gains show a rupee estimate. The default is "Not set" to avoid showing misleading numbers to users who haven't configured this. The selection is persisted in AsyncStorage so it only needs to be set once.
+- **Multi-year FY selector** — PR review requested the ability to view previous financial years. This is included: the card shows a pill selector with the last 3 FYs. All transaction data is already in the DB (the app imports full CAS history), so past FY calculations require no new data fetch — just a different date filter.
+- **Full transaction history fetched regardless of FY** — Computing holding period for a redemption in FY 2025-26 requires purchase transactions from prior years. The hook fetches all transactions for the user (not just the selected FY) but filters redemptions to the selected FY when building the result.
+- **Shared FY state via `useTaxSettings`** — The FY selection is stored in AsyncStorage and consumed by both the home screen card and the fund detail Tax tab, so they stay in sync without prop-drilling.
+- **Tax-loss harvesting in scope** — The primary reason to show tax figures is to help users act on them. Showing LTCG of ₹80,000 without also surfacing that a held fund has a ₹30,000 unrealised loss that could save ₹3,750 in tax would leave the most actionable insight on the table. Harvesting suggestions are purely informational (no buy/sell execution), so the disclaimer requirement is the same as for the rest of the Tax feature. The data needed (current value, invested amount, purchase dates) is already fetched by `usePortfolio` and `useCapitalGains`.
 - **No tax advice framing** — All copy is "estimated" and includes a disclaimer. This is not a tax filing tool.
 
 
 ## Progress
 
 
-- [ ] Write `src/utils/taxGains.ts` (classification, holding period, tax estimate functions)
-- [ ] Write `src/hooks/useCapitalGains.ts`
-- [ ] Add `TaxSnapshotCard` to `app/(tabs)/index.tsx`
-- [ ] Add Tax tab to `app/fund/[id].tsx`
+- [ ] Write `src/utils/taxGains.ts` (classification, holding period, tax estimate with slabRate param, harvest opportunity computation)
+- [ ] Write `src/hooks/useTaxSettings.ts` (AsyncStorage-backed FY + slab state)
+- [ ] Write `src/hooks/useCapitalGains.ts` (accepts financialYear + slabRate; returns harvestOpportunities)
+- [ ] Add `TaxSnapshotCard` to `app/(tabs)/index.tsx` (FY pills + slab picker + harvest summary row)
+- [ ] Add slab rate bottom sheet picker component
+- [ ] Add Tax tab to `app/fund/[id].tsx` (redemption table + harvest opportunity row)
 - [ ] Verify tax math against manual calculations (see Validation)
+- [ ] Verify harvest saving calculation: loss × applicable rate, capped at offsettable gains
+- [ ] QA: switch between FYs and confirm numbers change; set slab rate and confirm debt gain estimate appears; "Not set" hides debt estimate
+- [ ] QA: fund with unrealised loss shows harvest row in Tax tab; daysToLTCG correct
+- [ ] QA: harvest summary on home card; tapping navigates to details sheet harvest section
 - [ ] `npm run lint` — zero warnings
 - [ ] `npm run typecheck` — zero errors
-- [ ] QA: equity fund with LTCG, STCG, debt fund, no redemptions, multiple funds
+- [ ] QA: equity LTCG, STCG, debt with slab set, debt without slab, no redemptions, multi-FY, harvest candidates
