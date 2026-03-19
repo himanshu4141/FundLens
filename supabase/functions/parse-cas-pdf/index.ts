@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
 
   // Password: use value from form if provided, else fall back to stored PAN
   let password = (formData.get('password') as string | null) ?? '';
+  let passwordSource = 'form';
   if (!password) {
     const { data: profile } = await supabase
       .from('user_profile')
@@ -53,9 +54,16 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     password = profile?.pan ?? '';
+    passwordSource = 'pan';
   }
 
+  console.log(
+    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=%s',
+    user.id, fileEntry.name, fileEntry.size, passwordSource,
+  );
+
   if (!password) {
+    console.warn('[parse-cas-pdf] no password available for user %s', user.id);
     return json(
       { error: 'CAS PDF password required. Please set your PAN in the app settings.' },
       { status: 400 },
@@ -74,10 +82,12 @@ Deno.serve(async (req) => {
     .single();
 
   if (importError || !importRecord) {
+    console.error('[parse-cas-pdf] failed to create import record:', importError?.message);
     return json({ error: 'Failed to create import record' }, { status: 500 });
   }
 
   const importId = importRecord.id as string;
+  console.log('[parse-cas-pdf] import record created, import_id=%s', importId);
 
   // Forward to CASParser smart/parse
   const parseForm = new FormData();
@@ -92,7 +102,7 @@ Deno.serve(async (req) => {
 
   if (!parseRes.ok) {
     const body = await parseRes.text();
-    console.error('CASParser parse error', parseRes.status, body);
+    console.error('[parse-cas-pdf] CASParser parse error, status=%d, body=%s', parseRes.status, body);
 
     await supabase
       .from('cas_import')
@@ -111,7 +121,7 @@ Deno.serve(async (req) => {
   }
 
   const parsed = await parseRes.json();
-  console.log('CASParser parse response: folios=%d', (parsed?.mutual_funds ?? []).length);
+  console.log('[parse-cas-pdf] CASParser parsed %d folios', (parsed?.mutual_funds ?? []).length);
 
   const { fundsUpdated, transactionsAdded, errors } = await importCASData(
     supabase, user.id, importId, parsed,
@@ -127,6 +137,11 @@ Deno.serve(async (req) => {
       error_message: errors.length > 0 ? errors.join('; ') : null,
     })
     .eq('id', importId);
+
+  console.log(
+    '[parse-cas-pdf] done, import_id=%s, status=%s, funds=%d, txns=%d, errors=%d',
+    importId, status, fundsUpdated, transactionsAdded, errors.length,
+  );
 
   return json({ ok: true, funds: fundsUpdated, transactions: transactionsAdded });
 });

@@ -18,11 +18,15 @@ Deno.serve(async (req) => {
     return json({ error: authError ?? 'Unauthorized' }, { status: 401 });
   }
 
+  console.log('[create-inbound-session] user=%s', user.id);
+
   if (!CASPARSER_API_KEY) {
+    console.error('[create-inbound-session] CASPARSER_API_KEY not configured');
     return json({ error: 'CASPARSER_API_KEY not configured' }, { status: 500 });
   }
 
   // --- Call CASParser inbound email API ---
+  console.log('[create-inbound-session] calling CASParser inbound-email API');
   const casRes = await fetch('https://api.casparser.in/v4/inbound-email', {
     method: 'POST',
     headers: {
@@ -37,7 +41,7 @@ Deno.serve(async (req) => {
 
   if (!casRes.ok) {
     const body = await casRes.text();
-    console.error('CASParser API error', casRes.status, body);
+    console.error('[create-inbound-session] CASParser API error, status=%d, body=%s', casRes.status, body);
     return json({ error: 'Failed to create inbound email session' }, { status: 502 });
   }
 
@@ -48,7 +52,7 @@ Deno.serve(async (req) => {
   const inboundEmailAddress: string = casData.email ?? casData.inbound_email ?? '';
 
   if (!inboundEmailId || !inboundEmailAddress) {
-    console.error('Unexpected CASParser response shape', casData);
+    console.error('[create-inbound-session] unexpected CASParser response shape:', JSON.stringify(casData));
     return json({ error: 'Unexpected response from CASParser' }, { status: 502 });
   }
 
@@ -64,9 +68,10 @@ Deno.serve(async (req) => {
   );
 
   if (dbError) {
-    console.error('DB upsert error', dbError);
+    console.error('[create-inbound-session] DB upsert error:', dbError.message);
     return json({ error: 'Failed to save session' }, { status: 500 });
   }
 
+  console.log('[create-inbound-session] session created, email=%s', inboundEmailAddress);
   return json({ inboundEmail: inboundEmailAddress });
 });

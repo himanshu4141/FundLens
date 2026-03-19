@@ -128,7 +128,7 @@ export async function importCASData(
   const errors: string[] = [];
 
   const folios = parsed.mutual_funds ?? [];
-  console.log(`importCASData: ${folios.length} folios`);
+  console.log('[import-cas] importCASData: %d folios for user %s', folios.length, userId);
 
   // Prefetch benchmark mappings for category → index lookup
   const { data: benchmarks } = await supabase
@@ -143,14 +143,14 @@ export async function importCASData(
 
   for (const folio of folios) {
     const schemes = folio.schemes ?? [];
-    console.log(`  folio ${folio.folio_number}: ${schemes.length} schemes`);
+    console.log('[import-cas] folio %s: %d schemes', folio.folio_number, schemes.length);
 
     for (const mf of schemes) {
       // AMFI code (e.g. "119551") is what mfapi.in uses as scheme_code
       const amfiStr = mf.additional_info?.amfi ?? '';
       const schemeCode = parseInt(amfiStr, 10);
       if (!schemeCode || isNaN(schemeCode)) {
-        console.warn(`  skipping scheme "${mf.name}" — no AMFI code`);
+        console.warn('[import-cas] skipping scheme "%s" — no AMFI code', mf.name);
         continue;
       }
 
@@ -181,7 +181,7 @@ export async function importCASData(
       }
 
       fundsUpdated++;
-      console.log(`  upserted fund ${schemeCode} "${mf.name}"`);
+      console.log('[import-cas] upserted fund %d "%s"', schemeCode, mf.name);
 
       const txRows = (mf.transactions ?? [])
         .map((tx) => ({
@@ -210,11 +210,15 @@ export async function importCASData(
           errors.push(`Transaction upsert failed for AMFI ${schemeCode}: ${txErr.message}`);
         } else {
           transactionsAdded += count ?? txRows.length;
-          console.log(`  inserted ${count ?? txRows.length} transactions for ${schemeCode}`);
+          console.log('[import-cas] inserted %d transactions for scheme %d', count ?? txRows.length, schemeCode);
         }
       }
     }
   }
 
+  console.log(
+    '[import-cas] done — funds=%d, txns=%d, errors=%d',
+    fundsUpdated, transactionsAdded, errors.length,
+  );
   return { fundsUpdated, transactionsAdded, errors };
 }

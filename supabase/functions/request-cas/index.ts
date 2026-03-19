@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
     return json({ error: 'email is required' }, { status: 400 });
   }
 
+  console.log('[request-cas] user=%s, kfintech_email=%s', user.id, email);
+
   // Look up user PAN (used as PDF password so cas-webhook can decrypt it)
   const { data: profile } = await supabase
     .from('user_profile')
@@ -53,15 +55,18 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (!profile?.pan) {
+    console.warn('[request-cas] PAN not configured for user %s', user.id);
     return json({ error: 'PAN not configured. Please complete step 1 first.' }, { status: 400 });
   }
 
   if (!CASPARSER_API_KEY) {
+    console.error('[request-cas] CASPARSER_API_KEY not configured');
     return json({ error: 'CASPARSER_API_KEY not configured' }, { status: 500 });
   }
 
   // Request all-time history up to today
   const toDate = new Date().toISOString().slice(0, 10);
+  console.log('[request-cas] calling CASParser kfintech/generate, from=2000-01-01, to=%s', toDate);
 
   const casRes = await fetch('https://api.casparser.in/v4/kfintech/generate', {
     method: 'POST',
@@ -80,7 +85,7 @@ Deno.serve(async (req) => {
 
   if (!casRes.ok) {
     const body = await casRes.text();
-    console.error('CASParser generate error', casRes.status, body);
+    console.error('[request-cas] CASParser generate error, status=%d, body=%s', casRes.status, body);
     return json(
       { error: 'Failed to request CAS. Please check the email address and try again.' },
       { status: 502 },
@@ -93,5 +98,6 @@ Deno.serve(async (req) => {
     .update({ kfintech_email: email })
     .eq('user_id', user.id);
 
+  console.log('[request-cas] CAS generation triggered successfully for user %s', user.id);
   return json({ ok: true });
 });
