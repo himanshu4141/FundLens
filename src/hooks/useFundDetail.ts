@@ -120,12 +120,12 @@ export function useFundDetail(fundId: string) {
     queryKey: ['fund-detail', fundId],
     enabled: !!fundId,
     queryFn: () => fetchFundDetail(fundId),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0, // always fetch fresh so current value matches portfolio
   });
 }
 
-/** Filter NAV/index history to a given time window */
-export function filterToWindow(history: NavPoint[], window: TimeWindow): NavPoint[] {
+/** Filter any date-keyed series to a given time window */
+export function filterToWindow<T extends { date: string }>(history: T[], window: TimeWindow): T[] {
   if (window === 'All' || history.length === 0) return history;
 
   const today = new Date();
