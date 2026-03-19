@@ -13,7 +13,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
-import { filterToWindow, type TimeWindow, type NavPoint } from './useFundDetail';
+import { filterToWindow, type TimeWindow, type NavPoint } from '@/src/utils/navUtils';
 
 export interface CompareFundData {
   id: string;

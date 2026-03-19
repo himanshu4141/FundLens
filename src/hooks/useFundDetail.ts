@@ -16,12 +16,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
 
-export type TimeWindow = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'All';
-
-export interface NavPoint {
-  date: string;
-  value: number;
-}
+// Pure windowing utils live in navUtils so they can be unit-tested without
+// pulling in React Native / Supabase dependencies.
+export { filterToWindow, indexTo100 } from '@/src/utils/navUtils';
+export type { TimeWindow, NavPoint } from '@/src/utils/navUtils';
+import type { NavPoint } from '@/src/utils/navUtils';
 
 export interface FundDetailData {
   id: string;
@@ -124,29 +123,3 @@ export function useFundDetail(fundId: string) {
   });
 }
 
-/** Filter any date-keyed series to a given time window */
-export function filterToWindow<T extends { date: string }>(history: T[], window: TimeWindow): T[] {
-  if (window === 'All' || history.length === 0) return history;
-
-  const today = new Date();
-  const cutoff = new Date(today);
-
-  switch (window) {
-    case '1M': cutoff.setMonth(today.getMonth() - 1); break;
-    case '3M': cutoff.setMonth(today.getMonth() - 3); break;
-    case '6M': cutoff.setMonth(today.getMonth() - 6); break;
-    case '1Y': cutoff.setFullYear(today.getFullYear() - 1); break;
-    case '3Y': cutoff.setFullYear(today.getFullYear() - 3); break;
-  }
-
-  const cutoffStr = cutoff.toISOString().split('T')[0];
-  return history.filter((p) => p.date >= cutoffStr);
-}
-
-/** Index a series to 100 at its first point (for relative comparison charts) */
-export function indexTo100(history: NavPoint[]): NavPoint[] {
-  if (history.length === 0) return [];
-  const base = history[0].value;
-  if (base === 0) return history;
-  return history.map((p) => ({ date: p.date, value: (p.value / base) * 100 }));
-}

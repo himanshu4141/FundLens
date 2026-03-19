@@ -155,7 +155,7 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
       today,
     );
 
-    if (netUnits <= 0) continue;
+    if (netUnits < 0.001) continue; // skip fully-exited funds (guards against floating-point residuals)
 
     const currentValue = netUnits * navInfo.current;
     const previousValue = netUnits * navInfo.previous;

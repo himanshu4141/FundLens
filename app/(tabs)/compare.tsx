@@ -29,6 +29,7 @@ import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
+const Y_AXIS_LABEL_WIDTH = 40; // reserved for Y-axis labels in the compare chart
 const MAX_ITEMS = 3;
 
 // Visually distinct colours for each selected item
@@ -335,12 +336,22 @@ export default function CompareScreen() {
 
   const excludeIds = selectedItems.map((i) => i.id);
 
-  // Tooltip position: clamp to chart bounds
+  // Tooltip position: map index → pixel offset within the chart drawing area.
+  // The drawing area starts after the Y-axis label column and ends before endSpacing=0.
+  const drawableWidth = CHART_WIDTH - 32 - Y_AXIS_LABEL_WIDTH;
   function tooltipLeft(idx: number): number {
-    if (chartDates.length <= 1) return 0;
-    const raw = (idx / (chartDates.length - 1)) * (CHART_WIDTH - 60);
-    return Math.max(4, Math.min(raw, CHART_WIDTH - 120));
+    if (chartDates.length <= 1) return Y_AXIS_LABEL_WIDTH;
+    const raw = Y_AXIS_LABEL_WIDTH + (idx / (chartDates.length - 1)) * drawableWidth;
+    return Math.max(Y_AXIS_LABEL_WIDTH, Math.min(raw, CHART_WIDTH - 100));
   }
+
+  // Y-axis range for % return data (can be negative)
+  const allChartVals = chartPoints.flat().map((p) => p.value);
+  const chartYMax = allChartVals.length > 0 ? Math.max(...allChartVals) : 10;
+  const chartYMin = allChartVals.length > 0 ? Math.min(...allChartVals) : -10;
+  const chartYPad = ((chartYMax - chartYMin) || Math.abs(chartYMax) * 0.1 || 1) * 0.12;
+  const compareMaxValue = chartYMax + chartYPad;
+  const compareMostNegative = chartYMin - chartYPad;
 
   // For the metrics table, build fund colors in the same order as compareData.funds
   const fundItemsInOrder = selectedItems.filter((i) => i.type === 'fund');
@@ -436,13 +447,15 @@ export default function CompareScreen() {
 
               {hasChartData ? (
                 <>
-                  <View style={{ position: 'relative' }}>
+                  <View style={{ position: 'relative', overflow: 'hidden' }}>
                     <LineChart
                       data={chartPoints[0]}
                       data2={chartPoints[1]}
                       data3={chartPoints[2]}
-                      width={CHART_WIDTH - 32}
+                      width={CHART_WIDTH - 32 - Y_AXIS_LABEL_WIDTH}
                       height={200}
+                      initialSpacing={0}
+                      endSpacing={0}
                       hideDataPoints
                       showDataPointOnFocus
                       showStripOnFocus
@@ -461,7 +474,10 @@ export default function CompareScreen() {
                       thickness2={visibleItems[1]?.type === 'index' ? 1.5 : 2.5}
                       thickness3={visibleItems[2]?.type === 'index' ? 1.5 : 2.5}
                       hideYAxisText={false}
+                      yAxisLabelWidth={Y_AXIS_LABEL_WIDTH}
                       yAxisTextStyle={styles.yAxisText}
+                      maxValue={compareMaxValue}
+                      mostNegativeValue={compareMostNegative}
                       xAxisColor="#e2e8f0"
                       yAxisColor="transparent"
                       rulesColor="#f1f5f9"

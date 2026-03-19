@@ -84,13 +84,24 @@ function PerformanceTab({
   const hasNavData = navPoints.length > 1;
   const hasBenchmarkData = benchmarkPoints.length > 1;
 
-  // X-axis date labels: show ~5 evenly spaced dates
+  // X-axis date labels: show ~5 evenly spaced dates (full-length array required by gifted-charts)
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
   const xLabels = sampledNav.map((p, i) =>
     i % labelInterval === 0 || i === sampledNav.length - 1
       ? (window === '3Y' || window === 'All' ? p.date.slice(0, 7) : p.date.slice(5))
       : ''
   );
+
+  // Y-axis range with 12% padding so the line never hugs the edges
+  const allVals = [
+    ...navPoints.map((p) => p.value),
+    ...(hasBenchmarkData ? benchmarkPoints.map((p) => p.value) : []),
+  ];
+  const yMax = allVals.length > 0 ? Math.max(...allVals) : 110;
+  const yMin = allVals.length > 0 ? Math.min(...allVals) : 90;
+  const yPad = ((yMax - yMin) || yMax * 0.1 || 1) * 0.12;
+  const chartMaxValue = yMax + yPad;
+  const chartMostNegative = Math.min(0, yMin - yPad);
 
   const focusedDate = focusedIdx !== null ? (sampledNav[focusedIdx]?.date ?? null) : null;
   const focusedNavVal = focusedIdx !== null ? (sampledNav[focusedIdx]?.value ?? null) : null;
@@ -150,11 +161,14 @@ function PerformanceTab({
             )}
           </View>
 
+          <View style={{ overflow: 'hidden' }}>
           <LineChart
             data={navPoints}
             data2={hasBenchmarkData ? benchmarkPoints : undefined}
             width={CHART_WIDTH - 32}
             height={180}
+            initialSpacing={0}
+            endSpacing={0}
             hideDataPoints
             color1={Colors.primary}
             color2="#f59e0b"
@@ -167,6 +181,9 @@ function PerformanceTab({
             areaChart
             curved
             hideYAxisText
+            yAxisLabelWidth={0}
+            maxValue={chartMaxValue}
+            mostNegativeValue={chartMostNegative}
             xAxisColor={Colors.borderLight}
             yAxisColor="transparent"
             rulesColor={Colors.borderLight}
@@ -182,6 +199,7 @@ function PerformanceTab({
             focusedDataPointRadius={4}
             onFocus={(_item: unknown, index: number) => setFocusedIdx(index)}
           />
+          </View>
           {focusedDate !== null && focusedNavVal !== null && (
             <View style={styles.chartFocusRow}>
               <Text style={styles.chartFocusDate}>{focusedDate}</Text>
@@ -240,6 +258,14 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
       : ''
   );
 
+  // Y-axis range with 12% padding
+  const navVals = points.map((p) => p.value);
+  const navYMax = navVals.length > 0 ? Math.max(...navVals) : 100;
+  const navYMin = navVals.length > 0 ? Math.min(...navVals) : 0;
+  const navYPad = ((navYMax - navYMin) || navYMax * 0.1 || 1) * 0.12;
+  const navChartMax = navYMax + navYPad;
+  const navChartMin = Math.max(0, navYMin - navYPad);
+
   const focusedDate = focusedIdx !== null ? (sampledFiltered[focusedIdx]?.date ?? null) : null;
   const focusedNavVal = focusedIdx !== null ? (sampledFiltered[focusedIdx]?.value ?? null) : null;
 
@@ -249,10 +275,13 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
 
       {points.length > 1 ? (
         <View style={styles.chartCard}>
+          <View style={{ overflow: 'hidden' }}>
           <LineChart
             data={points}
             width={CHART_WIDTH - 32}
             height={200}
+            initialSpacing={0}
+            endSpacing={0}
             hideDataPoints
             color1={Colors.primary}
             thickness1={2.5}
@@ -263,6 +292,9 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             areaChart
             curved
             hideYAxisText
+            yAxisLabelWidth={0}
+            maxValue={navChartMax}
+            mostNegativeValue={navChartMin}
             xAxisColor={Colors.borderLight}
             yAxisColor="transparent"
             rulesColor={Colors.borderLight}
@@ -278,6 +310,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             focusedDataPointRadius={4}
             onFocus={(_item: unknown, index: number) => setFocusedIdx(index)}
           />
+          </View>
           {focusedDate !== null && focusedNavVal !== null && (
             <View style={styles.chartFocusRow}>
               <Text style={styles.chartFocusDate}>{focusedDate}</Text>
