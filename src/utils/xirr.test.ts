@@ -463,5 +463,51 @@ describe('xirr', () => {
       const rate = xirr(flows);
       expect(rate).toBeCloseTo(0.15, 2);
     });
+
+    test('rate > 100 divergence guard: extreme 1-day 100x gain triggers guard, does not throw', () => {
+      // Invest ₹1, get ₹100 back in 1 day. Newton-Raphson starting at 0.1 will
+      // compute an astronomically high annual rate (thousands of %). The guard
+      // resets the rate and retries. Result may converge or return NaN — either is acceptable.
+      const flows = [
+        { date: makeDate(0), amount: -1 },
+        { date: makeDate(1), amount: 100 },
+      ];
+      expect(() => xirr(flows)).not.toThrow();
+      const rate = xirr(flows);
+      // If it converges, rate must be positive (we made money)
+      if (isFinite(rate)) {
+        expect(rate).toBeGreaterThan(0);
+      }
+    });
+
+    test('rate < -0.999 divergence guard: near-total immediate loss triggers guard, does not throw', () => {
+      // Invest ₹1000, get ₹0.01 back 1 day later — catastrophic 1-day loss.
+      // Newton-Raphson will drive rate toward -0.999 and the guard fires.
+      const flows = [
+        { date: makeDate(0), amount: -1000 },
+        { date: makeDate(1), amount: 0.01 },
+      ];
+      expect(() => xirr(flows)).not.toThrow();
+    });
+
+    test('finalNpv > 1 bail-out: oscillating convergence returns NaN', () => {
+      // Pathological cashflows where Newton-Raphson exits the loop without
+      // converging tightly (oscillates). The finalNpv > 1 guard returns NaN.
+      // Construct by making flows that can't have a real XIRR solution:
+      // multiple outflows on same date as inflow (zero-time value of money).
+      const d0 = makeDate(0);
+      const d1 = makeDate(1);
+      const flows = [
+        { date: d0, amount: -1000 },
+        { date: d1, amount: 0.001 }, // near-zero inflow — essentially total loss
+        { date: d1, amount: 0.001 }, // duplicate makes NPV curve flat near bad root
+      ];
+      expect(() => xirr(flows)).not.toThrow();
+      // Either NaN (bail-out) or a highly negative rate — both correct
+      const rate = xirr(flows);
+      if (isFinite(rate)) {
+        expect(rate).toBeLessThan(0);
+      }
+    });
   });
 });

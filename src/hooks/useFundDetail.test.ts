@@ -5,7 +5,7 @@
  * are deterministic regardless of when the tests are run.
  */
 
-import { filterToWindow, type TimeWindow } from '@/src/utils/navUtils';
+import { filterToWindow, indexTo100, type TimeWindow } from '@/src/utils/navUtils';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -200,5 +200,93 @@ describe('generic type compatibility', () => {
     const result = filterToWindow(history, '1Y');
     expect(result).toHaveLength(1);
     expect(result[0].extra).toBe('bar');
+  });
+});
+
+// ─── indexTo100 ───────────────────────────────────────────────────────────────
+
+describe('indexTo100', () => {
+  test('empty array → []', () => {
+    expect(indexTo100([])).toEqual([]);
+  });
+
+  test('first point base = 0 → returns array unchanged (avoids division by zero)', () => {
+    const history = [
+      { date: '2020-01-01', value: 0 },
+      { date: '2020-02-01', value: 50 },
+    ];
+    expect(indexTo100(history)).toEqual(history);
+  });
+
+  test('single point → value becomes 100', () => {
+    const result = indexTo100([{ date: '2020-01-01', value: 250 }]);
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBeCloseTo(100, 6);
+  });
+
+  test('standard series: first point = 100, others proportional', () => {
+    const history = [
+      { date: '2020-01-01', value: 200 }, // base
+      { date: '2020-04-01', value: 240 }, // +20%
+      { date: '2020-07-01', value: 180 }, // -10%
+      { date: '2020-10-01', value: 300 }, // +50%
+    ];
+    const result = indexTo100(history);
+    expect(result[0].value).toBeCloseTo(100, 6);
+    expect(result[1].value).toBeCloseTo(120, 4);
+    expect(result[2].value).toBeCloseTo(90, 4);
+    expect(result[3].value).toBeCloseTo(150, 4);
+  });
+
+  test('series already starting at 100 stays unchanged', () => {
+    const history = [
+      { date: '2020-01-01', value: 100 },
+      { date: '2020-06-01', value: 110 },
+      { date: '2021-01-01', value: 95 },
+    ];
+    const result = indexTo100(history);
+    expect(result[0].value).toBeCloseTo(100, 6);
+    expect(result[1].value).toBeCloseTo(110, 6);
+    expect(result[2].value).toBeCloseTo(95, 6);
+  });
+
+  test('dates are preserved unchanged', () => {
+    const history = [
+      { date: '2021-03-15', value: 500 },
+      { date: '2022-09-01', value: 750 },
+    ];
+    const result = indexTo100(history);
+    expect(result[0].date).toBe('2021-03-15');
+    expect(result[1].date).toBe('2022-09-01');
+  });
+
+  test('does not mutate the input array', () => {
+    const history = [
+      { date: '2020-01-01', value: 200 },
+      { date: '2020-06-01', value: 400 },
+    ];
+    const original = history.map((p) => ({ ...p }));
+    indexTo100(history);
+    expect(history).toEqual(original);
+  });
+
+  test('very small base value (avoids divide-by-near-zero distortion)', () => {
+    const history = [
+      { date: '2020-01-01', value: 0.001 },
+      { date: '2020-06-01', value: 0.002 },
+    ];
+    const result = indexTo100(history);
+    expect(result[0].value).toBeCloseTo(100, 4);
+    expect(result[1].value).toBeCloseTo(200, 4);
+  });
+
+  test('large NAV values (₹1000+)', () => {
+    const history = [
+      { date: '2020-01-01', value: 1250 },
+      { date: '2021-01-01', value: 1500 },
+    ];
+    const result = indexTo100(history);
+    expect(result[0].value).toBeCloseTo(100, 4);
+    expect(result[1].value).toBeCloseTo(120, 4);
   });
 });

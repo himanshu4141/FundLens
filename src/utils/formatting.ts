@@ -6,6 +6,7 @@ export function formatCurrency(value: number): string {
 }
 
 export function formatChange(amount: number, pct: number): string {
-  const sign = amount >= 0 ? '+' : '';
-  return `${sign}${formatCurrency(Math.abs(amount))} (${sign}${pct.toFixed(2)}%)`;
+  const amtSign = amount >= 0 ? '+' : '-';
+  const pctSign = pct >= 0 ? '+' : '';
+  return `${amtSign}${formatCurrency(Math.abs(amount))} (${pctSign}${pct.toFixed(2)}%)`;
 }
