@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
+import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 async function fetchProfile(userId: string) {
   const { data } = await supabase
@@ -25,7 +27,7 @@ async function fetchProfile(userId: string) {
   return data ?? null;
 }
 
-function CopyRow({ label, value }: { label: string; value: string }) {
+function CopyRow({ label, value, sublabel }: { label: string; value: string; sublabel?: string }) {
   const [copied, setCopied] = useState(false);
   async function handleCopy() {
     await Clipboard.setStringAsync(value);
@@ -33,15 +35,19 @@ function CopyRow({ label, value }: { label: string; value: string }) {
     setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <View style={styles.profileRow}>
-      <View style={styles.profileRowLeft}>
-        <Text style={styles.profileLabel}>{label}</Text>
-        <Text style={styles.profileValue} numberOfLines={1} selectable>
+    <View style={styles.row}>
+      <View style={styles.rowLeft}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowValue} numberOfLines={1} selectable>
           {value}
         </Text>
+        {sublabel && <Text style={styles.rowSubLabel}>{sublabel}</Text>}
       </View>
-      <TouchableOpacity onPress={handleCopy} style={styles.copyBtn}>
-        <Text style={styles.copyBtnText}>{copied ? 'Copied' : 'Copy'}</Text>
+      <TouchableOpacity onPress={handleCopy} style={[styles.actionBtn, copied && styles.actionBtnDone]}>
+        <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={copied ? Colors.positive : Colors.primary} />
+        <Text style={[styles.actionBtnText, copied && { color: Colors.positive }]}>
+          {copied ? 'Copied' : 'Copy'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -50,6 +56,10 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 function maskPan(pan: string): string {
   if (pan.length !== 10) return pan;
   return pan.slice(0, 2) + '•'.repeat(6) + pan.slice(8);
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
 export default function SettingsScreen() {
@@ -64,7 +74,6 @@ export default function SettingsScreen() {
   });
 
   const { inboundEmail, isLoading: sessionLoading } = useInboundSession(userId);
-
   const isLoading = profileLoading || sessionLoading;
 
   async function handleSignOut() {
@@ -83,90 +92,98 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.headerTitle}>Settings</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Account section */}
-        <Text style={styles.sectionLabel}>Account</Text>
+        {/* ── Account ── */}
+        <SectionHeader title="Account" />
         <View style={styles.card}>
-          <View style={styles.profileRow}>
-            <View style={styles.profileRowLeft}>
-              <Text style={styles.profileLabel}>Email</Text>
-              <Text style={styles.profileValue} numberOfLines={1}>
-                {session?.user.email ?? '—'}
+          <View style={styles.accountBadge}>
+            <View style={styles.avatarCircle}>
+              <Ionicons name="person" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.accountInfo}>
+              <Text style={styles.accountEmail}>{session?.user.email ?? '—'}</Text>
+              <Text style={styles.accountMeta}>
+                {profile?.pan ? maskPan(profile.pan) : 'PAN not set'}
               </Text>
             </View>
+            <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.editIconBtn}>
+              <Ionicons name="pencil-outline" size={16} color={Colors.textTertiary} />
+            </TouchableOpacity>
           </View>
 
-          {isLoading ? (
-            <View style={styles.profileRow}>
-              <ActivityIndicator size="small" color="#94a3b8" />
+          {isLoading && (
+            <View style={[styles.row, { justifyContent: 'center' }]}>
+              <ActivityIndicator size="small" color={Colors.textTertiary} />
             </View>
-          ) : (
-            <>
-              {profile?.pan && (
-                <View style={[styles.profileRow, styles.borderTop]}>
-                  <View style={styles.profileRowLeft}>
-                    <Text style={styles.profileLabel}>PAN</Text>
-                    <Text style={styles.profileValue}>{maskPan(profile.pan)}</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => router.push('/onboarding')}
-                    style={styles.editBtn}
-                  >
-                    <Text style={styles.editBtnText}>Edit</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+          )}
 
-              {profile?.kfintech_email && (
-                <View style={[styles.profileRow, styles.borderTop]}>
-                  <View style={styles.profileRowLeft}>
-                    <Text style={styles.profileLabel}>KFintech email</Text>
-                    <Text style={styles.profileValue} numberOfLines={1}>
-                      {profile.kfintech_email}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => router.push('/onboarding')}
-                    style={styles.editBtn}
-                  >
-                    <Text style={styles.editBtnText}>Edit</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
+          {!isLoading && profile?.kfintech_email && (
+            <View style={[styles.row, styles.borderTop]}>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowLabel}>KFintech email</Text>
+                <Text style={styles.rowValue} numberOfLines={1}>
+                  {profile.kfintech_email}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
+                <Text style={styles.actionBtnText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
-        {/* Import section */}
+        {/* ── Import ── */}
         {inboundEmail && (
           <>
-            <Text style={styles.sectionLabel}>Import</Text>
+            <SectionHeader title="Portfolio Import" />
             <View style={styles.card}>
-              <CopyRow label="Your import address" value={inboundEmail} />
-              <View style={[styles.profileRow, styles.borderTop]}>
-                <View style={styles.profileRowLeft}>
-                  <Text style={styles.profileLabel}>Upload a CAS PDF</Text>
-                  <Text style={styles.profileSubLabel}>Import manually from a downloaded PDF</Text>
+              <CopyRow
+                label="Your import address"
+                value={inboundEmail}
+                sublabel="Forward your CAMS CAS email here to auto-import"
+              />
+              <View style={[styles.row, styles.borderTop]}>
+                <View style={styles.rowLeft}>
+                  <Text style={styles.rowLabel}>Upload a CAS PDF</Text>
+                  <Text style={styles.rowSubLabel}>Manually import from a downloaded PDF</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => router.push('/onboarding/pdf')}
-                  style={styles.editBtn}
+                  style={styles.actionBtn}
                 >
-                  <Text style={styles.editBtnText}>Upload</Text>
+                  <Ionicons name="cloud-upload-outline" size={14} color={Colors.primary} />
+                  <Text style={styles.actionBtnText}>Upload</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </>
         )}
 
-        {/* Danger zone */}
-        <Text style={styles.sectionLabel}>Account actions</Text>
+        {/* ── Data ── */}
+        <SectionHeader title="Data" />
         <View style={styles.card}>
-          <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut}>
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowLabel}>NAV data</Text>
+              <Text style={styles.rowSubLabel}>Updated hourly on weekdays via AMFI</Text>
+            </View>
+            <View style={styles.statusBadge}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>Live</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Account actions ── */}
+        <SectionHeader title="Account Actions" />
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
+            <Ionicons name="log-out-outline" size={18} color={Colors.negative} />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
         </View>
@@ -178,32 +195,31 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  title: { fontSize: 22, fontWeight: '700', color: '#111' },
+  container: { flex: 1, backgroundColor: Colors.background },
 
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94a3b8',
+  header: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: 12,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  headerTitle: { ...Typography.h2, color: Colors.textPrimary },
+
+  sectionHeader: {
+    ...Typography.label,
+    color: Colors.textTertiary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 24,
-    marginBottom: 8,
-    marginHorizontal: 20,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+    marginHorizontal: Spacing.md,
   },
 
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    marginHorizontal: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
+    marginHorizontal: Spacing.md,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -212,44 +228,70 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
 
-  profileRow: {
+  // Account badge row
+  accountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 14,
+    gap: 12,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountInfo: { flex: 1, gap: 2 },
+  accountEmail: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  accountMeta: { fontSize: 12, color: Colors.textTertiary },
+  editIconBtn: { padding: 6 },
+
+  // Generic row
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 13,
     gap: 12,
   },
   borderTop: {
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Colors.borderLight,
   },
-  profileRowLeft: { flex: 1, gap: 2 },
-  profileLabel: { fontSize: 11, fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase' },
-  profileValue: { fontSize: 14, fontWeight: '500', color: '#111' },
-  profileSubLabel: { fontSize: 12, color: '#94a3b8', marginTop: 1 },
+  rowLeft: { flex: 1, gap: 3 },
+  rowLabel: { ...Typography.label, color: Colors.textTertiary, textTransform: 'uppercase' },
+  rowValue: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary },
+  rowSubLabel: { ...Typography.bodySmall, color: Colors.textTertiary, marginTop: 1 },
 
-  copyBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 6,
-  },
-  copyBtnText: { fontSize: 12, fontWeight: '600', color: '#1a56db' },
-
-  editBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 6,
-  },
-  editBtnText: { fontSize: 12, fontWeight: '600', color: '#1a56db' },
-
-  signOutRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  actionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radii.sm,
   },
-  signOutText: { color: '#e53e3e', fontSize: 15, fontWeight: '600' },
+  actionBtnDone: { backgroundColor: '#f0fdf4' },
+  actionBtnText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
 
-  bottomPad: { height: 32 },
+  // Status badge
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.positive },
+  statusText: { fontSize: 12, fontWeight: '600', color: Colors.positive },
+
+  // Sign out
+  signOutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 15,
+  },
+  signOutText: { color: Colors.negative, fontSize: 15, fontWeight: '600' },
+
+  bottomPad: { height: 40 },
 });
