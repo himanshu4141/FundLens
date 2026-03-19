@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
   if (mappingsError) {
     console.error('[sync-index] failed to fetch benchmark_mapping:', mappingsError.message);
-    return Response.json({ success: false, error: mappingsError.message }, { status: 500 });
+    return json({ success: false, error: mappingsError.message }, { status: 500 });
   }
 
   // Deduplicate symbols
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
     symbolMap.size - skipped.length, skipped.length, totalUpserted, errors.length,
   );
 
-  return Response.json({
+  return json({
     success: true,
     symbolsProcessed: symbolMap.size - skipped.length,
     symbolsSkipped: skipped,

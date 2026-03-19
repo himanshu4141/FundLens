@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
   if (fundsError) {
     console.error('[sync-nav] failed to fetch active funds:', fundsError.message);
-    return Response.json({ success: false, error: fundsError.message }, { status: 500 });
+    return json({ success: false, error: fundsError.message }, { status: 500 });
   }
 
   const schemeCodes = [...new Set((funds ?? []).map((f) => f.scheme_code as number))];
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
   if (schemeCodes.length === 0) {
     console.log('[sync-nav] no active funds — nothing to do');
-    return Response.json({ success: true, message: 'No active funds to sync', navRowsUpserted: 0 });
+    return json({ success: true, message: 'No active funds to sync', navRowsUpserted: 0 });
   }
 
   let totalUpserted = 0;
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     schemeCodes.length, totalUpserted, errors.length,
   );
 
-  return Response.json({
+  return json({
     success: true,
     schemesProcessed: schemeCodes.length,
     navRowsUpserted: totalUpserted,

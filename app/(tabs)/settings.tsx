@@ -9,7 +9,12 @@ export default function SettingsScreen() {
       {
         text: 'Sign out',
         style: 'destructive',
-        onPress: () => supabase.auth.signOut(),
+        onPress: async () => {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            Alert.alert('Error', error.message);
+          }
+        },
       },
     ]);
   }
