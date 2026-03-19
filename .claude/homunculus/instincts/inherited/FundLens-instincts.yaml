@@ -1,0 +1,345 @@
+# Instincts generated from https://github.com/himanshu4141/FundLens
+# Generated: 2026-03-19T12:21:50.089Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: FundLens-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, fix, ci, discovery, initial
+
+## Evidence
+
+- 14 commits analyzed
+- Detected conventional commit pattern
+- Examples: fix: fund card P&L display, chart usability, back nav, benchmark sync, magic link (#13), ci: add workflow_dispatch to supabase-deploy workflow (#12)
+
+---
+id: FundLens-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Commit Length
+
+## Action
+
+Write moderate-length commit messages (~63 characters)
+
+## Evidence
+
+- Average commit message length: 63 chars
+- Based on 14 commits
+
+---
+id: FundLens-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: FundLens-import-alias
+trigger: "when importing modules"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Import Alias
+
+## Action
+
+Use path aliases (@/, ~/) instead of relative imports
+
+## Evidence
+
+- Import analysis shows alias pattern
+- Example: import { x } from '@/lib/x'
+
+---
+id: FundLens-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Export Style
+
+## Action
+
+Prefer mixed exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: mixed
+
+---
+id: FundLens-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: components, constants, hooks, lib, store
+
+---
+id: FundLens-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: FundLens-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~11x per month
+- Files: **/types.ts, migrations/*, **/schema.*
+
+---
+id: FundLens-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~24x per month
+- Files: app/(tabs)/*, app/*, app/auth/*
+
+---
+id: FundLens-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~9x per month
+- Files: src/**/*
+
+---
+id: FundLens-workflow-milestone-feature-development
+trigger: "when doing milestone feature development"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Milestone Feature Development
+
+## Action
+
+Follow the milestone-feature-development workflow:
+1. Create or update UI screen files in app/(tabs) or app/fund or app/onboarding.
+2. Implement or update supporting hooks in src/hooks/.
+3. Update or add supporting utility files in src/utils/.
+4. Update or add backend logic (e.g., Supabase Edge Functions) in supabase/functions/.
+5. Add or update database migrations in supabase/migrations/ if schema/data changes are needed.
+6. Update or add documentation in docs/plans/ and/or README.md.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: app/(tabs)/*.tsx, app/fund/[id].tsx, app/onboarding/*.tsx
+
+---
+id: FundLens-workflow-edge-function-development-and-integration
+trigger: "when doing edge function development and integration"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Edge Function Development And Integration
+
+## Action
+
+Follow the edge-function-development-and-integration workflow:
+1. Create or update Edge Function(s) in supabase/functions/.
+2. Add or update shared helpers (e.g., _shared/auth.ts, _shared/cors.ts).
+3. Update or add database migrations in supabase/migrations/ if new tables/columns are needed.
+4. Update types in src/types/database.types.ts if schema changes.
+5. Update frontend hooks or flows to call/integrate the new function(s).
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: supabase/functions/**/*.ts, supabase/functions/_shared/*.ts, supabase/migrations/*.sql
+
+---
+id: FundLens-workflow-database-migration-and-seeding
+trigger: "when doing database migration and seeding"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Database Migration And Seeding
+
+## Action
+
+Follow the database-migration-and-seeding workflow:
+1. Create new migration file(s) in supabase/migrations/.
+2. Update or add seed data in migration SQL files.
+3. Update types in src/types/database.types.ts if schema changes.
+4. Update backend logic or Edge Functions to use new schema/data.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: supabase/migrations/*.sql, src/types/database.types.ts, supabase/functions/**/*.ts
+
+---
+id: FundLens-workflow-ci-cd-pipeline-and-config-update
+trigger: "when doing ci cd pipeline and config update"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Ci Cd Pipeline And Config Update
+
+## Action
+
+Follow the ci-cd-pipeline-and-config-update workflow:
+1. Update or add GitHub Actions workflow files in .github/workflows/.
+2. Update supabase/config.toml or other deployment config files.
+3. Update tsconfig.json or other project-level config files as needed.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: .github/workflows/*.yml, supabase/config.toml, tsconfig.json
+
+---
+id: FundLens-workflow-documentation-and-execplan-update
+trigger: "when doing documentation and execplan update"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Documentation And Execplan Update
+
+## Action
+
+Follow the documentation-and-execplan-update workflow:
+1. Update or add markdown files in docs/plans/.
+2. Update README.md or other top-level documentation.
+3. Update AGENTS.md, CLAUDE.md, or VISION.md if process or vision changes.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: docs/plans/*.md, README.md, AGENTS.md
+
