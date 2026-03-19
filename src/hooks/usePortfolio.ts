@@ -81,29 +81,27 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
 
   const schemeCodes = funds.map((f) => f.scheme_code);
 
-  // Load last 30 days of NAV for each scheme (covers current + previous NAV + sparkline)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const navCutoff = thirtyDaysAgo.toISOString().split('T')[0];
-
+  // Load full NAV history for each scheme, most-recent first.
+  // No date cutoff — we always want the closest available NAV to today, regardless of
+  // how recently the sync ran.  The navByScheme loop below takes only the first 2 rows
+  // per scheme (current + previous) so the extra rows are cheap to process.
   const { data: navRows, error: navError } = await supabase
     .from('nav_history')
     .select('scheme_code, nav_date, nav')
     .in('scheme_code', schemeCodes)
-    .gte('nav_date', navCutoff)
     .order('nav_date', { ascending: false });
 
   if (navError) throw navError;
 
-  // Build map: scheme_code → [latest, previous]
+  // Build map: scheme_code → { current, previous } using the two most-recent rows.
   const navByScheme = new Map<number, { current: number; previous: number; date: string }>();
   for (const row of navRows ?? []) {
     const code = row.scheme_code as number;
     const existing = navByScheme.get(code);
     if (!existing) {
       navByScheme.set(code, { current: row.nav as number, previous: row.nav as number, date: row.nav_date as string });
-    } else if (!existing.previous || existing.current === existing.previous) {
-      // second row = yesterday's NAV
+    } else if (existing.current === existing.previous) {
+      // second row = previous trading day's NAV
       navByScheme.set(code, { ...existing, previous: row.nav as number });
     }
   }
@@ -144,7 +142,8 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
     const navInfo = navByScheme.get(fund.scheme_code);
     const txs = txByFund.get(fund.id) ?? [];
 
-    if (!navInfo || txs.length === 0) continue;
+    if (txs.length === 0) continue;
+    if (!navInfo) throw new Error(`No NAV data found for scheme ${fund.scheme_code} — cannot compute current value`);
 
     const today = new Date();
 

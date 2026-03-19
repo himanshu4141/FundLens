@@ -75,7 +75,10 @@ async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
     value: r.nav as number,
   }));
 
-  const currentNav = navHistory.length > 0 ? navHistory[navHistory.length - 1].value : 0;
+  if (navHistory.length === 0) {
+    throw new Error(`No NAV data found for scheme ${fund.scheme_code} — cannot compute current value`);
+  }
+  const currentNav = navHistory[navHistory.length - 1].value;
   const currentValue = netUnits * currentNav;
 
   // XIRR
