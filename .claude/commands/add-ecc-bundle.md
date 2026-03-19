@@ -10,16 +10,16 @@ Use this workflow when working on **add-ecc-bundle** in `FundLens`.
 
 ## Goal
 
-Adds a new ECC (Extensible Command/Component) bundle for FundLens, including agent configurations, skill documentation, identity, and command templates.
+Adds a new ECC (Extensible Command Collection) bundle to the FundLens project, including agent, skill, and documentation files.
 
 ## Common Files
 
+- `.claude/commands/add-ecc-bundle.md`
 - `.claude/identity.json`
-- `.agents/skills/FundLens/SKILL.md`
-- `.claude/skills/FundLens/SKILL.md`
 - `.claude/ecc-tools.json`
-- `.codex/agents/docs-researcher.toml`
-- `.codex/agents/reviewer.toml`
+- `.claude/skills/FundLens/SKILL.md`
+- `.agents/skills/FundLens/SKILL.md`
+- `.agents/skills/FundLens/agents/openai.yaml`
 
 ## Suggested Sequence
 
@@ -30,11 +30,11 @@ Adds a new ECC (Extensible Command/Component) bundle for FundLens, including age
 
 ## Typical Commit Signals
 
-- Create or update .claude/identity.json
-- Add or update .agents/skills/FundLens/SKILL.md
-- Add or update .claude/skills/FundLens/SKILL.md
+- Add or update .claude/commands/add-ecc-bundle.md
+- Add or update .claude/identity.json
 - Add or update .claude/ecc-tools.json
-- Add or update .codex/agents/docs-researcher.toml
+- Add or update .claude/skills/FundLens/SKILL.md
+- Add or update .agents/skills/FundLens/SKILL.md
 
 ## Notes
 
