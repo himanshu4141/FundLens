@@ -16,6 +16,7 @@
  */
 
 import { createServiceClient } from '../_shared/supabase-client.ts';
+import { json } from '../_shared/cors.ts';
 
 const BATCH_SIZE = 500;
 const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
@@ -25,7 +26,6 @@ const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YF_SYMBOL_MAP: Record<string, string> = {
   '^NSEI': '^NSEI',        // Nifty 50
   '^CNX100': '^CNX100',    // Nifty 100
-  '^NSEI': '^NSEI',
   '^NIFTY100': '^CNX100',
   '^NIFTY500': '^CNX500',
   '^NIFTYMIDCAP150': '^NIFMDCP150',

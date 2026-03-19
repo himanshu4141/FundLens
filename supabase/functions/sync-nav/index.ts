@@ -10,6 +10,7 @@
  */
 
 import { createServiceClient } from '../_shared/supabase-client.ts';
+import { json } from '../_shared/cors.ts';
 
 const BATCH_SIZE = 500;
 const MFAPI_BASE = 'https://api.mfapi.in/mf';
