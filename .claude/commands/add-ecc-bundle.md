@@ -10,16 +10,16 @@ Use this workflow when working on **add-ecc-bundle** in `FundLens`.
 
 ## Goal
 
-Adds a new ECC bundle for FundLens, including command documentation, agent/skill definitions, and configuration files.
+Adds a new ECC bundle for FundLens, including agent configs, skill documentation, and supporting command files.
 
 ## Common Files
 
 - `.claude/commands/add-ecc-bundle.md`
-- `.claude/identity.json`
-- `.claude/ecc-tools.json`
-- `.agents/skills/FundLens/SKILL.md`
-- `.claude/skills/FundLens/SKILL.md`
-- `.codex/agents/docs-researcher.toml`
+- `.claude/commands/feature-development.md`
+- `.claude/commands/update-skill-and-agent-documentation.md`
+- `.claude/commands/update-skill-documentation.md`
+- `.claude/commands/update-agent-and-skill-documentation.md`
+- `.claude/commands/add-ecc-bundle-files.md`
 
 ## Suggested Sequence
 
@@ -31,10 +31,10 @@ Adds a new ECC bundle for FundLens, including command documentation, agent/skill
 ## Typical Commit Signals
 
 - Add or update .claude/commands/add-ecc-bundle.md
+- Add or update .claude/commands/feature-development.md
+- Add or update .claude/commands/update-skill-and-agent-documentation.md or similar documentation command files
 - Add or update .claude/identity.json
 - Add or update .claude/ecc-tools.json
-- Add or update .agents/skills/FundLens/SKILL.md
-- Add or update .claude/skills/FundLens/SKILL.md
 
 ## Notes
 
