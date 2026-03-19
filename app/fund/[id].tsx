@@ -106,7 +106,7 @@ function PerformanceTab({
       {/* XIRR card */}
       <View style={styles.xirrCard}>
         <View style={styles.xirrStat}>
-          <Text style={styles.statLabel}>Your XIRR</Text>
+          <Text style={styles.statLabel}>Your Return</Text>
           <Text
             style={[
               styles.xirrValue,

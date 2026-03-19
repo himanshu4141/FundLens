@@ -38,6 +38,7 @@ export interface FundCardData {
   realizedGain: number;
   realizedAmount: number;
   redeemedUnits: number;
+  navHistory30d: { date: string; value: number }[];
 }
 
 export interface PortfolioSummary {
@@ -80,11 +81,16 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
 
   const schemeCodes = funds.map((f) => f.scheme_code);
 
-  // Load latest 2 NAV entries for each scheme (for current NAV + yesterday)
+  // Load last 30 days of NAV for each scheme (covers current + previous NAV + sparkline)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const navCutoff = thirtyDaysAgo.toISOString().split('T')[0];
+
   const { data: navRows, error: navError } = await supabase
     .from('nav_history')
     .select('scheme_code, nav_date, nav')
     .in('scheme_code', schemeCodes)
+    .gte('nav_date', navCutoff)
     .order('nav_date', { ascending: false });
 
   if (navError) throw navError;
@@ -100,6 +106,18 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
       // second row = yesterday's NAV
       navByScheme.set(code, { ...existing, previous: row.nav as number });
     }
+  }
+
+  // Build sparkline history map (rows came descending — reverse to ascending for rendering)
+  const navHistoryByScheme = new Map<number, { date: string; value: number }[]>();
+  for (const row of navRows ?? []) {
+    const code = row.scheme_code as number;
+    const pts = navHistoryByScheme.get(code) ?? [];
+    pts.push({ date: row.nav_date as string, value: row.nav as number });
+    navHistoryByScheme.set(code, pts);
+  }
+  for (const [code, pts] of navHistoryByScheme) {
+    navHistoryByScheme.set(code, [...pts].reverse());
   }
 
   // Load benchmark index history for market comparison
@@ -174,6 +192,7 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
       realizedGain,
       realizedAmount,
       redeemedUnits,
+      navHistory30d: navHistoryByScheme.get(fund.scheme_code) ?? [],
     });
 
     portfolioTotalValue += currentValue;
