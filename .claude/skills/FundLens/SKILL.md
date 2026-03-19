@@ -28,7 +28,7 @@ Activate this skill when:
 
 ## Commit Conventions
 
-Follow these commit message conventions based on 14 analyzed commits.
+Follow these commit message conventions based on 28 analyzed commits.
 
 ### Commit Style: Conventional Commits
 
@@ -50,6 +50,12 @@ Follow these commit message conventions based on 14 analyzed commits.
 *Commit message example*
 
 ```text
+feat: add FundLens ECC bundle (.claude/commands/refactoring.md)
+```
+
+*Commit message example*
+
+```text
 fix: fund card P&L display, chart usability, back nav, benchmark sync, magic link (#13)
 ```
 
@@ -57,12 +63,6 @@ fix: fund card P&L display, chart usability, back nav, benchmark sync, magic lin
 
 ```text
 ci: add workflow_dispatch to supabase-deploy workflow (#12)
-```
-
-*Commit message example*
-
-```text
-feat: milestone 8 — UX polish, brand identity, and feature roadmap (#11)
 ```
 
 *Commit message example*
@@ -80,19 +80,19 @@ initial: project setup
 *Commit message example*
 
 ```text
-fix(ci): remove schedule keys from config.toml
+feat: add FundLens ECC bundle (.claude/commands/feature-development.md)
 ```
 
 *Commit message example*
 
 ```text
-feat: milestone 8 — benchmark selector, realized gains, compare redesign, chart crosshair (#10)
+feat: add FundLens ECC bundle (.claude/commands/database-migration.md)
 ```
 
 *Commit message example*
 
 ```text
-feat: milestone 7 — settings profile, smart import, daily sync cron (#8)
+feat: add FundLens ECC bundle (.claude/homunculus/instincts/inherited/FundLens-instincts.yaml)
 ```
 
 ## Architecture
@@ -183,7 +183,7 @@ These workflows were detected from analyzing commit patterns.
 
 Database schema changes with migration files
 
-**Frequency**: ~11 times per month
+**Frequency**: ~6 times per month
 
 **Steps**:
 1. Create migration file
@@ -206,7 +206,7 @@ feat: milestone 3 — onboarding & CAS webhook import (#4)
 
 Standard feature implementation workflow
 
-**Frequency**: ~24 times per month
+**Frequency**: ~27 times per month
 
 **Steps**:
 1. Add feature implementation
@@ -229,7 +229,7 @@ feat: milestone 2 — data pipeline Edge Functions (#3)
 
 Code refactoring and cleanup workflow
 
-**Frequency**: ~9 times per month
+**Frequency**: ~5 times per month
 
 **Steps**:
 1. Ensure tests pass before refactor
@@ -246,19 +246,19 @@ feat: milestone 4 — home screen with portfolio data & XIRR (#5)
 feat: milestone 5 — fund detail with performance & NAV charts (#6)
 ```
 
-### Milestone Feature Development
+### Feature Milestone Development
 
-Implements a major feature or milestone, including UI, hooks, backend logic, and documentation.
+Implements a major feature or milestone, typically including new screens, hooks, utilities, and documentation.
 
 **Frequency**: ~2 times per month
 
 **Steps**:
-1. Create or update UI screen files in app/(tabs) or app/fund or app/onboarding.
-2. Implement or update supporting hooks in src/hooks/.
-3. Update or add supporting utility files in src/utils/.
-4. Update or add backend logic (e.g., Supabase Edge Functions) in supabase/functions/.
-5. Add or update database migrations in supabase/migrations/ if schema/data changes are needed.
-6. Update or add documentation in docs/plans/ and/or README.md.
+1. Create or update one or more screen files under app/(tabs)/ or app/fund/ or app/onboarding/
+2. Add or update related React hooks in src/hooks/
+3. Add or update shared utilities in src/utils/ as needed
+4. Update or create milestone-specific documentation in docs/plans/
+5. Update AGENTS.md or CLAUDE.md with validation checklists or process notes (optional)
+6. Update or add database migrations in supabase/migrations/ if schema changes are needed
 
 **Files typically involved**:
 - `app/(tabs)/*.tsx`
@@ -266,121 +266,119 @@ Implements a major feature or milestone, including UI, hooks, backend logic, and
 - `app/onboarding/*.tsx`
 - `src/hooks/*.ts`
 - `src/utils/*.ts`
-- `supabase/functions/**/*.ts`
-- `supabase/migrations/*.sql`
 - `docs/plans/*.md`
-- `README.md`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `supabase/migrations/*.sql`
 
 **Example commit sequence**:
 ```
-Create or update UI screen files in app/(tabs) or app/fund or app/onboarding.
-Implement or update supporting hooks in src/hooks/.
-Update or add supporting utility files in src/utils/.
-Update or add backend logic (e.g., Supabase Edge Functions) in supabase/functions/.
-Add or update database migrations in supabase/migrations/ if schema/data changes are needed.
-Update or add documentation in docs/plans/ and/or README.md.
+Create or update one or more screen files under app/(tabs)/ or app/fund/ or app/onboarding/
+Add or update related React hooks in src/hooks/
+Add or update shared utilities in src/utils/ as needed
+Update or create milestone-specific documentation in docs/plans/
+Update AGENTS.md or CLAUDE.md with validation checklists or process notes (optional)
+Update or add database migrations in supabase/migrations/ if schema changes are needed
 ```
 
-### Edge Function Development And Integration
+### Database Schema Change And Migration
 
-Adds or updates Supabase Edge Functions, often with supporting migrations, shared helpers, and CORS/auth fixes.
+Adds or modifies database tables/columns and generates corresponding migration scripts.
 
 **Frequency**: ~2 times per month
 
 **Steps**:
-1. Create or update Edge Function(s) in supabase/functions/.
-2. Add or update shared helpers (e.g., _shared/auth.ts, _shared/cors.ts).
-3. Update or add database migrations in supabase/migrations/ if new tables/columns are needed.
-4. Update types in src/types/database.types.ts if schema changes.
-5. Update frontend hooks or flows to call/integrate the new function(s).
+1. Edit or add SQL migration file in supabase/migrations/
+2. Update supabase/config.toml if configuration changes are needed
+3. Regenerate src/types/database.types.ts if types need to reflect schema changes
+4. Update related edge functions or hooks to use new schema
 
 **Files typically involved**:
+- `supabase/migrations/*.sql`
+- `supabase/config.toml`
+- `src/types/database.types.ts`
 - `supabase/functions/**/*.ts`
+
+**Example commit sequence**:
+```
+Edit or add SQL migration file in supabase/migrations/
+Update supabase/config.toml if configuration changes are needed
+Regenerate src/types/database.types.ts if types need to reflect schema changes
+Update related edge functions or hooks to use new schema
+```
+
+### Edge Function Development Or Update
+
+Creates or updates Supabase Edge Functions for backend logic (e.g., data sync, CAS import, onboarding).
+
+**Frequency**: ~2 times per month
+
+**Steps**:
+1. Create or modify function file in supabase/functions/<function-name>/index.ts
+2. If needed, update or add shared helpers in supabase/functions/_shared/
+3. Add or update related migration if new tables/columns are needed
+4. Update or add documentation in docs/plans/ or relevant markdown files
+
+**Files typically involved**:
+- `supabase/functions/*/index.ts`
 - `supabase/functions/_shared/*.ts`
 - `supabase/migrations/*.sql`
-- `src/types/database.types.ts`
-- `src/hooks/*.ts`
+- `docs/plans/*.md`
 
 **Example commit sequence**:
 ```
-Create or update Edge Function(s) in supabase/functions/.
-Add or update shared helpers (e.g., _shared/auth.ts, _shared/cors.ts).
-Update or add database migrations in supabase/migrations/ if new tables/columns are needed.
-Update types in src/types/database.types.ts if schema changes.
-Update frontend hooks or flows to call/integrate the new function(s).
-```
-
-### Database Migration And Seeding
-
-Adds or modifies database schema or seeds data, often in support of new features or backend logic.
-
-**Frequency**: ~2 times per month
-
-**Steps**:
-1. Create new migration file(s) in supabase/migrations/.
-2. Update or add seed data in migration SQL files.
-3. Update types in src/types/database.types.ts if schema changes.
-4. Update backend logic or Edge Functions to use new schema/data.
-
-**Files typically involved**:
-- `supabase/migrations/*.sql`
-- `src/types/database.types.ts`
-- `supabase/functions/**/*.ts`
-
-**Example commit sequence**:
-```
-Create new migration file(s) in supabase/migrations/.
-Update or add seed data in migration SQL files.
-Update types in src/types/database.types.ts if schema changes.
-Update backend logic or Edge Functions to use new schema/data.
-```
-
-### Ci Cd Pipeline And Config Update
-
-Updates CI/CD workflows, deployment scripts, or Supabase config to support new automation or fix compatibility.
-
-**Frequency**: ~1 times per month
-
-**Steps**:
-1. Update or add GitHub Actions workflow files in .github/workflows/.
-2. Update supabase/config.toml or other deployment config files.
-3. Update tsconfig.json or other project-level config files as needed.
-
-**Files typically involved**:
-- `.github/workflows/*.yml`
-- `supabase/config.toml`
-- `tsconfig.json`
-
-**Example commit sequence**:
-```
-Update or add GitHub Actions workflow files in .github/workflows/.
-Update supabase/config.toml or other deployment config files.
-Update tsconfig.json or other project-level config files as needed.
+Create or modify function file in supabase/functions/<function-name>/index.ts
+If needed, update or add shared helpers in supabase/functions/_shared/
+Add or update related migration if new tables/columns are needed
+Update or add documentation in docs/plans/ or relevant markdown files
 ```
 
 ### Documentation And Execplan Update
 
-Adds or updates documentation and implementation plans to match new features, flows, or decisions.
+Adds or updates documentation, milestone plans, and process records.
 
 **Frequency**: ~2 times per month
 
 **Steps**:
-1. Update or add markdown files in docs/plans/.
-2. Update README.md or other top-level documentation.
-3. Update AGENTS.md, CLAUDE.md, or VISION.md if process or vision changes.
+1. Create or update docs/plans/<milestone>.md with implementation details
+2. Update AGENTS.md, CLAUDE.md, or docs/SCREENS.md as needed
+3. Update README.md with new instructions or project structure
 
 **Files typically involved**:
 - `docs/plans/*.md`
-- `README.md`
 - `AGENTS.md`
 - `CLAUDE.md`
-- `VISION.md`
+- `docs/SCREENS.md`
+- `README.md`
 
 **Example commit sequence**:
 ```
-Update or add markdown files in docs/plans/.
-Update README.md or other top-level documentation.
-Update AGENTS.md, CLAUDE.md, or VISION.md if process or vision changes.
+Create or update docs/plans/<milestone>.md with implementation details
+Update AGENTS.md, CLAUDE.md, or docs/SCREENS.md as needed
+Update README.md with new instructions or project structure
+```
+
+### Ci Cd Workflow Update
+
+Modifies GitHub Actions workflows or Supabase deployment configuration for CI/CD improvements.
+
+**Frequency**: ~1 times per month
+
+**Steps**:
+1. Edit or add workflow files in .github/workflows/
+2. Update supabase/config.toml or related config files if needed
+3. Update documentation to reflect CI/CD changes
+
+**Files typically involved**:
+- `.github/workflows/*.yml`
+- `supabase/config.toml`
+- `README.md`
+
+**Example commit sequence**:
+```
+Edit or add workflow files in .github/workflows/
+Update supabase/config.toml or related config files if needed
+Update documentation to reflect CI/CD changes
 ```
 
 
