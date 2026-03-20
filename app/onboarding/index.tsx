@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
+import { Colors } from '@/src/constants/theme';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
@@ -249,7 +250,7 @@ export default function OnboardingScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a56db" />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
   // Setup-complete view
   refreshCard: { gap: 12 },
   refreshBtn: {
-    backgroundColor: '#1a56db', borderRadius: 10, paddingVertical: 16,
+    backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 16,
     alignItems: 'center',
   },
   refreshBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
@@ -455,17 +456,17 @@ const styles = StyleSheet.create({
   requestedText: { fontSize: 14, color: '#166534', lineHeight: 22 },
 
   tipToggle: { paddingVertical: 4 },
-  tipToggleText: { fontSize: 13, color: '#1a56db', fontWeight: '600' },
+  tipToggleText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
   tipCard: {
-    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
+    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#b2dfd6',
     borderRadius: 10, padding: 14, gap: 8,
   },
-  tipTitle: { fontSize: 13, fontWeight: '700', color: '#1e40af' },
-  tipStep: { fontSize: 13, color: '#1e40af', lineHeight: 20 },
-  tipNote: { fontSize: 12, color: '#3730a3', fontStyle: 'italic', marginTop: 4 },
+  tipTitle: { fontSize: 13, fontWeight: '700', color: Colors.primaryDark },
+  tipStep: { fontSize: 13, color: Colors.primaryDark, lineHeight: 20 },
+  tipNote: { fontSize: 12, color: Colors.primary, fontStyle: 'italic', marginTop: 4 },
 
   portfolioBtn: {
-    backgroundColor: '#1a56db', borderRadius: 10,
+    backgroundColor: Colors.primary, borderRadius: 10,
     paddingVertical: 14, alignItems: 'center',
   },
   portfolioBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
@@ -481,7 +482,7 @@ const styles = StyleSheet.create({
   stepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   stepNum: {
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#1a56db', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
   },
   stepNumDone: { backgroundColor: '#16a34a' },
   stepNumGray: { backgroundColor: '#d1d5db' },
@@ -506,7 +507,7 @@ const styles = StyleSheet.create({
 
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   savedText: { fontSize: 14, color: '#16a34a', fontWeight: '600', flex: 1 },
-  changeLink: { fontSize: 13, color: '#1a56db' },
+  changeLink: { fontSize: 13, color: Colors.primary },
 
   copyBox: {
     backgroundColor: '#f8fafc', borderRadius: 8,
@@ -523,7 +524,7 @@ const styles = StyleSheet.create({
   copyBtnText: { fontSize: 12, fontWeight: '600', color: '#475569' },
 
   primaryBtn: {
-    backgroundColor: '#1a56db', borderRadius: 8, paddingVertical: 12, alignItems: 'center',
+    backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 12, alignItems: 'center',
   },
   btnDisabled: { opacity: 0.4 },
   primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },

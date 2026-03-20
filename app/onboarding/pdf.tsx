@@ -45,35 +45,27 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      // Get session explicitly — supabase.functions.invoke + FormData can silently
-      // drop the Authorization header on some platforms.
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('You are not signed in. Please sign in and try again.');
-      }
-
-      const form = new FormData();
-      form.append('file', {
-        uri: asset.uri,
-        name: asset.name ?? 'cas.pdf',
-        type: 'application/pdf',
-      } as unknown as Blob);
-
-      const fnUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/parse-cas-pdf`;
-      const resp = await fetch(fnUrl, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: form,
-      });
+      // Fetch the file as a Blob from its local URI, then send via
+      // supabase.functions.invoke so the SDK handles JWT auth reliably.
+      // (FormData bodies cause the SDK to silently drop the Authorization header
+      // on some React Native / Expo web platforms, causing 401 errors.)
+      const fileResp = await fetch(asset.uri);
+      const blob = await fileResp.blob();
 
       type FnResponse = { ok?: boolean; funds?: number; transactions?: number; error?: string };
-      const json = await resp.json() as FnResponse;
+      const { data, error } = await supabase.functions.invoke<FnResponse>('parse-cas-pdf', {
+        method: 'POST',
+        headers: { 'x-file-name': asset.name ?? 'cas.pdf' },
+        body: blob,
+      });
 
-      if (!resp.ok) {
-        throw new Error(json?.error ?? 'Failed to import PDF. Please try again.');
+      if (error) {
+        // FunctionsHttpError: error.message is always generic; real message is in error.context
+        const ctx = (error as unknown as { context?: FnResponse }).context;
+        throw new Error(ctx?.error ?? 'Failed to import PDF. Please try again.');
       }
 
-      setResult({ funds: json.funds ?? 0, transactions: json.transactions ?? 0 });
+      setResult({ funds: data?.funds ?? 0, transactions: data?.transactions ?? 0 });
       setState('success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to import PDF. Please try again.';

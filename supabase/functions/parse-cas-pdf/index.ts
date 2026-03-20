@@ -29,36 +29,35 @@ Deno.serve(async (req) => {
     return json({ error: authError ?? 'Unauthorized' }, { status: 401 });
   }
 
-  // Parse multipart form
-  let formData: FormData;
+  // Read raw PDF binary from request body.
+  // Client sends the file as a Blob body (not multipart form) so that
+  // supabase.functions.invoke can attach the JWT auth header reliably —
+  // FormData bodies cause the SDK to silently drop the Authorization header.
+  let pdfBytesRaw: ArrayBuffer;
   try {
-    formData = await req.formData();
+    pdfBytesRaw = await req.arrayBuffer();
   } catch {
-    return json({ error: 'Expected multipart/form-data' }, { status: 400 });
+    return json({ error: 'Could not read request body' }, { status: 400 });
   }
 
-  const fileEntry = formData.get('file');
-  if (!fileEntry || !(fileEntry instanceof File)) {
-    return json({ error: 'Missing file field' }, { status: 400 });
+  if (pdfBytesRaw.byteLength === 0) {
+    return json({ error: 'Empty file received' }, { status: 400 });
   }
 
-  // Password: use value from form if provided, else fall back to stored PAN
-  let password = (formData.get('password') as string | null) ?? '';
-  let passwordSource = 'form';
-  if (!password) {
-    const { data: profile } = await supabase
-      .from('user_profile')
-      .select('pan')
-      .eq('user_id', user.id)
-      .maybeSingle();
+  const fileName = req.headers.get('x-file-name') ?? 'cas.pdf';
 
-    password = profile?.pan ?? '';
-    passwordSource = 'pan';
-  }
+  // Password: always look up the stored PAN for this user
+  const { data: profile } = await supabase
+    .from('user_profile')
+    .select('pan')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const password = profile?.pan ?? '';
 
   console.log(
-    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=%s',
-    user.id, fileEntry.name, fileEntry.size, passwordSource,
+    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=pan',
+    user.id, fileName, pdfBytesRaw.byteLength,
   );
 
   if (!password) {
@@ -89,7 +88,7 @@ Deno.serve(async (req) => {
   console.log('[parse-cas-pdf] import record created, import_id=%s', importId);
 
   // Parse PDF locally — no external API dependency.
-  const pdfBytes = new Uint8Array(await fileEntry.arrayBuffer());
+  const pdfBytes = new Uint8Array(pdfBytesRaw);
   let parsed: CASParseResult;
   try {
     parsed = await parseCasPdf(pdfBytes, password);
