@@ -1,19 +1,16 @@
 /**
  * parse-cas-pdf — accepts a CAS PDF uploaded directly from the app,
- * parses it via CASParser, and imports the resulting transactions.
+ * parses it locally (no external API), and imports the resulting transactions.
  *
- * Request: multipart/form-data
- *   - file: PDF blob
- *   - password (optional): CAS PDF password; falls back to user's stored PAN
+ * Request: binary PDF body
  *
  * Auth: Bearer JWT in Authorization header (Supabase user token).
  */
 
 import { CORS, json } from '../_shared/cors.ts';
 import { getUserFromRequest } from '../_shared/auth.ts';
-import { importCASData } from '../_shared/import-cas.ts';
-
-const CASPARSER_API_KEY = Deno.env.get('CASPARSER_API_KEY') ?? '';
+import { importCASData, type CASParseResult } from '../_shared/import-cas.ts';
+import { parseCasPdf } from '../_shared/parse-cas-pdf.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -30,36 +27,33 @@ Deno.serve(async (req) => {
     return json({ error: authError ?? 'Unauthorized' }, { status: 401 });
   }
 
-  // Parse multipart form
-  let formData: FormData;
+  // Read raw PDF binary from request body.
+  // Client sends the file as a Blob body (not multipart form) so that
+  // supabase.functions.invoke can attach the JWT auth header reliably.
+  let pdfBytesRaw: ArrayBuffer;
   try {
-    formData = await req.formData();
+    pdfBytesRaw = await req.arrayBuffer();
   } catch {
-    return json({ error: 'Expected multipart/form-data' }, { status: 400 });
+    return json({ error: 'Could not read request body' }, { status: 400 });
   }
 
-  const fileEntry = formData.get('file');
-  if (!fileEntry || !(fileEntry instanceof File)) {
-    return json({ error: 'Missing file field' }, { status: 400 });
+  if (pdfBytesRaw.byteLength === 0) {
+    return json({ error: 'Empty file received' }, { status: 400 });
   }
 
-  // Password: use value from form if provided, else fall back to stored PAN
-  let password = (formData.get('password') as string | null) ?? '';
-  let passwordSource = 'form';
-  if (!password) {
-    const { data: profile } = await supabase
-      .from('user_profile')
-      .select('pan')
-      .eq('user_id', user.id)
-      .maybeSingle();
+  const fileName = req.headers.get('x-file-name') ?? 'cas.pdf';
 
-    password = profile?.pan ?? '';
-    passwordSource = 'pan';
-  }
+  const { data: profile } = await supabase
+    .from('user_profile')
+    .select('pan')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const password = profile?.pan ?? '';
 
   console.log(
-    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=%s',
-    user.id, fileEntry.name, fileEntry.size, passwordSource,
+    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=pan',
+    user.id, fileName, pdfBytesRaw.byteLength,
   );
 
   if (!password) {
@@ -89,27 +83,20 @@ Deno.serve(async (req) => {
   const importId = importRecord.id as string;
   console.log('[parse-cas-pdf] import record created, import_id=%s', importId);
 
-  // Forward to CASParser smart/parse
-  const parseForm = new FormData();
-  parseForm.append('file', fileEntry, 'cas.pdf');
-  parseForm.append('password', password);
-
-  const parseRes = await fetch('https://api.casparser.in/v4/smart/parse', {
-    method: 'POST',
-    headers: { 'x-api-key': CASPARSER_API_KEY },
-    body: parseForm,
-  });
-
-  if (!parseRes.ok) {
-    const body = await parseRes.text();
-    console.error('[parse-cas-pdf] CASParser parse error, status=%d, body=%s', parseRes.status, body);
+  const pdfBytes = new Uint8Array(pdfBytesRaw);
+  let parsed: CASParseResult;
+  try {
+    parsed = await parseCasPdf(pdfBytes, password);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[parse-cas-pdf] local parse error: %s', msg);
 
     await supabase
       .from('cas_import')
-      .update({ import_status: 'failed', error_message: `Parse failed: ${parseRes.status}` })
+      .update({ import_status: 'failed', error_message: msg })
       .eq('id', importId);
 
-    const isPasswordError = parseRes.status === 400 && body.toLowerCase().includes('password');
+    const isPasswordError = msg.toLowerCase().includes('password') || msg.toLowerCase().includes('decrypt');
     return json(
       {
         error: isPasswordError
@@ -120,8 +107,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const parsed = await parseRes.json();
-  console.log('[parse-cas-pdf] CASParser parsed %d folios', (parsed?.mutual_funds ?? []).length);
+  console.log('[parse-cas-pdf] local parser: %d folios', (parsed?.mutual_funds ?? []).length);
 
   const { fundsUpdated, transactionsAdded, errors } = await importCASData(
     supabase, user.id, importId, parsed,
