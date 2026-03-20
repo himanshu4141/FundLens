@@ -44,18 +44,16 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      // Build multipart form — React Native fetch handles file:// URIs in FormData
-      const form = new FormData();
-      form.append('file', {
-        uri: asset.uri,
-        name: asset.name ?? 'cas.pdf',
-        type: 'application/pdf',
-      } as unknown as Blob);
+      // Edge Function expects the raw PDF bytes, not multipart form data.
+      const fileResponse = await fetch(asset.uri);
+      const pdfBlob = await fileResponse.blob();
 
-      // Use supabase.functions.invoke to avoid manual JWT auth issues
       const { data, error } = await supabase.functions.invoke('parse-cas-pdf', {
         method: 'POST',
-        body: form,
+        body: pdfBlob,
+        headers: {
+          'x-file-name': asset.name ?? 'cas.pdf',
+        },
       });
 
       if (error) throw new Error(error.message);
