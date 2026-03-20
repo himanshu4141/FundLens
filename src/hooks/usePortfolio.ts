@@ -27,18 +27,19 @@ export interface FundCardData {
   schemeName: string;
   schemeCategory: string;
   schemeCode: number;
-  currentNav: number;
-  previousNav: number;
+  currentNav: number | null;
+  previousNav: number | null;
   currentUnits: number;
-  currentValue: number;
+  currentValue: number | null;
   investedAmount: number;
-  dailyChangeAmount: number;
-  dailyChangePct: number;
+  dailyChangeAmount: number | null;
+  dailyChangePct: number | null;
   returnXirr: number;
   realizedGain: number;
   realizedAmount: number;
   redeemedUnits: number;
   navHistory30d: { date: string; value: number }[];
+  navUnavailable?: true;
 }
 
 export interface PortfolioSummary {
@@ -151,13 +152,37 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
     const txs = txByFund.get(fund.id) ?? [];
 
     if (txs.length === 0) continue;
-    if (!navInfo) {
-      // NAV sync hasn't run for this scheme yet — skip fund rather than crash portfolio load
-      console.warn(`[usePortfolio] no NAV data for scheme ${fund.scheme_code}, skipping`);
-      continue;
-    }
 
     const today = new Date();
+
+    if (!navInfo) {
+      // NAV sync hasn't run for this scheme yet — show a pending card so the user
+      // can see their holding rather than having it silently disappear.
+      console.warn(`[usePortfolio] no NAV data for scheme ${fund.scheme_code} — showing pending card`);
+      const { netUnits, investedAmount } = buildCashflowsFromTransactions(txs, 0, today);
+      if (netUnits < 0.001) continue; // skip fully-exited funds
+      const { realizedGain, realizedAmount, redeemedUnits } = computeRealizedGains(txs);
+      fundCards.push({
+        id: fund.id,
+        schemeName: fund.scheme_name,
+        schemeCategory: fund.scheme_category ?? '',
+        schemeCode: fund.scheme_code,
+        currentNav: null,
+        previousNav: null,
+        currentUnits: netUnits,
+        currentValue: null,
+        investedAmount,
+        dailyChangeAmount: null,
+        dailyChangePct: null,
+        returnXirr: NaN,
+        realizedGain,
+        realizedAmount,
+        redeemedUnits,
+        navHistory30d: [],
+        navUnavailable: true,
+      });
+      continue;
+    }
 
     // First pass: get netUnits and historical cashflows (currentValue unknown yet)
     const { historicalCashflows, netUnits, investedAmount } = buildCashflowsFromTransactions(

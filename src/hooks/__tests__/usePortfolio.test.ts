@@ -134,7 +134,7 @@ describe('fetchPortfolioData()', () => {
     expect(result.fundCards).toHaveLength(0);
   });
 
-  it('skips funds with no NAV data rather than crashing portfolio load', async () => {
+  it('shows a pending card for funds with no NAV data rather than crashing or hiding the holding', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
       if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
@@ -143,10 +143,17 @@ describe('fetchPortfolioData()', () => {
       return makeChain({ data: [], error: null });
     });
 
-    // Should not throw — fund is skipped, portfolio returns empty cards with zero-value summary
+    // Should not throw — fund appears as a pending card with null nav fields
     const result = await fetchPortfolioData('user-1', '^NSEI');
-    expect(result.fundCards).toHaveLength(0);
-    expect(result.summary?.totalValue).toBe(0);
+    expect(result.fundCards).toHaveLength(1);
+    const card = result.fundCards[0];
+    expect(card.navUnavailable).toBe(true);
+    expect(card.currentNav).toBeNull();
+    expect(card.currentValue).toBeNull();
+    expect(card.investedAmount).toBe(16000);  // 10000 + 6000
+    expect(card.currentUnits).toBe(150);      // 100 + 50
+    expect(card.navHistory30d).toHaveLength(0);
+    expect(result.summary?.totalValue).toBe(0); // pending fund not counted in total
   });
 
   it('navHistory30d contains only the last 30 days of NAV data', async () => {
