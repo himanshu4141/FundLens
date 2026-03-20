@@ -10,6 +10,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
+import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
 
@@ -44,7 +45,13 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      // Build multipart form — React Native fetch handles file:// URIs in FormData
+      // Get session explicitly — supabase.functions.invoke + FormData can silently
+      // drop the Authorization header on some platforms.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You are not signed in. Please sign in and try again.');
+      }
+
       const form = new FormData();
       form.append('file', {
         uri: asset.uri,
@@ -52,18 +59,24 @@ export default function PDFScreen() {
         type: 'application/pdf',
       } as unknown as Blob);
 
-      // Use supabase.functions.invoke to avoid manual JWT auth issues
-      const { data, error } = await supabase.functions.invoke('parse-cas-pdf', {
+      const fnUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/parse-cas-pdf`;
+      const resp = await fetch(fnUrl, {
         method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: form,
       });
 
-      if (error) throw new Error(error.message);
+      type FnResponse = { ok?: boolean; funds?: number; transactions?: number; error?: string };
+      const json = await resp.json() as FnResponse;
 
-      setResult({ funds: data.funds, transactions: data.transactions });
+      if (!resp.ok) {
+        throw new Error(json?.error ?? 'Failed to import PDF. Please try again.');
+      }
+
+      setResult({ funds: json.funds ?? 0, transactions: json.transactions ?? 0 });
       setState('success');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = err instanceof Error ? err.message : 'Failed to import PDF. Please try again.';
       setErrorMsg(msg);
       setState('error');
     }
@@ -157,54 +170,57 @@ export default function PDFScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20, gap: 16, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#666', lineHeight: 21 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: 40 },
+  title: { ...Typography.h1, color: Colors.textPrimary, marginBottom: 2 },
+  subtitle: { ...Typography.body, color: Colors.textSecondary, lineHeight: 21 },
 
   infoCard: {
-    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 16, gap: 6,
+    borderWidth: 1, borderColor: Colors.border, borderRadius: Radii.md, padding: Spacing.md, gap: 6,
   },
-  infoTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 4 },
-  infoItem: { fontSize: 13, color: '#555', lineHeight: 20 },
+  infoTitle: { ...Typography.bodySmall, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
+  infoItem: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 20 },
 
-  howCard: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, gap: 8 },
-  howTitle: { fontSize: 14, fontWeight: '700', color: '#111' },
-  howStep: { fontSize: 13, color: '#555', lineHeight: 20 },
+  howCard: { backgroundColor: Colors.surfaceAlt, borderRadius: Radii.md, padding: Spacing.md, gap: 8 },
+  howTitle: { ...Typography.bodySmall, fontWeight: '700', color: Colors.textPrimary },
+  howStep: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 20 },
   bold: { fontWeight: '700' },
 
   panNote: {
-    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
-    borderRadius: 10, padding: 14,
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: Colors.primary + '33',
+    borderRadius: Radii.sm,
+    padding: Spacing.md,
   },
-  panNoteText: { fontSize: 13, color: '#1e40af', lineHeight: 20 },
+  panNoteText: { ...Typography.bodySmall, color: Colors.primaryDark, lineHeight: 20 },
 
   successCard: {
     backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
-    borderRadius: 12, padding: 16, gap: 8, alignItems: 'center',
+    borderRadius: Radii.md, padding: Spacing.md, gap: 8, alignItems: 'center',
   },
   successTitle: { fontSize: 16, fontWeight: '700', color: '#166534' },
-  successText: { fontSize: 14, color: '#16a34a' },
+  successText: { ...Typography.body, color: Colors.positive },
   doneBtn: {
-    backgroundColor: '#16a34a', borderRadius: 8,
+    backgroundColor: Colors.positive, borderRadius: Radii.sm,
     paddingVertical: 10, paddingHorizontal: 24, marginTop: 4,
   },
   doneBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 
   errorCard: {
     backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca',
-    borderRadius: 10, padding: 14, gap: 6,
+    borderRadius: Radii.sm, padding: Spacing.md, gap: 6,
   },
   errorTitle: { fontSize: 14, fontWeight: '700', color: '#991b1b' },
-  errorText: { fontSize: 13, color: '#b91c1c', lineHeight: 20 },
+  errorText: { ...Typography.bodySmall, color: '#b91c1c', lineHeight: 20 },
 
   uploadBtn: {
-    backgroundColor: '#1a56db', borderRadius: 8, paddingVertical: 14,
+    backgroundColor: Colors.primary, borderRadius: Radii.md, paddingVertical: 14,
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center',
   },
   uploadBtnDisabled: { opacity: 0.6 },
-  uploadBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  uploadBtnText: { color: Colors.textOnDark, fontWeight: '600', fontSize: 15 },
 
   backLink: { alignItems: 'center', paddingVertical: 4 },
-  backLinkText: { fontSize: 14, color: '#1a56db' },
+  backLinkText: { ...Typography.bodySmall, color: Colors.primary },
 });
