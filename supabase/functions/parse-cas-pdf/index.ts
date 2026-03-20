@@ -13,6 +13,7 @@ import { importCASData, type CASParseResult } from '../_shared/import-cas.ts';
 
 const LOCAL_CAS_PARSER_URL = Deno.env.get('LOCAL_CAS_PARSER_URL') ?? '';
 const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
+const VERCEL_PROTECTION_BYPASS_TOKEN = Deno.env.get('VERCEL_PROTECTION_BYPASS_TOKEN') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -44,7 +45,9 @@ Deno.serve(async (req) => {
     return new Response('Method not allowed', { status: 405, headers: CORS });
   }
 
-  // Authenticate user
+  // Authenticate user inside the function. This endpoint is deployed with
+  // `--no-verify-jwt` because the Supabase Functions gateway rejects the
+  // project's current user tokens, while `supabase.auth.getUser()` succeeds.
   const { user, supabase, error: authError } = await getUserFromRequest(req);
   if (authError || !user || !supabase) {
     return json({ error: authError ?? 'Unauthorized' }, { status: 401 });
@@ -123,6 +126,9 @@ Deno.serve(async (req) => {
         'x-file-name': fileName,
         'x-password': password,
         'x-parser-secret': CAS_PARSER_SHARED_SECRET,
+        ...(VERCEL_PROTECTION_BYPASS_TOKEN
+          ? { 'x-vercel-protection-bypass': VERCEL_PROTECTION_BYPASS_TOKEN }
+          : {}),
       },
       body: pdfBytesRaw,
     });

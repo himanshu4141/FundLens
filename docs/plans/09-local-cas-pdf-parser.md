@@ -227,6 +227,7 @@ Acceptance criteria:
 
 - 2026-03-20: The final implementation does not keep parsing inside Supabase Edge Functions. Research and validation against a real CAS PDF showed that the mature open-source parser is the Python package `casparser`, while the Deno parser path remained brittle and layout-dependent. The implementation therefore moved parsing to a Vercel Python Function and kept Supabase Edge as the authenticated import and sync trigger layer.
 - 2026-03-20: Preview support is handled by deriving the parser URL from the incoming request origin when available, so PR previews can exercise branch-specific Python parser code without changing Supabase secrets for every preview deployment.
+- 2026-03-20: Protected Vercel preview deployments also require a deployment-protection bypass token for Supabase's server-to-server parser call. The final implementation supports this through an optional Supabase secret so preview E2E tests do not depend on public preview deployments.
 
 ## Progress
 
@@ -237,6 +238,6 @@ Acceptance criteria:
 - [x] Vercel Python parser implemented using `casparser`
 - [x] `parse-cas-pdf` switched away from CASParser.in for manual uploads
 - [x] Typecheck and lint pass
-- [ ] Vercel parser function deployed with shared secret env
-- [ ] Updated `parse-cas-pdf` Edge Function deployed
-- [ ] README “What works now” updated if behavior changes
+- [x] Vercel parser function deployed with shared secret env
+- [x] Updated `parse-cas-pdf` Edge Function deployed
+- [x] README “What works now” updated if behavior changes
