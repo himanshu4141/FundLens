@@ -27,6 +27,23 @@ const CHART_WIDTH = SCREEN_WIDTH - 32;
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Format a YYYY-MM-DD date string for x-axis labels based on the selected window. */
+function formatChartDate(dateStr: string, window: TimeWindow): string {
+  const [year, month, day] = dateStr.split('-');
+  const mon = MONTH_ABBR[parseInt(month, 10) - 1] ?? month;
+  const yr2 = year.slice(2);
+  switch (window) {
+    case '1M': return `${parseInt(day, 10)} ${mon}`;   // "5 Feb"
+    case '3M': return `${parseInt(day, 10)} ${mon}`;   // "20 Dec"
+    case '6M': return `${mon} '${yr2}`;                // "Sep '24"
+    case '1Y': return `${mon} '${yr2}`;                // "Mar '25"
+    case '3Y':
+    case 'All': return `${mon} '${yr2}`;               // "Jan '22"
+  }
+}
+
 function TimeWindowSelector({
   selected,
   onChange,
@@ -88,7 +105,7 @@ function PerformanceTab({
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
   const xLabels = sampledNav.map((p, i) =>
     i % labelInterval === 0 || i === sampledNav.length - 1
-      ? (window === '3Y' || window === 'All' ? p.date.slice(0, 7) : p.date.slice(5))
+      ? formatChartDate(p.date, window)
       : ''
   );
 
@@ -254,7 +271,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   const labelInterval = Math.max(1, Math.floor(sampledFiltered.length / 5));
   const xLabels = sampledFiltered.map((p, i) =>
     i % labelInterval === 0 || i === sampledFiltered.length - 1
-      ? (window === '3Y' || window === 'All' ? p.date.slice(0, 7) : p.date.slice(5))
+      ? formatChartDate(p.date, window)
       : ''
   );
 

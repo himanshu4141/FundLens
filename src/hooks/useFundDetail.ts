@@ -61,19 +61,19 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
   const { historicalCashflows: cashflows, netUnits, investedAmount } =
     buildCashflowsFromTransactions(txs ?? [], 0, new Date());
 
-  // Load full NAV history
+  // Load NAV history descending so the most-recent rows always fall within
+  // Supabase's default 1000-row API limit. Then reverse to ascending for charting.
   const { data: navRows, error: navError } = await supabase
     .from('nav_history')
     .select('nav_date, nav')
     .eq('scheme_code', fund.scheme_code)
-    .order('nav_date', { ascending: true });
+    .order('nav_date', { ascending: false });
 
   if (navError) throw navError;
 
-  const navHistory: NavPoint[] = (navRows ?? []).map((r) => ({
-    date: r.nav_date as string,
-    value: r.nav as number,
-  }));
+  const navHistory: NavPoint[] = (navRows ?? [])
+    .map((r) => ({ date: r.nav_date as string, value: r.nav as number }))
+    .reverse(); // ascending for chart rendering
 
   if (navHistory.length === 0) {
     throw new Error(`No NAV data found for scheme ${fund.scheme_code} — cannot compute current value`);
