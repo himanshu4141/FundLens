@@ -7,9 +7,12 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
+import Logo from '@/src/components/Logo';
+import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
 
@@ -69,21 +72,27 @@ export default function PDFScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Upload CAS PDF</Text>
-      <Text style={styles.subtitle}>
-        Upload your Consolidated Account Statement PDF to import all your mutual fund transactions
-        at once.
-      </Text>
+      <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
+        <Logo size={44} showWordmark light />
+        <View style={styles.heroCopy}>
+          <Text style={styles.title}>Upload a CAS PDF</Text>
+          <Text style={styles.subtitle}>
+            Use this when you already downloaded your statement and want to import it directly.
+          </Text>
+        </View>
+      </LinearGradient>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Supported PDFs</Text>
+      <View style={styles.panel}>
+        <Text style={styles.sectionLabel}>Supported PDFs</Text>
+        <Text style={styles.infoTitle}>Detailed CAS statements we can import</Text>
         <Text style={styles.infoItem}>• CAMS CAS (password = your PAN)</Text>
         <Text style={styles.infoItem}>• KFintech / Karvy CAS (password = your PAN)</Text>
         <Text style={styles.infoItem}>• MFcentral CAS (password = your PAN)</Text>
       </View>
 
-      <View style={styles.howCard}>
-        <Text style={styles.howTitle}>How to get your CAS PDF</Text>
+      <View style={styles.panel}>
+        <Text style={styles.sectionLabel}>Get the file</Text>
+        <Text style={styles.howTitle}>Download your CAS from the source</Text>
         <Text style={styles.howStep}>
           <Text style={styles.bold}>CAMS: </Text>
           camsonline.com → Statements → CAS → Detailed → Download PDF
@@ -100,8 +109,7 @@ export default function PDFScreen() {
 
       <View style={styles.panNote}>
         <Text style={styles.panNoteText}>
-          Make sure your PAN is saved in the import settings (step 1 on the previous screen) —
-          it is used as the PDF password.
+          Make sure your PAN is saved in import settings first. We use it as the PDF password.
         </Text>
       </View>
 
@@ -113,7 +121,7 @@ export default function PDFScreen() {
             {result.transactions} transaction{result.transactions !== 1 ? 's' : ''} imported
           </Text>
           <TouchableOpacity style={styles.doneBtn} onPress={() => router.back()}>
-            <Text style={styles.doneBtnText}>Go to Home</Text>
+            <Text style={styles.doneBtnText}>Back to import setup</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -137,72 +145,93 @@ export default function PDFScreen() {
           {state === 'uploading' ? (
             <>
               <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.uploadBtnText}>Parsing PDF…</Text>
+              <Text style={styles.uploadBtnText}>Importing PDF…</Text>
             </>
           ) : (
             <Text style={styles.uploadBtnText}>
-              {state === 'error' ? 'Try again' : 'Select PDF'}
+              {state === 'error' ? 'Try again' : 'Choose PDF'}
             </Text>
           )}
         </TouchableOpacity>
       )}
 
       <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-        <Text style={styles.backLinkText}>← Back to import options</Text>
+        <Text style={styles.backLinkText}>Back to import options</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20, gap: 16, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#666', lineHeight: 21 },
-
-  infoCard: {
-    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 16, gap: 6,
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { paddingBottom: Spacing.xxl, gap: Spacing.md },
+  hero: {
+    paddingTop: 56,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.lg,
   },
-  infoTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 4 },
-  infoItem: { fontSize: 13, color: '#555', lineHeight: 20 },
+  heroCopy: { gap: Spacing.sm },
+  title: { ...Typography.h1, color: Colors.textOnDark },
+  subtitle: { ...Typography.body, color: 'rgba(255,255,255,0.8)' },
 
-  howCard: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, gap: 8 },
-  howTitle: { fontSize: 14, fontWeight: '700', color: '#111' },
-  howStep: { fontSize: 13, color: '#555', lineHeight: 20 },
+  panel: {
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radii.lg,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  sectionLabel: {
+    ...Typography.label,
+    color: Colors.primary,
+    textTransform: 'uppercase',
+  },
+  infoTitle: { ...Typography.h3, color: Colors.textPrimary },
+  infoItem: { ...Typography.bodySmall, color: Colors.textSecondary },
+
+  howTitle: { ...Typography.h3, color: Colors.textPrimary },
+  howStep: { ...Typography.bodySmall, color: Colors.textSecondary },
   bold: { fontWeight: '700' },
 
   panNote: {
-    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
-    borderRadius: 10, padding: 14,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
+    borderRadius: Radii.md, padding: 14,
   },
-  panNoteText: { fontSize: 13, color: '#1e40af', lineHeight: 20 },
+  panNoteText: { ...Typography.bodySmall, color: Colors.primaryDark },
 
   successCard: {
-    backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
-    borderRadius: 12, padding: 16, gap: 8, alignItems: 'center',
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
+    borderRadius: Radii.lg, padding: Spacing.lg, gap: Spacing.sm, alignItems: 'center',
   },
-  successTitle: { fontSize: 16, fontWeight: '700', color: '#166534' },
-  successText: { fontSize: 14, color: '#16a34a' },
+  successTitle: { ...Typography.h3, color: Colors.primaryDark },
+  successText: { ...Typography.body, color: Colors.primaryDark, textAlign: 'center' },
   doneBtn: {
-    backgroundColor: '#16a34a', borderRadius: 8,
+    backgroundColor: Colors.primary, borderRadius: Radii.md,
     paddingVertical: 10, paddingHorizontal: 24, marginTop: 4,
   },
-  doneBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  doneBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 14 },
 
   errorCard: {
+    marginHorizontal: Spacing.lg,
     backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca',
-    borderRadius: 10, padding: 14, gap: 6,
+    borderRadius: Radii.md, padding: 14, gap: 6,
   },
   errorTitle: { fontSize: 14, fontWeight: '700', color: '#991b1b' },
-  errorText: { fontSize: 13, color: '#b91c1c', lineHeight: 20 },
+  errorText: { ...Typography.bodySmall, color: '#b91c1c' },
 
   uploadBtn: {
-    backgroundColor: '#1a56db', borderRadius: 8, paddingVertical: 14,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary, borderRadius: Radii.md, paddingVertical: 14,
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center',
   },
   uploadBtnDisabled: { opacity: 0.6 },
-  uploadBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  uploadBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 15 },
 
   backLink: { alignItems: 'center', paddingVertical: 4 },
-  backLinkText: { fontSize: 14, color: '#1a56db' },
+  backLinkText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
 });
