@@ -8,6 +8,11 @@
  *   result[0].timestamp[]  — Unix timestamps
  *   result[0].indicators.quote[0].close[]  — closing prices
  *
+ * IMPORTANT: Use period1/period2 params, NOT range=max.
+ * Yahoo Finance silently returns monthly data when interval=1d is combined with
+ * range=max for long date ranges. Explicit period1/period2 forces true daily
+ * granularity across all available history (~4,600 rows for Nifty 50, not 224).
+ *
  * Note: TRI (Total Return Index) data is not available via Yahoo Finance.
  * This fetches price index data as an approximation. For accurate XIRR,
  * the absolute benchmark return matters more than TRI vs price index difference.
@@ -91,7 +96,13 @@ Deno.serve(async (req) => {
     }
 
     try {
-      const url = `${YF_BASE}/${encodeURIComponent(yfSymbol)}?interval=1d&range=max`;
+      // Use period1/period2 instead of range=max.
+      // Yahoo Finance silently downgrades interval=1d to monthly when range=max is
+      // used for long date ranges — producing ~1 row/month instead of daily data.
+      // Explicit period1/period2 forces true daily granularity for all history.
+      const period2 = Math.floor(Date.now() / 1000);
+      const period1 = 631152000; // 1990-01-01 UTC — predates all Indian indices
+      const url = `${YF_BASE}/${encodeURIComponent(yfSymbol)}?interval=1d&period1=${period1}&period2=${period2}`;
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
