@@ -61,12 +61,12 @@ const YF_SYMBOL_MAP: Record<string, string | null> = {
 // Only consulted when Yahoo Finance symbol is null OR returns < 50 rows.
 const EODHD_SYMBOL_MAP: Record<string, string> = {
   '^NIFTY500':          'NIFTY500.INDX',
-  '^NIFTYLMI250':       'NIFTYLARGMID250.INDX',
+  '^NIFTYLMI250':       'NIFTYLARGEMID250.INDX',  // corrected: was NIFTYLARGMID250 (missing E)
   '^NIFTYMIDCAP150':    'NIFTYMIDCAP150.INDX',
-  '^NIFTYSMALLCAP250':  'NIFTYSMLCAP250.INDX',
+  '^NIFTYSMALLCAP250':  'NISM250.INDX',            // corrected: EODHD code is NISM250
   '^BSE100':            'BSE100.INDX',
   '^BSE500':            'BSE500.INDX',
-  '^BSENEXT50':         'BSESENSEX_NEXT50.INDX',
+  // ^BSENEXT50 is not available on EODHD — no data source, will be skipped
 };
 
 // ---------------------------------------------------------------------------
