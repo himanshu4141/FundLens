@@ -95,11 +95,32 @@ function PerformanceTab({
   }
 
   const sampledNav = sample(indexedNav, 60);
-  const sampledBenchmark = sample(indexedBenchmark, 60);
+
+  // Align benchmark to nav sample dates so data + data2 always have identical length.
+  // Without alignment, gifted-charts renders mismatched-length series across the same
+  // x-width, making the shorter line appear to "cut off".
+  function nearestBenchmarkValue(
+    series: { date: string; value: number }[],
+    targetDate: string,
+  ): number {
+    if (series.length === 0) return 100;
+    let lo = 0, hi = series.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (series[mid].date < targetDate) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo === 0) return series[0].value;
+    if (lo >= series.length) return series[series.length - 1].value;
+    return series[lo - 1].value;
+  }
+
   const navPoints = sampledNav.map((p) => ({ value: p.value }));
-  const benchmarkPoints = sampledBenchmark.map((p) => ({ value: p.value }));
   const hasNavData = navPoints.length > 1;
-  const hasBenchmarkData = benchmarkPoints.length > 1;
+  const hasBenchmarkData = indexedBenchmark.length > 1;
+  const benchmarkPoints = hasBenchmarkData
+    ? sampledNav.map((p) => ({ value: nearestBenchmarkValue(indexedBenchmark, p.date) }))
+    : [];
 
   // X-axis date labels: show ~5 evenly spaced dates (full-length array required by gifted-charts)
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
