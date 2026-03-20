@@ -134,7 +134,7 @@ describe('fetchPortfolioData()', () => {
     expect(result.fundCards).toHaveLength(0);
   });
 
-  it('throws when NAV data is missing for a fund with transactions', async () => {
+  it('skips funds with no NAV data rather than crashing portfolio load', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
       if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
@@ -143,7 +143,10 @@ describe('fetchPortfolioData()', () => {
       return makeChain({ data: [], error: null });
     });
 
-    await expect(fetchPortfolioData('user-1', '^NSEI')).rejects.toThrow(/No NAV data/);
+    // Should not throw — fund is skipped, portfolio returns empty cards with zero-value summary
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+    expect(result.fundCards).toHaveLength(0);
+    expect(result.summary?.totalValue).toBe(0);
   });
 
   it('navHistory30d contains only the last 30 days of NAV data', async () => {

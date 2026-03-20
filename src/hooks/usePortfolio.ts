@@ -151,7 +151,11 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
     const txs = txByFund.get(fund.id) ?? [];
 
     if (txs.length === 0) continue;
-    if (!navInfo) throw new Error(`No NAV data found for scheme ${fund.scheme_code} — cannot compute current value`);
+    if (!navInfo) {
+      // NAV sync hasn't run for this scheme yet — skip fund rather than crash portfolio load
+      console.warn(`[usePortfolio] no NAV data for scheme ${fund.scheme_code}, skipping`);
+      continue;
+    }
 
     const today = new Date();
 
