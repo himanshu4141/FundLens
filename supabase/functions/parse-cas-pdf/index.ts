@@ -1,19 +1,40 @@
 /**
  * parse-cas-pdf — accepts a CAS PDF uploaded directly from the app,
- * parses it via CASParser, and imports the resulting transactions.
+ * forwards it to the Vercel Python CAS parser, and imports the result.
  *
- * Request: multipart/form-data
- *   - file: PDF blob
- *   - password (optional): CAS PDF password; falls back to user's stored PAN
+ * Request: binary PDF body
  *
  * Auth: Bearer JWT in Authorization header (Supabase user token).
  */
 
 import { CORS, json } from '../_shared/cors.ts';
 import { getUserFromRequest } from '../_shared/auth.ts';
-import { importCASData } from '../_shared/import-cas.ts';
+import { importCASData, type CASParseResult } from '../_shared/import-cas.ts';
 
-const CASPARSER_API_KEY = Deno.env.get('CASPARSER_API_KEY') ?? '';
+const LOCAL_CAS_PARSER_URL = Deno.env.get('LOCAL_CAS_PARSER_URL') ?? '';
+const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
+const VERCEL_PROTECTION_BYPASS_TOKEN = Deno.env.get('VERCEL_PROTECTION_BYPASS_TOKEN') ?? '';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+function resolveParserUrl(req: Request): string {
+  const origin = req.headers.get('origin');
+  if (origin && /^https?:\/\//.test(origin)) {
+    return new URL('/api/parse-cas-pdf', origin).toString();
+  }
+
+  const referer = req.headers.get('referer');
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      return new URL('/api/parse-cas-pdf', refererUrl.origin).toString();
+    } catch {
+      // ignore malformed referer and fall through to env-based URL
+    }
+  }
+
+  return LOCAL_CAS_PARSER_URL;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,42 +45,41 @@ Deno.serve(async (req) => {
     return new Response('Method not allowed', { status: 405, headers: CORS });
   }
 
-  // Authenticate user
+  // Authenticate user inside the function. This endpoint is deployed with
+  // `--no-verify-jwt` because the Supabase Functions gateway rejects the
+  // project's current user tokens, while `supabase.auth.getUser()` succeeds.
   const { user, supabase, error: authError } = await getUserFromRequest(req);
   if (authError || !user || !supabase) {
     return json({ error: authError ?? 'Unauthorized' }, { status: 401 });
   }
 
-  // Parse multipart form
-  let formData: FormData;
+  // Read raw PDF binary from request body.
+  // Client sends the file as a Blob body (not multipart form) so that
+  // supabase.functions.invoke can attach the JWT auth header reliably.
+  let pdfBytesRaw: ArrayBuffer;
   try {
-    formData = await req.formData();
+    pdfBytesRaw = await req.arrayBuffer();
   } catch {
-    return json({ error: 'Expected multipart/form-data' }, { status: 400 });
+    return json({ error: 'Could not read request body' }, { status: 400 });
   }
 
-  const fileEntry = formData.get('file');
-  if (!fileEntry || !(fileEntry instanceof File)) {
-    return json({ error: 'Missing file field' }, { status: 400 });
+  if (pdfBytesRaw.byteLength === 0) {
+    return json({ error: 'Empty file received' }, { status: 400 });
   }
 
-  // Password: use value from form if provided, else fall back to stored PAN
-  let password = (formData.get('password') as string | null) ?? '';
-  let passwordSource = 'form';
-  if (!password) {
-    const { data: profile } = await supabase
-      .from('user_profile')
-      .select('pan')
-      .eq('user_id', user.id)
-      .maybeSingle();
+  const fileName = req.headers.get('x-file-name') ?? 'cas.pdf';
 
-    password = profile?.pan ?? '';
-    passwordSource = 'pan';
-  }
+  const { data: profile } = await supabase
+    .from('user_profile')
+    .select('pan')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const password = profile?.pan ?? '';
 
   console.log(
-    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=%s',
-    user.id, fileEntry.name, fileEntry.size, passwordSource,
+    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=pan',
+    user.id, fileName, pdfBytesRaw.byteLength,
   );
 
   if (!password) {
@@ -89,27 +109,50 @@ Deno.serve(async (req) => {
   const importId = importRecord.id as string;
   console.log('[parse-cas-pdf] import record created, import_id=%s', importId);
 
-  // Forward to CASParser smart/parse
-  const parseForm = new FormData();
-  parseForm.append('file', fileEntry, 'cas.pdf');
-  parseForm.append('password', password);
+  let parsed: CASParseResult;
+  try {
+    const parserUrl = resolveParserUrl(req);
+    if (!parserUrl) {
+      throw new Error('CAS parser URL is not configured');
+    }
+    if (!CAS_PARSER_SHARED_SECRET) {
+      throw new Error('CAS parser secret is not configured');
+    }
 
-  const parseRes = await fetch('https://api.casparser.in/v4/smart/parse', {
-    method: 'POST',
-    headers: { 'x-api-key': CASPARSER_API_KEY },
-    body: parseForm,
-  });
+    const parserRes = await fetch(parserUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-file-name': fileName,
+        'x-password': password,
+        'x-parser-secret': CAS_PARSER_SHARED_SECRET,
+        ...(VERCEL_PROTECTION_BYPASS_TOKEN
+          ? { 'x-vercel-protection-bypass': VERCEL_PROTECTION_BYPASS_TOKEN }
+          : {}),
+      },
+      body: pdfBytesRaw,
+    });
 
-  if (!parseRes.ok) {
-    const body = await parseRes.text();
-    console.error('[parse-cas-pdf] CASParser parse error, status=%d, body=%s', parseRes.status, body);
+    const parserBody = await parserRes.json().catch(() => ({})) as {
+      error?: string;
+      mutual_funds?: unknown[];
+    };
+
+    if (!parserRes.ok) {
+      throw new Error(parserBody.error ?? `Parser request failed with status ${parserRes.status}`);
+    }
+
+    parsed = parserBody as CASParseResult;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[parse-cas-pdf] parser error: %s', msg);
 
     await supabase
       .from('cas_import')
-      .update({ import_status: 'failed', error_message: `Parse failed: ${parseRes.status}` })
+      .update({ import_status: 'failed', error_message: msg })
       .eq('id', importId);
 
-    const isPasswordError = parseRes.status === 400 && body.toLowerCase().includes('password');
+    const isPasswordError = msg.toLowerCase().includes('password') || msg.toLowerCase().includes('decrypt');
     return json(
       {
         error: isPasswordError
@@ -120,8 +163,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const parsed = await parseRes.json();
-  console.log('[parse-cas-pdf] CASParser parsed %d folios', (parsed?.mutual_funds ?? []).length);
+  console.log('[parse-cas-pdf] parser returned %d folios', (parsed?.mutual_funds ?? []).length);
 
   const { fundsUpdated, transactionsAdded, errors } = await importCASData(
     supabase, user.id, importId, parsed,
@@ -142,6 +184,22 @@ Deno.serve(async (req) => {
     '[parse-cas-pdf] done, import_id=%s, status=%s, funds=%d, txns=%d, errors=%d',
     importId, status, fundsUpdated, transactionsAdded, errors.length,
   );
+
+  if (fundsUpdated > 0) {
+    const headers = { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` };
+
+    console.log('[parse-cas-pdf] triggering sync-nav in background');
+    fetch(`${SUPABASE_URL}/functions/v1/sync-nav`, {
+      method: 'POST',
+      headers,
+    }).catch((err) => console.error('[parse-cas-pdf] sync-nav trigger failed:', err));
+
+    console.log('[parse-cas-pdf] triggering sync-index in background');
+    fetch(`${SUPABASE_URL}/functions/v1/sync-index`, {
+      method: 'POST',
+      headers,
+    }).catch((err) => console.error('[parse-cas-pdf] sync-index trigger failed:', err));
+  }
 
   return json({ ok: true, funds: fundsUpdated, transactions: transactionsAdded });
 });

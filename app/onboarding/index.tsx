@@ -9,14 +9,22 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
+import Logo from '@/src/components/Logo';
+import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const ONBOARDING_POINTS = [
+  'Save your PAN once so PDF imports can unlock automatically.',
+  'Get a permanent import address for forwarded CAS emails.',
+  'Use one-tap refresh later instead of repeating setup.',
+];
 
 // ── Data fetching ────────────────────────────────────────────────────────────
 
@@ -61,6 +69,32 @@ function CopyBox({ label, value }: { label: string; value: string }) {
   );
 }
 
+function OnboardingHero({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
+      <Logo size={46} showWordmark light />
+      <View style={styles.heroCopy}>
+        <Text style={styles.heroTitle}>{title}</Text>
+        <Text style={styles.heroSubtitle}>{subtitle}</Text>
+      </View>
+      <View style={styles.heroPoints}>
+        {ONBOARDING_POINTS.map((point) => (
+          <View key={point} style={styles.heroPointRow}>
+            <Text style={styles.heroPointIcon}>•</Text>
+            <Text style={styles.heroPointText}>{point}</Text>
+          </View>
+        ))}
+      </View>
+    </LinearGradient>
+  );
+}
+
 // ── Already-set-up view ───────────────────────────────────────────────────────
 
 function SetupComplete({
@@ -95,12 +129,16 @@ function SetupComplete({
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Import CAS</Text>
-      <Text style={styles.subtitle}>
-        Setup is complete. Tap refresh to pull your latest transactions.
-      </Text>
+      <OnboardingHero
+        title="Your import setup is ready"
+        subtitle="Refresh your latest transactions in one tap, or keep auto-forward on and let the inbox do the work."
+      />
 
-      <View style={styles.refreshCard}>
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionEyebrow}>Refresh</Text>
+          <Text style={styles.sectionTitle}>Pull your latest CAS</Text>
+        </View>
         <TouchableOpacity
           style={[styles.refreshBtn, requesting && styles.btnDisabled]}
           onPress={handleRefresh}
@@ -140,7 +178,7 @@ function SetupComplete({
 
       {showAutoForward && (
         <View style={styles.tipCard}>
-          <Text style={styles.tipTitle}>Auto-forward filter (Gmail)</Text>
+          <Text style={styles.tipTitle}>Auto-forward filter</Text>
           <Text style={styles.tipStep}>
             1. Open Gmail → Settings → Filters → Create new filter
           </Text>
@@ -162,7 +200,7 @@ function SetupComplete({
       )}
 
       <TouchableOpacity style={styles.portfolioBtn} onPress={onGoToPortfolio}>
-        <Text style={styles.portfolioBtnText}>Go to portfolio →</Text>
+        <Text style={styles.portfolioBtnText}>Go to portfolio</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.resetLink} onPress={onReset}>
@@ -277,10 +315,10 @@ export default function OnboardingScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Import your CAS</Text>
-      <Text style={styles.subtitle}>
-        One-time setup — takes about 2 minutes. After this, syncing is a single tap.
-      </Text>
+      <OnboardingHero
+        title="Import your portfolio"
+        subtitle="Set this up once and future refreshes become a single tap. Email forwarding is the fastest path, PDF upload stays available as fallback."
+      />
 
       {/* ── Step 1 — PAN ──────────────────────────────────────── */}
       <View style={styles.step}>
@@ -288,7 +326,10 @@ export default function OnboardingScreen() {
           <View style={[styles.stepNum, panDone && styles.stepNumDone]}>
             <Text style={styles.stepNumText}>{panDone ? '✓' : '1'}</Text>
           </View>
-          <Text style={styles.stepTitle}>Enter your PAN</Text>
+          <View style={styles.stepTitleWrap}>
+            <Text style={styles.stepLabel}>Step 1</Text>
+            <Text style={styles.stepTitle}>Save your PAN</Text>
+          </View>
         </View>
         <View style={styles.stepBody}>
           <Text style={styles.stepDesc}>
@@ -332,9 +373,12 @@ export default function OnboardingScreen() {
           <View style={[styles.stepNum, !step2Enabled && styles.stepNumGray, !!inboundEmail && styles.stepNumDone]}>
             <Text style={styles.stepNumText}>{inboundEmail ? '✓' : '2'}</Text>
           </View>
-          <Text style={[styles.stepTitle, !step2Enabled && styles.stepTitleGray]}>
-            Get your import address
-          </Text>
+          <View style={styles.stepTitleWrap}>
+            <Text style={[styles.stepLabel, !step2Enabled && styles.stepTitleGray]}>Step 2</Text>
+            <Text style={[styles.stepTitle, !step2Enabled && styles.stepTitleGray]}>
+              Get your import address
+            </Text>
+          </View>
         </View>
         <View style={styles.stepBody}>
           <Text style={[styles.stepDesc, !step2Enabled && styles.stepDescGray]}>
@@ -365,9 +409,12 @@ export default function OnboardingScreen() {
           <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray, casState === 'requested' && styles.stepNumDone]}>
             <Text style={styles.stepNumText}>{casState === 'requested' ? '✓' : '3'}</Text>
           </View>
-          <Text style={[styles.stepTitle, !step3Enabled && styles.stepTitleGray]}>
-            Request your CAS
-          </Text>
+          <View style={styles.stepTitleWrap}>
+            <Text style={[styles.stepLabel, !step3Enabled && styles.stepTitleGray]}>Step 3</Text>
+            <Text style={[styles.stepTitle, !step3Enabled && styles.stepTitleGray]}>
+              Request your CAS
+            </Text>
+          </View>
         </View>
         <View style={styles.stepBody}>
           {casState === 'requested' ? (
@@ -425,122 +472,179 @@ export default function OnboardingScreen() {
       </View>
 
       {/* ── Alternative: PDF upload ────────────────────────────── */}
-      <Text style={styles.altTitle}>Or import manually</Text>
+      <Text style={styles.altTitle}>Prefer manual upload?</Text>
       <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
-        <Text style={styles.altCardTitle}>Upload PDF</Text>
-        <Text style={styles.altCardSub}>Upload CAS PDF directly</Text>
+        <Text style={styles.altCardTitle}>Upload a CAS PDF</Text>
+        <Text style={styles.altCardSub}>Use this if you already downloaded the statement.</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20, gap: 4, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { paddingBottom: Spacing.xxl, gap: Spacing.md },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#666', lineHeight: 21, marginBottom: 16 },
+
+  hero: {
+    paddingTop: 56,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  heroCopy: { gap: Spacing.sm },
+  heroTitle: {
+    ...Typography.h1,
+    color: Colors.textOnDark,
+  },
+  heroSubtitle: {
+    ...Typography.body,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  heroPoints: { gap: Spacing.sm },
+  heroPointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  heroPointIcon: { color: '#9fe6d2', fontSize: 16, lineHeight: 20 },
+  heroPointText: {
+    ...Typography.bodySmall,
+    color: 'rgba(255,255,255,0.75)',
+    flex: 1,
+  },
+
+  sectionCard: {
+    marginHorizontal: Spacing.lg,
+    marginTop: -Radii.xl,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  sectionHeader: { gap: Spacing.xs },
+  sectionEyebrow: {
+    ...Typography.label,
+    color: Colors.primary,
+    textTransform: 'uppercase',
+  },
+  sectionTitle: {
+    ...Typography.h3,
+    color: Colors.textPrimary,
+  },
 
   // Setup-complete view
-  refreshCard: { gap: 12 },
   refreshBtn: {
-    backgroundColor: '#1a56db', borderRadius: 10, paddingVertical: 16,
+    backgroundColor: Colors.primary, borderRadius: Radii.md, paddingVertical: 16,
     alignItems: 'center',
   },
-  refreshBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  refreshBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 16 },
   requestedBanner: {
-    backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
-    borderRadius: 10, padding: 14,
+    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
+    borderRadius: Radii.md, padding: 14,
   },
-  requestedText: { fontSize: 14, color: '#166534', lineHeight: 22 },
+  requestedText: { ...Typography.bodySmall, color: Colors.primaryDark },
 
   tipToggle: { paddingVertical: 4 },
-  tipToggleText: { fontSize: 13, color: '#1a56db', fontWeight: '600' },
+  tipToggleText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
   tipCard: {
-    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
-    borderRadius: 10, padding: 14, gap: 8,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radii.lg, padding: Spacing.lg, gap: Spacing.sm,
   },
-  tipTitle: { fontSize: 13, fontWeight: '700', color: '#1e40af' },
-  tipStep: { fontSize: 13, color: '#1e40af', lineHeight: 20 },
-  tipNote: { fontSize: 12, color: '#3730a3', fontStyle: 'italic', marginTop: 4 },
+  tipTitle: { ...Typography.label, color: Colors.primary, textTransform: 'uppercase' },
+  tipStep: { ...Typography.bodySmall, color: Colors.textSecondary },
+  tipNote: { fontSize: 12, color: Colors.textTertiary, fontStyle: 'italic', marginTop: 4 },
 
   portfolioBtn: {
-    backgroundColor: '#1a56db', borderRadius: 10,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary, borderRadius: Radii.md,
     paddingVertical: 14, alignItems: 'center',
   },
-  portfolioBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  portfolioBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 15 },
   resetLink: { alignItems: 'center', paddingVertical: 8 },
-  resetLinkText: { fontSize: 13, color: '#94a3b8' },
+  resetLinkText: { fontSize: 13, color: Colors.textTertiary },
 
   // First-time setup
   step: {
-    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12,
-    padding: 16, marginBottom: 12,
+    marginHorizontal: Spacing.lg,
+    borderWidth: 1, borderColor: Colors.border, borderRadius: Radii.lg,
+    backgroundColor: Colors.surface,
+    padding: Spacing.lg,
   },
-  stepDisabled: { borderColor: '#f3f4f6', backgroundColor: '#fafafa' },
+  stepDisabled: { borderColor: Colors.borderLight, backgroundColor: Colors.surfaceAlt },
   stepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   stepNum: {
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#1a56db', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
   },
-  stepNumDone: { backgroundColor: '#16a34a' },
-  stepNumGray: { backgroundColor: '#d1d5db' },
-  stepNumText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  stepTitle: { fontSize: 15, fontWeight: '600', color: '#111' },
-  stepTitleGray: { color: '#9ca3af' },
+  stepNumDone: { backgroundColor: Colors.positive },
+  stepNumGray: { backgroundColor: '#cbd5e1' },
+  stepNumText: { color: Colors.textOnDark, fontSize: 13, fontWeight: '700' },
+  stepTitleWrap: { gap: 2 },
+  stepLabel: { ...Typography.label, color: Colors.primary, textTransform: 'uppercase' },
+  stepTitle: { ...Typography.h3, color: Colors.textPrimary },
+  stepTitleGray: { color: Colors.textTertiary },
   stepBody: { gap: 10 },
-  stepDesc: { fontSize: 14, color: '#555', lineHeight: 22 },
-  stepDescGray: { color: '#c0c0c0' },
+  stepDesc: { ...Typography.body, color: Colors.textSecondary },
+  stepDescGray: { color: Colors.textTertiary },
 
   panInput: {
-    height: 48, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8,
-    paddingHorizontal: 14, fontSize: 16, color: '#111', backgroundColor: '#fafafa',
+    height: 52, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radii.md,
+    paddingHorizontal: 14, fontSize: 16, color: Colors.textPrimary, backgroundColor: Colors.surfaceAlt,
     letterSpacing: 2,
   },
   emailInput: {
-    height: 48, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8,
-    paddingHorizontal: 14, fontSize: 15, color: '#111', backgroundColor: '#fafafa',
+    height: 52, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radii.md,
+    paddingHorizontal: 14, fontSize: 15, color: Colors.textPrimary, backgroundColor: Colors.surfaceAlt,
   },
   inputDisabled: { opacity: 0.4 },
-  errorText: { color: '#e53e3e', fontSize: 13 },
+  errorText: { color: Colors.negative, fontSize: 13 },
 
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  savedText: { fontSize: 14, color: '#16a34a', fontWeight: '600', flex: 1 },
-  changeLink: { fontSize: 13, color: '#1a56db' },
+  savedText: { fontSize: 14, color: Colors.positive, fontWeight: '600', flex: 1 },
+  changeLink: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
 
   copyBox: {
-    backgroundColor: '#f8fafc', borderRadius: 8,
-    borderWidth: 1, borderColor: '#e2e8f0', padding: 12, gap: 6,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.surface, borderRadius: Radii.lg,
+    borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: 8,
   },
-  copyLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
+  copyLabel: { ...Typography.label, color: Colors.textTertiary, textTransform: 'uppercase' },
   copyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  copyValue: { flex: 1, fontSize: 12, color: '#334155' },
+  copyValue: { flex: 1, fontSize: 12, color: Colors.textSecondary },
   mono: { fontFamily: 'Courier' },
   copyBtn: {
-    backgroundColor: '#e2e8f0', borderRadius: 6,
+    backgroundColor: Colors.primaryLight, borderRadius: Radii.sm,
     paddingHorizontal: 10, paddingVertical: 5,
   },
-  copyBtnText: { fontSize: 12, fontWeight: '600', color: '#475569' },
+  copyBtnText: { fontSize: 12, fontWeight: '600', color: Colors.primaryDark },
 
   primaryBtn: {
-    backgroundColor: '#1a56db', borderRadius: 8, paddingVertical: 12, alignItems: 'center',
+    backgroundColor: Colors.primary, borderRadius: Radii.md, paddingVertical: 14, alignItems: 'center',
   },
-  btnDisabled: { opacity: 0.4 },
-  primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  btnDisabled: { opacity: 0.5 },
+  primaryBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 14 },
 
   hintCard: {
-    backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
-    borderRadius: 10, padding: 14, gap: 8,
+    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
+    borderRadius: Radii.md, padding: 14, gap: 8,
   },
-  hintTitle: { fontSize: 13, fontWeight: '700', color: '#166534' },
-  hintItem: { fontSize: 13, color: '#15803d', lineHeight: 20 },
+  hintTitle: { fontSize: 13, fontWeight: '700', color: Colors.primaryDark },
+  hintItem: { fontSize: 13, color: Colors.primaryDark, lineHeight: 20 },
   bold: { fontWeight: '700' },
 
-  altTitle: { fontSize: 14, fontWeight: '600', color: '#888', marginTop: 8, marginBottom: 10 },
-  altCard: {
-    flex: 1, borderWidth: 1, borderColor: '#e5e7eb',
-    borderRadius: 10, padding: 14, gap: 4,
+  altTitle: {
+    marginHorizontal: Spacing.lg,
+    marginTop: 8,
+    ...Typography.label,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
   },
-  altCardTitle: { fontSize: 14, fontWeight: '600', color: '#111' },
-  altCardSub: { fontSize: 12, color: '#888' },
+  altCard: {
+    marginHorizontal: Spacing.lg,
+    borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radii.lg, padding: Spacing.lg, gap: 6,
+    backgroundColor: Colors.surface,
+  },
+  altCardTitle: { ...Typography.h3, color: Colors.textPrimary },
+  altCardSub: { ...Typography.bodySmall, color: Colors.textSecondary },
 });
