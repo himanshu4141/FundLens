@@ -1,6 +1,6 @@
 /**
  * parse-cas-pdf — accepts a CAS PDF uploaded directly from the app,
- * parses it locally (no external API), and imports the resulting transactions.
+ * forwards it to the Vercel Python CAS parser, and imports the result.
  *
  * Request: binary PDF body
  *
@@ -10,7 +10,30 @@
 import { CORS, json } from '../_shared/cors.ts';
 import { getUserFromRequest } from '../_shared/auth.ts';
 import { importCASData, type CASParseResult } from '../_shared/import-cas.ts';
-import { parseCasPdf } from '../_shared/parse-cas-pdf.ts';
+
+const LOCAL_CAS_PARSER_URL = Deno.env.get('LOCAL_CAS_PARSER_URL') ?? '';
+const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+function resolveParserUrl(req: Request): string {
+  const origin = req.headers.get('origin');
+  if (origin && /^https?:\/\//.test(origin)) {
+    return new URL('/api/parse-cas-pdf', origin).toString();
+  }
+
+  const referer = req.headers.get('referer');
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      return new URL('/api/parse-cas-pdf', refererUrl.origin).toString();
+    } catch {
+      // ignore malformed referer and fall through to env-based URL
+    }
+  }
+
+  return LOCAL_CAS_PARSER_URL;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -83,13 +106,40 @@ Deno.serve(async (req) => {
   const importId = importRecord.id as string;
   console.log('[parse-cas-pdf] import record created, import_id=%s', importId);
 
-  const pdfBytes = new Uint8Array(pdfBytesRaw);
   let parsed: CASParseResult;
   try {
-    parsed = await parseCasPdf(pdfBytes, password);
+    const parserUrl = resolveParserUrl(req);
+    if (!parserUrl) {
+      throw new Error('CAS parser URL is not configured');
+    }
+    if (!CAS_PARSER_SHARED_SECRET) {
+      throw new Error('CAS parser secret is not configured');
+    }
+
+    const parserRes = await fetch(parserUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-file-name': fileName,
+        'x-password': password,
+        'x-parser-secret': CAS_PARSER_SHARED_SECRET,
+      },
+      body: pdfBytesRaw,
+    });
+
+    const parserBody = await parserRes.json().catch(() => ({})) as {
+      error?: string;
+      mutual_funds?: unknown[];
+    };
+
+    if (!parserRes.ok) {
+      throw new Error(parserBody.error ?? `Parser request failed with status ${parserRes.status}`);
+    }
+
+    parsed = parserBody as CASParseResult;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[parse-cas-pdf] local parse error: %s', msg);
+    console.error('[parse-cas-pdf] parser error: %s', msg);
 
     await supabase
       .from('cas_import')
@@ -107,7 +157,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  console.log('[parse-cas-pdf] local parser: %d folios', (parsed?.mutual_funds ?? []).length);
+  console.log('[parse-cas-pdf] parser returned %d folios', (parsed?.mutual_funds ?? []).length);
 
   const { fundsUpdated, transactionsAdded, errors } = await importCASData(
     supabase, user.id, importId, parsed,
@@ -128,6 +178,22 @@ Deno.serve(async (req) => {
     '[parse-cas-pdf] done, import_id=%s, status=%s, funds=%d, txns=%d, errors=%d',
     importId, status, fundsUpdated, transactionsAdded, errors.length,
   );
+
+  if (fundsUpdated > 0) {
+    const headers = { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` };
+
+    console.log('[parse-cas-pdf] triggering sync-nav in background');
+    fetch(`${SUPABASE_URL}/functions/v1/sync-nav`, {
+      method: 'POST',
+      headers,
+    }).catch((err) => console.error('[parse-cas-pdf] sync-nav trigger failed:', err));
+
+    console.log('[parse-cas-pdf] triggering sync-index in background');
+    fetch(`${SUPABASE_URL}/functions/v1/sync-index`, {
+      method: 'POST',
+      headers,
+    }).catch((err) => console.error('[parse-cas-pdf] sync-index trigger failed:', err));
+  }
 
   return json({ ok: true, funds: fundsUpdated, transactions: transactionsAdded });
 });

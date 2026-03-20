@@ -223,14 +223,20 @@ Acceptance criteria:
 - 2026-03-20: Keep the existing binary upload client contract unless a transport issue is proven independently from parsing.
 - 2026-03-20: Replace the attempted `pdf-parse` integration with `unpdf` because `pdf-parse` still produced a Supabase Edge bundle over 31 MB, while `unpdf` deployed successfully at about 1.3 MB.
 
+## Amendments
+
+- 2026-03-20: The final implementation does not keep parsing inside Supabase Edge Functions. Research and validation against a real CAS PDF showed that the mature open-source parser is the Python package `casparser`, while the Deno parser path remained brittle and layout-dependent. The implementation therefore moved parsing to a Vercel Python Function and kept Supabase Edge as the authenticated import and sync trigger layer.
+- 2026-03-20: Preview support is handled by deriving the parser URL from the incoming request origin when available, so PR previews can exercise branch-specific Python parser code without changing Supabase secrets for every preview deployment.
+
 ## Progress
 
 - [x] Fresh branch created from `main`
 - [x] Baseline CASParser.in upload flow confirmed from `main`
-- [x] Local parser contract added
-- [x] Deployable PDF text extraction chosen
-- [x] CAS text parser implemented
-- [x] `parse-cas-pdf` switched away from CASParser.in
+- [x] Parser integration contract added
+- [x] Mature parser researched and validated against a real CAS PDF
+- [x] Vercel Python parser implemented using `casparser`
+- [x] `parse-cas-pdf` switched away from CASParser.in for manual uploads
 - [x] Typecheck and lint pass
-- [x] `parse-cas-pdf` deploy succeeds
+- [ ] Vercel parser function deployed with shared secret env
+- [ ] Updated `parse-cas-pdf` Edge Function deployed
 - [ ] README “What works now” updated if behavior changes

@@ -7,7 +7,7 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 ## What works now
 
 - Magic link authentication (sign in / sign out)
-- **Import portfolio** — enter your KFintech email, request a CAS via CASParser, or upload a CAS PDF directly
+- **Import portfolio** — enter your KFintech email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
 - **Home screen** — total portfolio value, today's NAV change, your XIRR vs Nifty 50, scrollable fund cards
 - **Fund detail** — XIRR, fund vs benchmark chart (indexed to 100), NAV history chart, time window selector
 - **Compare** — select up to 3 funds, multi-line chart, side-by-side XIRR / 1Y return table
