@@ -71,7 +71,8 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
 
   if (navError) throw navError;
 
-  const navHistory: NavPoint[] = (navRows ?? [])
+  const navHistory: NavPoint[] = [...(navRows ?? [])]
+    .sort((a, b) => String(b.nav_date).localeCompare(String(a.nav_date)))
     .map((r) => ({ date: r.nav_date as string, value: r.nav as number }))
     .reverse(); // ascending for chart rendering
 
@@ -125,4 +126,3 @@ export function useFundDetail(fundId: string) {
     staleTime: 0, // always fetch fresh so current value matches portfolio
   });
 }
-

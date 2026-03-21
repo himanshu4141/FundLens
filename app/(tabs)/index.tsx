@@ -155,6 +155,7 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
   const isPositiveDay = fund.dailyChangeAmount != null ? fund.dailyChangeAmount >= 0 : true;
   const accentColor = categoryColor(fund.schemeCategory);
   const hasRedemptions = fund.redeemedUnits > 0;
+  const isPressable = !fund.navUnavailable;
 
   // Unrealized P&L on current holdings (only when NAV is available)
   const unrealizedGain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
@@ -165,7 +166,12 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
   const unrealizedPositive = unrealizedGain != null ? unrealizedGain >= 0 : true;
 
   return (
-    <TouchableOpacity style={styles.fundCard} onPress={onPress} activeOpacity={0.78}>
+    <TouchableOpacity
+      style={[styles.fundCard, !isPressable && styles.fundCardDisabled]}
+      onPress={onPress}
+      activeOpacity={isPressable ? 0.78 : 1}
+      disabled={!isPressable}
+    >
       {/* Category accent bar */}
       <View style={[styles.fundCardAccent, { backgroundColor: accentColor }]} />
 
@@ -565,6 +571,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  fundCardDisabled: {
+    opacity: 0.92,
   },
   fundCardAccent: { width: 4 },
   fundCardInner: { flex: 1, padding: Spacing.md, gap: 10 },

@@ -96,7 +96,9 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
 
   // Build map: scheme_code → { current, previous } using the two most-recent rows.
   const navByScheme = new Map<number, { current: number; previous: number; date: string }>();
-  for (const row of navRows ?? []) {
+  for (const row of [...(navRows ?? [])].sort((a, b) =>
+    String(b.nav_date).localeCompare(String(a.nav_date)),
+  )) {
     const code = row.scheme_code as number;
     const existing = navByScheme.get(code);
     if (!existing) {
@@ -109,7 +111,9 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
 
   // Build sparkline history map (rows came descending — reverse to ascending for rendering)
   const navHistoryByScheme = new Map<number, { date: string; value: number }[]>();
-  for (const row of navRows ?? []) {
+  for (const row of [...(navRows ?? [])].sort((a, b) =>
+    String(b.nav_date).localeCompare(String(a.nav_date)),
+  )) {
     const code = row.scheme_code as number;
     const pts = navHistoryByScheme.get(code) ?? [];
     pts.push({ date: row.nav_date as string, value: row.nav as number });

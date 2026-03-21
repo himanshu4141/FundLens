@@ -24,6 +24,12 @@ export default function ConfirmScreen() {
     if (Platform.OS !== 'web') return;
     const hash = window.location.hash;
     if (!hash || hash.length <= 1) return;
+
+    // Only attempt the scheme handoff from mobile browsers. Desktop web sign-ins
+    // should stay in the browser and let Supabase complete the session normally.
+    const ua = window.navigator.userAgent.toLowerCase();
+    if (!/iphone|ipad|ipod|android/.test(ua)) return;
+
     // Attempt to hand off to native app; browser ignores this if no app is installed.
     window.location.replace(`fundlens://auth/confirm${hash}`);
   }, []);
