@@ -18,6 +18,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - name: Run tests
+        run: npm test -- --coverage --ci
 
   eas-update-production:
     name: EAS Update (production)

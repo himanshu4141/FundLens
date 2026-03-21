@@ -27,18 +27,19 @@ export interface FundCardData {
   schemeName: string;
   schemeCategory: string;
   schemeCode: number;
-  currentNav: number;
-  previousNav: number;
+  currentNav: number | null;
+  previousNav: number | null;
   currentUnits: number;
-  currentValue: number;
+  currentValue: number | null;
   investedAmount: number;
-  dailyChangeAmount: number;
-  dailyChangePct: number;
+  dailyChangeAmount: number | null;
+  dailyChangePct: number | null;
   returnXirr: number;
   realizedGain: number;
   realizedAmount: number;
   redeemedUnits: number;
   navHistory30d: { date: string; value: number }[];
+  navUnavailable?: true;
 }
 
 export interface PortfolioSummary {
@@ -51,7 +52,7 @@ export interface PortfolioSummary {
   benchmarkSymbol: string;
 }
 
-async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
+export async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
   // Load active funds
   const { data: funds, error: fundsError } = await supabase
     .from('fund')
@@ -81,36 +82,38 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
 
   const schemeCodes = funds.map((f) => f.scheme_code);
 
-  // Load last 30 days of NAV for each scheme (covers current + previous NAV + sparkline)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const navCutoff = thirtyDaysAgo.toISOString().split('T')[0];
-
+  // Load full NAV history for each scheme, most-recent first.
+  // No date cutoff — we always want the closest available NAV to today, regardless of
+  // how recently the sync ran.  The navByScheme loop below takes only the first 2 rows
+  // per scheme (current + previous) so the extra rows are cheap to process.
   const { data: navRows, error: navError } = await supabase
     .from('nav_history')
     .select('scheme_code, nav_date, nav')
     .in('scheme_code', schemeCodes)
-    .gte('nav_date', navCutoff)
     .order('nav_date', { ascending: false });
 
   if (navError) throw navError;
 
-  // Build map: scheme_code → [latest, previous]
+  // Build map: scheme_code → { current, previous } using the two most-recent rows.
   const navByScheme = new Map<number, { current: number; previous: number; date: string }>();
-  for (const row of navRows ?? []) {
+  for (const row of [...(navRows ?? [])].sort((a, b) =>
+    String(b.nav_date).localeCompare(String(a.nav_date)),
+  )) {
     const code = row.scheme_code as number;
     const existing = navByScheme.get(code);
     if (!existing) {
       navByScheme.set(code, { current: row.nav as number, previous: row.nav as number, date: row.nav_date as string });
-    } else if (!existing.previous || existing.current === existing.previous) {
-      // second row = yesterday's NAV
+    } else if (existing.current === existing.previous) {
+      // second row = previous trading day's NAV
       navByScheme.set(code, { ...existing, previous: row.nav as number });
     }
   }
 
   // Build sparkline history map (rows came descending — reverse to ascending for rendering)
   const navHistoryByScheme = new Map<number, { date: string; value: number }[]>();
-  for (const row of navRows ?? []) {
+  for (const row of [...(navRows ?? [])].sort((a, b) =>
+    String(b.nav_date).localeCompare(String(a.nav_date)),
+  )) {
     const code = row.scheme_code as number;
     const pts = navHistoryByScheme.get(code) ?? [];
     pts.push({ date: row.nav_date as string, value: row.nav as number });
@@ -118,6 +121,14 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
   }
   for (const [code, pts] of navHistoryByScheme) {
     navHistoryByScheme.set(code, [...pts].reverse());
+  }
+
+  // Slice sparkline data to the last 30 days (rows are now ascending; keep only recent)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const navCutoff30d = thirtyDaysAgo.toISOString().split('T')[0];
+  for (const [code, pts] of navHistoryByScheme) {
+    navHistoryByScheme.set(code, pts.filter((p) => p.date >= navCutoff30d));
   }
 
   // Load benchmark index history for market comparison
@@ -144,9 +155,38 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
     const navInfo = navByScheme.get(fund.scheme_code);
     const txs = txByFund.get(fund.id) ?? [];
 
-    if (!navInfo || txs.length === 0) continue;
+    if (txs.length === 0) continue;
 
     const today = new Date();
+
+    if (!navInfo) {
+      // NAV sync hasn't run for this scheme yet — show a pending card so the user
+      // can see their holding rather than having it silently disappear.
+      console.warn(`[usePortfolio] no NAV data for scheme ${fund.scheme_code} — showing pending card`);
+      const { netUnits, investedAmount } = buildCashflowsFromTransactions(txs, 0, today);
+      if (netUnits < 0.001) continue; // skip fully-exited funds
+      const { realizedGain, realizedAmount, redeemedUnits } = computeRealizedGains(txs);
+      fundCards.push({
+        id: fund.id,
+        schemeName: fund.scheme_name,
+        schemeCategory: fund.scheme_category ?? '',
+        schemeCode: fund.scheme_code,
+        currentNav: null,
+        previousNav: null,
+        currentUnits: netUnits,
+        currentValue: null,
+        investedAmount,
+        dailyChangeAmount: null,
+        dailyChangePct: null,
+        returnXirr: NaN,
+        realizedGain,
+        realizedAmount,
+        redeemedUnits,
+        navHistory30d: [],
+        navUnavailable: true,
+      });
+      continue;
+    }
 
     // First pass: get netUnits and historical cashflows (currentValue unknown yet)
     const { historicalCashflows, netUnits, investedAmount } = buildCashflowsFromTransactions(
@@ -155,7 +195,7 @@ async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
       today,
     );
 
-    if (netUnits <= 0) continue;
+    if (netUnits < 0.001) continue; // skip fully-exited funds (guards against floating-point residuals)
 
     const currentValue = netUnits * navInfo.current;
     const previousValue = netUnits * navInfo.previous;

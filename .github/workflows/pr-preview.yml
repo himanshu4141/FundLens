@@ -6,7 +6,7 @@ on:
 
 jobs:
   checks:
-    name: Typecheck & Lint
+    name: Typecheck, Lint & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +17,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - name: Run tests
+        run: npm test -- --coverage --ci
 
   eas-update:
     name: EAS Update (PR preview)

@@ -13,7 +13,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
-import { filterToWindow, type TimeWindow, type NavPoint } from './useFundDetail';
+import { filterToWindow, type TimeWindow, type NavPoint } from '@/src/utils/navUtils';
 
 export interface CompareFundData {
   id: string;
@@ -31,7 +31,7 @@ export interface CompareData {
   commonNavSeries: { date: string; funds: Record<string, number> }[]; // indexed to 100
 }
 
-async function fetchCompareData(fundIds: string[]): Promise<CompareData> {
+export async function fetchCompareData(fundIds: string[]): Promise<CompareData> {
   if (fundIds.length === 0) return { funds: [], commonNavSeries: [] };
 
   // Load metadata for all selected funds

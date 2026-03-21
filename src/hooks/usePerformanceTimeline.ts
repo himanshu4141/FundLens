@@ -11,7 +11,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { filterToWindow, type TimeWindow, type NavPoint } from './useFundDetail';
+import { filterToWindow, type TimeWindow, type NavPoint } from '@/src/utils/navUtils';
 
 export interface TimelineEntry {
   type: 'fund' | 'index';
@@ -237,13 +237,26 @@ export function formatDateShort(dateStr: string): string {
   return `${months[parseInt(month, 10) - 1]} '${year.slice(2)}`;
 }
 
-/** Build 5 evenly-spaced X-axis labels from a dates array */
+/**
+ * Build a full-length X-axis labels array for gifted-charts.
+ *
+ * gifted-charts requires xAxisLabelTexts to have one entry per data point.
+ * Passing fewer entries only labels the first N positions.
+ * This function returns an array of the same length as `dates`, with empty
+ * strings for unlabeled positions and ~5 evenly spaced visible labels.
+ */
 export function buildXAxisLabels(dates: string[], count = 5): string[] {
   if (dates.length === 0) return [];
-  if (dates.length <= count) return dates.map(formatDateShort);
+  const labels = new Array<string>(dates.length).fill('');
+  if (dates.length <= count) {
+    return dates.map(formatDateShort);
+  }
   const step = (dates.length - 1) / (count - 1);
-  return Array.from({ length: count }, (_, i) => {
+  for (let i = 0; i < count; i++) {
     const idx = Math.min(Math.round(i * step), dates.length - 1);
-    return formatDateShort(dates[idx]);
-  });
+    labels[idx] = formatDateShort(dates[idx]);
+  }
+  // Always label the last point
+  labels[dates.length - 1] = formatDateShort(dates[dates.length - 1]);
+  return labels;
 }
