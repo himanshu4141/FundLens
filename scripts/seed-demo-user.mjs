@@ -9,6 +9,7 @@ const SUPABASE_URL =
   process.env.EXPO_PUBLIC_SUPABASE_URL ??
   process.env.SUPABASE_URL ??
   '';
+const SUPABASE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const DEMO_EMAIL =
   process.env.DEV_DEMO_EMAIL ??
@@ -23,57 +24,41 @@ const DEMO_KFINTECH_EMAIL = process.env.DEV_DEMO_KFINTECH_EMAIL ?? 'demo-import@
 const DEMO_INBOUND_EMAIL = 'demo-inbound@fundlens.local';
 const DEMO_INBOUND_ID = 'demo-inbound-session';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !DEMO_EMAIL || !DEMO_PASSWORD) {
+if (!SUPABASE_URL || !DEMO_EMAIL || !DEMO_PASSWORD) {
   console.error(
-    'Missing required env. Need EXPO_PUBLIC_SUPABASE_URL (or SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY, and demo email/password.',
+    'Missing required env. Need EXPO_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and demo email/password.',
   );
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const serviceSupabase = SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
 
-const DEMO_FUNDS = [
+const REAL_FUNDS = [
   {
-    schemeCode: 990001,
-    schemeName: 'FundLens Large Cap Demo Fund',
-    schemeCategory: 'Large Cap Fund',
-    benchmarkIndex: 'Nifty 50',
-    benchmarkSymbol: '^NSEI',
-    baselineNav: 102,
-    driftPerDay: 0.035,
-    waveSize: 1.8,
-  },
-  {
-    schemeCode: 990002,
-    schemeName: 'FundLens Mid Cap Demo Fund',
-    schemeCategory: 'Mid Cap Fund',
-    benchmarkIndex: 'Nifty Midcap 150 TRI',
-    benchmarkSymbol: '^NIFTYMIDCAP150',
-    baselineNav: 78,
-    driftPerDay: 0.05,
-    waveSize: 2.4,
-  },
-  {
-    schemeCode: 990003,
-    schemeName: 'FundLens Flexi Cap Demo Fund',
+    schemeCode: 118955,
+    schemeName: 'HDFC Flexi Cap Fund - Direct Plan - Growth',
     schemeCategory: 'Flexi Cap Fund',
     benchmarkIndex: 'Nifty 500 TRI',
     benchmarkSymbol: '^NIFTY500',
-    baselineNav: 64,
-    driftPerDay: 0.042,
-    waveSize: 2.1,
   },
-];
-
-const DEMO_INDEXES = [
-  { symbol: '^NSEI', name: 'Nifty 50', baseline: 21000, driftPerDay: 3.2, waveSize: 110 },
-  { symbol: '^NSEBANK', name: 'Nifty Bank', baseline: 46500, driftPerDay: 6.2, waveSize: 220 },
-  { symbol: '^BSESN', name: 'SENSEX', baseline: 69000, driftPerDay: 8.8, waveSize: 260 },
-  { symbol: '^CNXIT', name: 'Nifty IT', baseline: 34500, driftPerDay: 5.4, waveSize: 180 },
-  { symbol: '^NIFTYMIDCAP150', name: 'Nifty Midcap 150 TRI', baseline: 17000, driftPerDay: 4.9, waveSize: 145 },
-  { symbol: '^NIFTY500', name: 'Nifty 500 TRI', baseline: 15200, driftPerDay: 2.9, waveSize: 95 },
+  {
+    schemeCode: 119218,
+    schemeName: 'DSP Equity Opportunities Fund - Direct Plan - Growth',
+    schemeCategory: 'Large & Mid Cap Fund',
+    benchmarkIndex: 'Nifty LargeMidcap 250 TRI',
+    benchmarkSymbol: '^NIFTYLMI250',
+  },
+  {
+    schemeCode: 120599,
+    schemeName: 'ICICI Prudential Multicap Fund - Direct Plan - Growth',
+    schemeCategory: 'Multi Cap Fund',
+    benchmarkIndex: 'Nifty 500 TRI',
+    benchmarkSymbol: '^NIFTY500',
+  },
 ];
 
 main().catch((error) => {
@@ -82,13 +67,32 @@ main().catch((error) => {
 });
 
 async function main() {
-  const user = await getOrCreateDemoUser();
-  await resetDemoPortfolio(user.id);
-  await seedProfile(user.id);
-  const funds = await seedFunds(user.id);
-  await seedTransactions(user.id, funds);
-  await seedNavHistory();
-  await seedIndexHistory();
+  if (serviceSupabase) {
+    const user = await getOrCreateDemoUserWithServiceRole();
+    await resetDemoPortfolio(serviceSupabase, user.id);
+    await seedProfile(serviceSupabase, user.id);
+    const realFunds = await buildSeedFunds(serviceSupabase);
+    const funds = await seedFunds(serviceSupabase, user.id, realFunds);
+    await seedTransactions(serviceSupabase, user.id, funds);
+  } else {
+    if (!SUPABASE_PUBLISHABLE_KEY) {
+      throw new Error(
+        'SUPABASE_SERVICE_ROLE_KEY is missing and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY is also unavailable.',
+      );
+    }
+
+    const publicSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const user = await getOrCreateDemoUserWithPublicClient(publicSupabase);
+    await resetDemoPortfolio(publicSupabase, user.id);
+    await seedProfile(publicSupabase, user.id);
+
+    const liveDemoFunds = await buildSeedFunds(publicSupabase);
+    const funds = await seedFunds(publicSupabase, user.id, liveDemoFunds);
+    await seedTransactions(publicSupabase, user.id, funds);
+  }
 
   console.log(`Demo user ready: ${DEMO_EMAIL}`);
   console.log('Use the local dev auth shortcut to sign in.');
@@ -113,17 +117,17 @@ function loadLocalEnv(filePath) {
   }
 }
 
-async function getOrCreateDemoUser() {
+async function getOrCreateDemoUserWithServiceRole() {
   let page = 1;
   const perPage = 200;
 
   while (true) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    const { data, error } = await serviceSupabase.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
 
     const existing = data.users.find((user) => user.email?.toLowerCase() === DEMO_EMAIL.toLowerCase());
     if (existing) {
-      const { data: updated, error: updateError } = await supabase.auth.admin.updateUserById(
+      const { data: updated, error: updateError } = await serviceSupabase.auth.admin.updateUserById(
         existing.id,
         {
           password: DEMO_PASSWORD,
@@ -140,7 +144,7 @@ async function getOrCreateDemoUser() {
     page += 1;
   }
 
-  const { data, error } = await supabase.auth.admin.createUser({
+  const { data, error } = await serviceSupabase.auth.admin.createUser({
     email: DEMO_EMAIL,
     password: DEMO_PASSWORD,
     email_confirm: true,
@@ -151,17 +155,49 @@ async function getOrCreateDemoUser() {
   return data.user;
 }
 
-async function resetDemoPortfolio(userId) {
-  await mustSucceed(supabase.from('transaction').delete().eq('user_id', userId));
-  await mustSucceed(supabase.from('fund').delete().eq('user_id', userId));
-  await mustSucceed(supabase.from('cas_import').delete().eq('user_id', userId));
-  await mustSucceed(supabase.from('cas_inbound_session').delete().eq('user_id', userId));
-  await mustSucceed(supabase.from('user_profile').delete().eq('user_id', userId));
+async function getOrCreateDemoUserWithPublicClient(client) {
+  const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
+    email: DEMO_EMAIL,
+    password: DEMO_PASSWORD,
+  });
+
+  if (!signInError && signInData.user) {
+    return signInData.user;
+  }
+
+  const { data: signUpData, error: signUpError } = await client.auth.signUp({
+    email: DEMO_EMAIL,
+    password: DEMO_PASSWORD,
+  });
+
+  if (signUpError) throw signUpError;
+  if (!signUpData.user) {
+    throw new Error('Demo sign-up did not return a user.');
+  }
+
+  const { data: retryData, error: retryError } = await client.auth.signInWithPassword({
+    email: DEMO_EMAIL,
+    password: DEMO_PASSWORD,
+  });
+
+  if (retryError || !retryData.user) {
+    throw retryError ?? new Error('Demo sign-in failed after sign-up.');
+  }
+
+  return retryData.user;
 }
 
-async function seedProfile(userId) {
+async function resetDemoPortfolio(client, userId) {
+  await mustSucceed(client.from('transaction').delete().eq('user_id', userId));
+  await mustSucceed(client.from('fund').delete().eq('user_id', userId));
+  await mustSucceed(client.from('cas_import').delete().eq('user_id', userId));
+  await mustSucceed(client.from('cas_inbound_session').delete().eq('user_id', userId));
+  await mustSucceed(client.from('user_profile').delete().eq('user_id', userId));
+}
+
+async function seedProfile(client, userId) {
   await mustSucceed(
-    supabase.from('user_profile').upsert(
+    client.from('user_profile').upsert(
       {
         user_id: userId,
         pan: DEMO_PAN,
@@ -172,7 +208,7 @@ async function seedProfile(userId) {
   );
 
   await mustSucceed(
-    supabase.from('cas_inbound_session').upsert(
+    client.from('cas_inbound_session').upsert(
       {
         user_id: userId,
         inbound_email_id: DEMO_INBOUND_ID,
@@ -183,11 +219,36 @@ async function seedProfile(userId) {
   );
 }
 
-async function seedFunds(userId) {
+async function buildSeedFunds(client) {
+  const chosen = [];
+
+  for (const fund of REAL_FUNDS) {
+    const { count, error } = await client
+      .from('nav_history')
+      .select('*', { count: 'exact', head: true })
+      .eq('scheme_code', fund.schemeCode);
+
+    if (error) throw error;
+
+    if ((count ?? 0) > 250) {
+      chosen.push(fund);
+    }
+  }
+
+  if (chosen.length < 3) {
+    throw new Error(
+      `Not enough live NAV history found for the preferred real schemes. Found ${chosen.length} of ${REAL_FUNDS.length}.`,
+    );
+  }
+
+  return chosen;
+}
+
+async function seedFunds(client, userId, fundsToSeed) {
   const inserted = [];
 
-  for (const fund of DEMO_FUNDS) {
-    const { data, error } = await supabase
+  for (const fund of fundsToSeed) {
+    const { data, error } = await client
       .from('fund')
       .upsert(
         {
@@ -211,14 +272,18 @@ async function seedFunds(userId) {
   return inserted;
 }
 
-async function seedTransactions(userId, funds) {
+async function seedTransactions(client, userId, funds) {
+  const navByScheme = await loadNavHistoryForFunds(client, funds);
   const rows = [];
 
   for (const [fundIndex, fund] of funds.entries()) {
     for (let month = 0; month < 16; month += 1) {
       const date = new Date(Date.UTC(2024, month, 5 + fundIndex));
       const amount = 12000 + fundIndex * 2500 + month * 350;
-      const nav = computeFundValue(fund, date, month * 3 + fundIndex);
+      const nav = findNavOnOrBefore(navByScheme.get(fund.schemeCode) ?? [], toIsoDate(date));
+      if (!nav) {
+        throw new Error(`Missing NAV history for scheme ${fund.schemeCode} on ${toIsoDate(date)}`);
+      }
       const units = round4(amount / nav);
 
       rows.push({
@@ -240,92 +305,43 @@ async function seedTransactions(userId, funds) {
     transaction_date: '2025-10-10',
     transaction_type: 'redemption',
     units: 18.25,
-    nav_at_transaction: round4(computeFundValue(funds[0], new Date('2025-10-10'), 99)),
-    amount: 2350.75,
+    nav_at_transaction: round4(findNavOnOrBefore(navByScheme.get(funds[0].schemeCode) ?? [], '2025-10-10')),
+    amount: round2(18.25 * findNavOnOrBefore(navByScheme.get(funds[0].schemeCode) ?? [], '2025-10-10')),
     folio_number: 'DEMO-FOLIO-1',
   });
 
-  await mustSucceed(supabase.from('transaction').insert(rows));
+  await mustSucceed(client.from('transaction').insert(rows));
 }
 
-async function seedNavHistory() {
-  const rows = [];
-  const dates = businessDatesBackFrom(new Date(), 950);
+async function loadNavHistoryForFunds(client, funds) {
+  const schemeCodes = funds.map((fund) => fund.schemeCode);
+  const { data, error } = await client
+    .from('nav_history')
+    .select('scheme_code, nav_date, nav')
+    .in('scheme_code', schemeCodes)
+    .gte('nav_date', '2023-01-01')
+    .order('nav_date', { ascending: true });
 
-  for (const fund of DEMO_FUNDS) {
-    dates.forEach((date, index) => {
-      rows.push({
-        scheme_code: fund.schemeCode,
-        nav_date: toIsoDate(date),
-        nav: round4(computeFundValue(fund, date, index)),
-      });
-    });
+  if (error) throw error;
+
+  const navByScheme = new Map();
+  for (const row of data ?? []) {
+    const existing = navByScheme.get(row.scheme_code) ?? [];
+    existing.push({ date: row.nav_date, nav: row.nav });
+    navByScheme.set(row.scheme_code, existing);
   }
 
-  await batchUpsert('nav_history', rows, ['scheme_code', 'nav_date']);
+  return navByScheme;
 }
 
-async function seedIndexHistory() {
-  const rows = [];
-  const dates = businessDatesBackFrom(new Date(), 950);
-
-  for (const indexDef of DEMO_INDEXES) {
-    dates.forEach((date, index) => {
-      rows.push({
-        index_symbol: indexDef.symbol,
-        index_name: indexDef.name,
-        index_date: toIsoDate(date),
-        close_value: round4(
-          indexDef.baseline +
-            indexDef.driftPerDay * index +
-            Math.sin(index / 11) * indexDef.waveSize +
-            Math.cos(index / 23) * (indexDef.waveSize / 2),
-        ),
-      });
-    });
-  }
-
-  await batchUpsert('index_history', rows, ['index_symbol', 'index_date']);
-}
-
-async function batchUpsert(table, rows, conflictColumns) {
-  const batchSize = 500;
-
-  for (let start = 0; start < rows.length; start += batchSize) {
-    const batch = rows.slice(start, start + batchSize);
-    await mustSucceed(
-      supabase.from(table).upsert(batch, {
-        onConflict: conflictColumns.join(','),
-      }),
-    );
-  }
-}
-
-function businessDatesBackFrom(endDate, count) {
-  const dates = [];
-  const cursor = new Date(Date.UTC(
-    endDate.getUTCFullYear(),
-    endDate.getUTCMonth(),
-    endDate.getUTCDate(),
-  ));
-
-  while (dates.length < count) {
-    const day = cursor.getUTCDay();
-    if (day !== 0 && day !== 6) {
-      dates.push(new Date(cursor));
+function findNavOnOrBefore(history, dateStr) {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].date <= dateStr) {
+      return history[i].nav;
     }
-    cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
 
-  return dates.reverse();
-}
-
-function computeFundValue(fund, date, index) {
-  const seasonal = Math.sin(index / 14) * fund.waveSize;
-  const secondary = Math.cos(index / 29) * (fund.waveSize / 2.5);
-  const trend = fund.baselineNav + fund.driftPerDay * index;
-  const yearFactor = (date.getUTCFullYear() - 2023) * 0.35;
-  return Math.max(10, trend + seasonal + secondary + yearFactor);
+  return null;
 }
 
 function toIsoDate(date) {
