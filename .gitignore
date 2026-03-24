@@ -52,6 +52,7 @@ Thumbs.db
 
 # Testing
 coverage/
+fixtures/private/
 
 # Misc
 *.pem

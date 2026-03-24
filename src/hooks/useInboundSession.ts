@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 
-async function fetchSession(userId: string) {
+export async function fetchSession(userId: string) {
   const { data } = await supabase
     .from('cas_inbound_session')
     .select('inbound_email_address')
@@ -10,7 +10,7 @@ async function fetchSession(userId: string) {
   return data?.inbound_email_address ?? null;
 }
 
-async function callCreateSession(): Promise<string> {
+export async function callCreateSession(): Promise<string> {
   // Use supabase.functions.invoke so the client handles JWT auth headers
   // and token refresh automatically — raw fetch with manual Bearer tokens
   // can fail Supabase's built-in JWT gate on edge functions.

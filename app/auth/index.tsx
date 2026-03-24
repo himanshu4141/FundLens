@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
+import { canShowDevAuthShortcut, getDevAuthCredentials } from '@/src/lib/devAuth';
 import Logo from '@/src/components/Logo';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
@@ -41,9 +42,10 @@ const VALUE_PROPS = [
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingMode, setLoadingMode] = useState<'magic' | 'demo' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showMagicLinkInfo, setShowMagicLinkInfo] = useState(false);
+  const showDevAuthShortcut = canShowDevAuthShortcut();
 
   async function handleSendMagicLink() {
     if (!email.trim()) {
@@ -52,7 +54,7 @@ export default function SignInScreen() {
     }
 
     setError(null);
-    setLoading(true);
+    setLoadingMode('magic');
 
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
@@ -61,7 +63,7 @@ export default function SignInScreen() {
       },
     });
 
-    setLoading(false);
+    setLoadingMode(null);
 
     if (error) {
       setError(error.message);
@@ -69,6 +71,31 @@ export default function SignInScreen() {
     }
 
     router.push('/auth/confirm');
+  }
+
+  async function handleDevSignIn() {
+    const { email: devEmail, password: devPassword } = getDevAuthCredentials();
+
+    if (!devEmail || !devPassword) {
+      setError(
+        'Dev auth is enabled, but EXPO_PUBLIC_DEV_AUTH_EMAIL or EXPO_PUBLIC_DEV_AUTH_PASSWORD is missing in .env.local.',
+      );
+      return;
+    }
+
+    setError(null);
+    setLoadingMode('demo');
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: devEmail,
+      password: devPassword,
+    });
+
+    setLoadingMode(null);
+
+    if (error) {
+      setError(error.message);
+    }
   }
 
   return (
@@ -117,7 +144,7 @@ export default function SignInScreen() {
             autoCapitalize="none"
             autoComplete="email"
             autoCorrect={false}
-            editable={!loading}
+            editable={!loadingMode}
             returnKeyType="send"
             onSubmitEditing={handleSendMagicLink}
           />
@@ -125,17 +152,44 @@ export default function SignInScreen() {
           {error && <Text style={styles.errorText}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, loadingMode !== null && styles.buttonDisabled]}
             onPress={handleSendMagicLink}
-            disabled={loading}
+            disabled={loadingMode !== null}
             activeOpacity={0.85}
           >
-            {loading ? (
+            {loadingMode === 'magic' ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>Send secure link →</Text>
             )}
           </TouchableOpacity>
+
+          {showDevAuthShortcut && (
+            <>
+              <View style={styles.devDividerRow}>
+                <View style={styles.devDivider} />
+                <Text style={styles.devDividerText}>Local development only</Text>
+                <View style={styles.devDivider} />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.devButton, loadingMode !== null && styles.buttonDisabled]}
+                onPress={handleDevSignIn}
+                disabled={loadingMode !== null}
+                activeOpacity={0.85}
+              >
+                {loadingMode === 'demo' ? (
+                  <ActivityIndicator color={Colors.primary} />
+                ) : (
+                  <Text style={styles.devButtonText}>Continue as demo user</Text>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.devHint}>
+                Uses locally configured demo credentials. Keep this disabled outside local development.
+              </Text>
+            </>
+          )}
 
           {/* Magic link explainer */}
           <TouchableOpacity
@@ -271,6 +325,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  devDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  devDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  devDividerText: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  devButton: {
+    height: 48,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryLight,
+  },
+  devButtonText: {
+    color: Colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  devHint: {
+    ...Typography.bodySmall,
+    color: Colors.textTertiary,
+    marginTop: -Spacing.xs,
   },
 
   infoToggle: {

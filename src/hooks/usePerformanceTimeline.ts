@@ -24,7 +24,7 @@ export interface PerformanceTimelineData {
   entries: TimelineEntry[];
 }
 
-async function fetchPerformanceTimeline(
+export async function fetchPerformanceTimeline(
   fundItems: { id: string; name: string }[],
   indexItems: { symbol: string; name: string }[],
 ): Promise<PerformanceTimelineData> {

@@ -7,6 +7,7 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 ## What works now
 
 - Magic link authentication (sign in / sign out)
+- Optional local-only dev auth shortcut backed by a seeded demo user
 - **Import portfolio** — enter your KFintech email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
 - **Home screen** — total portfolio value, today's NAV change, your XIRR vs Nifty 50, scrollable fund cards
 - **Fund detail** — XIRR, fund vs benchmark chart (indexed to 100), NAV history chart, time window selector
@@ -62,6 +63,32 @@ npm start        # opens Expo dev server — scan QR with Expo Go
 npm run web      # runs in browser at localhost:8081
 npm run android  # opens Android emulator or connected device
 ```
+
+### 3a. Optional: local dev auth shortcut + demo portfolio
+
+If you want to test the app end to end without waiting for magic-link emails or using a real portfolio:
+
+1. Set these in `.env.local`:
+
+```env
+EXPO_PUBLIC_ENABLE_DEV_AUTH_BYPASS=true
+EXPO_PUBLIC_DEV_AUTH_EMAIL=demo@fundlens.local
+EXPO_PUBLIC_DEV_AUTH_PASSWORD=change-me-local-only
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
+
+2. Seed the demo user and portfolio:
+
+```bash
+npm run seed:demo
+```
+
+3. Start the app locally. On the sign-in screen, a dev-only `Continue as demo user` shortcut will appear on localhost / dev builds.
+
+Notes:
+- This shortcut is intended for local development only.
+- Do not enable it in production or shared preview environments.
+- Private real CAS files can be kept under `fixtures/private/`, which is git-ignored.
 
 ### 4. Supabase schema
 
