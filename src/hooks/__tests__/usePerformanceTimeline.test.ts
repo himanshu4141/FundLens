@@ -5,6 +5,7 @@ import {
   fetchPerformanceTimeline,
   type TimelineEntry,
 } from '../usePerformanceTimeline';
+import { supabase } from '@/src/lib/supabase';
 
 jest.mock('@tanstack/react-query', () => ({ useQuery: jest.fn() }));
 jest.mock('@/src/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
@@ -192,8 +193,6 @@ describe('buildTimelineSeries()', () => {
 // ---------------------------------------------------------------------------
 // fetchPerformanceTimeline()
 // ---------------------------------------------------------------------------
-
-import { supabase } from '@/src/lib/supabase';
 
 function makeChain(response: { data: unknown; error: unknown }): any {
   const chain: Record<string, unknown> = {
