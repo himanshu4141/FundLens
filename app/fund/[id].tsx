@@ -427,7 +427,11 @@ export default function FundDetailScreen() {
             <View style={styles.holdingRow}>
               <View style={styles.holdingStat}>
                 <Text style={styles.statLabel}>Current Value</Text>
-                <Text style={styles.holdingValue}>{formatCurrency(data.currentValue)}</Text>
+                {data.currentValue !== null ? (
+                  <Text style={styles.holdingValue}>{formatCurrency(data.currentValue)}</Text>
+                ) : (
+                  <Text style={styles.holdingValuePending}>NAV pending</Text>
+                )}
               </View>
               <View style={styles.holdingStat}>
                 <Text style={styles.statLabel}>Invested</Text>
@@ -527,6 +531,7 @@ const styles = StyleSheet.create({
   holdingRow: { flexDirection: 'row', marginTop: 4 },
   holdingStat: { flex: 1, alignItems: 'center', gap: 3 },
   holdingValue: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
+  holdingValuePending: { fontSize: 13, fontWeight: '500', color: Colors.textTertiary, fontStyle: 'italic' },
 
   benchmarkRow: {
     flexDirection: 'row',

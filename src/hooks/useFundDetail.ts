@@ -29,9 +29,9 @@ export interface FundDetailData {
   schemeCode: number;
   benchmarkIndex: string | null;
   benchmarkSymbol: string | null;
-  currentNav: number;
+  currentNav: number | null;   // null when NAV sync hasn't run yet for this scheme
   currentUnits: number;
-  currentValue: number;
+  currentValue: number | null; // null when currentNav is null — never assumed or zeroed
   investedAmount: number;
   fundXirr: number;
   navHistory: NavPoint[];      // ascending by date
@@ -77,7 +77,23 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
     .reverse(); // ascending for chart rendering
 
   if (navHistory.length === 0) {
-    throw new Error(`No NAV data found for scheme ${fund.scheme_code} — cannot compute current value`);
+    // NAV sync hasn't run yet for this scheme — return zeroed data so the UI
+    // can show an informative empty state rather than crashing.
+    return {
+      id: fund.id,
+      schemeName: fund.scheme_name,
+      schemeCategory: fund.scheme_category ?? '',
+      schemeCode: fund.scheme_code,
+      benchmarkIndex: fund.benchmark_index,
+      benchmarkSymbol: fund.benchmark_index_symbol,
+      currentNav: null,
+      currentUnits: netUnits,
+      currentValue: null,
+      investedAmount,
+      fundXirr: NaN,
+      navHistory: [],
+      indexHistory: [],
+    };
   }
   const currentNav = navHistory[navHistory.length - 1].value;
   const currentValue = netUnits * currentNav;

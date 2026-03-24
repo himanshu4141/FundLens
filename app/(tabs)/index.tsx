@@ -74,6 +74,17 @@ function BenchmarkSelector({
   );
 }
 
+function navStaleness(latestNavDate: string | null): { label: string; stale: boolean; veryStale: boolean } {
+  if (!latestNavDate) return { label: '', stale: false, veryStale: false };
+  const today = new Date().toISOString().split('T')[0];
+  if (latestNavDate >= today) return { label: 'today', stale: false, veryStale: false };
+  const diffMs = new Date(today).getTime() - new Date(latestNavDate).getTime();
+  const diffDays = Math.round(diffMs / 86_400_000);
+  const d = new Date(latestNavDate);
+  const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return { label: `as of ${label}`, stale: diffDays >= 2, veryStale: diffDays > 3 };
+}
+
 function PortfolioHeader({
   totalValue,
   dailyChangeAmount,
@@ -81,6 +92,7 @@ function PortfolioHeader({
   xirr: xirrRate,
   marketXirr,
   benchmarkSymbol,
+  latestNavDate,
   onBenchmarkChange,
 }: {
   totalValue: number;
@@ -89,6 +101,7 @@ function PortfolioHeader({
   xirr: number;
   marketXirr: number;
   benchmarkSymbol: string;
+  latestNavDate: string | null;
   onBenchmarkChange: (symbol: string) => void;
 }) {
   const isPositiveDay = dailyChangeAmount >= 0;
@@ -97,6 +110,7 @@ function PortfolioHeader({
   const benchmarkLabel =
     BENCHMARK_OPTIONS.find((b) => b.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
   const delta = isAheadOfMarket !== null ? Math.abs(xirrRate - marketXirr) : 0;
+  const staleness = navStaleness(latestNavDate);
 
   return (
     <LinearGradient
@@ -105,6 +119,16 @@ function PortfolioHeader({
       end={{ x: 1, y: 1 }}
       style={styles.portfolioHeader}
     >
+      {/* Stale-data warning when NAV is more than 2 days old */}
+      {staleness.stale && (
+        <View style={styles.staleBanner}>
+          <Ionicons name="warning-outline" size={13} color={staleness.veryStale ? '#fca5a5' : '#fcd34d'} />
+          <Text style={[styles.staleBannerText, staleness.veryStale && styles.staleBannerTextRed]}>
+            Portfolio based on {staleness.label} NAV — sync may be paused
+          </Text>
+        </View>
+      )}
+
       {/* Narrative-first: verdict leads */}
       {isAheadOfMarket !== null && (
         <View style={styles.verdictBlock}>
@@ -128,7 +152,8 @@ function PortfolioHeader({
             color={isPositiveDay ? '#86efac' : '#fca5a5'}
           />
           <Text style={[styles.dailyChange, { color: isPositiveDay ? '#86efac' : '#fca5a5' }]}>
-            {formatChange(dailyChangeAmount, dailyChangePct)} today
+            {formatChange(dailyChangeAmount, dailyChangePct)}{' '}
+            {staleness.stale ? staleness.label : 'today'}
           </Text>
         </View>
       </View>
@@ -393,6 +418,7 @@ export default function HomeScreen() {
             xirr={summary.xirr}
             marketXirr={summary.marketXirr}
             benchmarkSymbol={defaultBenchmarkSymbol}
+            latestNavDate={summary.latestNavDate ?? null}
             onBenchmarkChange={setDefaultBenchmarkSymbol}
           />
 
@@ -466,6 +492,21 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
     gap: Spacing.xs,
   },
+
+  // Stale-data warning
+  staleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: Spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  staleBannerText: { fontSize: 12, color: '#fcd34d', fontWeight: '500' },
+  staleBannerTextRed: { color: '#fca5a5' },
 
   // Verdict block — the signal, shown first
   verdictBlock: {

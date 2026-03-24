@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
+import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 async function fetchProfile(userId: string) {
@@ -67,6 +68,8 @@ export default function SettingsScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
+  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
+
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user-profile', userId],
     queryFn: () => fetchProfile(userId!),
@@ -75,6 +78,34 @@ export default function SettingsScreen() {
 
   const { inboundEmail, isLoading: sessionLoading } = useInboundSession(userId);
   const isLoading = profileLoading || sessionLoading;
+
+  const { data: latestNavRow } = useQuery({
+    queryKey: ['latest-nav-date'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('nav_history')
+        .select('nav_date')
+        .order('nav_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data?.nav_date as string | null ?? null;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  function navStatusBadge(navDate: string | null | undefined) {
+    if (!navDate) return { color: Colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
+    const today = new Date().toISOString().split('T')[0];
+    const diffMs = new Date(today).getTime() - new Date(navDate).getTime();
+    const diffDays = Math.round(diffMs / 86_400_000);
+    const d = new Date(navDate);
+    const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    if (diffDays <= 1) return { color: Colors.positive, dot: Colors.positive, label: 'Live' };
+    if (diffDays <= 3) return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${dateLabel}` };
+    return { color: Colors.negative, dot: Colors.negative, label: `Outdated · ${dateLabel}` };
+  }
+
+  const navBadge = navStatusBadge(latestNavRow);
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -173,10 +204,32 @@ export default function SettingsScreen() {
               <Text style={styles.rowSubLabel}>Updated hourly on weekdays via AMFI</Text>
             </View>
             <View style={styles.statusBadge}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Live</Text>
+              <View style={[styles.statusDot, { backgroundColor: navBadge.dot }]} />
+              <Text style={[styles.statusText, { color: navBadge.color }]}>{navBadge.label}</Text>
             </View>
           </View>
+        </View>
+
+        {/* ── Preferences ── */}
+        <SectionHeader title="Preferences" />
+        <View style={styles.card}>
+          <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
+            <Text style={styles.rowLabel}>Default Benchmark</Text>
+            <Text style={styles.rowSubLabel}>Used for &ldquo;You vs Market&rdquo; on the home screen</Text>
+          </View>
+          {BENCHMARK_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.symbol}
+              style={[styles.row, styles.borderTop]}
+              onPress={() => setDefaultBenchmarkSymbol(opt.symbol)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.rowValue, { flex: 1 }]}>{opt.label}</Text>
+              {defaultBenchmarkSymbol === opt.symbol && (
+                <Ionicons name="checkmark" size={16} color={Colors.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* ── Account actions ── */}
