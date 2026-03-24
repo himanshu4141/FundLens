@@ -2,6 +2,7 @@ import {
   buildTimelineSeries,
   buildXAxisLabels,
   formatDateShort,
+  fetchPerformanceTimeline,
   type TimelineEntry,
 } from '../usePerformanceTimeline';
 
@@ -185,5 +186,173 @@ describe('buildTimelineSeries()', () => {
     // Reversed order
     expect(pointsBA[0][1].value).toBeCloseTo(10, 5);
     expect(pointsBA[1][1].value).toBeCloseTo(100, 5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchPerformanceTimeline()
+// ---------------------------------------------------------------------------
+
+import { supabase } from '@/src/lib/supabase';
+
+function makeChain(response: { data: unknown; error: unknown }): any {
+  const chain: Record<string, unknown> = {
+    data: response.data,
+    error: response.error,
+    select: jest.fn(),
+    eq: jest.fn(),
+    in: jest.fn(),
+    order: jest.fn(),
+    single: jest.fn(),
+    maybeSingle: jest.fn(),
+  };
+  ['select', 'eq', 'in', 'order'].forEach((m) =>
+    (chain[m] as jest.Mock).mockReturnValue(chain),
+  );
+  (chain.single as jest.Mock).mockReturnValue(response);
+  (chain.maybeSingle as jest.Mock).mockReturnValue(response);
+  return chain;
+}
+
+const mockFrom = supabase.from as jest.Mock;
+
+const FUND_ROWS = [{ id: 'f1', scheme_code: 100, scheme_name: 'Fund A' }];
+const NAV_ROWS = [
+  { scheme_code: 100, nav_date: '2023-01-01', nav: 10 },
+  { scheme_code: 100, nav_date: '2023-06-01', nav: 12 },
+];
+const IDX_ROWS = [
+  { index_symbol: '^NSEI', index_date: '2023-01-01', close_value: 17000 },
+  { index_symbol: '^NSEI', index_date: '2023-06-01', close_value: 18000 },
+];
+
+describe('fetchPerformanceTimeline()', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns empty entries when both fundItems and indexItems are empty', async () => {
+    const result = await fetchPerformanceTimeline([], []);
+    expect(result.entries).toHaveLength(0);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('fetches fund NAV history and returns timeline entries', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: FUND_ROWS, error: null });
+      if (table === 'nav_history') return makeChain({ data: NAV_ROWS, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchPerformanceTimeline(
+      [{ id: 'f1', name: 'Fund A' }], [],
+    );
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].type).toBe('fund');
+    expect(result.entries[0].id).toBe('f1');
+    expect(result.entries[0].history).toHaveLength(2);
+  });
+
+  it('throws when fund query errors', async () => {
+    mockFrom.mockImplementation(() =>
+      makeChain({ data: null, error: { message: 'db error' } }),
+    );
+    await expect(
+      fetchPerformanceTimeline([{ id: 'f1', name: 'Fund A' }], []),
+    ).rejects.toEqual({ message: 'db error' });
+  });
+
+  it('throws when nav_history query errors', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: FUND_ROWS, error: null });
+      return makeChain({ data: null, error: { message: 'nav error' } });
+    });
+    await expect(
+      fetchPerformanceTimeline([{ id: 'f1', name: 'Fund A' }], []),
+    ).rejects.toEqual({ message: 'nav error' });
+  });
+
+  it('skips fund entry when scheme_code not found in NAV results', async () => {
+    const fundsWithDifferentCode = [{ id: 'f1', scheme_code: 999, scheme_name: 'Fund A' }];
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: fundsWithDifferentCode, error: null });
+      if (table === 'nav_history') return makeChain({ data: NAV_ROWS, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchPerformanceTimeline(
+      [{ id: 'f1', name: 'Fund A' }], [],
+    );
+    // fund f1's scheme_code (999) has no NAV rows → history is empty array
+    expect(result.entries[0].history).toHaveLength(0);
+  });
+
+  it('skips fund item when fund is not found in DB results', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: FUND_ROWS, error: null });
+      if (table === 'nav_history') return makeChain({ data: NAV_ROWS, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    // Request fund 'f-missing' which is not in FUND_ROWS
+    const result = await fetchPerformanceTimeline(
+      [{ id: 'f-missing', name: 'Ghost Fund' }], [],
+    );
+    expect(result.entries).toHaveLength(0);
+  });
+
+  it('handles funds returning null/empty gracefully', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: null, error: null });
+      return makeChain({ data: null, error: null });
+    });
+    const result = await fetchPerformanceTimeline(
+      [{ id: 'f1', name: 'Fund A' }], [],
+    );
+    expect(result.entries).toHaveLength(0);
+  });
+
+  it('fetches index history and returns index entries', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'index_history') return makeChain({ data: IDX_ROWS, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchPerformanceTimeline(
+      [], [{ symbol: '^NSEI', name: 'Nifty 50' }],
+    );
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].type).toBe('index');
+    expect(result.entries[0].id).toBe('^NSEI');
+    expect(result.entries[0].history).toHaveLength(2);
+  });
+
+  it('throws when index_history query errors', async () => {
+    mockFrom.mockImplementation(() =>
+      makeChain({ data: null, error: { message: 'idx error' } }),
+    );
+    await expect(
+      fetchPerformanceTimeline([], [{ symbol: '^NSEI', name: 'Nifty 50' }]),
+    ).rejects.toEqual({ message: 'idx error' });
+  });
+
+  it('returns empty history for index with no matching rows', async () => {
+    mockFrom.mockImplementation(() =>
+      makeChain({ data: IDX_ROWS, error: null }),
+    );
+    const result = await fetchPerformanceTimeline(
+      [], [{ symbol: '^BSE500', name: 'BSE 500' }],
+    );
+    expect(result.entries[0].history).toHaveLength(0);
+  });
+
+  it('combines fund and index entries in one call', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: FUND_ROWS, error: null });
+      if (table === 'nav_history') return makeChain({ data: NAV_ROWS, error: null });
+      if (table === 'index_history') return makeChain({ data: IDX_ROWS, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchPerformanceTimeline(
+      [{ id: 'f1', name: 'Fund A' }],
+      [{ symbol: '^NSEI', name: 'Nifty 50' }],
+    );
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries[0].type).toBe('fund');
+    expect(result.entries[1].type).toBe('index');
   });
 });
