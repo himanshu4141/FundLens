@@ -152,22 +152,31 @@ function PortfolioHeader({
 }
 
 function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }) {
-  const isPositiveDay = fund.dailyChangeAmount >= 0;
+  const isPositiveDay = fund.dailyChangeAmount != null ? fund.dailyChangeAmount >= 0 : true;
   const accentColor = categoryColor(fund.schemeCategory);
   const hasRedemptions = fund.redeemedUnits > 0;
+  const isPressable = !fund.navUnavailable;
 
-  // Unrealized P&L on current holdings
-  const unrealizedGain = fund.currentValue - fund.investedAmount;
-  const unrealizedPct = fund.investedAmount > 0 ? (unrealizedGain / fund.investedAmount) * 100 : 0;
-  const unrealizedPositive = unrealizedGain >= 0;
+  // Unrealized P&L on current holdings (only when NAV is available)
+  const unrealizedGain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
+  const unrealizedPct =
+    unrealizedGain != null && fund.investedAmount > 0
+      ? (unrealizedGain / fund.investedAmount) * 100
+      : null;
+  const unrealizedPositive = unrealizedGain != null ? unrealizedGain >= 0 : true;
 
   return (
-    <TouchableOpacity style={styles.fundCard} onPress={onPress} activeOpacity={0.78}>
+    <TouchableOpacity
+      style={[styles.fundCard, !isPressable && styles.fundCardDisabled]}
+      onPress={onPress}
+      activeOpacity={isPressable ? 0.78 : 1}
+      disabled={!isPressable}
+    >
       {/* Category accent bar */}
       <View style={[styles.fundCardAccent, { backgroundColor: accentColor }]} />
 
       <View style={styles.fundCardInner}>
-        {/* Fund name + daily change */}
+        {/* Fund name + value / pending badge */}
         <View style={styles.fundCardTop}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>
@@ -178,12 +187,20 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
             </Text>
           </View>
           <View style={styles.fundValueBlock}>
-            <Text style={styles.fundValue}>{formatCurrency(fund.currentValue)}</Text>
-            <View style={styles.dailyChangePill}>
-              <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
-                {fund.dailyChangePct >= 0 ? '+' : ''}{fund.dailyChangePct.toFixed(2)}% today
-              </Text>
-            </View>
+            {fund.navUnavailable ? (
+              <View style={styles.navPendingBadge}>
+                <Text style={styles.navPendingText}>NAV pending</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.fundValue}>{formatCurrency(fund.currentValue!)}</Text>
+                <View style={styles.dailyChangePill}>
+                  <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
+                    {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}% today
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -204,18 +221,26 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
                 height={24}
               />
             ) : (
-              <Text style={styles.fundMetaValue}>₹{fund.currentNav.toFixed(2)}</Text>
+              <Text style={styles.fundMetaValue}>
+                {fund.currentNav != null ? `₹${fund.currentNav.toFixed(2)}` : '—'}
+              </Text>
             )}
           </View>
           <View style={styles.fundMetaDivider} />
           <View style={styles.fundMeta}>
             <Text style={styles.fundMetaLabel}>Gain / Loss</Text>
-            <Text style={[styles.fundMetaValue, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
-              {unrealizedPositive ? '+' : ''}{formatCurrency(Math.abs(unrealizedGain))}
-            </Text>
-            <Text style={[styles.fundMetaSub, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
-              ({unrealizedPositive ? '+' : ''}{unrealizedPct.toFixed(1)}%)
-            </Text>
+            {unrealizedGain != null ? (
+              <>
+                <Text style={[styles.fundMetaValue, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+                  {unrealizedPositive ? '+' : ''}{formatCurrency(Math.abs(unrealizedGain))}
+                </Text>
+                <Text style={[styles.fundMetaSub, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+                  ({unrealizedPositive ? '+' : ''}{unrealizedPct!.toFixed(1)}%)
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.fundMetaValue}>—</Text>
+            )}
           </View>
         </View>
 
@@ -547,6 +572,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  fundCardDisabled: {
+    opacity: 0.92,
+  },
   fundCardAccent: { width: 4 },
   fundCardInner: { flex: 1, padding: Spacing.md, gap: 10 },
   fundCardTop: { flexDirection: 'row', gap: 12 },
@@ -562,6 +590,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   fundDailyChange: { fontSize: 12, fontWeight: '600' },
+  navPendingBadge: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  navPendingText: { fontSize: 11, fontWeight: '600', color: Colors.textTertiary },
 
   fundCardBottom: {
     flexDirection: 'row',

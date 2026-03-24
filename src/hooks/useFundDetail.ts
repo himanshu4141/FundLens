@@ -15,13 +15,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
+import type { NavPoint } from '@/src/utils/navUtils';
 
-export type TimeWindow = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'All';
-
-export interface NavPoint {
-  date: string;
-  value: number;
-}
+// Pure windowing utils live in navUtils so they can be unit-tested without
+// pulling in React Native / Supabase dependencies.
+export { filterToWindow, indexTo100 } from '@/src/utils/navUtils';
+export type { TimeWindow, NavPoint } from '@/src/utils/navUtils';
 
 export interface FundDetailData {
   id: string;
@@ -39,7 +38,7 @@ export interface FundDetailData {
   indexHistory: NavPoint[];    // ascending by date (benchmark)
 }
 
-async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
+export async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
   // Load fund metadata
   const { data: fund, error: fundError } = await supabase
     .from('fund')
@@ -62,21 +61,25 @@ async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
   const { historicalCashflows: cashflows, netUnits, investedAmount } =
     buildCashflowsFromTransactions(txs ?? [], 0, new Date());
 
-  // Load full NAV history
+  // Load NAV history descending so the most-recent rows always fall within
+  // Supabase's default 1000-row API limit. Then reverse to ascending for charting.
   const { data: navRows, error: navError } = await supabase
     .from('nav_history')
     .select('nav_date, nav')
     .eq('scheme_code', fund.scheme_code)
-    .order('nav_date', { ascending: true });
+    .order('nav_date', { ascending: false });
 
   if (navError) throw navError;
 
-  const navHistory: NavPoint[] = (navRows ?? []).map((r) => ({
-    date: r.nav_date as string,
-    value: r.nav as number,
-  }));
+  const navHistory: NavPoint[] = [...(navRows ?? [])]
+    .sort((a, b) => String(b.nav_date).localeCompare(String(a.nav_date)))
+    .map((r) => ({ date: r.nav_date as string, value: r.nav as number }))
+    .reverse(); // ascending for chart rendering
 
-  const currentNav = navHistory.length > 0 ? navHistory[navHistory.length - 1].value : 0;
+  if (navHistory.length === 0) {
+    throw new Error(`No NAV data found for scheme ${fund.scheme_code} — cannot compute current value`);
+  }
+  const currentNav = navHistory[navHistory.length - 1].value;
   const currentValue = netUnits * currentNav;
 
   // XIRR
@@ -122,31 +125,4 @@ export function useFundDetail(fundId: string) {
     queryFn: () => fetchFundDetail(fundId),
     staleTime: 0, // always fetch fresh so current value matches portfolio
   });
-}
-
-/** Filter any date-keyed series to a given time window */
-export function filterToWindow<T extends { date: string }>(history: T[], window: TimeWindow): T[] {
-  if (window === 'All' || history.length === 0) return history;
-
-  const today = new Date();
-  const cutoff = new Date(today);
-
-  switch (window) {
-    case '1M': cutoff.setMonth(today.getMonth() - 1); break;
-    case '3M': cutoff.setMonth(today.getMonth() - 3); break;
-    case '6M': cutoff.setMonth(today.getMonth() - 6); break;
-    case '1Y': cutoff.setFullYear(today.getFullYear() - 1); break;
-    case '3Y': cutoff.setFullYear(today.getFullYear() - 3); break;
-  }
-
-  const cutoffStr = cutoff.toISOString().split('T')[0];
-  return history.filter((p) => p.date >= cutoffStr);
-}
-
-/** Index a series to 100 at its first point (for relative comparison charts) */
-export function indexTo100(history: NavPoint[]): NavPoint[] {
-  if (history.length === 0) return [];
-  const base = history[0].value;
-  if (base === 0) return history;
-  return history.map((p) => ({ date: p.date, value: (p.value / base) * 100 }));
 }

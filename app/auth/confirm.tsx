@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import Logo from '@/src/components/Logo';
@@ -6,8 +7,32 @@ import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 export default function ConfirmScreen() {
   const router = useRouter();
 
-  // The router state carries the email forward from the sign-in screen
-  // If it isn't available (e.g. deep-link direct load), we still show the screen gracefully.
+  /**
+   * Web-only: bridge magic-link tokens back into the native app.
+   *
+   * When a native user clicks the magic link, the email client opens
+   * https://fund-lens.vercel.app/auth/confirm#access_token=...
+   * in its browser. We immediately redirect to fundlens://auth/confirm with
+   * the same hash so the native app can pick up the session via Linking.
+   *
+   * If no native app is installed (web user on desktop), the fundlens://
+   * attempt silently fails and the Supabase client's detectSessionInUrl
+   * handles the web session from the hash instead — AuthGate then navigates
+   * to /(tabs) normally.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const hash = window.location.hash;
+    if (!hash || hash.length <= 1) return;
+
+    // Only attempt the scheme handoff from mobile browsers. Desktop web sign-ins
+    // should stay in the browser and let Supabase complete the session normally.
+    const ua = window.navigator.userAgent.toLowerCase();
+    if (!/iphone|ipad|ipod|android/.test(ua)) return;
+
+    // Attempt to hand off to native app; browser ignores this if no app is installed.
+    window.location.replace(`fundlens://auth/confirm${hash}`);
+  }, []);
 
   async function handleResend() {
     // We don't have the email on this screen — route back to sign-in to re-enter it.

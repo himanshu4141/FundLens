@@ -175,6 +175,10 @@ export function computeRealizedGains(transactions: Transaction[]): RealizedGains
  * Returns both the historical-only cashflows (for aggregating across funds)
  * and the full xirrCashflows (for per-fund XIRR), along with netUnits and
  * investedAmount derived from the transactions.
+ *
+ * investedAmount is the cost basis of REMAINING units (not lifetime buys).
+ * On each redemption the average-cost basis of the sold units is deducted,
+ * exactly mirroring the computeRealizedGains logic.
  */
 export function buildCashflowsFromTransactions(
   transactions: Transaction[],
@@ -182,7 +186,7 @@ export function buildCashflowsFromTransactions(
   currentDate: Date,
 ): TransactionCashflows {
   let netUnits = 0;
-  let investedAmount = 0;
+  let totalCost = 0; // running cost basis — deducted on sells
   const historicalCashflows: Cashflow[] = [];
 
   for (const tx of transactions) {
@@ -196,10 +200,14 @@ export function buildCashflowsFromTransactions(
 
     if (isOutflow) {
       netUnits += tx.units;
-      investedAmount += tx.amount;
+      totalCost += tx.amount;
       historicalCashflows.push({ date, amount: -tx.amount });
     } else if (isInflow) {
-      netUnits -= tx.units;
+      // Deduct the avg-cost basis of sold units from running cost
+      const avgCost = netUnits > 0 ? totalCost / netUnits : 0;
+      const costBasis = tx.units * avgCost;
+      totalCost = Math.max(0, totalCost - costBasis);
+      netUnits = Math.max(0, netUnits - tx.units);
       historicalCashflows.push({ date, amount: tx.amount });
     }
   }
@@ -209,5 +217,5 @@ export function buildCashflowsFromTransactions(
     { date: currentDate, amount: currentValue },
   ];
 
-  return { historicalCashflows, xirrCashflows, netUnits, investedAmount };
+  return { historicalCashflows, xirrCashflows, netUnits, investedAmount: totalCost };
 }

@@ -20,10 +20,16 @@ import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 /**
  * On web, use window.location.origin so the redirect works on any domain
  * (local dev, Vercel preview, production) without hardcoding anything.
- * On native, use the deep-link scheme so Expo Router handles the callback.
+ *
+ * On native, use the production HTTPS URL instead of fundlens:// directly.
+ * In-app browsers (Gmail WKWebView, etc.) reliably follow HTTPS redirects but
+ * may silently drop custom scheme redirects. The /auth/confirm web page acts
+ * as a bridge: it reads the tokens from the URL hash and immediately tries to
+ * open fundlens://auth/confirm with the same hash, handing control back to the
+ * native app. The web session is set as a fallback if the native app can't open.
  */
 function getRedirectUrl(): string {
-  if (Platform.OS !== 'web') return 'fundlens://auth/confirm';
+  if (Platform.OS !== 'web') return 'https://fund-lens.vercel.app/auth/confirm';
   return `${window.location.origin}/auth/confirm`;
 }
 
