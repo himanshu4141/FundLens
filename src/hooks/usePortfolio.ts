@@ -137,7 +137,7 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
     .from('index_history')
     .select('index_date, close_value')
     .eq('index_symbol', benchmarkSymbol)
-    .order('index_date', { ascending: true });
+    .order('index_date', { ascending: false });
 
   const benchmarkMap = new Map<string, number>();
   for (const row of benchmarkRows ?? []) {

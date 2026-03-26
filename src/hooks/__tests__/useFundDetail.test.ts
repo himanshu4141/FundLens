@@ -398,4 +398,62 @@ describe('fetchFundDetail()', () => {
     expect(result!.currentValue).toBe(0);
     expect(result!.fundXirr).toBeNaN();
   });
+
+  // ── Fix 7: period return comparison must use navHistory, not XIRR ────────────
+  // PerformanceTab now shows navReturn / benchmarkReturn (window-scoped NAV returns)
+  // rather than XIRR. These tests verify the hook provides the raw data needed for
+  // that comparison and that fundXirr is separate from the window-based returns.
+  test('fundXirr is a finite number separate from window-based NAV return', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUND, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchFundDetail('fund-1');
+    // fundXirr: SIP-adjusted annualised — will be a finite number for valid cashflows
+    expect(isFinite(result!.fundXirr)).toBe(true);
+    // navHistory provides the raw data for window-based period returns
+    // Start: 100, End: 140 → period return = +40% for the 'All' window
+    const start = result!.navHistory[0].value;
+    const end = result!.navHistory[result!.navHistory.length - 1].value;
+    const periodReturn = ((end - start) / start) * 100;
+    expect(periodReturn).toBeCloseTo(40, 0); // +40% period NAV return
+    // They are different metrics — XIRR ≠ simple period return
+    expect(result!.fundXirr * 100).not.toBeCloseTo(periodReturn, 0);
+  });
+
+  // ── Fix 8: gain/loss must be derivable from currentValue and investedAmount ──
+  test('currentValue and investedAmount allow computing gain/loss', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUND, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchFundDetail('fund-1');
+    expect(result!.currentValue).not.toBeNull();
+    const gain = result!.currentValue! - result!.investedAmount;
+    const gainPct = (gain / result!.investedAmount) * 100;
+    // 150 units * 140 NAV = 21000; invested = 16000; gain = +5000 (+31.25%)
+    expect(gain).toBeCloseTo(5000, 0);
+    expect(gainPct).toBeCloseTo(31.25, 0);
+  });
+
+  test('gain/loss is not computable (null) when currentValue is null (NAV pending)', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUND, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: [], error: null }); // no NAV
+      if (table === 'index_history') return makeChain({ data: [], error: null });
+      return makeChain({ data: [], error: null });
+    });
+    const result = await fetchFundDetail('fund-1');
+    expect(result!.currentValue).toBeNull();
+    // gain cannot be computed — UI must handle null
+    const gain = result!.currentValue !== null ? result!.currentValue - result!.investedAmount : null;
+    expect(gain).toBeNull();
+  });
 });

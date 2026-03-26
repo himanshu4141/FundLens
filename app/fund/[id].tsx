@@ -29,6 +29,14 @@ const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** Format a YYYY-MM-DD NAV date for staleness display: "2026-03-20" → "20 Mar" */
+function formatNavDate(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  const [, month, day] = parts;
+  return `${parseInt(day, 10)} ${MONTH_ABBR[parseInt(month, 10) - 1]}`;
+}
+
 /** Format a YYYY-MM-DD date string for x-axis labels based on the selected window. */
 function formatChartDate(dateStr: string, window: TimeWindow): string {
   const [year, month, day] = dateStr.split('-');
@@ -72,12 +80,10 @@ function TimeWindowSelector({
 function PerformanceTab({
   navHistory,
   indexHistory,
-  fundXirr,
   benchmarkIndex,
 }: {
   navHistory: { date: string; value: number }[];
   indexHistory: { date: string; value: number }[];
-  fundXirr: number;
   benchmarkIndex: string | null;
 }) {
   const [window, setWindow] = useState<TimeWindow>('1Y');
@@ -152,26 +158,26 @@ function PerformanceTab({
 
   return (
     <View style={styles.tabContent}>
-      {/* XIRR card */}
+      {/* Period return comparison card — both columns use the same window & metric */}
       <View style={styles.xirrCard}>
         <View style={styles.xirrStat}>
-          <Text style={styles.statLabel}>Your Return</Text>
+          <Text style={styles.statLabel}>Fund ({window})</Text>
           <Text
             style={[
               styles.xirrValue,
-              { color: isFinite(fundXirr) && fundXirr >= 0 ? Colors.positive : Colors.negative },
+              { color: navReturn >= 0 ? Colors.positive : Colors.negative },
             ]}
           >
-            {formatXirr(fundXirr)}
+            {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
           </Text>
-          <Text style={styles.xirrHint}>SIP-adjusted annualised return</Text>
+          <Text style={styles.xirrHint}>NAV return for period</Text>
         </View>
         {benchmarkIndex && hasBenchmarkData && (
           <>
             <View style={styles.xirrDivider} />
             <View style={styles.xirrStat}>
-              <Text style={styles.statLabel}>{benchmarkIndex}</Text>
-              <Text style={styles.xirrValue}>{benchmarkReturn.toFixed(1)}%</Text>
+              <Text style={styles.statLabel}>{benchmarkIndex} ({window})</Text>
+              <Text style={styles.xirrValue}>{benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(1)}%</Text>
               <View style={styles.vsChip}>
                 <Text style={[styles.vsChipText, { color: isAhead ? Colors.positive : Colors.negative }]}>
                   {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
@@ -352,18 +358,18 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
           {focusedDate !== null && focusedNavVal !== null && (
             <View style={styles.chartFocusRow}>
               <Text style={styles.chartFocusDate}>{focusedDate}</Text>
-              <Text style={styles.chartFocusVal}>NAV: ₹{focusedNavVal.toFixed(3)}</Text>
+              <Text style={styles.chartFocusVal}>NAV: ₹{focusedNavVal.toFixed(4)}</Text>
             </View>
           )}
 
           <View style={styles.navStatsRow}>
             <View style={styles.navStat}>
               <Text style={styles.statLabel}>Current NAV</Text>
-              <Text style={styles.navStatValue}>₹{currentNav?.toFixed(3) ?? '—'}</Text>
+              <Text style={styles.navStatValue}>₹{currentNav?.toFixed(4) ?? '—'}</Text>
             </View>
             <View style={styles.navStat}>
               <Text style={styles.statLabel}>Period start</Text>
-              <Text style={styles.navStatValue}>₹{startNav?.toFixed(3) ?? '—'}</Text>
+              <Text style={styles.navStatValue}>₹{startNav?.toFixed(4) ?? '—'}</Text>
             </View>
             {navChange !== null && (
               <View style={styles.navStat}>
@@ -420,36 +426,74 @@ export default function FundDetailScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* ── Fund header card ── */}
-          <View style={styles.fundHeader}>
-            <Text style={styles.fundName}>{data.schemeName}</Text>
-            <Text style={styles.fundCategory}>{data.schemeCategory}</Text>
+          {(() => {
+            const latestNavDate = data.navHistory[data.navHistory.length - 1]?.date ?? null;
+            const todayIso = new Date().toISOString().split('T')[0];
+            const navIsStale = latestNavDate !== null && latestNavDate !== todayIso;
+            const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
+            const gainPct = gain !== null && data.investedAmount > 0
+              ? (gain / data.investedAmount) * 100 : null;
+            const gainPositive = gain !== null ? gain >= 0 : true;
+            return (
+              <View style={styles.fundHeader}>
+                <Text style={styles.fundName}>{data.schemeName}</Text>
+                <Text style={styles.fundCategory}>{data.schemeCategory}</Text>
 
-            <View style={styles.holdingRow}>
-              <View style={styles.holdingStat}>
-                <Text style={styles.statLabel}>Current Value</Text>
-                {data.currentValue !== null ? (
-                  <Text style={styles.holdingValue}>{formatCurrency(data.currentValue)}</Text>
-                ) : (
-                  <Text style={styles.holdingValuePending}>NAV pending</Text>
+                <View style={styles.holdingRow}>
+                  <View style={styles.holdingStat}>
+                    <Text style={styles.statLabel}>Current Value</Text>
+                    {data.currentValue !== null ? (
+                      <>
+                        <Text style={styles.holdingValue}>{formatCurrency(data.currentValue)}</Text>
+                        {navIsStale && (
+                          <Text style={styles.navStaleLabel}>as of {formatNavDate(latestNavDate!)}</Text>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={styles.holdingValuePending}>NAV pending</Text>
+                    )}
+                  </View>
+                  <View style={styles.holdingStat}>
+                    <Text style={styles.statLabel}>Invested</Text>
+                    <Text style={styles.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
+                  </View>
+                  <View style={styles.holdingStat}>
+                    <Text style={styles.statLabel}>Units</Text>
+                    <Text style={styles.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
+                  </View>
+                </View>
+
+                {/* Gain / Loss row */}
+                {gain !== null && gainPct !== null && (
+                  <View style={styles.gainRow}>
+                    <Text style={styles.statLabel}>Gain / Loss</Text>
+                    <Text style={[styles.gainValue, { color: gainPositive ? Colors.positive : Colors.negative }]}>
+                      {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))}{' '}
+                      ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%)
+                    </Text>
+                  </View>
+                )}
+
+                {/* XIRR row — SIP-adjusted annualised return */}
+                {isFinite(data.fundXirr) && (
+                  <View style={styles.xirrHeaderRow}>
+                    <Text style={styles.statLabel}>XIRR</Text>
+                    <Text style={[styles.xirrHeaderValue, { color: data.fundXirr >= 0 ? Colors.positive : Colors.negative }]}>
+                      {formatXirr(data.fundXirr)}
+                    </Text>
+                    <Text style={styles.xirrHeaderHint}> · SIP-adjusted, annualised</Text>
+                  </View>
+                )}
+
+                {data.benchmarkIndex && (
+                  <View style={styles.benchmarkRow}>
+                    <Ionicons name="git-compare-outline" size={12} color={Colors.textTertiary} />
+                    <Text style={styles.benchmarkLabel}>vs {data.benchmarkIndex}</Text>
+                  </View>
                 )}
               </View>
-              <View style={styles.holdingStat}>
-                <Text style={styles.statLabel}>Invested</Text>
-                <Text style={styles.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
-              </View>
-              <View style={styles.holdingStat}>
-                <Text style={styles.statLabel}>Units</Text>
-                <Text style={styles.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
-              </View>
-            </View>
-
-            {data.benchmarkIndex && (
-              <View style={styles.benchmarkRow}>
-                <Ionicons name="git-compare-outline" size={12} color={Colors.textTertiary} />
-                <Text style={styles.benchmarkLabel}>vs {data.benchmarkIndex}</Text>
-              </View>
-            )}
-          </View>
+            );
+          })()}
 
           {/* ── Tab bar ── */}
           <View style={styles.tabBar}>
@@ -471,7 +515,6 @@ export default function FundDetailScreen() {
             <PerformanceTab
               navHistory={data.navHistory}
               indexHistory={data.indexHistory}
-              fundXirr={data.fundXirr}
               benchmarkIndex={data.benchmarkIndex}
             />
           ) : (
@@ -532,6 +575,14 @@ const styles = StyleSheet.create({
   holdingStat: { flex: 1, alignItems: 'center', gap: 3 },
   holdingValue: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   holdingValuePending: { fontSize: 13, fontWeight: '500', color: Colors.textTertiary, fontStyle: 'italic' },
+  navStaleLabel: { fontSize: 11, color: Colors.textTertiary, fontStyle: 'italic' },
+
+  gainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  gainValue: { fontSize: 14, fontWeight: '600' },
+
+  xirrHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  xirrHeaderValue: { fontSize: 14, fontWeight: '600' },
+  xirrHeaderHint: { fontSize: 11, color: Colors.textTertiary },
 
   benchmarkRow: {
     flexDirection: 'row',

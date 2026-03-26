@@ -7,6 +7,7 @@
  *   Recommended: "30 13 * * 1-5"  (1:30 PM UTC = 7 PM IST, weekdays)
  *
  * mfapi.in format: { data: [{ date: "DD-MM-YYYY", nav: "123.45" }, ...] }
+ * Returns full NAV history per scheme — any missed days are backfilled on next run.
  */
 
 import { createServiceClient } from '../_shared/supabase-client.ts';
@@ -14,9 +15,9 @@ import { json } from '../_shared/cors.ts';
 
 const BATCH_SIZE = 500;
 const MFAPI_BASE = 'https://api.mfapi.in/mf';
+const FETCH_TIMEOUT_MS = 10_000; // abort per-scheme fetch if mfapi.in hangs
 
 Deno.serve(async (req) => {
-  // Allow scheduled invocations and authenticated HTTP calls
   if (req.method !== 'POST' && req.method !== 'GET') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -44,58 +45,94 @@ Deno.serve(async (req) => {
     return json({ success: true, message: 'No active funds to sync', navRowsUpserted: 0 });
   }
 
-  let totalUpserted = 0;
-  const errors: string[] = [];
+  // Fetch and upsert each scheme in parallel — total wall time ≈ one timeout (10s)
+  // regardless of how many schemes there are, preventing serial timeouts from
+  // exceeding Supabase's 150s hard limit.
+  async function syncScheme(schemeCode: number): Promise<{ newRows: number; error?: string }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-  for (const schemeCode of schemeCodes) {
+    let res: Response;
     try {
-      const res = await fetch(`${MFAPI_BASE}/${schemeCode}`, {
-        headers: { 'User-Agent': 'FundLens/1.0' },
-      });
-
-      if (!res.ok) {
-        console.warn('[sync-nav] scheme %d: HTTP %d', schemeCode, res.status);
-        errors.push(`scheme ${schemeCode}: HTTP ${res.status}`);
-        continue;
+      try {
+        res = await fetch(`${MFAPI_BASE}/${schemeCode}`, {
+          headers: { 'User-Agent': 'FundLens/1.0' },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
       }
+    } catch (err) {
+      const msg = (err as Error).message;
+      const isTimeout = msg.includes('abort') || msg.includes('timed out');
+      console.error('[sync-nav] scheme %d %s: %s',
+        schemeCode, isTimeout ? '(timeout)' : '(error)', msg);
+      return { newRows: 0, error: `scheme ${schemeCode}: ${isTimeout ? 'fetch timeout' : msg}` };
+    }
 
-      const json = await res.json();
-      const rawData = json.data as Array<{ date: string; nav: string }> | undefined;
+    if (!res.ok) {
+      console.warn('[sync-nav] scheme %d: HTTP %d', schemeCode, res.status);
+      return { newRows: 0, error: `scheme ${schemeCode}: HTTP ${res.status}` };
+    }
 
-      if (!rawData?.length) {
-        console.warn('[sync-nav] scheme %d: empty response from mfapi', schemeCode);
-        errors.push(`scheme ${schemeCode}: empty response`);
-        continue;
-      }
+    const body = await res.json();
+    const rawData = body.data as Array<{ date: string; nav: string }> | undefined;
 
-      // mfapi returns date as "DD-MM-YYYY" — convert to ISO "YYYY-MM-DD"
-      const rows = rawData
-        .map((d) => {
-          const parts = d.date.split('-');
-          if (parts.length !== 3) return null;
-          const [day, month, year] = parts;
-          const nav = parseFloat(d.nav);
-          if (isNaN(nav)) return null;
-          return { scheme_code: schemeCode, nav_date: `${year}-${month}-${day}`, nav };
-        })
-        .filter((r): r is NonNullable<typeof r> => r !== null);
+    if (!rawData?.length) {
+      console.warn('[sync-nav] scheme %d: empty response from mfapi', schemeCode);
+      return { newRows: 0, error: `scheme ${schemeCode}: empty response` };
+    }
 
-      let schemeUpserted = 0;
+    // mfapi returns date as "DD-MM-YYYY" — convert to ISO "YYYY-MM-DD"
+    const rows = rawData
+      .map((d) => {
+        const parts = d.date.split('-');
+        if (parts.length !== 3) return null;
+        const [day, month, year] = parts;
+        const nav = parseFloat(d.nav);
+        if (isNaN(nav)) return null;
+        return { scheme_code: schemeCode, nav_date: `${year}-${month}-${day}`, nav };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    const latestFromSource = rows[0]?.nav_date ?? 'none';
+    console.log('[sync-nav] scheme %d: mfapi returned %d rows, latest date = %s',
+      schemeCode, rawData.length, latestFromSource);
+
+    let newRows = 0;
+    try {
       // Batch upsert — ignoreDuplicates avoids overwriting existing clean data
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('nav_history')
-          .upsert(batch, { onConflict: 'scheme_code,nav_date', ignoreDuplicates: true });
+          .upsert(batch, { onConflict: 'scheme_code,nav_date', ignoreDuplicates: true })
+          .select('nav_date');
 
         if (error) throw new Error(error.message);
-        schemeUpserted += batch.length;
-        totalUpserted += batch.length;
+        newRows += inserted?.length ?? 0;
       }
-      console.log('[sync-nav] scheme %d: upserted %d rows', schemeCode, schemeUpserted);
     } catch (err) {
-      console.error('[sync-nav] scheme %d error:', schemeCode, (err as Error).message);
-      errors.push(`scheme ${schemeCode}: ${(err as Error).message}`);
+      const msg = (err as Error).message;
+      console.error('[sync-nav] scheme %d upsert error: %s', schemeCode, msg);
+      return { newRows, error: `scheme ${schemeCode}: ${msg}` };
+    }
+
+    console.log('[sync-nav] scheme %d: %d new rows inserted (source had %d total)',
+      schemeCode, newRows, rows.length);
+    return { newRows };
+  }
+
+  const results = await Promise.allSettled(schemeCodes.map((code) => syncScheme(code as number)));
+
+  let totalUpserted = 0;
+  const errors: string[] = [];
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      totalUpserted += result.value.newRows;
+      if (result.value.error) errors.push(result.value.error);
+    } else {
+      errors.push(String(result.reason));
     }
   }
 

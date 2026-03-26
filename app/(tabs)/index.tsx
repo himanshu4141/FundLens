@@ -16,6 +16,8 @@ import { useQuery } from '@tanstack/react-query';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
+import { parseFundName } from '@/src/utils/fundName';
+import { navStaleness } from '@/src/utils/navUtils';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
@@ -74,19 +76,10 @@ function BenchmarkSelector({
   );
 }
 
-function navStaleness(latestNavDate: string | null): { label: string; stale: boolean; veryStale: boolean } {
-  if (!latestNavDate) return { label: '', stale: false, veryStale: false };
-  const today = new Date().toISOString().split('T')[0];
-  if (latestNavDate >= today) return { label: 'today', stale: false, veryStale: false };
-  const diffMs = new Date(today).getTime() - new Date(latestNavDate).getTime();
-  const diffDays = Math.round(diffMs / 86_400_000);
-  const d = new Date(latestNavDate);
-  const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  return { label: `as of ${label}`, stale: diffDays >= 2, veryStale: diffDays > 3 };
-}
 
 function PortfolioHeader({
   totalValue,
+  totalInvested,
   dailyChangeAmount,
   dailyChangePct,
   xirr: xirrRate,
@@ -96,6 +89,7 @@ function PortfolioHeader({
   onBenchmarkChange,
 }: {
   totalValue: number;
+  totalInvested: number;
   dailyChangeAmount: number;
   dailyChangePct: number;
   xirr: number;
@@ -105,6 +99,9 @@ function PortfolioHeader({
   onBenchmarkChange: (symbol: string) => void;
 }) {
   const isPositiveDay = dailyChangeAmount >= 0;
+  const gain = totalValue - totalInvested;
+  const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : null;
+  const gainPositive = gain >= 0;
   const isAheadOfMarket =
     isFinite(xirrRate) && isFinite(marketXirr) ? xirrRate >= marketXirr : null;
   const benchmarkLabel =
@@ -158,6 +155,13 @@ function PortfolioHeader({
         </View>
       </View>
 
+      {/* Portfolio overall Gain / Loss */}
+      {gainPct !== null && (
+        <Text style={[styles.portfolioGainLoss, { color: gainPositive ? '#86efac' : '#fca5a5' }]}>
+          {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))} ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%) overall
+        </Text>
+      )}
+
       {/* Two-column Your Return | Benchmark */}
       <View style={styles.xirrRow}>
         <View style={styles.xirrItem}>
@@ -176,11 +180,13 @@ function PortfolioHeader({
   );
 }
 
-function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }) {
+function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latestNavDate: string | null; onPress: () => void }) {
   const isPositiveDay = fund.dailyChangeAmount != null ? fund.dailyChangeAmount >= 0 : true;
   const accentColor = categoryColor(fund.schemeCategory);
   const hasRedemptions = fund.redeemedUnits > 0;
   const isPressable = !fund.navUnavailable;
+  const { base: fundBaseName, planBadge } = parseFundName(fund.schemeName);
+  const cardStaleness = navStaleness(latestNavDate);
 
   // Unrealized P&L on current holdings (only when NAV is available)
   const unrealizedGain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
@@ -205,11 +211,14 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
         <View style={styles.fundCardTop}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>
-              {fund.schemeName}
+              {fundBaseName}
             </Text>
             <Text style={[styles.fundCategory, { color: accentColor + 'cc' }]}>
               {fund.schemeCategory}
             </Text>
+            {planBadge !== null && (
+              <Text style={styles.fundPlanBadge}>{planBadge}</Text>
+            )}
           </View>
           <View style={styles.fundValueBlock}>
             {fund.navUnavailable ? (
@@ -221,7 +230,8 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
                 <Text style={styles.fundValue}>{formatCurrency(fund.currentValue!)}</Text>
                 <View style={styles.dailyChangePill}>
                   <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
-                    {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}% today
+                    {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}%{' '}
+                    {cardStaleness.stale ? cardStaleness.label : 'today'}
                   </Text>
                 </View>
               </>
@@ -413,6 +423,7 @@ export default function HomeScreen() {
         >
           <PortfolioHeader
             totalValue={summary.totalValue}
+            totalInvested={summary.totalInvested}
             dailyChangeAmount={summary.dailyChangeAmount}
             dailyChangePct={summary.dailyChangePct}
             xirr={summary.xirr}
@@ -431,6 +442,7 @@ export default function HomeScreen() {
             <FundCard
               key={fund.id}
               fund={fund}
+              latestNavDate={summary.latestNavDate ?? null}
               onPress={() => router.push(`/fund/${fund.id}`)}
             />
           ))}
@@ -544,6 +556,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dailyChange: { fontSize: 14, fontWeight: '600' },
+  portfolioGainLoss: { fontSize: 13, fontWeight: '500', marginTop: 4 },
 
   // Two-column Your Return | Benchmark
   xirrRow: {
@@ -622,6 +635,7 @@ const styles = StyleSheet.create({
   fundNameBlock: { flex: 1, gap: 3 },
   fundName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, lineHeight: 20 },
   fundCategory: { fontSize: 12, fontWeight: '500' },
+  fundPlanBadge: { fontSize: 11, color: Colors.textTertiary, fontWeight: '400' },
   fundValueBlock: { alignItems: 'flex-end', gap: 4 },
   fundValue: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   dailyChangePill: {

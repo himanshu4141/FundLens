@@ -69,6 +69,7 @@ export default function SettingsScreen() {
   const userId = session?.user.id;
 
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
+  const [benchmarkSaved, setBenchmarkSaved] = useState(false);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user-profile', userId],
@@ -156,7 +157,7 @@ export default function SettingsScreen() {
           {!isLoading && profile?.kfintech_email && (
             <View style={[styles.row, styles.borderTop]}>
               <View style={styles.rowLeft}>
-                <Text style={styles.rowLabel}>KFintech email</Text>
+                <Text style={styles.rowLabel}>CAS registrar email</Text>
                 <Text style={styles.rowValue} numberOfLines={1}>
                   {profile.kfintech_email}
                 </Text>
@@ -211,7 +212,12 @@ export default function SettingsScreen() {
         </View>
 
         {/* ── Preferences ── */}
-        <SectionHeader title="Preferences" />
+        <View style={styles.sectionHeaderRow}>
+          <SectionHeader title="Preferences" />
+          {benchmarkSaved && (
+            <Text style={styles.savedFeedback}>✓ Saved</Text>
+          )}
+        </View>
         <View style={styles.card}>
           <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
             <Text style={styles.rowLabel}>Default Benchmark</Text>
@@ -221,7 +227,11 @@ export default function SettingsScreen() {
             <TouchableOpacity
               key={opt.symbol}
               style={[styles.row, styles.borderTop]}
-              onPress={() => setDefaultBenchmarkSymbol(opt.symbol)}
+              onPress={() => {
+                setDefaultBenchmarkSymbol(opt.symbol);
+                setBenchmarkSaved(true);
+                setTimeout(() => setBenchmarkSaved(false), 1500);
+              }}
               activeOpacity={0.7}
             >
               <Text style={[styles.rowValue, { flex: 1 }]}>{opt.label}</Text>
@@ -268,17 +278,26 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     marginHorizontal: Spacing.md,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: Spacing.md,
+  },
+  savedFeedback: {
+    fontSize: 12,
+    color: Colors.positive,
+    fontWeight: '600',
+    marginTop: Spacing.lg,
+  },
 
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radii.md,
     marginHorizontal: Spacing.md,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 
   // Account badge row
