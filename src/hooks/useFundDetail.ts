@@ -109,7 +109,7 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
       .from('index_history')
       .select('index_date, close_value')
       .eq('index_symbol', fund.benchmark_index_symbol)
-      .order('index_date', { ascending: true });
+      .order('index_date', { ascending: false });
 
     indexHistory = (idxRows ?? []).map((r) => ({
       date: r.index_date as string,

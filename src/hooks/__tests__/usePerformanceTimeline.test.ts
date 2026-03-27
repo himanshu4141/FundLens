@@ -202,10 +202,11 @@ function makeChain(response: { data: unknown; error: unknown }): any {
     eq: jest.fn(),
     in: jest.fn(),
     order: jest.fn(),
+    limit: jest.fn(),
     single: jest.fn(),
     maybeSingle: jest.fn(),
   };
-  ['select', 'eq', 'in', 'order'].forEach((m) =>
+  ['select', 'eq', 'in', 'order', 'limit'].forEach((m) =>
     (chain[m] as jest.Mock).mockReturnValue(chain),
   );
   (chain.single as jest.Mock).mockReturnValue(response);
