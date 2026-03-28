@@ -106,7 +106,7 @@ function PortfolioHeader({
     isFinite(xirrRate) && isFinite(marketXirr) ? xirrRate >= marketXirr : null;
   const benchmarkLabel =
     BENCHMARK_OPTIONS.find((b) => b.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
-  const delta = isAheadOfMarket !== null ? Math.abs(xirrRate - marketXirr) : 0;
+  const delta = isAheadOfMarket !== null ? Math.abs((xirrRate - marketXirr) * 100) : 0;
   const staleness = navStaleness(latestNavDate);
 
   return (
@@ -234,6 +234,11 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
                     {cardStaleness.stale ? cardStaleness.label : 'today'}
                   </Text>
                 </View>
+                {isFinite(fund.returnXirr) && (
+                  <Text style={[styles.fundXirr, { color: fund.returnXirr >= 0 ? Colors.positive : Colors.negative }]}>
+                    {formatXirr(fund.returnXirr)} XIRR
+                  </Text>
+                )}
               </>
             )}
           </View>
@@ -645,6 +650,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   fundDailyChange: { fontSize: 12, fontWeight: '600' },
+  fundXirr: { fontSize: 11, fontWeight: '600' },
+
   navPendingBadge: {
     backgroundColor: Colors.background,
     borderWidth: 1,
