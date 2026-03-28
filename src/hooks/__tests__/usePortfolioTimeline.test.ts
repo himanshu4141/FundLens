@@ -63,7 +63,7 @@ describe('computePortfolioTimeline', () => {
     const dates = navDates('2024-01-01', 5);
     const navRows = dates.map((d, i) => ({ scheme_code: 100, nav_date: d, nav: 10 + i * 2 }));
     // NAVs: 10, 12, 14, 16, 18
-    const txRows = [{ fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 100 }];
+    const txRows = [{ fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100 }];
     const idxRows = dates.map((d, i) => ({ index_date: d, close_value: 1000 + i * 100 }));
 
     const result = computePortfolioTimeline(navRows, txRows, idxRows, [FUND], 'All');
@@ -83,8 +83,8 @@ describe('computePortfolioTimeline', () => {
     // NAV stays constant at 10 throughout for simplicity
     const navRows = dates.map((d) => ({ scheme_code: 100, nav_date: d, nav: 10 }));
     const txRows = [
-      { fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 100 },
-      { fund_id: 'fund-1', transaction_date: '2024-01-03', transaction_type: 'SELL', units: 50 },
+      { fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100 },
+      { fund_id: 'fund-1', transaction_date: '2024-01-03', transaction_type: 'redemption', units: 50 },
     ];
     const idxRows = dates.map((d) => ({ index_date: d, close_value: 1000 }));
 
@@ -102,7 +102,7 @@ describe('computePortfolioTimeline', () => {
     const dates = navDates('2024-01-01', 5);
     const navRows = dates.map((d, i) => ({ scheme_code: 100, nav_date: d, nav: 10 + i }));
     // Purchase on day 3 only
-    const txRows = [{ fund_id: 'fund-1', transaction_date: '2024-01-04', transaction_type: 'BUY', units: 100 }];
+    const txRows = [{ fund_id: 'fund-1', transaction_date: '2024-01-04', transaction_type: 'purchase', units: 100 }];
     const idxRows = dates.map((d) => ({ index_date: d, close_value: 1000 }));
 
     const result = computePortfolioTimeline(navRows, txRows, idxRows, [FUND], 'All');
@@ -120,8 +120,8 @@ describe('computePortfolioTimeline', () => {
       ...dates.map((d) => ({ scheme_code: 200, nav_date: d, nav: 20 })),
     ];
     const txRows = [
-      { fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 100 },
-      { fund_id: 'fund-2', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 50 },
+      { fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100 },
+      { fund_id: 'fund-2', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 50 },
     ];
     const idxRows = dates.map((d) => ({ index_date: d, close_value: 1000 }));
 
@@ -138,7 +138,7 @@ describe('computePortfolioTimeline', () => {
   it('both series start at exactly 100', () => {
     const dates = navDates('2024-01-01', 10);
     const navRows = dates.map((d, i) => ({ scheme_code: 100, nav_date: d, nav: 10 + i }));
-    const txRows = [{ fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 100 }];
+    const txRows = [{ fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100 }];
     const idxRows = dates.map((d, i) => ({ index_date: d, close_value: 1000 + i * 50 }));
 
     const result = computePortfolioTimeline(navRows, txRows, idxRows, [FUND], 'All');
@@ -171,7 +171,7 @@ describe('computePortfolioTimeline', () => {
     ].map((d) => d.toISOString().split('T')[0]);
 
     const navRows = dates.map((d, i) => ({ scheme_code: 100, nav_date: d, nav: 10 + i }));
-    const txRows = [{ fund_id: 'fund-1', transaction_date: dates[0], transaction_type: 'BUY', units: 100 }];
+    const txRows = [{ fund_id: 'fund-1', transaction_date: dates[0], transaction_type: 'purchase', units: 100 }];
     const idxRows = dates.map((d, i) => ({ index_date: d, close_value: 1000 + i * 100 }));
 
     const result = computePortfolioTimeline(navRows, txRows, idxRows, [FUND], '1Y');
@@ -186,9 +186,9 @@ describe('computePortfolioTimeline', () => {
     const dates = navDates('2024-01-01', 3);
     const navRows = dates.map((d) => ({ scheme_code: 100, nav_date: d, nav: 10 }));
     const txRows = [
-      { fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 100 },
+      { fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100 },
       // fund-99 is NOT in the funds list
-      { fund_id: 'fund-99', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 999 },
+      { fund_id: 'fund-99', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 999 },
     ];
     const idxRows = dates.map((d) => ({ index_date: d, close_value: 1000 }));
 
@@ -217,7 +217,7 @@ describe('fetchPortfolioTimeline', () => {
       error: null,
     });
     const txChain = makeChain({
-      data: [{ fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'BUY', units: 100 }],
+      data: [{ fund_id: 'fund-1', transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100 }],
       error: null,
     });
     const idxChain = makeChain({

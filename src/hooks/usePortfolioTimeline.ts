@@ -102,7 +102,10 @@ export function computePortfolioTimeline(
     const fid = tx.fund_id;
     if (!unitHistory.has(fid)) continue; // skip transactions for funds not in our list
     const prev = cumUnits.get(fid) ?? 0;
-    const isInflow = tx.transaction_type === 'BUY' || tx.transaction_type === 'SWITCH_IN';
+    const isInflow =
+      tx.transaction_type === 'purchase' ||
+      tx.transaction_type === 'switch_in' ||
+      tx.transaction_type === 'dividend_reinvest';
     const next = isInflow ? prev + tx.units : Math.max(0, prev - tx.units);
     cumUnits.set(fid, next);
     unitHistory.get(fid)!.push({ date: tx.transaction_date, units: next });
@@ -125,11 +128,10 @@ export function computePortfolioTimeline(
     if (hasValue && total > 0) rawPortfolio.push({ date, value: total });
   }
 
-  // Build benchmark series (idxRows already ascending)
-  const rawBenchmark: NavPoint[] = idxRows.map((r) => ({
-    date: r.index_date,
-    value: r.close_value,
-  }));
+  // Build benchmark series (sort ascending regardless of fetch order)
+  const rawBenchmark: NavPoint[] = [...idxRows]
+    .sort((a, b) => a.index_date.localeCompare(b.index_date))
+    .map((r) => ({ date: r.index_date, value: r.close_value }));
 
   // Filter to the selected time window
   const portfolioFiltered = filterToWindow(rawPortfolio, window);
@@ -173,11 +175,13 @@ export async function fetchPortfolioTimeline(
   const schemeCodes = funds.map((f) => f.schemeCode);
 
   const [navResult, txResult, idxResult] = await Promise.all([
+    // Fetch newest rows first so our 10k-row budget covers recent history
+    // (nav_history can have 55k+ rows per fund going back to 2013)
     supabase
       .from('nav_history')
       .select('scheme_code, nav_date, nav')
       .in('scheme_code', schemeCodes)
-      .order('nav_date', { ascending: true })
+      .order('nav_date', { ascending: false })
       .limit(10000),
     supabase
       .from('transaction')
@@ -189,7 +193,7 @@ export async function fetchPortfolioTimeline(
       .from('index_history')
       .select('index_date, close_value')
       .eq('index_symbol', benchmarkSymbol)
-      .order('index_date', { ascending: true })
+      .order('index_date', { ascending: false })
       .limit(10000),
   ]);
 
