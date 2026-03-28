@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -92,6 +92,9 @@ function PerformanceTab({
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
     return valid && defaultBenchmarkSymbol ? defaultBenchmarkSymbol : '^NSEI';
   });
+  // Track crosshair position so the return summary below the chart stays in sync.
+  // null = no active crosshair (show end-of-period values).
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   const { data: indexRows } = useQuery({
     queryKey: ['index-history', selectedSymbol],
@@ -112,6 +115,9 @@ function PerformanceTab({
 
   const indexHistory = indexRows ?? [];
   const selectedLabel = BENCHMARK_OPTIONS.find((b) => b.symbol === selectedSymbol)?.label ?? selectedSymbol;
+
+  // Reset crosshair when window or benchmark changes so summary resets to period-end values.
+  useEffect(() => { setActiveIdx(null); }, [window, selectedSymbol]);
 
   const filteredNav = filterToWindow(navHistory, window);
   const navStartDate = filteredNav[0]?.date ?? '';
@@ -186,8 +192,16 @@ function PerformanceTab({
   const navReturn = ((latestNav - 100) / 100) * 100;
   const benchmarkReturn = ((latestBenchmark - 100) / 100) * 100;
   const isAhead = isFinite(navReturn) && isFinite(benchmarkReturn) && navReturn >= benchmarkReturn;
-
   const diff = navReturn - benchmarkReturn;
+
+  // Values to show in the summary below the chart.
+  // When crosshair is active, show the hovered values; otherwise show end-of-period.
+  const summaryIdx = activeIdx !== null && activeIdx < sampledNav.length ? activeIdx : sampledNav.length - 1;
+  const summaryNavVal = sampledNav[summaryIdx]?.value ?? 100;
+  const summaryBenchVal = hasBenchmarkData ? (benchmarkPoints[summaryIdx]?.value ?? 100) : null;
+  const summaryNavReturn = ((summaryNavVal - 100) / 100) * 100;
+  const summaryBenchReturn = summaryBenchVal !== null ? ((summaryBenchVal - 100) / 100) * 100 : null;
+  const summaryDate = sampledNav[summaryIdx]?.date;
 
   return (
     <View style={styles.tabContent}>
@@ -303,6 +317,8 @@ function PerformanceTab({
                 activatePointersOnLongPress: false,
                 autoAdjustPointerLabelPosition: true,
                 pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  // Schedule summary update outside of render to avoid setState-in-render.
+                  requestAnimationFrame(() => setActiveIdx(pointerIndex));
                   const navVal = sampledNav[pointerIndex]?.value;
                   const benchVal = hasBenchmarkData ? benchmarkPoints[pointerIndex]?.value : undefined;
                   const date = sampledNav[pointerIndex]?.date;
@@ -342,17 +358,22 @@ function PerformanceTab({
           )}
 
           <View style={styles.returnSummary}>
+            {activeIdx !== null && summaryDate && (
+              <Text style={styles.summaryDateLabel}>
+                as of {formatChartDate(summaryDate, window)}
+              </Text>
+            )}
             <View style={styles.returnRow}>
-              <Text style={styles.returnLabel}>Fund ({window})</Text>
-              <Text style={[styles.returnVal, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}>
-                {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(2)}%
+              <Text style={styles.returnLabel}>Fund</Text>
+              <Text style={[styles.returnVal, { color: summaryNavReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                {summaryNavReturn >= 0 ? '+' : ''}{summaryNavReturn.toFixed(2)}%
               </Text>
             </View>
-            {hasBenchmarkData && (
+            {hasBenchmarkData && summaryBenchReturn !== null && (
               <View style={styles.returnRow}>
-                <Text style={styles.returnLabel}>{selectedLabel} ({window})</Text>
-                <Text style={[styles.returnVal, { color: benchmarkReturn >= 0 ? Colors.positive : Colors.negative }]}>
-                  {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(2)}%
+                <Text style={styles.returnLabel}>{selectedLabel}</Text>
+                <Text style={[styles.returnVal, { color: summaryBenchReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                  {summaryBenchReturn >= 0 ? '+' : ''}{summaryBenchReturn.toFixed(2)}%
                 </Text>
               </View>
             )}
@@ -758,6 +779,7 @@ const styles = StyleSheet.create({
   legendLabel: { fontSize: 12, color: Colors.textSecondary },
 
   returnSummary: { gap: 6, marginTop: 4 },
+  summaryDateLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 2 },
   returnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   returnLabel: { fontSize: 13, color: Colors.textSecondary },
   returnVal: { fontSize: 14, fontWeight: '700' },
