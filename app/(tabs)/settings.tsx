@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
@@ -67,9 +67,32 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
+  const queryClient = useQueryClient();
 
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
+
+  type SyncState = 'idle' | 'syncing' | 'done' | 'error';
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+
+  async function handleSync() {
+    setSyncState('syncing');
+    const [navResult, idxResult] = await Promise.allSettled([
+      supabase.functions.invoke('sync-nav'),
+      supabase.functions.invoke('sync-index'),
+    ]);
+    const navOk = navResult.status === 'fulfilled' && !navResult.value.error;
+    const idxOk = idxResult.status === 'fulfilled' && !idxResult.value.error;
+    if (navOk || idxOk) {
+      // Invalidate the NAV badge so it re-fetches the new latest date.
+      await queryClient.invalidateQueries({ queryKey: ['latest-nav-date'] });
+      setSyncState('done');
+      setTimeout(() => setSyncState('idle'), 3000);
+    } else {
+      setSyncState('error');
+      setTimeout(() => setSyncState('idle'), 4000);
+    }
+  }
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user-profile', userId],
@@ -208,6 +231,45 @@ export default function SettingsScreen() {
               <View style={[styles.statusDot, { backgroundColor: navBadge.dot }]} />
               <Text style={[styles.statusText, { color: navBadge.color }]}>{navBadge.label}</Text>
             </View>
+          </View>
+          <View style={[styles.row, styles.borderTop]}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowLabel}>Manual sync</Text>
+              <Text style={styles.rowSubLabel}>
+                {syncState === 'done'
+                  ? 'Sync complete — NAV and index data updated'
+                  : syncState === 'error'
+                    ? 'Sync failed — check your connection and try again'
+                    : 'Fetch latest NAV and benchmark index data now'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleSync}
+              disabled={syncState === 'syncing'}
+              style={[
+                styles.actionBtn,
+                syncState === 'done' && styles.actionBtnDone,
+                syncState === 'error' && styles.actionBtnError,
+              ]}
+              activeOpacity={0.75}
+            >
+              {syncState === 'syncing' ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Ionicons
+                  name={syncState === 'done' ? 'checkmark' : syncState === 'error' ? 'alert-circle-outline' : 'refresh-outline'}
+                  size={14}
+                  color={syncState === 'done' ? Colors.positive : syncState === 'error' ? Colors.negative : Colors.primary}
+                />
+              )}
+              <Text style={[
+                styles.actionBtnText,
+                syncState === 'done' && { color: Colors.positive },
+                syncState === 'error' && { color: Colors.negative },
+              ]}>
+                {syncState === 'syncing' ? 'Syncing…' : syncState === 'done' ? 'Done' : syncState === 'error' ? 'Failed' : 'Sync now'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -348,6 +410,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm,
   },
   actionBtnDone: { backgroundColor: '#f0fdf4' },
+  actionBtnError: { backgroundColor: '#fef2f2' },
   actionBtnText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
 
   // Status badge
