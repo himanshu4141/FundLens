@@ -390,6 +390,9 @@ export default function HomeScreen() {
           >
             <Text style={styles.importLink}>Import</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
+            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
         </View>
       </View>
 
