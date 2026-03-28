@@ -2,7 +2,11 @@
 const config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testMatch: ['<rootDir>/src/utils/**/*.test.ts', '<rootDir>/src/hooks/**/*.test.ts'],
+  testMatch: [
+    '<rootDir>/src/utils/**/*.test.ts',
+    '<rootDir>/src/hooks/**/*.test.ts',
+    '<rootDir>/src/store/**/*.test.ts',
+  ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },

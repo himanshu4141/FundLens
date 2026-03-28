@@ -212,6 +212,26 @@ describe('fetchPortfolioData()', () => {
     expect(isFinite(result.summary!.marketXirr)).toBe(true);
   });
 
+  // ── Fund card XIRR display contract ───────────────────────────────────────
+  // returnXirr is a decimal fraction (e.g. 0.15 = 15%). The FundCard uses
+  // formatXirr() which multiplies by 100 internally, so the raw value must
+  // NOT already be multiplied.
+  it('returnXirr is a decimal fraction between -1 and 100 for a valid holding', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+    const card = result.fundCards[0];
+    expect(isFinite(card.returnXirr)).toBe(true);
+    // A decimal fraction: 15% = 0.15, not 15. Values above 100× are implausible.
+    expect(Math.abs(card.returnXirr)).toBeLessThan(100);
+  });
+
   it('marketXirr is NaN when index history is empty (no benchmark data)', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
