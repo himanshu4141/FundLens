@@ -65,8 +65,9 @@ function AlphaInsightCard({
   marketXirr: number;
   benchmarkLabel: string;
 }) {
-  const alpha = portfolioXirr - marketXirr;
-  const isAhead = alpha >= 0;
+  // xirr values are decimal fractions (e.g. 0.0703 = 7.03%)
+  const alphaPp = (portfolioXirr - marketXirr) * 100;
+  const isAhead = alphaPp >= 0;
   const alphaColor = isAhead ? Colors.positive : Colors.negative;
   const alphaSign = isAhead ? '+' : '';
 
@@ -86,7 +87,7 @@ function AlphaInsightCard({
       </View>
       <View style={[styles.alphaFooter, { backgroundColor: isAhead ? '#dcfce7' : '#fee2e2' }]}>
         <Text style={[styles.alphaFooterText, { color: alphaColor }]}>
-          {alphaSign}{alpha.toFixed(1)} pp{' '}
+          {alphaSign}{alphaPp.toFixed(1)} pp{' '}
           {isAhead ? 'ahead of the market annually' : 'behind the market annually'}
         </Text>
       </View>
@@ -108,8 +109,9 @@ function FundRankCard({
   onPress: () => void;
 }) {
   const { base: shortName } = parseFundName(fund.schemeName);
-  const alpha = fund.returnXirr - marketXirr;
-  const isLeader = alpha >= 0;
+  // returnXirr and marketXirr are decimal fractions (e.g. 0.0881 = 8.81%)
+  const alphaPp = (fund.returnXirr - marketXirr) * 100;
+  const isLeader = alphaPp >= 0;
   const alphaColor = isLeader ? Colors.positive : Colors.negative;
   const alphaSign = isLeader ? '+' : '';
 
@@ -124,7 +126,7 @@ function FundRankCard({
           </View>
           <View style={styles.fundCardBadge}>
             <Text style={[styles.fundCardBadgeText, { color: alphaColor }]}>
-              {alphaSign}{alpha.toFixed(1)} pp
+              {alphaSign}{alphaPp.toFixed(1)} pp
             </Text>
           </View>
         </View>
@@ -184,8 +186,8 @@ export default function LeaderboardScreen() {
     .sort((a, b) => b.returnXirr - a.returnXirr);
 
   const marketXirr = summary?.marketXirr ?? 0;
-  const leaders = rankedFunds.filter((f) => f.returnXirr > marketXirr);
-  const laggards = rankedFunds.filter((f) => f.returnXirr <= marketXirr);
+  const leaders = rankedFunds.filter((f) => (f.returnXirr - marketXirr) * 100 > 0);
+  const laggards = rankedFunds.filter((f) => (f.returnXirr - marketXirr) * 100 <= 0);
 
   return (
     <SafeAreaView style={styles.container}>
