@@ -179,3 +179,32 @@ Structure:
 ### staleTime: 0 on useFundDetail
 
 `useFundDetail` uses `staleTime: 0` (no cache) to ensure tapping a fund card from the home screen always shows data consistent with the portfolio screen. A positive `staleTime` caused the fund detail to show stale values when navigating quickly.
+
+### Test session 1 feedback — fund detail rework (PR #32)
+
+After user testing, the following changes were made to the fund detail screen:
+
+**Header card additions:**
+- NAV staleness label ("as of [date]") shown in muted text below current value when NAV is not from today.
+- Gain/Loss row (unrealised P&L in ₹ and %) added below the holding stats.
+- XIRR moved from PerformanceTab to the header card, labelled "SIP-adjusted, annualised". The "vs Nifty 500 TRI" stub removed — benchmark comparison lives in the Performance tab.
+
+**Performance tab rework:**
+- Comparison card redesigned: two explicit columns — "Your Fund (window) %" and "Benchmark (window) %" — both showing only their own period return. Verdict row below shows "↑ Outperforming by X.X% vs {index}" so the comparison is unambiguous. Previously the card mixed XIRR (all-time annualised) with a benchmark period return, which was an apples-to-oranges comparison.
+- Per-fund benchmark selector pills added — user can override the comparison index on this screen, independent of the home-screen default. Internal `useQuery` fetches the selected index's history.
+- `commonStart` alignment: both nav and benchmark series are clipped to `max(navStartDate, idxStartDate)` before calling `indexTo100`, so the benchmark never appears flat at 100 while the fund grows (was a bug when benchmark data started later than the window cutoff).
+- `pointerConfig` crosshair replaces `focusEnabled` — works with mouse on web.
+- Chart spacing computed as `chartBodyWidth / (n-1)` to prevent overflow.
+- Y-axis labels added.
+- Return summary below chart syncs to crosshair position (via `requestAnimationFrame` + state); shows "as of [date]" when active; resets on window/benchmark change.
+- Explainer text: "Both series rebased to 100 at start of period · higher = outperforming".
+
+**NAV History tab:**
+- `.toFixed(3)` → `.toFixed(4)` for all NAV values (matches AMFI's published 4dp precision).
+- `pointerConfig` crosshair added.
+- Y-axis labels added.
+- Chart spacing computed to prevent overflow.
+
+**Data fix — Supabase 1000-row limit:**
+- `index_history` query in `useFundDetail` changed from `ascending: true` to `ascending: false`. Long-history indexes (BSE Sensex etc.) have 4000+ rows; `ascending: true` returned only the oldest 1000 rows (pre-2021), missing all recent data.
+- Same fix applied in `usePerformanceTimeline` for both `nav_history` and `index_history` multi-symbol queries, with `.limit(5000)` and per-group `.reverse()` to restore ascending order.

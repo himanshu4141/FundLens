@@ -18,7 +18,7 @@
  */
 
 import { createServiceClient } from '../_shared/supabase-client.ts';
-import { json } from '../_shared/cors.ts';
+import { CORS, json } from '../_shared/cors.ts';
 
 const BATCH_SIZE = 500;
 const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
@@ -92,8 +92,11 @@ async function fetchFromEODHD(
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: CORS });
+  }
   if (req.method !== 'POST' && req.method !== 'GET') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response('Method not allowed', { status: 405, headers: CORS });
   }
 
   console.log('[sync-index] invoked, method=%s', req.method);

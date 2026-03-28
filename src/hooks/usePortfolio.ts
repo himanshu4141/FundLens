@@ -50,6 +50,7 @@ export interface PortfolioSummary {
   xirr: number;
   marketXirr: number;
   benchmarkSymbol: string;
+  latestNavDate: string | null; // ISO date of most-recent NAV across all holdings
 }
 
 export async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
@@ -136,7 +137,7 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
     .from('index_history')
     .select('index_date, close_value')
     .eq('index_symbol', benchmarkSymbol)
-    .order('index_date', { ascending: true });
+    .order('index_date', { ascending: false });
 
   const benchmarkMap = new Map<string, number>();
   for (const row of benchmarkRows ?? []) {
@@ -314,6 +315,9 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
     }
   }
 
+  const latestNavDate =
+    [...navByScheme.values()].map((v) => v.date).sort().pop() ?? null;
+
   const summary: PortfolioSummary = {
     totalValue: portfolioTotalValue,
     totalInvested: portfolioTotalInvested,
@@ -322,6 +326,7 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
     xirr: portfolioXirrRate,
     marketXirr,
     benchmarkSymbol,
+    latestNavDate,
   };
 
   return { fundCards, summary };

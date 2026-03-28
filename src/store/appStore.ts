@@ -9,11 +9,6 @@ export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
   { symbol: '^NSEI',     label: 'Nifty 50' },
   { symbol: '^NIFTY100', label: 'Nifty 100' },
   { symbol: '^BSESN',    label: 'BSE Sensex' },
-  { symbol: '^BSE100',   label: 'BSE 100' },
-  { symbol: '^BSE500',   label: 'BSE 500' },
-  { symbol: '^BSENEXT50',label: 'BSE Sensex Next 50' },
-  { symbol: '^NSEBANK',  label: 'Nifty Bank' },
-  { symbol: '^CNXIT',    label: 'Nifty IT' },
 ];
 
 interface AppStore {

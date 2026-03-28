@@ -46,11 +46,12 @@ export async function fetchPerformanceTimeline(
         .from('nav_history')
         .select('scheme_code, nav_date, nav')
         .in('scheme_code', schemeCodes)
-        .order('nav_date', { ascending: true });
+        .order('nav_date', { ascending: false })
+        .limit(5000);
 
       if (navError) throw navError;
 
-      // Group NAV by scheme_code
+      // Group NAV by scheme_code (rows arrive newest-first; reverse each group to ascending)
       const navByScheme = new Map<number, NavPoint[]>();
       for (const row of navRows ?? []) {
         const code = row.scheme_code as number;
@@ -58,6 +59,7 @@ export async function fetchPerformanceTimeline(
         existing.push({ date: row.nav_date as string, value: row.nav as number });
         navByScheme.set(code, existing);
       }
+      for (const [code, pts] of navByScheme) navByScheme.set(code, pts.reverse());
 
       // Add entries in the order requested by fundItems
       for (const fundItem of fundItems) {
@@ -78,11 +80,12 @@ export async function fetchPerformanceTimeline(
       .from('index_history')
       .select('index_symbol, index_date, close_value')
       .in('index_symbol', indexItems.map((i) => i.symbol))
-      .order('index_date', { ascending: true });
+      .order('index_date', { ascending: false })
+      .limit(5000);
 
     if (idxError) throw idxError;
 
-    // Group by index_symbol
+    // Group by index_symbol (rows arrive newest-first; reverse each group to ascending)
     const idxBySymbol = new Map<string, NavPoint[]>();
     for (const row of idxRows ?? []) {
       const sym = row.index_symbol as string;
@@ -90,6 +93,7 @@ export async function fetchPerformanceTimeline(
       existing.push({ date: row.index_date as string, value: row.close_value as number });
       idxBySymbol.set(sym, existing);
     }
+    for (const [sym, pts] of idxBySymbol) idxBySymbol.set(sym, pts.reverse());
 
     for (const item of indexItems) {
       entries.push({

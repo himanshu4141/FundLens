@@ -192,3 +192,20 @@ In `PerformanceTab` and `NavHistoryTab`:
 - [x] Update `app/fund/[id].tsx`
 - [x] `npm run typecheck` — zero errors
 - [x] `npm run lint` — zero warnings
+
+## Amendments (post-implementation)
+
+### Test session 1 feedback — performance comparison rework (PR #32)
+
+Several issues found during user testing changed the approach in `app/fund/[id].tsx`:
+
+**Per-fund benchmark override (was Out of Scope):** User testing showed that locking the fund detail to its assigned `benchmark_index_symbol` was confusing — users wanted to compare against their preferred index. Scrollable benchmark selector pills added to `PerformanceTab`, driven by an internal `useQuery` per selected symbol. Initialised from `fund.benchmarkSymbol` if it matches a known `BENCHMARK_OPTIONS` entry, otherwise defaults to `^NSEI`.
+
+**Period-consistent comparison (replaces XIRR card in Performance tab):** The original Milestone 8 plan left XIRR in the Performance tab and showed it alongside a benchmark period return — an apples-to-oranges comparison. Post-testing rework: XIRR moved to the fund header card; the comparison card now shows Fund (window) % vs Benchmark (window) %, both computed from the same `indexTo100` baseline and the same time window.
+
+**Chart overflow fix:** Default gifted-charts `spacing` (60px per point) × 60 sampled points overflowed the container. Fixed by computing `spacing = chartBodyWidth / (n-1)`.
+
+**Index alignment fix (`commonStart`):** When benchmark data started after the window cutoff, `nearestBenchmarkValue` returned the first indexed benchmark value (100) for all preceding dates, making the index appear flat while the fund grew. Fixed by clipping both series to `commonStart = max(navStart, idxStart)` before calling `indexTo100`.
+
+**Supabase 1000-row ascending bug:** `usePerformanceTimeline` fetched `nav_history` and `index_history` with `ascending: true`, returning the oldest 1000 rows. For long-history indexes and multi-scheme NAV queries, this excluded all recent data. Changed to `ascending: false` + `.limit(5000)`, with per-group `.reverse()` after grouping to restore ascending order.
+

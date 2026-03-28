@@ -16,6 +16,8 @@ import { useQuery } from '@tanstack/react-query';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
+import { parseFundName } from '@/src/utils/fundName';
+import { navStaleness } from '@/src/utils/navUtils';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
@@ -74,29 +76,38 @@ function BenchmarkSelector({
   );
 }
 
+
 function PortfolioHeader({
   totalValue,
+  totalInvested,
   dailyChangeAmount,
   dailyChangePct,
   xirr: xirrRate,
   marketXirr,
   benchmarkSymbol,
+  latestNavDate,
   onBenchmarkChange,
 }: {
   totalValue: number;
+  totalInvested: number;
   dailyChangeAmount: number;
   dailyChangePct: number;
   xirr: number;
   marketXirr: number;
   benchmarkSymbol: string;
+  latestNavDate: string | null;
   onBenchmarkChange: (symbol: string) => void;
 }) {
   const isPositiveDay = dailyChangeAmount >= 0;
+  const gain = totalValue - totalInvested;
+  const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : null;
+  const gainPositive = gain >= 0;
   const isAheadOfMarket =
     isFinite(xirrRate) && isFinite(marketXirr) ? xirrRate >= marketXirr : null;
   const benchmarkLabel =
     BENCHMARK_OPTIONS.find((b) => b.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
-  const delta = isAheadOfMarket !== null ? Math.abs(xirrRate - marketXirr) : 0;
+  const delta = isAheadOfMarket !== null ? Math.abs((xirrRate - marketXirr) * 100) : 0;
+  const staleness = navStaleness(latestNavDate);
 
   return (
     <LinearGradient
@@ -105,6 +116,16 @@ function PortfolioHeader({
       end={{ x: 1, y: 1 }}
       style={styles.portfolioHeader}
     >
+      {/* Stale-data warning when NAV is more than 2 days old */}
+      {staleness.stale && (
+        <View style={styles.staleBanner}>
+          <Ionicons name="warning-outline" size={13} color={staleness.veryStale ? '#fca5a5' : '#fcd34d'} />
+          <Text style={[styles.staleBannerText, staleness.veryStale && styles.staleBannerTextRed]}>
+            Portfolio based on {staleness.label} NAV — sync may be paused
+          </Text>
+        </View>
+      )}
+
       {/* Narrative-first: verdict leads */}
       {isAheadOfMarket !== null && (
         <View style={styles.verdictBlock}>
@@ -128,10 +149,18 @@ function PortfolioHeader({
             color={isPositiveDay ? '#86efac' : '#fca5a5'}
           />
           <Text style={[styles.dailyChange, { color: isPositiveDay ? '#86efac' : '#fca5a5' }]}>
-            {formatChange(dailyChangeAmount, dailyChangePct)} today
+            {formatChange(dailyChangeAmount, dailyChangePct)}{' '}
+            {staleness.stale ? staleness.label : 'today'}
           </Text>
         </View>
       </View>
+
+      {/* Portfolio overall Gain / Loss */}
+      {gainPct !== null && (
+        <Text style={[styles.portfolioGainLoss, { color: gainPositive ? '#86efac' : '#fca5a5' }]}>
+          {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))} ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%) overall
+        </Text>
+      )}
 
       {/* Two-column Your Return | Benchmark */}
       <View style={styles.xirrRow}>
@@ -151,11 +180,13 @@ function PortfolioHeader({
   );
 }
 
-function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }) {
+function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latestNavDate: string | null; onPress: () => void }) {
   const isPositiveDay = fund.dailyChangeAmount != null ? fund.dailyChangeAmount >= 0 : true;
   const accentColor = categoryColor(fund.schemeCategory);
   const hasRedemptions = fund.redeemedUnits > 0;
   const isPressable = !fund.navUnavailable;
+  const { base: fundBaseName, planBadge } = parseFundName(fund.schemeName);
+  const cardStaleness = navStaleness(latestNavDate);
 
   // Unrealized P&L on current holdings (only when NAV is available)
   const unrealizedGain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
@@ -180,11 +211,14 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
         <View style={styles.fundCardTop}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>
-              {fund.schemeName}
+              {fundBaseName}
             </Text>
             <Text style={[styles.fundCategory, { color: accentColor + 'cc' }]}>
               {fund.schemeCategory}
             </Text>
+            {planBadge !== null && (
+              <Text style={styles.fundPlanBadge}>{planBadge}</Text>
+            )}
           </View>
           <View style={styles.fundValueBlock}>
             {fund.navUnavailable ? (
@@ -196,9 +230,15 @@ function FundCard({ fund, onPress }: { fund: FundCardData; onPress: () => void }
                 <Text style={styles.fundValue}>{formatCurrency(fund.currentValue!)}</Text>
                 <View style={styles.dailyChangePill}>
                   <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
-                    {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}% today
+                    {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}%{' '}
+                    {cardStaleness.stale ? cardStaleness.label : 'today'}
                   </Text>
                 </View>
+                {isFinite(fund.returnXirr) && (
+                  <Text style={[styles.fundXirr, { color: fund.returnXirr >= 0 ? Colors.positive : Colors.negative }]}>
+                    {formatXirr(fund.returnXirr)} XIRR
+                  </Text>
+                )}
               </>
             )}
           </View>
@@ -388,11 +428,13 @@ export default function HomeScreen() {
         >
           <PortfolioHeader
             totalValue={summary.totalValue}
+            totalInvested={summary.totalInvested}
             dailyChangeAmount={summary.dailyChangeAmount}
             dailyChangePct={summary.dailyChangePct}
             xirr={summary.xirr}
             marketXirr={summary.marketXirr}
             benchmarkSymbol={defaultBenchmarkSymbol}
+            latestNavDate={summary.latestNavDate ?? null}
             onBenchmarkChange={setDefaultBenchmarkSymbol}
           />
 
@@ -405,6 +447,7 @@ export default function HomeScreen() {
             <FundCard
               key={fund.id}
               fund={fund}
+              latestNavDate={summary.latestNavDate ?? null}
               onPress={() => router.push(`/fund/${fund.id}`)}
             />
           ))}
@@ -467,6 +510,21 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
 
+  // Stale-data warning
+  staleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: Spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  staleBannerText: { fontSize: 12, color: '#fcd34d', fontWeight: '500' },
+  staleBannerTextRed: { color: '#fca5a5' },
+
   // Verdict block — the signal, shown first
   verdictBlock: {
     marginBottom: Spacing.xs,
@@ -503,6 +561,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dailyChange: { fontSize: 14, fontWeight: '600' },
+  portfolioGainLoss: { fontSize: 13, fontWeight: '500', marginTop: 4 },
 
   // Two-column Your Return | Benchmark
   xirrRow: {
@@ -581,6 +640,7 @@ const styles = StyleSheet.create({
   fundNameBlock: { flex: 1, gap: 3 },
   fundName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, lineHeight: 20 },
   fundCategory: { fontSize: 12, fontWeight: '500' },
+  fundPlanBadge: { fontSize: 11, color: Colors.textTertiary, fontWeight: '400' },
   fundValueBlock: { alignItems: 'flex-end', gap: 4 },
   fundValue: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   dailyChangePill: {
@@ -590,6 +650,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   fundDailyChange: { fontSize: 12, fontWeight: '600' },
+  fundXirr: { fontSize: 11, fontWeight: '600' },
+
   navPendingBadge: {
     backgroundColor: Colors.background,
     borderWidth: 1,

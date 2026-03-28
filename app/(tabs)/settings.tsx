@@ -12,10 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
+import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 async function fetchProfile(userId: string) {
@@ -66,6 +67,32 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
+  const queryClient = useQueryClient();
+
+  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
+  const [benchmarkSaved, setBenchmarkSaved] = useState(false);
+
+  type SyncState = 'idle' | 'syncing' | 'done' | 'error';
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+
+  async function handleSync() {
+    setSyncState('syncing');
+    const [navResult, idxResult] = await Promise.allSettled([
+      supabase.functions.invoke('sync-nav'),
+      supabase.functions.invoke('sync-index'),
+    ]);
+    const navOk = navResult.status === 'fulfilled' && !navResult.value.error;
+    const idxOk = idxResult.status === 'fulfilled' && !idxResult.value.error;
+    if (navOk || idxOk) {
+      // Invalidate the NAV badge so it re-fetches the new latest date.
+      await queryClient.invalidateQueries({ queryKey: ['latest-nav-date'] });
+      setSyncState('done');
+      setTimeout(() => setSyncState('idle'), 3000);
+    } else {
+      setSyncState('error');
+      setTimeout(() => setSyncState('idle'), 4000);
+    }
+  }
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user-profile', userId],
@@ -75,6 +102,34 @@ export default function SettingsScreen() {
 
   const { inboundEmail, isLoading: sessionLoading } = useInboundSession(userId);
   const isLoading = profileLoading || sessionLoading;
+
+  const { data: latestNavRow } = useQuery({
+    queryKey: ['latest-nav-date'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('nav_history')
+        .select('nav_date')
+        .order('nav_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data?.nav_date as string | null ?? null;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  function navStatusBadge(navDate: string | null | undefined) {
+    if (!navDate) return { color: Colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
+    const today = new Date().toISOString().split('T')[0];
+    const diffMs = new Date(today).getTime() - new Date(navDate).getTime();
+    const diffDays = Math.round(diffMs / 86_400_000);
+    const d = new Date(navDate);
+    const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    if (diffDays <= 1) return { color: Colors.positive, dot: Colors.positive, label: 'Live' };
+    if (diffDays <= 3) return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${dateLabel}` };
+    return { color: Colors.negative, dot: Colors.negative, label: `Outdated · ${dateLabel}` };
+  }
+
+  const navBadge = navStatusBadge(latestNavRow);
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -125,7 +180,7 @@ export default function SettingsScreen() {
           {!isLoading && profile?.kfintech_email && (
             <View style={[styles.row, styles.borderTop]}>
               <View style={styles.rowLeft}>
-                <Text style={styles.rowLabel}>KFintech email</Text>
+                <Text style={styles.rowLabel}>CAS registrar email</Text>
                 <Text style={styles.rowValue} numberOfLines={1}>
                   {profile.kfintech_email}
                 </Text>
@@ -173,10 +228,80 @@ export default function SettingsScreen() {
               <Text style={styles.rowSubLabel}>Updated hourly on weekdays via AMFI</Text>
             </View>
             <View style={styles.statusBadge}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Live</Text>
+              <View style={[styles.statusDot, { backgroundColor: navBadge.dot }]} />
+              <Text style={[styles.statusText, { color: navBadge.color }]}>{navBadge.label}</Text>
             </View>
           </View>
+          <View style={[styles.row, styles.borderTop]}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowLabel}>Manual sync</Text>
+              <Text style={styles.rowSubLabel}>
+                {syncState === 'done'
+                  ? 'Sync complete — NAV and index data updated'
+                  : syncState === 'error'
+                    ? 'Sync failed — check your connection and try again'
+                    : 'Fetch latest NAV and benchmark index data now'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleSync}
+              disabled={syncState === 'syncing'}
+              style={[
+                styles.actionBtn,
+                syncState === 'done' && styles.actionBtnDone,
+                syncState === 'error' && styles.actionBtnError,
+              ]}
+              activeOpacity={0.75}
+            >
+              {syncState === 'syncing' ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Ionicons
+                  name={syncState === 'done' ? 'checkmark' : syncState === 'error' ? 'alert-circle-outline' : 'refresh-outline'}
+                  size={14}
+                  color={syncState === 'done' ? Colors.positive : syncState === 'error' ? Colors.negative : Colors.primary}
+                />
+              )}
+              <Text style={[
+                styles.actionBtnText,
+                syncState === 'done' && { color: Colors.positive },
+                syncState === 'error' && { color: Colors.negative },
+              ]}>
+                {syncState === 'syncing' ? 'Syncing…' : syncState === 'done' ? 'Done' : syncState === 'error' ? 'Failed' : 'Sync now'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Preferences ── */}
+        <View style={styles.sectionHeaderRow}>
+          <SectionHeader title="Preferences" />
+          {benchmarkSaved && (
+            <Text style={styles.savedFeedback}>✓ Saved</Text>
+          )}
+        </View>
+        <View style={styles.card}>
+          <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
+            <Text style={styles.rowLabel}>Default Benchmark</Text>
+            <Text style={styles.rowSubLabel}>Used for &ldquo;You vs Market&rdquo; on the home screen</Text>
+          </View>
+          {BENCHMARK_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.symbol}
+              style={[styles.row, styles.borderTop]}
+              onPress={() => {
+                setDefaultBenchmarkSymbol(opt.symbol);
+                setBenchmarkSaved(true);
+                setTimeout(() => setBenchmarkSaved(false), 1500);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.rowValue, { flex: 1 }]}>{opt.label}</Text>
+              {defaultBenchmarkSymbol === opt.symbol && (
+                <Ionicons name="checkmark" size={16} color={Colors.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* ── Account actions ── */}
@@ -215,17 +340,26 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     marginHorizontal: Spacing.md,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: Spacing.md,
+  },
+  savedFeedback: {
+    fontSize: 12,
+    color: Colors.positive,
+    fontWeight: '600',
+    marginTop: Spacing.lg,
+  },
 
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radii.md,
     marginHorizontal: Spacing.md,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 
   // Account badge row
@@ -276,6 +410,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm,
   },
   actionBtnDone: { backgroundColor: '#f0fdf4' },
+  actionBtnError: { backgroundColor: '#fef2f2' },
   actionBtnText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
 
   // Status badge

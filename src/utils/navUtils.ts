@@ -36,6 +36,24 @@ export function filterToWindow<T extends { date: string }>(history: T[], window:
   return filtered.length > 0 ? filtered : history;
 }
 
+/**
+ * Compute NAV staleness relative to today.
+ *
+ * Returns a label suitable for display (e.g. "as of 20 Mar") and boolean flags
+ * for stale (≥2 days old) and veryStale (>3 days old).
+ */
+export function navStaleness(latestNavDate: string | null): { label: string; stale: boolean; veryStale: boolean } {
+  if (!latestNavDate) return { label: '', stale: false, veryStale: false };
+  const today = new Date().toISOString().split('T')[0];
+  if (latestNavDate >= today) return { label: 'today', stale: false, veryStale: false };
+  const diffMs = new Date(today).getTime() - new Date(latestNavDate).getTime();
+  const diffDays = Math.round(diffMs / 86_400_000);
+  const [, month, day] = latestNavDate.split('-');
+  const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const label = `as of ${parseInt(day, 10)} ${MONTH_ABBR[parseInt(month, 10) - 1]}`;
+  return { label, stale: diffDays >= 2, veryStale: diffDays > 3 };
+}
+
 /** Index a series to 100 at its first point (for relative comparison charts) */
 export function indexTo100(history: NavPoint[]): NavPoint[] {
   if (history.length === 0) return [];

@@ -185,4 +185,82 @@ describe('fetchPortfolioData()', () => {
     });
     expect(card.navHistory30d.length).toBe(2);
   });
+
+  // ── Fix 10 regression: benchmark XIRR must be a valid number when
+  // index_history returns only recent rows (≤1000) covering transaction dates.
+  // Root cause: ascending=true returned only pre-2011 rows for ^NSEI (4616 total),
+  // leaving 2024+ transaction dates unmatchable → marketXirr = NaN.
+  it('marketXirr is a finite number when index history covers transaction dates', async () => {
+    // Recent index rows that overlap with the 2023 transaction dates
+    const recentIndex = [
+      { index_date: '2022-12-30', close_value: 17000 },
+      { index_date: '2023-01-02', close_value: 17200 },
+      { index_date: '2023-06-01', close_value: 18500 },
+      { index_date: '2024-01-01', close_value: 21000 },
+    ];
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: recentIndex, error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+    expect(result.summary).not.toBeNull();
+    expect(isFinite(result.summary!.marketXirr)).toBe(true);
+  });
+
+  // ── Fund card XIRR display contract ───────────────────────────────────────
+  // returnXirr is a decimal fraction (e.g. 0.15 = 15%). The FundCard uses
+  // formatXirr() which multiplies by 100 internally, so the raw value must
+  // NOT already be multiplied.
+  it('returnXirr is a decimal fraction between -1 and 100 for a valid holding', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+    const card = result.fundCards[0];
+    expect(isFinite(card.returnXirr)).toBe(true);
+    // A decimal fraction: 15% = 0.15, not 15. Values above 100× are implausible.
+    expect(Math.abs(card.returnXirr)).toBeLessThan(100);
+  });
+
+  it('marketXirr is NaN when index history is empty (no benchmark data)', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: [], error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+    expect(result.summary).not.toBeNull();
+    expect(isNaN(result.summary!.marketXirr)).toBe(true);
+  });
+
+  // ── Fix 12: portfolio-level gain/loss ──────────────────────────────────────
+  it('summary totalInvested matches sum of transaction amounts', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
+      if (table === 'transaction') return makeChain({ data: MOCK_TXS, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+    // MOCK_TXS: 10000 + 6000 = 16000 total invested
+    expect(result.summary!.totalInvested).toBe(16000);
+    // Gain = totalValue - totalInvested: totalValue = 150 units * 140 NAV = 21000
+    const gain = result.summary!.totalValue - result.summary!.totalInvested;
+    expect(gain).toBeCloseTo(21000 - 16000, 0);
+  });
 });

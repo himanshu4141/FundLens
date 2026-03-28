@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-gifted-charts';
+import { useQuery } from '@tanstack/react-query';
 import {
   useFundDetail,
   filterToWindow,
@@ -21,6 +22,8 @@ import {
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { supabase } from '@/src/lib/supabase';
+import { BENCHMARK_OPTIONS } from '@/src/store/appStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
@@ -28,6 +31,14 @@ const CHART_WIDTH = SCREEN_WIDTH - 32;
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Format a YYYY-MM-DD NAV date for staleness display: "2026-03-20" → "20 Mar" */
+function formatNavDate(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  const [, month, day] = parts;
+  return `${parseInt(day, 10)} ${MONTH_ABBR[parseInt(month, 10) - 1]}`;
+}
 
 /** Format a YYYY-MM-DD date string for x-axis labels based on the selected window. */
 function formatChartDate(dateStr: string, window: TimeWindow): string {
@@ -71,22 +82,56 @@ function TimeWindowSelector({
 
 function PerformanceTab({
   navHistory,
-  indexHistory,
-  fundXirr,
-  benchmarkIndex,
+  defaultBenchmarkSymbol,
 }: {
   navHistory: { date: string; value: number }[];
-  indexHistory: { date: string; value: number }[];
-  fundXirr: number;
-  benchmarkIndex: string | null;
+  defaultBenchmarkSymbol: string | null;
 }) {
   const [window, setWindow] = useState<TimeWindow>('1Y');
-  const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState(() => {
+    const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
+    return valid && defaultBenchmarkSymbol ? defaultBenchmarkSymbol : '^NSEI';
+  });
+  // Track crosshair position so the return summary below the chart stays in sync.
+  // null = no active crosshair (show end-of-period values).
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+
+  const { data: indexRows } = useQuery({
+    queryKey: ['index-history', selectedSymbol],
+    queryFn: async () => {
+      // ascending: false → most-recent 1000 rows (avoids returning only pre-2021 data
+      // for long-history indexes like BSE Sensex). Reversed back to ascending for chart use.
+      const { data } = await supabase
+        .from('index_history')
+        .select('index_date, close_value')
+        .eq('index_symbol', selectedSymbol)
+        .order('index_date', { ascending: false });
+      return (data ?? [])
+        .map((r) => ({ date: r.index_date as string, value: r.close_value as number }))
+        .reverse();
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const indexHistory = indexRows ?? [];
+  const selectedLabel = BENCHMARK_OPTIONS.find((b) => b.symbol === selectedSymbol)?.label ?? selectedSymbol;
+
+  // Reset crosshair when window or benchmark changes so summary resets to period-end values.
+  useEffect(() => { setActiveIdx(null); }, [window, selectedSymbol]);
 
   const filteredNav = filterToWindow(navHistory, window);
-  const filteredIdx = filterToWindow(indexHistory, window);
-  const indexedNav = indexTo100(filteredNav);
-  const indexedBenchmark = indexTo100(filteredIdx);
+  const navStartDate = filteredNav[0]?.date ?? '';
+  const filteredIdx = indexHistory.filter((p) => p.date >= navStartDate);
+  // Use the later of the two start dates so both series are indexed to 100 at the same moment.
+  // Without this, nearestBenchmarkValue returns 100 for all dates before the index's first point,
+  // making the benchmark appear flat while the fund grows.
+  const idxStartDate = filteredIdx[0]?.date ?? navStartDate;
+  const commonStart = navStartDate >= idxStartDate ? navStartDate : idxStartDate;
+  const alignedNav = filteredNav.filter((p) => p.date >= commonStart);
+  const alignedIdx = filteredIdx.filter((p) => p.date >= commonStart);
+
+  const indexedNav = indexTo100(alignedNav);
+  const indexedBenchmark = indexTo100(alignedIdx);
 
   function sample<T>(arr: T[], max: number): T[] {
     if (arr.length <= max) return arr;
@@ -96,9 +141,6 @@ function PerformanceTab({
 
   const sampledNav = sample(indexedNav, 60);
 
-  // Align benchmark to nav sample dates so data + data2 always have identical length.
-  // Without alignment, gifted-charts renders mismatched-length series across the same
-  // x-width, making the shorter line appear to "cut off".
   function nearestBenchmarkValue(
     series: { date: string; value: number }[],
     targetDate: string,
@@ -122,7 +164,12 @@ function PerformanceTab({
     ? sampledNav.map((p) => ({ value: nearestBenchmarkValue(indexedBenchmark, p.date) }))
     : [];
 
-  // X-axis date labels: show ~5 evenly spaced dates (full-length array required by gifted-charts)
+  // Spacing: fit all sampled points exactly within the chart body (no overflow / no scroll).
+  // chart body width = total width passed to LineChart minus y-axis label area
+  const PERF_Y_AXIS_W = 32;
+  const perfChartBodyW = CHART_WIDTH - 32 - PERF_Y_AXIS_W; // 32 = card padding (16×2)
+  const perfSpacing = sampledNav.length > 1 ? perfChartBodyW / (sampledNav.length - 1) : 20;
+
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
   const xLabels = sampledNav.map((p, i) =>
     i % labelInterval === 0 || i === sampledNav.length - 1
@@ -130,7 +177,6 @@ function PerformanceTab({
       : ''
   );
 
-  // Y-axis range with 12% padding so the line never hugs the edges
   const allVals = [
     ...navPoints.map((p) => p.value),
     ...(hasBenchmarkData ? benchmarkPoints.map((p) => p.value) : []),
@@ -141,48 +187,76 @@ function PerformanceTab({
   const chartMaxValue = yMax + yPad;
   const chartMostNegative = Math.min(0, yMin - yPad);
 
-  const focusedDate = focusedIdx !== null ? (sampledNav[focusedIdx]?.date ?? null) : null;
-  const focusedNavVal = focusedIdx !== null ? (sampledNav[focusedIdx]?.value ?? null) : null;
-
   const latestNav = indexedNav[indexedNav.length - 1]?.value ?? 100;
   const latestBenchmark = indexedBenchmark[indexedBenchmark.length - 1]?.value ?? 100;
   const navReturn = ((latestNav - 100) / 100) * 100;
   const benchmarkReturn = ((latestBenchmark - 100) / 100) * 100;
   const isAhead = isFinite(navReturn) && isFinite(benchmarkReturn) && navReturn >= benchmarkReturn;
+  const diff = navReturn - benchmarkReturn;
+
+  // Values to show in the summary below the chart.
+  // When crosshair is active, show the hovered values; otherwise show end-of-period.
+  const summaryIdx = activeIdx !== null && activeIdx < sampledNav.length ? activeIdx : sampledNav.length - 1;
+  const summaryNavVal = sampledNav[summaryIdx]?.value ?? 100;
+  const summaryBenchVal = hasBenchmarkData ? (benchmarkPoints[summaryIdx]?.value ?? 100) : null;
+  const summaryNavReturn = ((summaryNavVal - 100) / 100) * 100;
+  const summaryBenchReturn = summaryBenchVal !== null ? ((summaryBenchVal - 100) / 100) * 100 : null;
+  const summaryDate = sampledNav[summaryIdx]?.date;
 
   return (
     <View style={styles.tabContent}>
-      {/* XIRR card */}
+      {/* Period return comparison card */}
       <View style={styles.xirrCard}>
-        <View style={styles.xirrStat}>
-          <Text style={styles.statLabel}>Your Return</Text>
-          <Text
-            style={[
-              styles.xirrValue,
-              { color: isFinite(fundXirr) && fundXirr >= 0 ? Colors.positive : Colors.negative },
-            ]}
-          >
-            {formatXirr(fundXirr)}
-          </Text>
-          <Text style={styles.xirrHint}>SIP-adjusted annualised return</Text>
-        </View>
-        {benchmarkIndex && hasBenchmarkData && (
-          <>
-            <View style={styles.xirrDivider} />
-            <View style={styles.xirrStat}>
-              <Text style={styles.statLabel}>{benchmarkIndex}</Text>
-              <Text style={styles.xirrValue}>{benchmarkReturn.toFixed(1)}%</Text>
-              <View style={styles.vsChip}>
-                <Text style={[styles.vsChipText, { color: isAhead ? Colors.positive : Colors.negative }]}>
-                  {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
+        <View style={styles.comparisonRow}>
+          <View style={styles.comparisonCol}>
+            <Text style={styles.statLabel}>Your Fund ({window})</Text>
+            <Text style={[styles.xirrValue, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}>
+              {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
+            </Text>
+          </View>
+          {hasBenchmarkData && (
+            <>
+              <View style={styles.xirrDivider} />
+              <View style={styles.comparisonCol}>
+                <Text style={styles.statLabel}>{selectedLabel} ({window})</Text>
+                <Text style={[styles.xirrValue, { color: benchmarkReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                  {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(1)}%
                 </Text>
               </View>
-            </View>
-          </>
+            </>
+          )}
+        </View>
+        {hasBenchmarkData && (
+          <View style={styles.verdictRow}>
+            <Text style={[styles.verdictText, { color: isAhead ? Colors.positive : Colors.negative }]}>
+              {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
+              {' by '}{Math.abs(diff).toFixed(1)}% vs {selectedLabel}
+            </Text>
+          </View>
         )}
       </View>
 
       <TimeWindowSelector selected={window} onChange={setWindow} />
+
+      {/* Benchmark selector */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.benchmarkSelectorContent}
+      >
+        {BENCHMARK_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.symbol}
+            style={[styles.benchmarkPill, selectedSymbol === opt.symbol && styles.benchmarkPillActive]}
+            onPress={() => setSelectedSymbol(opt.symbol)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.benchmarkPillText, selectedSymbol === opt.symbol && styles.benchmarkPillTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {hasNavData ? (
         <View style={styles.chartCard}>
@@ -194,69 +268,112 @@ function PerformanceTab({
             {hasBenchmarkData && (
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-                <Text style={styles.legendLabel}>{benchmarkIndex ?? 'Benchmark'}</Text>
+                <Text style={styles.legendLabel}>{selectedLabel}</Text>
               </View>
             )}
           </View>
 
           <View style={{ overflow: 'hidden' }}>
-          <LineChart
-            data={navPoints}
-            data2={hasBenchmarkData ? benchmarkPoints : undefined}
-            width={CHART_WIDTH - 32}
-            height={180}
-            initialSpacing={0}
-            endSpacing={0}
-            hideDataPoints
-            color1={Colors.primary}
-            color2="#f59e0b"
-            thickness1={2.5}
-            thickness2={2}
-            startFillColor1={Colors.primary}
-            endFillColor1="#fff"
-            startOpacity1={0.15}
-            endOpacity1={0}
-            areaChart
-            curved
-            hideYAxisText
-            yAxisLabelWidth={0}
-            maxValue={chartMaxValue}
-            mostNegativeValue={chartMostNegative}
-            xAxisColor={Colors.borderLight}
-            yAxisColor="transparent"
-            rulesColor={Colors.borderLight}
-            rulesType="solid"
-            noOfSections={4}
-            xAxisLabelTexts={xLabels}
-            xAxisLabelTextStyle={styles.chartAxisLabel}
-            focusEnabled
-            showDataPointOnFocus
-            showStripOnFocus
-            stripColor={Colors.textTertiary + '66'}
-            stripWidth={1}
-            focusedDataPointRadius={4}
-            onFocus={(_item: unknown, index: number) => setFocusedIdx(index)}
-          />
+            <LineChart
+              data={navPoints}
+              data2={hasBenchmarkData ? benchmarkPoints : undefined}
+              width={CHART_WIDTH - 32}
+              height={180}
+              spacing={perfSpacing}
+              initialSpacing={0}
+              endSpacing={0}
+              hideDataPoints
+              color1={Colors.primary}
+              color2="#f59e0b"
+              thickness1={2.5}
+              thickness2={2}
+              startFillColor1={Colors.primary}
+              endFillColor1="#fff"
+              startOpacity1={0.15}
+              endOpacity1={0}
+              areaChart
+              curved
+              yAxisLabelWidth={32}
+              formatYLabel={(v: string) => Number(v).toFixed(0)}
+              yAxisTextStyle={styles.chartAxisLabel}
+              maxValue={chartMaxValue}
+              mostNegativeValue={chartMostNegative}
+              xAxisColor={Colors.borderLight}
+              yAxisColor="transparent"
+              rulesColor={Colors.borderLight}
+              rulesType="solid"
+              noOfSections={4}
+              xAxisLabelTexts={xLabels}
+              xAxisLabelTextStyle={styles.chartAxisLabel}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 180,
+                pointerStripWidth: 1,
+                pointerStripColor: Colors.textTertiary + '88',
+                pointerColor: Colors.primary,
+                radius: 5,
+                pointerLabelWidth: 140,
+                pointerLabelHeight: hasBenchmarkData ? 52 : 36,
+                activatePointersOnLongPress: false,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  // Schedule summary update outside of render to avoid setState-in-render.
+                  requestAnimationFrame(() => setActiveIdx(pointerIndex));
+                  const navVal = sampledNav[pointerIndex]?.value;
+                  const benchVal = hasBenchmarkData ? benchmarkPoints[pointerIndex]?.value : undefined;
+                  const date = sampledNav[pointerIndex]?.date;
+                  return (
+                    <View style={styles.pointerLabel}>
+                      {date !== undefined && (
+                        <Text style={styles.pointerDate}>{formatChartDate(date, window)}</Text>
+                      )}
+                      {navVal !== undefined && (
+                        <Text style={styles.pointerSeriesText}>
+                          <Text style={{ color: Colors.primary }}>● </Text>
+                          Fund: {navVal.toFixed(1)}
+                        </Text>
+                      )}
+                      {benchVal !== undefined && (
+                        <Text style={styles.pointerSeriesText}>
+                          <Text style={{ color: '#f59e0b' }}>● </Text>
+                          {selectedLabel}: {benchVal.toFixed(1)}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                },
+              }}
+            />
           </View>
-          {focusedDate !== null && focusedNavVal !== null && (
-            <View style={styles.chartFocusRow}>
-              <Text style={styles.chartFocusDate}>{focusedDate}</Text>
-              <Text style={styles.chartFocusVal}>Fund: {focusedNavVal.toFixed(1)}</Text>
-            </View>
+
+          {/* Explainer */}
+          <Text style={styles.chartExplainer}>
+            Both series rebased to 100 at start of period · higher = outperforming
+          </Text>
+
+          {!hasBenchmarkData && (
+            <Text style={styles.noBenchmarkNote}>
+              {selectedLabel} data not available for the {window} window
+            </Text>
           )}
 
           <View style={styles.returnSummary}>
+            {activeIdx !== null && summaryDate && (
+              <Text style={styles.summaryDateLabel}>
+                as of {formatChartDate(summaryDate, window)}
+              </Text>
+            )}
             <View style={styles.returnRow}>
-              <Text style={styles.returnLabel}>Fund ({window})</Text>
-              <Text style={[styles.returnVal, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}>
-                {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(2)}%
+              <Text style={styles.returnLabel}>Fund</Text>
+              <Text style={[styles.returnVal, { color: summaryNavReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                {summaryNavReturn >= 0 ? '+' : ''}{summaryNavReturn.toFixed(2)}%
               </Text>
             </View>
-            {hasBenchmarkData && (
+            {hasBenchmarkData && summaryBenchReturn !== null && (
               <View style={styles.returnRow}>
-                <Text style={styles.returnLabel}>{benchmarkIndex ?? 'Benchmark'} ({window})</Text>
-                <Text style={[styles.returnVal, { color: benchmarkReturn >= 0 ? Colors.positive : Colors.negative }]}>
-                  {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(2)}%
+                <Text style={styles.returnLabel}>{selectedLabel}</Text>
+                <Text style={[styles.returnVal, { color: summaryBenchReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                  {summaryBenchReturn >= 0 ? '+' : ''}{summaryBenchReturn.toFixed(2)}%
                 </Text>
               </View>
             )}
@@ -274,7 +391,6 @@ function PerformanceTab({
 
 function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const [window, setWindow] = useState<TimeWindow>('1Y');
-  const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
   const filtered = filterToWindow(navHistory, window);
 
   function sample<T>(arr: T[], max: number): T[] {
@@ -304,8 +420,9 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   const navChartMax = navYMax + navYPad;
   const navChartMin = Math.max(0, navYMin - navYPad);
 
-  const focusedDate = focusedIdx !== null ? (sampledFiltered[focusedIdx]?.date ?? null) : null;
-  const focusedNavVal = focusedIdx !== null ? (sampledFiltered[focusedIdx]?.value ?? null) : null;
+  const NAV_Y_AXIS_W = 44;
+  const navChartBodyW = CHART_WIDTH - 32 - NAV_Y_AXIS_W;
+  const navSpacing = sampledFiltered.length > 1 ? navChartBodyW / (sampledFiltered.length - 1) : 20;
 
   return (
     <View style={styles.tabContent}>
@@ -318,6 +435,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             data={points}
             width={CHART_WIDTH - 32}
             height={200}
+            spacing={navSpacing}
             initialSpacing={0}
             endSpacing={0}
             hideDataPoints
@@ -329,8 +447,13 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             endOpacity1={0}
             areaChart
             curved
-            hideYAxisText
-            yAxisLabelWidth={0}
+            yAxisLabelWidth={44}
+            formatYLabel={(v: string) => {
+              const n = Number(v);
+              if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+              return `₹${n.toFixed(0)}`;
+            }}
+            yAxisTextStyle={styles.chartAxisLabel}
             maxValue={navChartMax}
             mostNegativeValue={navChartMin}
             xAxisColor={Colors.borderLight}
@@ -340,30 +463,42 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             noOfSections={4}
             xAxisLabelTexts={xLabels}
             xAxisLabelTextStyle={styles.chartAxisLabel}
-            focusEnabled
-            showDataPointOnFocus
-            showStripOnFocus
-            stripColor={Colors.textTertiary + '66'}
-            stripWidth={1}
-            focusedDataPointRadius={4}
-            onFocus={(_item: unknown, index: number) => setFocusedIdx(index)}
+            pointerConfig={{
+              showPointerStrip: true,
+              pointerStripHeight: 200,
+              pointerStripWidth: 1,
+              pointerStripColor: Colors.textTertiary + '88',
+              pointerColor: Colors.primary,
+              radius: 5,
+              pointerLabelWidth: 110,
+              pointerLabelHeight: 36,
+              activatePointersOnLongPress: false,
+              autoAdjustPointerLabelPosition: true,
+              pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                const p = sampledFiltered[pointerIndex];
+                if (!p) return null;
+                return (
+                  <View style={styles.pointerLabel}>
+                    <Text style={styles.pointerDate}>{formatChartDate(p.date, window)}</Text>
+                    <Text style={styles.pointerSeriesText}>
+                      <Text style={{ color: Colors.primary }}>● </Text>
+                      ₹{p.value.toFixed(4)}
+                    </Text>
+                  </View>
+                );
+              },
+            }}
           />
           </View>
-          {focusedDate !== null && focusedNavVal !== null && (
-            <View style={styles.chartFocusRow}>
-              <Text style={styles.chartFocusDate}>{focusedDate}</Text>
-              <Text style={styles.chartFocusVal}>NAV: ₹{focusedNavVal.toFixed(3)}</Text>
-            </View>
-          )}
 
           <View style={styles.navStatsRow}>
             <View style={styles.navStat}>
               <Text style={styles.statLabel}>Current NAV</Text>
-              <Text style={styles.navStatValue}>₹{currentNav?.toFixed(3) ?? '—'}</Text>
+              <Text style={styles.navStatValue}>₹{currentNav?.toFixed(4) ?? '—'}</Text>
             </View>
             <View style={styles.navStat}>
               <Text style={styles.statLabel}>Period start</Text>
-              <Text style={styles.navStatValue}>₹{startNav?.toFixed(3) ?? '—'}</Text>
+              <Text style={styles.navStatValue}>₹{startNav?.toFixed(4) ?? '—'}</Text>
             </View>
             {navChange !== null && (
               <View style={styles.navStat}>
@@ -420,32 +555,68 @@ export default function FundDetailScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* ── Fund header card ── */}
-          <View style={styles.fundHeader}>
-            <Text style={styles.fundName}>{data.schemeName}</Text>
-            <Text style={styles.fundCategory}>{data.schemeCategory}</Text>
+          {(() => {
+            const latestNavDate = data.navHistory[data.navHistory.length - 1]?.date ?? null;
+            const todayIso = new Date().toISOString().split('T')[0];
+            const navIsStale = latestNavDate !== null && latestNavDate !== todayIso;
+            const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
+            const gainPct = gain !== null && data.investedAmount > 0
+              ? (gain / data.investedAmount) * 100 : null;
+            const gainPositive = gain !== null ? gain >= 0 : true;
+            return (
+              <View style={styles.fundHeader}>
+                <Text style={styles.fundName}>{data.schemeName}</Text>
+                <Text style={styles.fundCategory}>{data.schemeCategory}</Text>
 
-            <View style={styles.holdingRow}>
-              <View style={styles.holdingStat}>
-                <Text style={styles.statLabel}>Current Value</Text>
-                <Text style={styles.holdingValue}>{formatCurrency(data.currentValue)}</Text>
-              </View>
-              <View style={styles.holdingStat}>
-                <Text style={styles.statLabel}>Invested</Text>
-                <Text style={styles.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
-              </View>
-              <View style={styles.holdingStat}>
-                <Text style={styles.statLabel}>Units</Text>
-                <Text style={styles.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
-              </View>
-            </View>
+                <View style={styles.holdingRow}>
+                  <View style={styles.holdingStat}>
+                    <Text style={styles.statLabel}>Current Value</Text>
+                    {data.currentValue !== null ? (
+                      <>
+                        <Text style={styles.holdingValue}>{formatCurrency(data.currentValue)}</Text>
+                        {navIsStale && (
+                          <Text style={styles.navStaleLabel}>as of {formatNavDate(latestNavDate!)}</Text>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={styles.holdingValuePending}>NAV pending</Text>
+                    )}
+                  </View>
+                  <View style={styles.holdingStat}>
+                    <Text style={styles.statLabel}>Invested</Text>
+                    <Text style={styles.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
+                  </View>
+                  <View style={styles.holdingStat}>
+                    <Text style={styles.statLabel}>Units</Text>
+                    <Text style={styles.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
+                  </View>
+                </View>
 
-            {data.benchmarkIndex && (
-              <View style={styles.benchmarkRow}>
-                <Ionicons name="git-compare-outline" size={12} color={Colors.textTertiary} />
-                <Text style={styles.benchmarkLabel}>vs {data.benchmarkIndex}</Text>
+                {/* Gain / Loss row */}
+                {gain !== null && gainPct !== null && (
+                  <View style={styles.gainRow}>
+                    <Text style={styles.statLabel}>Gain / Loss</Text>
+                    <Text style={[styles.gainValue, { color: gainPositive ? Colors.positive : Colors.negative }]}>
+                      {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))}{' '}
+                      ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%)
+                    </Text>
+                  </View>
+                )}
+
+                {/* XIRR row — SIP-adjusted annualised return */}
+                {isFinite(data.fundXirr) && (
+                  <View style={styles.xirrHeaderRow}>
+                    <Text style={styles.statLabel}>XIRR</Text>
+                    <Text style={[styles.xirrHeaderValue, { color: data.fundXirr >= 0 ? Colors.positive : Colors.negative }]}>
+                      {formatXirr(data.fundXirr)}
+                    </Text>
+                    <Text style={styles.xirrHeaderHint}> · SIP-adjusted, annualised</Text>
+                  </View>
+                )}
+
               </View>
-            )}
-          </View>
+            );
+          })()}
 
           {/* ── Tab bar ── */}
           <View style={styles.tabBar}>
@@ -466,9 +637,7 @@ export default function FundDetailScreen() {
           {activeTab === 'performance' ? (
             <PerformanceTab
               navHistory={data.navHistory}
-              indexHistory={data.indexHistory}
-              fundXirr={data.fundXirr}
-              benchmarkIndex={data.benchmarkIndex}
+              defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
             />
           ) : (
             <NavHistoryTab navHistory={data.navHistory} />
@@ -527,14 +696,15 @@ const styles = StyleSheet.create({
   holdingRow: { flexDirection: 'row', marginTop: 4 },
   holdingStat: { flex: 1, alignItems: 'center', gap: 3 },
   holdingValue: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
+  holdingValuePending: { fontSize: 13, fontWeight: '500', color: Colors.textTertiary, fontStyle: 'italic' },
+  navStaleLabel: { fontSize: 11, color: Colors.textTertiary, fontStyle: 'italic' },
 
-  benchmarkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  benchmarkLabel: { fontSize: 12, color: Colors.textTertiary },
+  gainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  gainValue: { fontSize: 14, fontWeight: '600' },
+
+  xirrHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  xirrHeaderValue: { fontSize: 14, fontWeight: '600' },
+  xirrHeaderHint: { fontSize: 11, color: Colors.textTertiary },
 
   // ── Tab bar ──
   tabBar: {
@@ -579,13 +749,17 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  xirrStat: { flex: 1, gap: 4 },
-  xirrDivider: { width: 1, backgroundColor: Colors.borderLight },
+  comparisonRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  comparisonCol: { flex: 1, gap: 4 },
+  xirrDivider: { width: 1, backgroundColor: Colors.borderLight, marginHorizontal: 12 },
   xirrValue: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  xirrHint: { ...Typography.caption, color: Colors.textTertiary },
-
-  vsChip: {},
-  vsChipText: { fontSize: 12, fontWeight: '600' },
+  verdictRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  verdictText: { fontSize: 13, fontWeight: '600' },
 
   // Chart
   chartCard: {
@@ -605,6 +779,7 @@ const styles = StyleSheet.create({
   legendLabel: { fontSize: 12, color: Colors.textSecondary },
 
   returnSummary: { gap: 6, marginTop: 4 },
+  summaryDateLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 2 },
   returnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   returnLabel: { fontSize: 13, color: Colors.textSecondary },
   returnVal: { fontSize: 14, fontWeight: '700' },
@@ -628,16 +803,47 @@ const styles = StyleSheet.create({
   windowPillTextActive: { color: '#fff' },
 
   chartAxisLabel: { fontSize: 9, color: Colors.textTertiary },
-  chartFocusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 6,
-    paddingHorizontal: 2,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+
+  chartExplainer: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 16,
   },
-  chartFocusDate: { fontSize: 11, color: Colors.textTertiary },
-  chartFocusVal: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
+  noBenchmarkNote: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  benchmarkSelectorContent: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 0,
+  },
+  benchmarkPill: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: Radii.full,
+    backgroundColor: Colors.borderLight,
+  },
+  benchmarkPillActive: { backgroundColor: Colors.primary },
+  benchmarkPillText: { fontSize: 11, fontWeight: '600', color: Colors.textTertiary },
+  benchmarkPillTextActive: { color: '#fff' },
+
+  pointerLabel: {
+    backgroundColor: Colors.surface,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    gap: 2,
+  },
+  pointerDate: { fontSize: 10, color: Colors.textTertiary, fontWeight: '600' },
+  pointerSeriesText: { fontSize: 11, color: Colors.textSecondary },
 
   noData: { padding: 40, alignItems: 'center', gap: 10 },
   noDataText: { ...Typography.body, color: Colors.textTertiary, textAlign: 'center' },

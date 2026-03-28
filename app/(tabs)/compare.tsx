@@ -46,7 +46,6 @@ const INDEX_OPTIONS = [
   { symbol: '^BSESN',    name: 'BSE Sensex' },
   { symbol: '^BSE100',   name: 'BSE 100' },
   { symbol: '^BSE500',   name: 'BSE 500' },
-  { symbol: '^BSENEXT50',name: 'BSE Sensex Next 50' },
   { symbol: '^NSEBANK',  name: 'Nifty Bank' },
   { symbol: '^CNXIT',    name: 'Nifty IT' },
 ];
