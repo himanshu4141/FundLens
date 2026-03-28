@@ -187,30 +187,38 @@ function PerformanceTab({
   const benchmarkReturn = ((latestBenchmark - 100) / 100) * 100;
   const isAhead = isFinite(navReturn) && isFinite(benchmarkReturn) && navReturn >= benchmarkReturn;
 
+  const diff = navReturn - benchmarkReturn;
+
   return (
     <View style={styles.tabContent}>
       {/* Period return comparison card */}
       <View style={styles.xirrCard}>
-        <View style={styles.xirrStat}>
-          <Text style={styles.statLabel}>Fund ({window})</Text>
-          <Text style={[styles.xirrValue, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}>
-            {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
-          </Text>
-          <Text style={styles.xirrHint}>NAV return for period</Text>
-        </View>
-        {hasBenchmarkData && (
-          <>
-            <View style={styles.xirrDivider} />
-            <View style={styles.xirrStat}>
-              <Text style={styles.statLabel}>{selectedLabel} ({window})</Text>
-              <Text style={styles.xirrValue}>{benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(1)}%</Text>
-              <View style={styles.vsChip}>
-                <Text style={[styles.vsChipText, { color: isAhead ? Colors.positive : Colors.negative }]}>
-                  {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
+        <View style={styles.comparisonRow}>
+          <View style={styles.comparisonCol}>
+            <Text style={styles.statLabel}>Your Fund ({window})</Text>
+            <Text style={[styles.xirrValue, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}>
+              {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
+            </Text>
+          </View>
+          {hasBenchmarkData && (
+            <>
+              <View style={styles.xirrDivider} />
+              <View style={styles.comparisonCol}>
+                <Text style={styles.statLabel}>{selectedLabel} ({window})</Text>
+                <Text style={[styles.xirrValue, { color: benchmarkReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                  {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(1)}%
                 </Text>
               </View>
-            </View>
-          </>
+            </>
+          )}
+        </View>
+        {hasBenchmarkData && (
+          <View style={styles.verdictRow}>
+            <Text style={[styles.verdictText, { color: isAhead ? Colors.positive : Colors.negative }]}>
+              {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
+              {' by '}{Math.abs(diff).toFixed(1)}% vs {selectedLabel}
+            </Text>
+          </View>
         )}
       </View>
 
@@ -585,12 +593,6 @@ export default function FundDetailScreen() {
                   </View>
                 )}
 
-                {data.benchmarkIndex && (
-                  <View style={styles.benchmarkRow}>
-                    <Ionicons name="git-compare-outline" size={12} color={Colors.textTertiary} />
-                    <Text style={styles.benchmarkLabel}>vs {data.benchmarkIndex}</Text>
-                  </View>
-                )}
               </View>
             );
           })()}
@@ -683,14 +685,6 @@ const styles = StyleSheet.create({
   xirrHeaderValue: { fontSize: 14, fontWeight: '600' },
   xirrHeaderHint: { fontSize: 11, color: Colors.textTertiary },
 
-  benchmarkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  benchmarkLabel: { fontSize: 12, color: Colors.textTertiary },
-
   // ── Tab bar ──
   tabBar: {
     flexDirection: 'row',
@@ -734,13 +728,17 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  xirrStat: { flex: 1, gap: 4 },
-  xirrDivider: { width: 1, backgroundColor: Colors.borderLight },
+  comparisonRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  comparisonCol: { flex: 1, gap: 4 },
+  xirrDivider: { width: 1, backgroundColor: Colors.borderLight, marginHorizontal: 12 },
   xirrValue: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  xirrHint: { ...Typography.caption, color: Colors.textTertiary },
-
-  vsChip: {},
-  vsChipText: { fontSize: 12, fontWeight: '600' },
+  verdictRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  verdictText: { fontSize: 13, fontWeight: '600' },
 
   // Chart
   chartCard: {
