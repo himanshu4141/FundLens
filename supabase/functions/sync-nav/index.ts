@@ -11,15 +11,18 @@
  */
 
 import { createServiceClient } from '../_shared/supabase-client.ts';
-import { json } from '../_shared/cors.ts';
+import { CORS, json } from '../_shared/cors.ts';
 
 const BATCH_SIZE = 500;
 const MFAPI_BASE = 'https://api.mfapi.in/mf';
 const FETCH_TIMEOUT_MS = 10_000; // abort per-scheme fetch if mfapi.in hangs
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: CORS });
+  }
   if (req.method !== 'POST' && req.method !== 'GET') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response('Method not allowed', { status: 405, headers: CORS });
   }
 
   console.log('[sync-nav] invoked, method=%s', req.method);
