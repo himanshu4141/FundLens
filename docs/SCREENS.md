@@ -3,30 +3,34 @@
 ## Screen Map
 
 ### 1. Home
-- Portfolio total value
-- Movement over time: past day, past week, custom date range (text + visual chart)
-- You vs Market: portfolio return vs a broad market index (default: auto-selected based on user's funds, e.g. Nifty 50), with ability to switch index manually
+- Portfolio total value + unrealised gain/loss (amount + %)
+- You vs Market: portfolio XIRR vs a configurable benchmark (default Nifty 50); benchmark selector row lets the user switch between Nifty 50, Nifty 100, BSE Sensex, BSE 100, BSE 500, Nifty Bank, Nifty IT
+- NAV staleness banner when data is ≥2 days old
 - Scroll down → Fund Cards (see below)
 
 ### 2. Fund Cards (inline on Home, scrollable)
 One card per fund in the portfolio. Each card shows:
-- Fund name
-- Current NAV + today's movement
-- Fund return vs its benchmark at a glance (e.g. Fund +18% / Benchmark +15%)
+- Parsed short fund name (e.g. "HDFC Flexi Cap Fund") with "Direct · Growth" or "Regular · IDCW" badge below the category label
+- Current value + today's change; label reads "as of [date]" when NAV is stale instead of "today"
 
 Tapping a card → Fund Detail screen
 
 ### 3. Fund Detail
+Header card: current value (with "as of [date]" when stale), invested, units, gain/loss, XIRR (SIP-adjusted, annualised)
+
 Two tabs:
 
 **Performance tab**
-- XIRR (plain English: "your actual return accounting for every SIP instalment")
-- Fund return vs benchmark across time windows
-- Plain language explanation of each metric shown
+- Period-consistent comparison card: Your Fund (window) % vs Benchmark (window) %, verdict row "↑ Outperforming by X.X% vs {index}" or "↓ Underperforming by X.X%"
+- Scrollable benchmark selector pills — user can override the comparison index for this fund (Nifty 50, Nifty 100, BSE Sensex, BSE 100, BSE 500, Nifty Bank, Nifty IT)
+- Dual area chart (fund NAV + benchmark indexed to 100 at start of period); crosshair on hover/touch shows exact values
+- Return summary below chart syncs to crosshair position; resets to end-of-period when crosshair is released
+- Explainer: "Both series rebased to 100 at start of period · higher = outperforming"
 
 **NAV History tab**
-- Historical NAV chart
-- Date range selector
+- Historical NAV chart with Y-axis labels
+- Date range selector (1M, 3M, 6M, 1Y, 3Y, All)
+- NAV stats showing current and start-of-window NAV at 4 decimal places (AMFI precision)
 
 ### 4. Compare
 - Select 2+ funds from your portfolio
@@ -43,7 +47,8 @@ Two tabs:
 ### 6. Settings / Manage Funds
 - View and manage tracked funds (add / remove)
 - Refresh transactions — forward latest CAMS email to dedicated address (primary), or re-run PDF upload
-- Change default market benchmark index
+- **Preferences** — default benchmark selector (persists via Zustand; resets on app restart)
+- Data section — dynamic NAV badge (Live / Stale / Outdated) with last-sync date; CAS registrar email address for import
 
 ## Navigation Structure
 

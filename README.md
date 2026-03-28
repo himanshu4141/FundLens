@@ -8,12 +8,12 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 
 - Magic link authentication (sign in / sign out)
 - Optional local-only dev auth shortcut backed by a seeded demo user
-- **Import portfolio** — enter your KFintech email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
-- **Home screen** — total portfolio value, today's NAV change, your XIRR vs Nifty 50, scrollable fund cards
-- **Fund detail** — XIRR, fund vs benchmark chart (indexed to 100), NAV history chart, time window selector
-- **Compare** — select up to 3 funds, multi-line chart, side-by-side XIRR / 1Y return table
-- **Settings** — account info, inbound CAS address, PDF upload shortcut, sign out
-- **Data sync** — NAV and benchmark index data synced hourly on weekdays via pg_cron + Edge Functions
+- **Import portfolio** — enter your CAS registrar email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
+- **Home screen** — total portfolio value + gain/loss, NAV staleness banner, XIRR vs configurable benchmark (Nifty 50 / Sensex / Nifty Bank etc.), scrollable fund cards with parsed short names and "Direct · Growth" badges, per-card staleness label
+- **Fund detail** — holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised); Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
+- **Compare** — select up to 3 funds or indexes, % return chart from common start, crosshair tooltips, side-by-side metrics table
+- **Settings** — account info, inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker, sign out
+- **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
 - Full CI/CD: typecheck + lint + EAS Update on every PR; Supabase deploy + production EAS Update on merge to main
 
 ---
