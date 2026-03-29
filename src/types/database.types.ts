@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       benchmark_mapping: {
@@ -44,21 +19,21 @@ export type Database = {
           benchmark_index: string
           benchmark_index_symbol: string
           id: string
-          scheme_category: string
+          scheme_category: string | null
           valid_from: string
         }
         Insert: {
           benchmark_index: string
           benchmark_index_symbol: string
           id?: string
-          scheme_category: string
+          scheme_category?: string | null
           valid_from?: string
         }
         Update: {
           benchmark_index?: string
           benchmark_index_symbol?: string
           id?: string
-          scheme_category?: string
+          scheme_category?: string | null
           valid_from?: string
         }
         Relationships: []
@@ -125,11 +100,16 @@ export type Database = {
       }
       fund: {
         Row: {
+          aum_cr: number | null
           benchmark_index: string | null
           benchmark_index_symbol: string | null
           created_at: string
+          expense_ratio: number | null
+          fund_meta_synced_at: string | null
           id: string
           is_active: boolean
+          isin: string | null
+          min_sip_amount: number | null
           scheme_category: string
           scheme_code: number
           scheme_name: string
@@ -137,11 +117,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          aum_cr?: number | null
           benchmark_index?: string | null
           benchmark_index_symbol?: string | null
           created_at?: string
+          expense_ratio?: number | null
+          fund_meta_synced_at?: string | null
           id?: string
           is_active?: boolean
+          isin?: string | null
+          min_sip_amount?: number | null
           scheme_category: string
           scheme_code: number
           scheme_name: string
@@ -149,11 +134,16 @@ export type Database = {
           user_id: string
         }
         Update: {
+          aum_cr?: number | null
           benchmark_index?: string | null
           benchmark_index_symbol?: string | null
           created_at?: string
+          expense_ratio?: number | null
+          fund_meta_synced_at?: string | null
           id?: string
           is_active?: boolean
+          isin?: string | null
+          min_sip_amount?: number | null
           scheme_category?: string
           scheme_code?: number
           scheme_name?: string
@@ -435,9 +425,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       import_source: ["email", "qr", "pdf"],
