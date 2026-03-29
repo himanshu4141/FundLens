@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Logo from '@/src/components/Logo';
@@ -29,6 +29,21 @@ export function AppScreenHeader({
   const router = useRouter();
   const theme = useThemeVariant();
   const [menuOpen, setMenuOpen] = useState(false);
+  const resolvedMenuItems = useMemo<HeaderMenuItem[]>(
+    () =>
+      menuItems?.length
+        ? menuItems
+        : showSettings
+          ? [
+              {
+                label: 'Settings',
+                icon: 'settings-outline',
+                onPress: () => router.push('/settings'),
+              },
+            ]
+          : [],
+    [menuItems, router, showSettings],
+  );
 
   function handleMenuItemPress(item: HeaderMenuItem) {
     setMenuOpen(false);
@@ -83,7 +98,7 @@ export function AppScreenHeader({
       </View>
 
       <View style={styles.right}>
-        {menuItems?.length ? (
+        {resolvedMenuItems.length ? (
           <>
             <TouchableOpacity
               accessibilityLabel="Open menu"
@@ -106,7 +121,12 @@ export function AppScreenHeader({
             </TouchableOpacity>
 
             {menuOpen ? (
-              <>
+              <Modal
+                animationType="fade"
+                onRequestClose={() => setMenuOpen(false)}
+                transparent
+                visible={menuOpen}
+              >
                 <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)} />
                 <View
                   style={[
@@ -117,7 +137,7 @@ export function AppScreenHeader({
                     },
                   ]}
                 >
-                  {menuItems.map((item) => (
+                  {resolvedMenuItems.map((item) => (
                     <TouchableOpacity
                       key={item.label}
                       activeOpacity={0.8}
@@ -131,29 +151,9 @@ export function AppScreenHeader({
                     </TouchableOpacity>
                   ))}
                 </View>
-              </>
+              </Modal>
             ) : null}
           </>
-        ) : showSettings ? (
-          <TouchableOpacity
-            accessibilityLabel="Open settings"
-            activeOpacity={0.75}
-            onPress={() => router.push('/settings')}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: theme.isEditorial
-                  ? theme.colors.surfaceAlt
-                  : 'rgba(255,255,255,0.12)',
-              },
-            ]}
-          >
-            <Ionicons
-              name="settings-outline"
-              size={18}
-              color={theme.isEditorial ? theme.colors.textPrimary : '#ffffff'}
-            />
-          </TouchableOpacity>
         ) : null}
       </View>
     </View>
@@ -194,23 +194,27 @@ const styles = StyleSheet.create({
     width: 38,
   },
   menuBackdrop: {
-    bottom: -400,
-    left: -400,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    bottom: 0,
+    left: 0,
     position: 'absolute',
-    right: -400,
-    top: -40,
+    right: 0,
+    top: 0,
   },
   menu: {
     borderRadius: 18,
     borderWidth: 1,
+    elevation: 12,
     gap: 2,
-    marginTop: 8,
     minWidth: 176,
     padding: 6,
     position: 'absolute',
-    right: 0,
-    top: 42,
-    zIndex: 5,
+    right: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    top: 68,
   },
   menuItem: {
     alignItems: 'center',
