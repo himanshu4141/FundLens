@@ -35,6 +35,7 @@ export interface PortfolioTimelinePoint {
 
 export interface PortfolioTimelineData {
   points: PortfolioTimelinePoint[];
+  benchmarkAvailable: boolean;
 }
 
 function unitDelta(tx: TimelineTxRow): number {
@@ -58,14 +59,8 @@ export function buildPortfolioTimelineSeries(params: {
   indexRows: TimelineIndexRow[];
   window: PortfolioTimelineWindow;
 }): PortfolioTimelineData {
-  const benchmarkHistory: NavPoint[] = params.indexRows.map((row) => ({
-    date: row.index_date,
-    value: row.close_value,
-  }));
-  const filteredBenchmark = filterToWindow(benchmarkHistory, params.window);
-
-  if (filteredBenchmark.length === 0 || params.funds.length === 0) {
-    return { points: [] };
+  if (params.funds.length === 0) {
+    return { points: [], benchmarkAvailable: false };
   }
 
   const txByFund = new Map<string, TimelineTxRow[]>();
@@ -82,58 +77,93 @@ export function buildPortfolioTimelineSeries(params: {
     navByScheme.set(row.scheme_code, existing);
   }
 
-  const fundState = params.funds.map((fund) => ({
-    ...fund,
-    txs: txByFund.get(fund.id) ?? [],
-    txIndex: 0,
-    unitsHeld: 0,
-    navs: navByScheme.get(fund.scheme_code) ?? [],
-    navIndex: 0,
-    latestNav: null as number | null,
-  }));
+  function buildSeries(
+    anchorDates: string[],
+    benchmarkMap: Map<string, number> | null,
+    benchmarkAvailable: boolean,
+  ): PortfolioTimelineData {
+    if (anchorDates.length === 0) return { points: [], benchmarkAvailable };
 
-  const rawPoints = filteredBenchmark.map((benchPoint) => {
-    let portfolioValue = 0;
+    const fundState = params.funds.map((fund) => ({
+      ...fund,
+      txs: txByFund.get(fund.id) ?? [],
+      txIndex: 0,
+      unitsHeld: 0,
+      navs: navByScheme.get(fund.scheme_code) ?? [],
+      navIndex: 0,
+      latestNav: null as number | null,
+    }));
 
-    for (const fund of fundState) {
-      while (
-        fund.txIndex < fund.txs.length &&
-        fund.txs[fund.txIndex].transaction_date <= benchPoint.date
-      ) {
-        fund.unitsHeld = Math.max(0, fund.unitsHeld + unitDelta(fund.txs[fund.txIndex]));
-        fund.txIndex += 1;
+    const rawPoints = anchorDates.map((anchorDate) => {
+      let portfolioValue = 0;
+
+      for (const fund of fundState) {
+        while (
+          fund.txIndex < fund.txs.length &&
+          fund.txs[fund.txIndex].transaction_date <= anchorDate
+        ) {
+          fund.unitsHeld = Math.max(0, fund.unitsHeld + unitDelta(fund.txs[fund.txIndex]));
+          fund.txIndex += 1;
+        }
+
+        while (
+          fund.navIndex < fund.navs.length &&
+          fund.navs[fund.navIndex].date <= anchorDate
+        ) {
+          fund.latestNav = fund.navs[fund.navIndex].value;
+          fund.navIndex += 1;
+        }
+
+        if (fund.unitsHeld > 0 && fund.latestNav != null) {
+          portfolioValue += fund.unitsHeld * fund.latestNav;
+        }
       }
 
-      while (
-        fund.navIndex < fund.navs.length &&
-        fund.navs[fund.navIndex].date <= benchPoint.date
-      ) {
-        fund.latestNav = fund.navs[fund.navIndex].value;
-        fund.navIndex += 1;
-      }
+      const benchmarkValue = benchmarkMap?.get(anchorDate) ?? 0;
+      return { date: anchorDate, portfolioValue, benchmarkValue };
+    });
 
-      if (fund.unitsHeld > 0 && fund.latestNav != null) {
-        portfolioValue += fund.unitsHeld * fund.latestNav;
-      }
-    }
+    const firstValid = rawPoints.find((point) =>
+      point.portfolioValue > 0 && (benchmarkAvailable ? point.benchmarkValue > 0 : true),
+    );
+    if (!firstValid) return { points: [], benchmarkAvailable };
+
+    const trimmed = rawPoints.filter((point) => point.date >= firstValid.date);
 
     return {
-      date: benchPoint.date,
-      portfolioValue,
-      benchmarkValue: benchPoint.value,
+      benchmarkAvailable,
+      points: trimmed.map((point) => ({
+        ...point,
+        portfolioIndexed: (point.portfolioValue / firstValid.portfolioValue) * 100,
+        benchmarkIndexed: benchmarkAvailable
+          ? (point.benchmarkValue / firstValid.benchmarkValue) * 100
+          : 100,
+      })),
     };
-  });
+  }
 
-  const firstValid = rawPoints.find((point) => point.portfolioValue > 0 && point.benchmarkValue > 0);
-  if (!firstValid) return { points: [] };
+  const benchmarkHistory: NavPoint[] = params.indexRows.map((row) => ({
+    date: row.index_date,
+    value: row.close_value,
+  }));
+  const filteredBenchmark = filterToWindow(benchmarkHistory, params.window);
 
-  const trimmed = rawPoints.filter((point) => point.date >= firstValid.date);
+  if (filteredBenchmark.length > 0) {
+    const benchmarkMap = new Map(filteredBenchmark.map((point) => [point.date, point.value]));
+    const benchmarkSeries = buildSeries(
+      filteredBenchmark.map((point) => point.date),
+      benchmarkMap,
+      true,
+    );
+    if (benchmarkSeries.points.length > 0) return benchmarkSeries;
+  }
 
-  return {
-    points: trimmed.map((point) => ({
-      ...point,
-      portfolioIndexed: (point.portfolioValue / firstValid.portfolioValue) * 100,
-      benchmarkIndexed: (point.benchmarkValue / firstValid.benchmarkValue) * 100,
-    })),
-  };
+  const navDates = [...new Set(
+    filterToWindow(
+      params.navRows.map((row) => ({ date: row.nav_date })),
+      params.window,
+    ).map((row) => row.date),
+  )];
+
+  return buildSeries(navDates, null, false);
 }

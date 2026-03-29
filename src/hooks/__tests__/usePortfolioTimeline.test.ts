@@ -40,7 +40,7 @@ describe('fetchPortfolioTimeline()', () => {
       return makeChain({ data: [], error: null });
     });
 
-    await expect(fetchPortfolioTimeline('user-1', '^NSEI', '1Y')).resolves.toEqual({ points: [] });
+    await expect(fetchPortfolioTimeline('user-1', '^NSEI', '1Y')).resolves.toEqual({ points: [], benchmarkAvailable: false });
   });
 
   it('builds timeline points from funds, transactions, nav rows, and index rows', async () => {
@@ -79,6 +79,7 @@ describe('fetchPortfolioTimeline()', () => {
 
     const result = await fetchPortfolioTimeline('user-1', '^NSEI', '1Y');
     expect(result.points).toHaveLength(2);
+    expect(result.benchmarkAvailable).toBe(true);
     expect(result.points[0]?.portfolioIndexed).toBe(100);
   });
 
@@ -100,7 +101,7 @@ describe('usePortfolioTimeline()', () => {
   });
 
   it('configures react-query with the expected key and window', () => {
-    mockUseQuery.mockReturnValue({ data: { points: [] } });
+    mockUseQuery.mockReturnValue({ data: { points: [], benchmarkAvailable: false } });
 
     const result = usePortfolioTimeline('user-1', '^NSEI', '3Y');
 
@@ -111,6 +112,6 @@ describe('usePortfolioTimeline()', () => {
         staleTime: 5 * 60 * 1000,
       }),
     );
-    expect(result).toEqual({ data: { points: [] } });
+    expect(result).toEqual({ data: { points: [], benchmarkAvailable: false } });
   });
 });

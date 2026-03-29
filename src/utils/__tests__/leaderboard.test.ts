@@ -105,7 +105,7 @@ describe('buildLeaderboardRows()', () => {
     expect(rows).toEqual([]);
   });
 
-  it('returns no rows when there is not enough aligned benchmark data after the common start', () => {
+  it('falls back to absolute 1Y ranking when benchmark data cannot align', () => {
     const rows = buildLeaderboardRows({
       funds: [{ id: 'fund-1', schemeName: 'Alpha', schemeCategory: 'Flexi Cap', schemeCode: 101 }],
       transactionsByFund: new Map([
@@ -123,6 +123,41 @@ describe('buildLeaderboardRows()', () => {
       ],
     });
 
-    expect(rows).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      benchmarkAvailable: false,
+      verdict: 'leader',
+    });
+  });
+
+  it('sorts benchmark-backed rows ahead of fallback rows', () => {
+    const rows = buildLeaderboardRows({
+      funds: [
+        { id: 'fund-1', schemeName: 'Alpha', schemeCategory: 'Flexi Cap', schemeCode: 101 },
+        { id: 'fund-2', schemeName: 'Beta', schemeCategory: 'Large Cap', schemeCode: 202 },
+      ],
+      transactionsByFund: new Map([
+        ['fund-1', [{ transaction_date: isoDaysAgo(300), transaction_type: 'purchase', units: 10, amount: 1000 }]],
+        ['fund-2', [{ transaction_date: isoDaysAgo(30), transaction_type: 'purchase', units: 10, amount: 1000 }]],
+      ]),
+      navHistoryByScheme: new Map([
+        [101, [
+          { date: isoDaysAgo(300), value: 100 },
+          { date: isoDaysAgo(1), value: 110 },
+        ]],
+        [202, [
+          { date: isoDaysAgo(30), value: 100 },
+          { date: isoDaysAgo(1), value: 120 },
+        ]],
+      ]),
+      benchmarkHistory: [
+        { date: isoDaysAgo(300), value: 1000 },
+        { date: isoDaysAgo(1), value: 1050 },
+      ],
+    });
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0].benchmarkAvailable).toBe(true);
+    expect(rows[1].benchmarkAvailable).toBe(false);
   });
 });

@@ -1,71 +1,189 @@
 import { useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
 import { AppScreenHeader } from '@/src/components/AppScreenHeader';
+import { usePortfolio } from '@/src/hooks/usePortfolio';
+import { useSession } from '@/src/hooks/useSession';
 import { useThemeVariant } from '@/src/hooks/useThemeVariant';
-import { buildSimulationSummary, buildSimulationTimeline } from '@/src/utils/simulator';
+import { supabase } from '@/src/lib/supabase';
+import { useAppStore } from '@/src/store/appStore';
+import {
+  buildPersonalizedSimulationBaseline,
+  buildSimulationSummary,
+  buildSimulationTimeline,
+} from '@/src/utils/simulator';
 import { formatCurrency } from '@/src/utils/formatting';
+import { formatXirr, type Transaction } from '@/src/utils/xirr';
+
+function formatCompactCurrency(value: number) {
+  if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
+  return `₹${(value / 100000).toFixed(1)}L`;
+}
 
 export default function SimulatorScreen() {
   const theme = useThemeVariant();
-  const [monthlySip, setMonthlySip] = useState(25000);
-  const [sipDelta, setSipDelta] = useState(5000);
-  const [lumpSum, setLumpSum] = useState(500000);
-  const [annualReturnPct, setAnnualReturnPct] = useState(12);
-  const [years, setYears] = useState(15);
+  const { session } = useSession();
+  const { defaultBenchmarkSymbol } = useAppStore();
+  const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio(defaultBenchmarkSymbol);
+  const summary = portfolioData?.summary ?? null;
+  const userId = session?.user.id;
 
-  const scenarioSip = monthlySip + sipDelta;
+  const { data: transactions = [], isLoading: txLoading } = useQuery({
+    queryKey: ['simulator-transactions', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transaction')
+        .select('transaction_date, transaction_type, units, amount')
+        .eq('user_id', userId!)
+        .order('transaction_date', { ascending: true });
+
+      if (error) throw error;
+      return (data ?? []) as Transaction[];
+    },
+  });
+
+  const baselineProfile = useMemo(
+    () => buildPersonalizedSimulationBaseline({
+      transactions,
+      currentCorpus: summary?.totalValue ?? 0,
+      portfolioXirr: summary?.xirr ?? Number.NaN,
+    }),
+    [summary?.totalValue, summary?.xirr, transactions],
+  );
+
+  const [monthlySipInput, setMonthlySipInput] = useState<number | null>(null);
+  const [scenarioSipInput, setScenarioSipInput] = useState<number | null>(null);
+  const [oneTimeTopUpInput, setOneTimeTopUpInput] = useState<number | null>(null);
+  const [annualReturnPctInput, setAnnualReturnPctInput] = useState<number | null>(null);
+  const [yearsInput, setYearsInput] = useState<number | null>(null);
+
+  const monthlySip = monthlySipInput ?? baselineProfile.monthlySip;
+  const scenarioSip = scenarioSipInput ?? (baselineProfile.monthlySip + 5000);
+  const oneTimeTopUp = oneTimeTopUpInput ?? baselineProfile.trailingLumpSumAverage;
+  const annualReturnPct = annualReturnPctInput ?? baselineProfile.annualReturnPct;
+  const years = yearsInput ?? 15;
+
   const baseline = useMemo(
-    () => buildSimulationSummary({ monthlySip, lumpSum, annualReturnPct, years }),
-    [annualReturnPct, lumpSum, monthlySip, years],
+    () => buildSimulationSummary({
+      startingCorpus: baselineProfile.currentCorpus,
+      monthlyContribution: monthlySip,
+      oneTimeTopUp: 0,
+      annualReturnPct,
+      years,
+    }),
+    [annualReturnPct, baselineProfile.currentCorpus, monthlySip, years],
   );
+
   const scenario = useMemo(
-    () => buildSimulationSummary({ monthlySip: scenarioSip, lumpSum, annualReturnPct, years }),
-    [annualReturnPct, lumpSum, scenarioSip, years],
+    () => buildSimulationSummary({
+      startingCorpus: baselineProfile.currentCorpus,
+      monthlyContribution: scenarioSip,
+      oneTimeTopUp,
+      annualReturnPct,
+      years,
+    }),
+    [annualReturnPct, baselineProfile.currentCorpus, oneTimeTopUp, scenarioSip, years],
   );
+
   const timeline = useMemo(
-    () => buildSimulationTimeline({ baselineSip: monthlySip, scenarioSip, lumpSum, annualReturnPct, years }),
-    [annualReturnPct, lumpSum, monthlySip, scenarioSip, years],
+    () => buildSimulationTimeline({
+      startingCorpus: baselineProfile.currentCorpus,
+      baselineContribution: monthlySip,
+      scenarioContribution: scenarioSip,
+      scenarioTopUp: oneTimeTopUp,
+      annualReturnPct,
+      years,
+    }),
+    [annualReturnPct, baselineProfile.currentCorpus, monthlySip, oneTimeTopUp, scenarioSip, years],
   );
+
   const chartData = timeline.map((point) => ({ value: point.baselineValue / 100000 }));
   const chartData2 = timeline.map((point) => ({ value: point.scenarioValue / 100000 }));
-  const xLabels = timeline.map((point) => `Y${point.year}`);
-  const maxValue = Math.max(...chartData.map((point) => point.value), ...chartData2.map((point) => point.value));
+  const xLabels = timeline.map((point) => (point.year === years || point.year % 5 === 0 ? `Y${point.year}` : ''));
+  const maxValue = Math.max(
+    1,
+    ...chartData.map((point) => point.value),
+    ...chartData2.map((point) => point.value),
+  );
+
+  const deltaValue = scenario.terminalValue - baseline.terminalValue;
+  const sipDelta = scenarioSip - monthlySip;
+
+  if (portfolioLoading || txLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <AppScreenHeader
+          title="Simulator"
+          subtitle="Building a projection from your actual portfolio history."
+        />
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <AppScreenHeader
         title="Simulator"
-        subtitle="See how small changes to your SIP can compound over time."
+        subtitle="Start from your current portfolio, then model a better path forward."
       />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={[styles.heroCard, { backgroundColor: theme.colors.primary }]}>
-          <Text style={styles.heroLabel}>Scenario projection</Text>
+          <Text style={styles.heroLabel}>Projected outcome</Text>
           <Text style={styles.heroValue}>{formatCurrency(scenario.terminalValue)}</Text>
           <Text style={styles.heroSub}>
-            +{formatCurrency(scenario.terminalValue - baseline.terminalValue)} versus your current SIP over {years} years
+            {sipDelta >= 0 ? '+' : ''}{formatCurrency(sipDelta)} per month
+            {oneTimeTopUp > 0 ? ` and ${formatCurrency(oneTimeTopUp)} upfront` : ''}
+            {' '}could change your outcome by {formatCurrency(deltaValue)} over {years} years.
           </Text>
         </View>
 
-        <View style={styles.summaryRow}>
-          <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.smallLabel, { color: theme.colors.textSecondary }]}>Current plan</Text>
-            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{formatCurrency(baseline.terminalValue)}</Text>
-          </View>
-          <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.smallLabel, { color: theme.colors.textSecondary }]}>New plan</Text>
-            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{formatCurrency(scenario.terminalValue)}</Text>
-          </View>
+        <View style={styles.metricsRow}>
+          <MetricCard
+            label="Current portfolio"
+            value={formatCurrency(baselineProfile.currentCorpus)}
+            helper={baselineProfile.currentXirrPct == null ? 'XIRR unavailable' : `${formatXirr(baselineProfile.currentXirrPct / 100)} realized`}
+            theme={theme}
+          />
+          <MetricCard
+            label="Typical SIP pace"
+            value={formatCurrency(baselineProfile.monthlySip)}
+            helper={`${formatCurrency(baselineProfile.monthlyNetContribution)} net after redemptions`}
+            theme={theme}
+          />
+        </View>
+
+        <View style={styles.metricsRow}>
+          <MetricCard
+            label="Recent one-offs"
+            value={baselineProfile.trailingLumpSumAverage > 0 ? formatCurrency(baselineProfile.trailingLumpSumAverage) : 'None'}
+            helper="Average top-up from recent months"
+            theme={theme}
+          />
+          <MetricCard
+            label="Annual redemptions"
+            value={baselineProfile.annualRedemptionRate > 0 ? formatCurrency(baselineProfile.annualRedemptionRate) : 'None'}
+            helper="Based on recent redemption behaviour"
+            theme={theme}
+          />
         </View>
 
         <View style={[styles.chartCard, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Wealth Accumulation</Text>
+          <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Current plan vs proposed plan</Text>
+          <Text style={[styles.chartBody, { color: theme.colors.textSecondary }]}>
+            Baseline uses your current corpus and recent SIP pace. The proposal reflects the inputs below.
+          </Text>
           <LineChart
             data={chartData}
             data2={chartData2}
             width={320}
-            height={200}
+            height={220}
             curved
             hideDataPoints
             initialSpacing={0}
@@ -74,10 +192,10 @@ export default function SimulatorScreen() {
             color1={theme.colors.textSecondary}
             color2={theme.colors.primary}
             thickness1={2}
-            thickness2={2.5}
+            thickness2={3}
             xAxisLabelTexts={xLabels}
-            xAxisLabelTextStyle={styles.axisLabel}
-            yAxisTextStyle={styles.axisLabel}
+            xAxisLabelTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
+            yAxisTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
             formatYLabel={(value: string) => `${Number(value).toFixed(0)}L`}
             yAxisLabelWidth={36}
             noOfSections={4}
@@ -86,37 +204,115 @@ export default function SimulatorScreen() {
             yAxisColor="transparent"
             rulesColor={theme.colors.borderLight}
           />
+          <View style={styles.legendRow}>
+            <LegendItem color={theme.colors.textSecondary} label={`Current plan · ${formatCompactCurrency(baseline.terminalValue)}`} />
+            <LegendItem color={theme.colors.primary} label={`Proposed plan · ${formatCompactCurrency(scenario.terminalValue)}`} />
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Adjust Parameters</Text>
-          <NumberField label="Current monthly SIP" value={monthlySip} onChange={setMonthlySip} />
-          <NumberField label="SIP increase" value={sipDelta} onChange={setSipDelta} />
-          <NumberField label="One-time lump sum" value={lumpSum} onChange={setLumpSum} />
-          <NumberField label="Expected annual return (%)" value={annualReturnPct} onChange={setAnnualReturnPct} />
-          <NumberField label="Investment horizon (years)" value={years} onChange={setYears} />
+          <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Adjust your plan</Text>
+          <Text style={[styles.chartBody, { color: theme.colors.textSecondary }]}>
+            Your projection currently assumes a {annualReturnPct.toFixed(1)}% annualised return, anchored to your realized XIRR and open to adjustment.
+          </Text>
+          <NumberField
+            label="Current monthly SIP"
+            helper="Baseline plan"
+            value={monthlySip}
+            onChange={setMonthlySipInput}
+            theme={theme}
+          />
+          <NumberField
+            label="Proposed monthly SIP"
+            helper="What you want to test"
+            value={scenarioSip}
+            onChange={setScenarioSipInput}
+            theme={theme}
+          />
+          <NumberField
+            label="One-time top-up"
+            helper="Optional lump sum to add right now"
+            value={oneTimeTopUp}
+            onChange={setOneTimeTopUpInput}
+            theme={theme}
+          />
+          <NumberField
+            label="Expected annual return (%)"
+            helper="Uses your realized XIRR as the starting assumption"
+            value={annualReturnPct}
+            onChange={setAnnualReturnPctInput}
+            theme={theme}
+          />
+          <NumberField
+            label="Investment horizon (years)"
+            helper="Projection length"
+            value={years}
+            onChange={setYearsInput}
+            theme={theme}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function NumberField({
+function MetricCard({
   label,
   value,
-  onChange,
+  helper,
+  theme,
 }: {
   label: string;
+  value: string;
+  helper: string;
+  theme: ReturnType<typeof useThemeVariant>;
+}) {
+  return (
+    <View style={[styles.metricCard, { backgroundColor: theme.colors.surface }]}>
+      <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>{value}</Text>
+      <Text style={[styles.metricHelper, { color: theme.colors.textTertiary }]}>{helper}</Text>
+    </View>
+  );
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      <Text style={styles.legendText}>{label}</Text>
+    </View>
+  );
+}
+
+function NumberField({
+  label,
+  helper,
+  value,
+  onChange,
+  theme,
+}: {
+  label: string;
+  helper: string;
   value: number;
   onChange: (value: number) => void;
+  theme: ReturnType<typeof useThemeVariant>;
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: theme.colors.textPrimary }]}>{label}</Text>
+      <Text style={[styles.fieldHelper, { color: theme.colors.textSecondary }]}>{helper}</Text>
       <TextInput
         keyboardType="numeric"
         onChangeText={(text) => onChange(Number(text.replace(/[^0-9.]/g, '')) || 0)}
-        style={styles.fieldInput}
+        style={[
+          styles.fieldInput,
+          {
+            borderColor: theme.colors.borderLight,
+            color: theme.colors.textPrimary,
+            backgroundColor: theme.colors.surfaceAlt,
+          },
+        ]}
         value={String(value)}
       />
     </View>
@@ -126,6 +322,14 @@ function NumberField({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
+  },
+  loadingState: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   heroCard: {
     borderRadius: 24,
@@ -150,45 +354,85 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 8,
   },
-  summaryRow: {
+  metricsRow: {
     flexDirection: 'row',
     gap: 12,
     marginHorizontal: 16,
+    marginBottom: 12,
   },
-  card: {
-    borderRadius: 20,
-    padding: 20,
+  metricCard: {
+    borderRadius: 18,
+    flex: 1,
+    padding: 18,
   },
-  chartCard: {
-    borderRadius: 20,
-    margin: 16,
-    padding: 20,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  smallLabel: {
+  metricLabel: {
     fontSize: 11,
     fontWeight: '700',
     marginBottom: 6,
     textTransform: 'uppercase',
   },
+  metricValue: {
+    fontSize: 21,
+    fontWeight: '800',
+  },
+  metricHelper: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  chartCard: {
+    borderRadius: 20,
+    margin: 16,
+    marginTop: 4,
+    padding: 20,
+  },
+  card: {
+    borderRadius: 20,
+    marginHorizontal: 16,
+    padding: 20,
+  },
   chartTitle: {
     fontSize: 18,
     fontWeight: '800',
+    marginBottom: 8,
+  },
+  chartBody: {
+    fontSize: 14,
+    lineHeight: 21,
     marginBottom: 16,
   },
   axisLabel: {
     fontSize: 10,
   },
-  field: {
+  legendRow: {
+    gap: 8,
     marginTop: 14,
   },
-  fieldLabel: {
+  legendItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  legendDot: {
+    borderRadius: 999,
+    height: 8,
+    width: 8,
+  },
+  legendText: {
     fontSize: 12,
+    fontWeight: '600',
+  },
+  field: {
+    marginTop: 16,
+  },
+  fieldLabel: {
+    fontSize: 13,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  fieldHelper: {
+    fontSize: 12,
+    marginBottom: 8,
   },
   fieldInput: {
     borderRadius: 12,
@@ -197,9 +441,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  body: {
-    fontSize: 15,
-    lineHeight: 22,
   },
 });

@@ -17,6 +17,7 @@ export interface LeaderboardRow {
   benchmarkReturnPct: number;
   deltaPct: number;
   verdict: 'leader' | 'laggard';
+  benchmarkAvailable: boolean;
 }
 
 function nearestBenchmarkValue(series: NavPoint[], targetDate: string): number | null {
@@ -45,7 +46,7 @@ export function buildLeaderboardRows(params: {
   const rows = params.funds.flatMap((fund) => {
     const navHistory = params.navHistoryByScheme.get(fund.schemeCode) ?? [];
     const txs = params.transactionsByFund.get(fund.id) ?? [];
-    if (!navHistory.length || !txs.length || !benchmark1Y.length) return [];
+    if (!navHistory.length || !txs.length) return [];
 
     const latestNav = navHistory[navHistory.length - 1].value;
     const { netUnits } = buildCashflowsFromTransactions(txs, 0, new Date());
@@ -56,23 +57,23 @@ export function buildLeaderboardRows(params: {
     if (filteredNav.length < 2) return [];
 
     const navStart = filteredNav[0]?.date ?? '';
+    const indexedNav = indexTo100(filteredNav);
+    const latestFund = indexedNav[indexedNav.length - 1]?.value ?? 100;
+    const fundReturnPct = latestFund - 100;
     const filteredBenchmark = benchmark1Y.filter((point) => point.date >= navStart);
-    if (filteredBenchmark.length < 2) return [];
-
-    const commonStart = filteredBenchmark[0].date > navStart ? filteredBenchmark[0].date : navStart;
+    const commonStart =
+      filteredBenchmark.length > 0 && filteredBenchmark[0].date > navStart
+        ? filteredBenchmark[0].date
+        : navStart;
     const alignedNav = filteredNav.filter((point) => point.date >= commonStart);
     const alignedBenchmark = filteredBenchmark.filter((point) => point.date >= commonStart);
-    if (alignedNav.length < 2 || alignedBenchmark.length < 2) return [];
-
-    const indexedNav = indexTo100(alignedNav);
-    const indexedBenchmark = indexTo100(alignedBenchmark);
-    const latestFund = indexedNav[indexedNav.length - 1]?.value ?? 100;
-    const latestBenchmark = nearestBenchmarkValue(indexedBenchmark, indexedNav[indexedNav.length - 1]?.date ?? '');
-    if (latestBenchmark == null) return [];
-
-    const fundReturnPct = latestFund - 100;
-    const benchmarkReturnPct = latestBenchmark - 100;
-    const deltaPct = fundReturnPct - benchmarkReturnPct;
+    const benchmarkAvailable = alignedNav.length >= 2 && alignedBenchmark.length >= 2;
+    const indexedBenchmark = benchmarkAvailable ? indexTo100(alignedBenchmark) : [];
+    const latestBenchmark = benchmarkAvailable
+      ? nearestBenchmarkValue(indexedBenchmark, alignedNav[alignedNav.length - 1]?.date ?? '')
+      : null;
+    const benchmarkReturnPct = latestBenchmark == null ? 0 : latestBenchmark - 100;
+    const deltaPct = benchmarkAvailable ? fundReturnPct - benchmarkReturnPct : fundReturnPct;
 
     return [{
       id: fund.id,
@@ -83,8 +84,14 @@ export function buildLeaderboardRows(params: {
       benchmarkReturnPct,
       deltaPct,
       verdict: deltaPct >= 0 ? ('leader' as const) : ('laggard' as const),
+      benchmarkAvailable,
     }];
   });
 
-  return rows.sort((a, b) => b.deltaPct - a.deltaPct);
+  return rows.sort((a, b) => {
+    if (a.benchmarkAvailable !== b.benchmarkAvailable) {
+      return a.benchmarkAvailable ? -1 : 1;
+    }
+    return b.deltaPct - a.deltaPct;
+  });
 }

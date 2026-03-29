@@ -16,6 +16,7 @@ export default function LeaderboardScreen() {
   const { data: rows = [], isLoading } = useLeaderboard(session?.user.id, defaultBenchmarkSymbol);
   const leaders = rows.filter((row) => row.verdict === 'leader');
   const laggards = rows.filter((row) => row.verdict === 'laggard');
+  const hasBenchmarkFallback = rows.some((row) => !row.benchmarkAvailable);
   const benchmarkLabel =
     BENCHMARK_OPTIONS.find((option) => option.symbol === defaultBenchmarkSymbol)?.label ?? defaultBenchmarkSymbol;
 
@@ -60,7 +61,9 @@ export default function LeaderboardScreen() {
         <View style={[styles.alphaCard, { backgroundColor: theme.colors.primary }]}>
           <Text style={styles.alphaTitle}>Portfolio Insight</Text>
           <Text style={styles.alphaBody}>
-            Ranked by 1Y fund return minus {benchmarkLabel}. Positive delta means a fund is outperforming the chosen benchmark over the same window.
+            {hasBenchmarkFallback
+              ? `Benchmark history for ${benchmarkLabel} is stale in this environment, so affected funds are ranked by absolute 1Y return until market data catches up.`
+              : `Ranked by 1Y fund return minus ${benchmarkLabel}. Positive delta means a fund is outperforming the chosen benchmark over the same window.`}
           </Text>
         </View>
 
@@ -127,13 +130,23 @@ export default function LeaderboardScreen() {
 
                 <View style={styles.metricRow}>
                   <View style={styles.metric}>
-                    <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>{benchmarkLabel}</Text>
-                    <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
-                      {row.benchmarkReturnPct >= 0 ? '+' : ''}{row.benchmarkReturnPct.toFixed(1)}%
+                    <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
+                      {row.benchmarkAvailable ? benchmarkLabel : 'Benchmark'}
                     </Text>
+                    {row.benchmarkAvailable ? (
+                      <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
+                        {row.benchmarkReturnPct >= 0 ? '+' : ''}{row.benchmarkReturnPct.toFixed(1)}%
+                      </Text>
+                    ) : (
+                      <Text style={[styles.metricValue, { color: theme.colors.textTertiary }]}>
+                        Unavailable
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.metric}>
-                    <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>Delta</Text>
+                    <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
+                      {row.benchmarkAvailable ? 'Delta' : '1Y Return'}
+                    </Text>
                     <Text
                       style={[
                         styles.metricValue,

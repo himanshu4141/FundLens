@@ -14,8 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
+import { AppScreenHeader } from '@/src/components/AppScreenHeader';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioTimeline, type PortfolioTimelinePoint, type PortfolioTimelineWindow } from '@/src/hooks/usePortfolioTimeline';
+import { useThemeVariant } from '@/src/hooks/useThemeVariant';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
 import { parseFundName } from '@/src/utils/fundName';
@@ -23,7 +25,6 @@ import { navStaleness } from '@/src/utils/navUtils';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
-import Logo from '@/src/components/Logo';
 import { Sparkline } from '@/src/components/Sparkline';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
@@ -51,23 +52,38 @@ function categoryColor(category: string | null): string {
 function BenchmarkSelector({
   selected,
   onChange,
+  theme,
 }: {
   selected: string;
   onChange: (symbol: string) => void;
+  theme: ReturnType<typeof useThemeVariant>;
 }) {
   return (
     <View style={styles.benchmarkRow}>
-      <Text style={styles.benchmarkRowLabel}>vs</Text>
+      <Text style={[styles.benchmarkRowLabel, { color: theme.isEditorial ? '#ffffff' : Colors.textSecondary }]}>vs</Text>
       {BENCHMARK_OPTIONS.map((opt) => (
         <TouchableOpacity
           key={opt.symbol}
-          style={[styles.benchmarkPill, selected === opt.symbol && styles.benchmarkPillActive]}
+          style={[
+            styles.benchmarkPill,
+            {
+              backgroundColor: theme.isEditorial ? 'rgba(255,255,255,0.12)' : Colors.background,
+            },
+            selected === opt.symbol && [
+              styles.benchmarkPillActive,
+              { backgroundColor: theme.isEditorial ? '#ffffff' : Colors.primaryLight },
+            ],
+          ]}
           onPress={() => onChange(opt.symbol)}
         >
           <Text
             style={[
               styles.benchmarkPillText,
-              selected === opt.symbol && styles.benchmarkPillTextActive,
+              { color: theme.isEditorial ? '#ffffff' : Colors.textSecondary },
+              selected === opt.symbol && [
+                styles.benchmarkPillTextActive,
+                { color: theme.isEditorial ? Colors.primary : Colors.primaryDark },
+              ],
             ]}
           >
             {opt.label}
@@ -120,11 +136,13 @@ function PortfolioTimelineSection({
   benchmarkLabel,
   window,
   onWindowChange,
+  theme,
 }: {
   points: PortfolioTimelinePoint[];
   benchmarkLabel: string;
   window: PortfolioTimelineWindow;
   onWindowChange: (window: PortfolioTimelineWindow) => void;
+  theme: ReturnType<typeof useThemeVariant>;
 }) {
   const sampled = sampleTimeline(points, 44);
   const data = sampled.map((point) => ({ value: point.portfolioIndexed }));
@@ -141,11 +159,11 @@ function PortfolioTimelineSection({
   const pad = Math.max(4, (maxValue - minValue) * 0.15);
 
   return (
-    <View style={styles.timelineCard}>
+    <View style={[styles.timelineCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight }]}>
       <View style={styles.timelineHeader}>
         <View>
-          <Text style={styles.timelineTitle}>Portfolio vs Market</Text>
-          <Text style={styles.timelineSub}>Indexed to 100 from the start of the selected window</Text>
+          <Text style={[styles.timelineTitle, { color: theme.colors.textPrimary }]}>Portfolio vs Market</Text>
+          <Text style={[styles.timelineSub, { color: theme.colors.textTertiary }]}>Indexed to 100 from the start of the selected window</Text>
         </View>
         <TimelineWindowSelector selected={window} onChange={onWindowChange} />
       </View>
@@ -161,9 +179,9 @@ function PortfolioTimelineSection({
         initialSpacing={0}
         endSpacing={0}
         spacing={spacing}
-        color1={Colors.primary}
-        color2={Colors.warning}
-        startFillColor1={Colors.primary}
+        color1={theme.colors.primary}
+        color2={theme.colors.warning}
+        startFillColor1={theme.colors.primary}
         endFillColor1="#ffffff"
         startOpacity1={0.14}
         endOpacity1={0}
@@ -177,26 +195,32 @@ function PortfolioTimelineSection({
         formatYLabel={(value: string) => Number(value).toFixed(0)}
         maxValue={maxValue + pad}
         mostNegativeValue={Math.min(0, minValue - pad)}
-        xAxisColor={Colors.borderLight}
+        xAxisColor={theme.colors.borderLight}
         yAxisColor="transparent"
-        rulesColor={Colors.borderLight}
+        rulesColor={theme.colors.borderLight}
       />
 
       <View style={styles.timelineLegendRow}>
         <View style={styles.timelineLegendItem}>
-          <View style={[styles.timelineLegendDot, { backgroundColor: Colors.primary }]} />
-          <Text style={styles.timelineLegendText}>Portfolio</Text>
+          <View style={[styles.timelineLegendDot, { backgroundColor: theme.colors.primary }]} />
+          <Text style={[styles.timelineLegendText, { color: theme.colors.textSecondary }]}>Portfolio</Text>
         </View>
         <View style={styles.timelineLegendItem}>
-          <View style={[styles.timelineLegendDot, { backgroundColor: Colors.warning }]} />
-          <Text style={styles.timelineLegendText}>{benchmarkLabel}</Text>
+          <View style={[styles.timelineLegendDot, { backgroundColor: theme.colors.warning }]} />
+          <Text style={[styles.timelineLegendText, { color: theme.colors.textSecondary }]}>{benchmarkLabel}</Text>
         </View>
       </View>
     </View>
   );
 }
 
-function TopMoversSection({ fundCards }: { fundCards: FundCardData[] }) {
+function TopMoversSection({
+  fundCards,
+  theme,
+}: {
+  fundCards: FundCardData[];
+  theme: ReturnType<typeof useThemeVariant>;
+}) {
   const movers = fundCards.filter(
     (fund): fund is FundCardData & { dailyChangePct: number; dailyChangeAmount: number } =>
       fund.dailyChangePct != null && fund.dailyChangeAmount != null,
@@ -207,26 +231,60 @@ function TopMoversSection({ fundCards }: { fundCards: FundCardData[] }) {
   const sorted = [...movers].sort((a, b) => b.dailyChangePct - a.dailyChangePct);
   const best = sorted[0];
   const worst = sorted[sorted.length - 1];
+  const formatMoverDelta = (pct: number, amount: number) =>
+    `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% · ${amount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(amount))}`;
 
   return (
     <View style={styles.moversSection}>
-      <Text style={styles.moversTitle}>Top Gainers & Losers Today</Text>
+      <Text style={[styles.moversTitle, { color: theme.colors.textPrimary }]}>Top Gainers & Losers Today</Text>
       <View style={styles.moversGrid}>
-        <View style={[styles.moverCard, styles.moverCardPositive]}>
-          <Text style={styles.moverLabel}>Today&apos;s Best</Text>
-          <Text style={styles.moverName} numberOfLines={2}>{parseFundName(best.schemeName).base}</Text>
-          <Text style={styles.moverCategory}>{best.schemeCategory}</Text>
-          <Text style={[styles.moverValue, { color: Colors.positive }]}>
-            +{best.dailyChangePct.toFixed(2)}% · +{formatCurrency(best.dailyChangeAmount)}
+        <View style={[styles.moverCard, styles.moverCardPositive, { backgroundColor: theme.colors.surface, borderColor: theme.colors.positive + '33' }]}>
+          <Text style={[styles.moverLabel, { color: theme.colors.textTertiary }]}>Today&apos;s Best</Text>
+          <Text style={[styles.moverName, { color: theme.colors.textPrimary }]} numberOfLines={2}>{parseFundName(best.schemeName).base}</Text>
+          <Text style={[styles.moverCategory, { color: theme.colors.textSecondary }]}>{best.schemeCategory}</Text>
+          <Text style={[styles.moverValue, { color: best.dailyChangeAmount >= 0 ? theme.colors.positive : theme.colors.negative }]}>
+            {formatMoverDelta(best.dailyChangePct, best.dailyChangeAmount)}
           </Text>
         </View>
-        <View style={[styles.moverCard, styles.moverCardNegative]}>
-          <Text style={styles.moverLabel}>Today&apos;s Worst</Text>
-          <Text style={styles.moverName} numberOfLines={2}>{parseFundName(worst.schemeName).base}</Text>
-          <Text style={styles.moverCategory}>{worst.schemeCategory}</Text>
-          <Text style={[styles.moverValue, { color: Colors.negative }]}>
-            {worst.dailyChangePct.toFixed(2)}% · {formatCurrency(worst.dailyChangeAmount)}
+        <View style={[styles.moverCard, styles.moverCardNegative, { backgroundColor: theme.colors.surface, borderColor: theme.colors.negative + '22' }]}>
+          <Text style={[styles.moverLabel, { color: theme.colors.textTertiary }]}>Today&apos;s Worst</Text>
+          <Text style={[styles.moverName, { color: theme.colors.textPrimary }]} numberOfLines={2}>{parseFundName(worst.schemeName).base}</Text>
+          <Text style={[styles.moverCategory, { color: theme.colors.textSecondary }]}>{worst.schemeCategory}</Text>
+          <Text style={[styles.moverValue, { color: worst.dailyChangeAmount >= 0 ? theme.colors.positive : theme.colors.negative }]}>
+            {formatMoverDelta(worst.dailyChangePct, worst.dailyChangeAmount)}
           </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function PortfolioTimelineFallback({
+  benchmarkLabel,
+  theme,
+  xirr,
+  marketXirr,
+}: {
+  benchmarkLabel: string;
+  theme: ReturnType<typeof useThemeVariant>;
+  xirr: number;
+  marketXirr: number;
+}) {
+  return (
+    <View style={[styles.timelineCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight }]}>
+      <Text style={[styles.timelineTitle, { color: theme.colors.textPrimary }]}>Portfolio vs Market</Text>
+      <Text style={[styles.timelineSub, { color: theme.colors.textTertiary }]}>
+        Timeline data is unavailable with the current benchmark history, so this section is falling back to return snapshots.
+      </Text>
+      <View style={styles.timelineFallbackRow}>
+        <View style={styles.timelineFallbackMetric}>
+          <Text style={[styles.fundMetaLabel, { color: theme.colors.textTertiary }]}>Your Return</Text>
+          <Text style={[styles.timelineFallbackValue, { color: theme.colors.textPrimary }]}>{formatXirr(xirr)}</Text>
+        </View>
+        <View style={[styles.fundMetaDivider, { backgroundColor: theme.colors.borderLight }]} />
+        <View style={styles.timelineFallbackMetric}>
+          <Text style={[styles.fundMetaLabel, { color: theme.colors.textTertiary }]}>{benchmarkLabel}</Text>
+          <Text style={[styles.timelineFallbackValue, { color: theme.colors.textPrimary }]}>{formatXirr(marketXirr)}</Text>
         </View>
       </View>
     </View>
@@ -244,6 +302,7 @@ function PortfolioHeader({
   benchmarkSymbol,
   latestNavDate,
   onBenchmarkChange,
+  theme,
 }: {
   totalValue: number;
   totalInvested: number;
@@ -254,6 +313,7 @@ function PortfolioHeader({
   benchmarkSymbol: string;
   latestNavDate: string | null;
   onBenchmarkChange: (symbol: string) => void;
+  theme: ReturnType<typeof useThemeVariant>;
 }) {
   const isPositiveDay = dailyChangeAmount >= 0;
   const gain = totalValue - totalInvested;
@@ -268,10 +328,10 @@ function PortfolioHeader({
 
   return (
     <LinearGradient
-      colors={Colors.gradientHeader}
+      colors={theme.isEditorial ? theme.colors.gradientHero : Colors.gradientHeader}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.portfolioHeader}
+      style={[styles.portfolioHeader, theme.isEditorial && styles.portfolioHeaderEditorial]}
     >
       {/* Stale-data warning when NAV is more than 2 days old */}
       {staleness.stale && (
@@ -332,12 +392,22 @@ function PortfolioHeader({
         </View>
       </View>
 
-      <BenchmarkSelector selected={benchmarkSymbol} onChange={onBenchmarkChange} />
+      <BenchmarkSelector selected={benchmarkSymbol} onChange={onBenchmarkChange} theme={theme} />
     </LinearGradient>
   );
 }
 
-function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latestNavDate: string | null; onPress: () => void }) {
+function FundCard({
+  fund,
+  latestNavDate,
+  onPress,
+  theme,
+}: {
+  fund: FundCardData;
+  latestNavDate: string | null;
+  onPress: () => void;
+  theme: ReturnType<typeof useThemeVariant>;
+}) {
   const isPositiveDay = fund.dailyChangeAmount != null ? fund.dailyChangeAmount >= 0 : true;
   const accentColor = categoryColor(fund.schemeCategory);
   const hasRedemptions = fund.redeemedUnits > 0;
@@ -355,7 +425,11 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
 
   return (
     <TouchableOpacity
-      style={[styles.fundCard, !isPressable && styles.fundCardDisabled]}
+      style={[
+        styles.fundCard,
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight },
+        !isPressable && styles.fundCardDisabled,
+      ]}
       onPress={onPress}
       activeOpacity={isPressable ? 0.78 : 1}
       disabled={!isPressable}
@@ -386,13 +460,13 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
               <>
                 <Text style={styles.fundValue}>{formatCurrency(fund.currentValue!)}</Text>
                 <View style={styles.dailyChangePill}>
-                  <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
+                  <Text style={[styles.fundDailyChange, { color: isPositiveDay ? theme.colors.positive : theme.colors.negative }]}>
                     {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}%{' '}
                     {cardStaleness.stale ? cardStaleness.label : 'today'}
                   </Text>
                 </View>
                 {isFinite(fund.returnXirr) && (
-                  <Text style={[styles.fundXirr, { color: fund.returnXirr >= 0 ? Colors.positive : Colors.negative }]}>
+                  <Text style={[styles.fundXirr, { color: fund.returnXirr >= 0 ? theme.colors.positive : theme.colors.negative }]}>
                     {formatXirr(fund.returnXirr)} XIRR
                   </Text>
                 )}
@@ -413,7 +487,7 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
             {fund.navHistory30d.length >= 2 ? (
               <Sparkline
                 data={fund.navHistory30d.map((p) => p.value)}
-                color={fund.returnXirr >= 0 ? Colors.positive : Colors.negative}
+                color={fund.returnXirr >= 0 ? theme.colors.positive : theme.colors.negative}
                 width={60}
                 height={24}
               />
@@ -428,10 +502,10 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
             <Text style={styles.fundMetaLabel}>Gain / Loss</Text>
             {unrealizedGain != null ? (
               <>
-                <Text style={[styles.fundMetaValue, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+                <Text style={[styles.fundMetaValue, { color: unrealizedPositive ? theme.colors.positive : theme.colors.negative }]}>
                   {unrealizedPositive ? '+' : ''}{formatCurrency(Math.abs(unrealizedGain))}
                 </Text>
-                <Text style={[styles.fundMetaSub, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+                <Text style={[styles.fundMetaSub, { color: unrealizedPositive ? theme.colors.positive : theme.colors.negative }]}>
                   ({unrealizedPositive ? '+' : ''}{unrealizedPct!.toFixed(1)}%)
                 </Text>
               </>
@@ -450,7 +524,7 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
             </View>
             <View style={styles.realizedItem}>
               <Text style={styles.realizedLabel}>Realized P&amp;L</Text>
-              <Text style={[styles.realizedValue, { color: fund.realizedGain >= 0 ? Colors.positive : Colors.negative }]}>
+              <Text style={[styles.realizedValue, { color: fund.realizedGain >= 0 ? theme.colors.positive : theme.colors.negative }]}>
                 {fund.realizedGain >= 0 ? '+' : ''}{formatCurrency(Math.abs(fund.realizedGain))}
               </Text>
             </View>
@@ -461,18 +535,24 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
   );
 }
 
-function EmptyState({ onImport }: { onImport: () => void }) {
+function EmptyState({
+  onImport,
+  theme,
+}: {
+  onImport: () => void;
+  theme: ReturnType<typeof useThemeVariant>;
+}) {
   return (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIcon}>
-        <Ionicons name="pie-chart-outline" size={40} color={Colors.primary} />
+    <View style={[styles.emptyState, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.emptyIcon, { backgroundColor: theme.colors.primaryLight }]}>
+        <Ionicons name="pie-chart-outline" size={40} color={theme.colors.primary} />
       </View>
-      <Text style={styles.emptyTitle}>No portfolio yet</Text>
-      <Text style={styles.emptySub}>
+      <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>No portfolio yet</Text>
+      <Text style={[styles.emptySub, { color: theme.colors.textSecondary }]}>
         Import your CAS statement to see your mutual fund portfolio, your return, and how you
         compare to the market.
       </Text>
-      <TouchableOpacity style={styles.emptyBtn} onPress={onImport} activeOpacity={0.85}>
+      <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: theme.colors.primary }]} onPress={onImport} activeOpacity={0.85}>
         <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
         <Text style={styles.emptyBtnText}>Import CAS</Text>
       </TouchableOpacity>
@@ -484,6 +564,7 @@ type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const theme = useThemeVariant();
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -531,42 +612,46 @@ export default function HomeScreen() {
     BENCHMARK_OPTIONS.find((option) => option.symbol === defaultBenchmarkSymbol)?.label ?? defaultBenchmarkSymbol;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Dark header bar — seamlessly joins the gradient below */}
-      <View style={styles.header}>
-        <Logo size={28} showWordmark light />
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            accessibilityLabel="Open settings"
-            onPress={() => router.push('/settings')}
-            style={styles.headerIconBtn}
-          >
-            <Ionicons name="settings-outline" size={18} color="#ffffff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.syncBtn, syncState === 'syncing' && styles.syncBtnDisabled]}
-            onPress={handleSync}
-            disabled={syncState === 'syncing'}
-          >
-            {syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color="rgba(255,255,255,0.8)" />
-            ) : (
-              <Text style={styles.syncBtnText}>↻ Sync</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() =>
-              router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')
-            }
-          >
-            <Text style={styles.importLink}>Import</Text>
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <AppScreenHeader showLogo />
+      <View style={styles.headerActionsRow}>
+        <TouchableOpacity
+          style={[
+            styles.actionPill,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.borderLight,
+            },
+            syncState === 'syncing' && styles.syncBtnDisabled,
+          ]}
+          onPress={handleSync}
+          disabled={syncState === 'syncing'}
+        >
+          {syncState === 'syncing' ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <Text style={[styles.actionPillText, { color: theme.colors.textPrimary }]}>Sync portfolio</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.actionPill,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.borderLight,
+            },
+          ]}
+          onPress={() =>
+            router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')
+          }
+        >
+          <Text style={[styles.actionPillText, { color: theme.colors.textPrimary }]}>Import CAS</Text>
+        </TouchableOpacity>
       </View>
 
       {syncState === 'requested' && (
-        <View style={styles.syncBanner}>
-          <Text style={styles.syncBannerText}>
+        <View style={[styles.syncBanner, { backgroundColor: theme.colors.primaryLight, borderBottomColor: theme.colors.primary + '33' }]}>
+          <Text style={[styles.syncBannerText, { color: theme.colors.primaryDark }]}>
             CAS requested! Check your email — forward it to your inbound address.
           </Text>
         </View>
@@ -579,22 +664,22 @@ export default function HomeScreen() {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       ) : isError ? (
         <View style={styles.centered}>
-          <Text style={styles.errorText}>Failed to load portfolio.</Text>
+          <Text style={[styles.errorText, { color: theme.colors.textSecondary }]}>Failed to load portfolio.</Text>
           <TouchableOpacity onPress={() => refetch()}>
-            <Text style={styles.retryLink}>Retry</Text>
+            <Text style={[styles.retryLink, { color: theme.colors.primary }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : !summary || fundCards.length === 0 ? (
-        <EmptyState onImport={() => router.push('/onboarding')} />
+        <EmptyState onImport={() => router.push('/onboarding')} theme={theme} />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.colors.primary} />
           }
         >
           <PortfolioHeader
@@ -607,26 +692,35 @@ export default function HomeScreen() {
             benchmarkSymbol={defaultBenchmarkSymbol}
             latestNavDate={summary.latestNavDate ?? null}
             onBenchmarkChange={setDefaultBenchmarkSymbol}
+            theme={theme}
           />
 
           {timelineLoading ? (
             <View style={styles.timelineLoadingCard}>
-              <ActivityIndicator size="small" color={Colors.primary} />
+              <ActivityIndicator size="small" color={theme.colors.primary} />
             </View>
           ) : timelineData?.points?.length ? (
             <PortfolioTimelineSection
               points={timelineData.points}
-              benchmarkLabel={benchmarkLabel}
+              benchmarkLabel={timelineData.benchmarkAvailable ? benchmarkLabel : 'Benchmark unavailable'}
               window={timelineWindow}
               onWindowChange={setTimelineWindow}
+              theme={theme}
             />
-          ) : null}
+          ) : (
+            <PortfolioTimelineFallback
+              benchmarkLabel={benchmarkLabel}
+              theme={theme}
+              xirr={summary.xirr}
+              marketXirr={summary.marketXirr}
+            />
+          )}
 
-          <TopMoversSection fundCards={fundCards} />
+          <TopMoversSection fundCards={fundCards} theme={theme} />
 
           <View style={styles.fundListHeader}>
-            <Text style={styles.fundListTitle}>Your Funds</Text>
-            <Text style={styles.fundCount}>{fundCards.length} fund{fundCards.length !== 1 ? 's' : ''}</Text>
+            <Text style={[styles.fundListTitle, { color: theme.colors.textPrimary }]}>Your Funds</Text>
+            <Text style={[styles.fundCount, { color: theme.colors.textTertiary }]}>{fundCards.length} fund{fundCards.length !== 1 ? 's' : ''}</Text>
           </View>
 
           {fundCards.map((fund) => (
@@ -634,6 +728,7 @@ export default function HomeScreen() {
               key={fund.id}
               fund={fund}
               latestNavDate={summary.latestNavDate ?? null}
+              theme={theme}
               onPress={() => router.push(`/fund/${fund.id}`)}
             />
           ))}
@@ -647,6 +742,25 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  headerActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  actionPill: {
+    alignItems: 'center',
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 42,
+    paddingHorizontal: Spacing.md,
+  },
+  actionPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
 
   // Dark header — matches gradientHeader[0] for seamless join with portfolio gradient
   header: {
@@ -702,6 +816,11 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
     gap: Spacing.xs,
+  },
+  portfolioHeaderEditorial: {
+    borderRadius: 28,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
   },
 
   // Stale-data warning
@@ -885,6 +1004,20 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
+  },
+  timelineFallbackRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  timelineFallbackMetric: {
+    flex: 1,
+    gap: 6,
+  },
+  timelineFallbackValue: {
+    fontSize: 18,
+    fontWeight: '800',
   },
 
   moversSection: {

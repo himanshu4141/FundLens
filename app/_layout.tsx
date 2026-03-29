@@ -34,20 +34,27 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();
   const segments = useSegments();
   const router = useRouter();
+  const inAuthGroup = segments[0] === 'auth';
 
   useEffect(() => {
     if (loading) return;
-
-    const inAuthGroup = segments[0] === 'auth';
 
     if (!session && !inAuthGroup) {
       router.replace('/auth');
     } else if (session && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [session, loading, segments, router]);
+  }, [inAuthGroup, session, loading, segments, router]);
 
   if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if ((!session && !inAuthGroup) || (session && inAuthGroup)) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" />

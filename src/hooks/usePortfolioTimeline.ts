@@ -25,7 +25,7 @@ export async function fetchPortfolioTimeline(
     .eq('is_active', true);
 
   if (fundsError) throw fundsError;
-  if (!funds?.length) return { points: [] };
+  if (!funds?.length) return { points: [], benchmarkAvailable: false };
 
   const { data: transactions, error: txError } = await supabase
     .from('transaction')

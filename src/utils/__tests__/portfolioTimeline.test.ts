@@ -31,6 +31,7 @@ describe('buildPortfolioTimelineSeries()', () => {
     });
 
     expect(result.points).toHaveLength(3);
+    expect(result.benchmarkAvailable).toBe(true);
     expect(result.points[0].portfolioValue).toBe(1000);
     expect(result.points[0].portfolioIndexed).toBeCloseTo(100, 5);
     expect(result.points[2].portfolioValue).toBe(2100);
@@ -81,16 +82,23 @@ describe('buildPortfolioTimelineSeries()', () => {
     expect(result.points[0].portfolioIndexed).toBeCloseTo(100, 5);
   });
 
-  it('returns no points when benchmark data is empty', () => {
+  it('falls back to a portfolio-only timeline when benchmark data is empty', () => {
     const result = buildPortfolioTimelineSeries({
       funds: [{ id: 'fund-1', scheme_code: 101 }],
-      transactions: [],
-      navRows: [],
+      transactions: [
+        { fund_id: 'fund-1', transaction_date: isoDaysAgo(30), transaction_type: 'purchase', units: 10 },
+      ],
+      navRows: [
+        { scheme_code: 101, nav_date: isoDaysAgo(30), nav: 100 },
+        { scheme_code: 101, nav_date: isoDaysAgo(1), nav: 120 },
+      ],
       indexRows: [],
       window: '1Y',
     });
 
-    expect(result.points).toEqual([]);
+    expect(result.benchmarkAvailable).toBe(false);
+    expect(result.points).toHaveLength(2);
+    expect(result.points[1].benchmarkIndexed).toBe(100);
   });
 
   it('ignores unknown transaction types when applying unit changes', () => {
@@ -113,5 +121,26 @@ describe('buildPortfolioTimelineSeries()', () => {
 
     expect(result.points).toHaveLength(2);
     expect(result.points[1].portfolioValue).toBe(1200);
+  });
+
+  it('falls back to portfolio-only dates when benchmark history ends before holdings start', () => {
+    const result = buildPortfolioTimelineSeries({
+      funds: [{ id: 'fund-1', scheme_code: 101 }],
+      transactions: [
+        { fund_id: 'fund-1', transaction_date: isoDaysAgo(30), transaction_type: 'purchase', units: 10 },
+      ],
+      navRows: [
+        { scheme_code: 101, nav_date: isoDaysAgo(30), nav: 100 },
+        { scheme_code: 101, nav_date: isoDaysAgo(1), nav: 120 },
+      ],
+      indexRows: [
+        { index_date: isoDaysAgo(400), close_value: 1000 },
+        { index_date: isoDaysAgo(365), close_value: 1010 },
+      ],
+      window: '1Y',
+    });
+
+    expect(result.benchmarkAvailable).toBe(false);
+    expect(result.points[0].portfolioIndexed).toBe(100);
   });
 });
