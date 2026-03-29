@@ -25,37 +25,64 @@ import { projectWealth, getMilestones } from '@/src/utils/simulatorCalc';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 2;
 
-const SIP_BOOST = 5000;
-
-// ─── Estimate monthly SIP from the last 12 months of purchase transactions ───
+// ─── SIP pattern detection ────────────────────────────────────────────────────
+//
+// A "SIP" is a purchase that recurs on roughly the same day of the month
+// (±3 days to allow for weekends/holidays) across ≥3 of the last 6 months.
+// One-off lumpsum purchases that fall outside any recurring day cluster are
+// excluded from the estimate.
 
 async function estimateMonthlySip(userId: string): Promise<number> {
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
   const { data } = await supabase
     .from('transaction')
     .select('transaction_date, amount, transaction_type')
     .eq('user_id', userId)
-    .in('transaction_type', ['purchase', 'switch_in'])
-    .gte('transaction_date', oneYearAgo.toISOString().split('T')[0]);
+    .eq('transaction_type', 'purchase') // switch_in excluded (STP/fund switches, not SIPs)
+    .gte('transaction_date', sixMonthsAgo.toISOString().split('T')[0]);
 
   if (!data?.length) return 0;
 
-  // Sum purchase amounts per calendar month
-  const byMonth = new Map<string, number>();
-  for (const tx of data) {
-    const month = (tx.transaction_date as string).substring(0, 7); // YYYY-MM
-    byMonth.set(month, (byMonth.get(month) ?? 0) + (tx.amount as number));
+  const purchases = data.map((tx) => ({
+    month: (tx.transaction_date as string).substring(0, 7), // YYYY-MM
+    day: parseInt((tx.transaction_date as string).substring(8, 10), 10),
+    amount: tx.amount as number,
+  }));
+
+  // Sort by day-of-month to enable anchor-based clustering
+  const sorted = [...purchases].sort((a, b) => a.day - b.day);
+
+  // Build day clusters: each cluster has an anchor day; purchases within ±3
+  // days of the anchor belong to it. The anchor is set by the first purchase
+  // seen for that range.
+  const clusters: { anchor: number; items: typeof purchases }[] = [];
+  for (const p of sorted) {
+    const existing = clusters.find((c) => Math.abs(p.day - c.anchor) <= 3);
+    if (existing) {
+      existing.items.push(p);
+    } else {
+      clusters.push({ anchor: p.day, items: [p] });
+    }
   }
 
-  if (byMonth.size === 0) return 0;
+  // For each cluster that appears in ≥3 distinct months, it is a recurring SIP.
+  // Average its per-month spend and add to the total.
+  let totalSip = 0;
+  for (const cluster of clusters) {
+    const monthAmounts = new Map<string, number>();
+    for (const p of cluster.items) {
+      monthAmounts.set(p.month, (monthAmounts.get(p.month) ?? 0) + p.amount);
+    }
+    if (monthAmounts.size < 3) continue; // not recurring enough — lumpsum pattern
 
-  const totalMonthly = [...byMonth.values()].reduce((a, b) => a + b, 0);
-  const avgMonthly = totalMonthly / byMonth.size;
+    const avg =
+      [...monthAmounts.values()].reduce((a, b) => a + b, 0) / monthAmounts.size;
+    totalSip += avg;
+  }
 
-  // Round to the nearest ₹500
-  return Math.round(avgMonthly / 500) * 500;
+  return Math.round(totalSip / 500) * 500;
 }
 
 // ─── Step control ────────────────────────────────────────────────────────────
@@ -129,10 +156,7 @@ export default function SimulatorScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
 
-  // Portfolio summary for personalization
   const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio();
-
-  // Estimated monthly SIP from recent transaction history
   const { data: estimatedSip } = useQuery({
     queryKey: ['estimated-sip', userId],
     enabled: !!userId,
@@ -143,66 +167,93 @@ export default function SimulatorScreen() {
   const hasPortfolio =
     portfolioData?.summary != null && portfolioData.summary.totalValue > 0;
 
-  // ── Simulator state ─────────────────────────────────────────────────────────
-  // Defaults are generic; once portfolio data arrives we override with real values.
-  const [sip, setSip] = useState(5000);
-  const [lumpsum, setLumpsum] = useState(0);
-  const [rate, setRate] = useState(12);
-  const [years, setYears] = useState(15);
+  // ── Seeded baseline (frozen from portfolio data) ─────────────────────────────
+  // These represent the user's current plan — they never change after seeding.
+  // We only seed once per session; subsequent re-renders don't overwrite.
+  const [seededSip, setSeededSip] = useState(5000);
+  const [seededLumpsum, setSeededLumpsum] = useState(0);
   const [seeded, setSeeded] = useState(false);
 
+  // ── Adjustable state (what the user tweaks) ──────────────────────────────────
+  const [sip, setSip] = useState(5000);
+  const [lumpsum, setLumpsum] = useState(0);
+  const [rate, setRate] = useState(12); // shared with baseline (market assumption)
+  const [years, setYears] = useState(15);
+
+  // Seed from portfolio summary
   useEffect(() => {
     if (seeded || portfolioLoading) return;
     const summary = portfolioData?.summary;
     if (!summary) return;
 
-    // Current corpus → initial lumpsum
-    if (summary.totalValue > 0) {
-      setLumpsum(Math.round(summary.totalValue / 1000) * 1000);
-    }
+    const corpus = Math.round(summary.totalValue / 1000) * 1000;
+    setSeededLumpsum(corpus);
+    setLumpsum(corpus);
 
-    // Portfolio XIRR → expected return, clamped to [6, 20]%
     if (Number.isFinite(summary.xirr) && summary.xirr > 0) {
-      const pct = Math.round(summary.xirr * 100);
-      setRate(Math.min(20, Math.max(6, pct)));
+      const pct = Math.min(20, Math.max(6, Math.round(summary.xirr * 100)));
+      setRate(pct);
     }
 
     setSeeded(true);
   }, [portfolioData, portfolioLoading, seeded]);
 
-  // Apply estimated SIP once available (separate effect so it doesn't block corpus seeding)
+  // Seed SIP once estimated (separate effect so corpus seeding isn't blocked)
   useEffect(() => {
     if (!seeded || estimatedSip == null || estimatedSip === 0) return;
+    setSeededSip(estimatedSip);
     setSip(estimatedSip);
   }, [estimatedSip, seeded]);
 
-  // ── Projections ──────────────────────────────────────────────────────────────
-  const basePoints = useMemo(
+  // ── Projections ───────────────────────────────────────────────────────────────
+  //
+  // "Current plan" baseline: locked to seeded SIP + seeded corpus.
+  //   Rate IS shared — it's a market assumption that applies to both scenarios.
+  // "Adjusted plan": whatever the user has set via the controls.
+  //
+  // Both start at year 0 = seededLumpsum (actual current corpus).
+
+  const baselinePoints = useMemo(
+    () => projectWealth(seededSip, seededLumpsum, rate, years),
+    [seededSip, seededLumpsum, rate, years],
+  );
+
+  const adjustedPoints = useMemo(
     () => projectWealth(sip, lumpsum, rate, years),
     [sip, lumpsum, rate, years],
   );
 
-  const boostedPoints = useMemo(
-    () => projectWealth(sip + SIP_BOOST, lumpsum, rate, years),
-    [sip, lumpsum, rate, years],
-  );
+  const milestones = useMemo(() => getMilestones(adjustedPoints), [adjustedPoints]);
 
-  const milestones = useMemo(() => getMilestones(basePoints), [basePoints]);
+  const horizonBaseline = baselinePoints[baselinePoints.length - 1]?.value ?? 0;
+  const horizonAdjusted = adjustedPoints[adjustedPoints.length - 1]?.value ?? 0;
+  const planDelta = horizonAdjusted - horizonBaseline;
 
-  const horizonBase = basePoints[basePoints.length - 1]?.value ?? 0;
-  const horizonBoosted = boostedPoints[boostedPoints.length - 1]?.value ?? 0;
-  const sipBoostGain = horizonBoosted - horizonBase;
+  // Show two lines only when user has a real portfolio (baseline is meaningful)
+  const showTwoLines = hasPortfolio && seeded;
 
-  // Build chart data — two datasets
-  const baseChartData = basePoints.map((p) => ({
-    value: Math.round(p.value / 1000),
-    label: p.year % 5 === 0 || p.year === 1 || p.year === years ? `${p.year}Y` : '',
-  }));
-  const boostedChartData = boostedPoints.map((p) => ({
-    value: Math.round(p.value / 1000),
-  }));
+  // Chart data — prepend year-0 at the actual current corpus so the chart
+  // starts from today's real value, not from zero.
+  const year0Value = Math.round(seededLumpsum / 1000);
 
-  const chartMax = Math.ceil(horizonBoosted / 1000 / 10) * 10 * 1.1;
+  const baselineChartData = [
+    { value: year0Value, label: '0Y' },
+    ...baselinePoints.map((p) => ({
+      value: Math.round(p.value / 1000),
+      label:
+        p.year % 5 === 0 || p.year === 1 || p.year === years ? `${p.year}Y` : '',
+    })),
+  ];
+
+  const adjustedChartData = [
+    { value: Math.round(lumpsum / 1000) },
+    ...adjustedPoints.map((p) => ({
+      value: Math.round(p.value / 1000),
+    })),
+  ];
+
+  const chartMax =
+    Math.ceil(Math.max(horizonBaseline, horizonAdjusted) / 1000 / 10) * 10 * 1.1;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -235,7 +286,7 @@ export default function SimulatorScreen() {
           </Text>
         </View>
 
-        {/* Portfolio context card — only shown when user has data */}
+        {/* Portfolio loading indicator */}
         {portfolioLoading && (
           <View style={[styles.card, styles.loadingCard]}>
             <ActivityIndicator size="small" color={Colors.primary} />
@@ -243,6 +294,7 @@ export default function SimulatorScreen() {
           </View>
         )}
 
+        {/* Portfolio context card */}
         {!portfolioLoading && hasPortfolio && portfolioData?.summary && (
           <View style={styles.contextCard}>
             <View style={styles.contextHeader}>
@@ -276,7 +328,7 @@ export default function SimulatorScreen() {
           </View>
         )}
 
-        {/* Input card */}
+        {/* Controls */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>
             {hasPortfolio ? 'Adjust Your Plan' : 'Your Investment Plan'}
@@ -286,7 +338,7 @@ export default function SimulatorScreen() {
             value={sip}
             step={500}
             min={0}
-            max={100000}
+            max={1000000}
             prefix="₹"
             onChange={setSip}
           />
@@ -295,7 +347,7 @@ export default function SimulatorScreen() {
             value={lumpsum}
             step={hasPortfolio ? 25000 : 10000}
             min={0}
-            max={50000000}
+            max={100000000}
             prefix="₹"
             onChange={setLumpsum}
           />
@@ -319,9 +371,11 @@ export default function SimulatorScreen() {
           />
         </View>
 
-        {/* Milestones */}
+        {/* Milestones — from the adjusted plan */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Projected Wealth</Text>
+          <Text style={styles.sectionTitle}>
+            {showTwoLines ? 'Adjusted Plan Projection' : 'Projected Wealth'}
+          </Text>
           <View style={styles.milestonesGrid}>
             {milestones.map((m) => (
               <View key={m.year} style={styles.milestoneItem}>
@@ -332,7 +386,7 @@ export default function SimulatorScreen() {
           </View>
         </View>
 
-        {/* Chart */}
+        {/* Growth chart */}
         <View style={[styles.card, { paddingHorizontal: 0 }]}>
           <Text style={[styles.sectionTitle, { paddingHorizontal: Spacing.md }]}>
             Growth Chart
@@ -342,8 +396,8 @@ export default function SimulatorScreen() {
           </Text>
           <View style={{ overflow: 'hidden', marginTop: Spacing.xs }}>
             <LineChart
-              data={baseChartData}
-              data2={boostedChartData}
+              data={baselineChartData}
+              data2={showTwoLines ? adjustedChartData : undefined}
               width={CHART_WIDTH - 32}
               height={180}
               color1={Colors.primary}
@@ -362,7 +416,7 @@ export default function SimulatorScreen() {
                   ? `${(Number(v) / 1000).toFixed(0)}L`
                   : `${Number(v)}k`
               }
-              hideDataPoints={basePoints.length > 20}
+              hideDataPoints={baselinePoints.length > 20}
               scrollToEnd
             />
           </View>
@@ -370,27 +424,65 @@ export default function SimulatorScreen() {
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-              <Text style={styles.legendLabel}>Your plan</Text>
+              <Text style={styles.legendLabel}>
+                {showTwoLines ? 'Current plan' : 'Projected'}
+              </Text>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.positive }]} />
-              <Text style={styles.legendLabel}>+₹5k SIP boost</Text>
-            </View>
+            {showTwoLines && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: Colors.positive }]} />
+                <Text style={styles.legendLabel}>Adjusted plan</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* SIP boost insight */}
-        {sipBoostGain > 0 && (
+        {/* Insight: difference between adjusted and baseline */}
+        {showTwoLines && Math.abs(planDelta) > 0 && (
+          <View
+            style={[
+              styles.insightCard,
+              planDelta < 0 && { backgroundColor: 'rgba(192,57,43,0.08)' },
+            ]}
+          >
+            <Ionicons
+              name={planDelta >= 0 ? 'trending-up-outline' : 'trending-down-outline'}
+              size={20}
+              color={planDelta >= 0 ? Colors.primary : Colors.negative}
+            />
+            <Text style={styles.insightText}>
+              {planDelta >= 0 ? (
+                <>
+                  Your adjusted plan grows your wealth by an extra{' '}
+                  <Text style={styles.insightHighlight}>
+                    {formatCurrency(planDelta)}
+                  </Text>{' '}
+                  over {years} years compared to continuing as-is.
+                </>
+              ) : (
+                <>
+                  Your adjusted plan results in{' '}
+                  <Text style={[styles.insightHighlight, { color: Colors.negative }]}>
+                    {formatCurrency(Math.abs(planDelta))}
+                  </Text>{' '}
+                  less over {years} years compared to continuing as-is.
+                </>
+              )}
+            </Text>
+          </View>
+        )}
+
+        {/* Generic insight for no-portfolio users */}
+        {!showTwoLines && horizonAdjusted > 0 && (
           <View style={styles.insightCard}>
             <Ionicons name="bulb-outline" size={20} color={Colors.primary} />
             <Text style={styles.insightText}>
-              Increasing your SIP by{' '}
-              <Text style={styles.insightHighlight}>₹5,000/month</Text> would
-              earn you an extra{' '}
+              At {rate}% p.a. your ₹{sip.toLocaleString('en-IN')}/month SIP
+              could grow to{' '}
               <Text style={styles.insightHighlight}>
-                {formatCurrency(sipBoostGain)}
+                {formatCurrency(horizonAdjusted)}
               </Text>{' '}
-              over {years} years.
+              in {years} years.
             </Text>
           </View>
         )}
