@@ -58,16 +58,6 @@ function getUnitsAt(
   return Math.max(0, result);
 }
 
-/** Sample an array to at most maxPoints, always including the last point */
-function sample<T>(arr: T[], maxPoints: number): T[] {
-  if (arr.length <= maxPoints) return arr;
-  const step = Math.ceil(arr.length / maxPoints);
-  const result: T[] = [];
-  for (let i = 0; i < arr.length; i++) {
-    if (i % step === 0 || i === arr.length - 1) result.push(arr[i]);
-  }
-  return result;
-}
 
 export function computePortfolioTimeline(
   navRows: RawNavRow[],
@@ -152,9 +142,19 @@ export function computePortfolioTimeline(
   const portfolioIndexed = indexTo100(portfolioTrimmed);
   const benchmarkIndexed = indexTo100(benchmarkTrimmed);
 
-  // Sample each series independently to ≤60 chart points
-  const portfolioSampled = sample(portfolioIndexed, 60);
-  const benchmarkSampled = sample(benchmarkIndexed, 60);
+  // Sample both series using the SAME indices so they have equal length.
+  // Independent sampling can produce series of different lengths, which causes
+  // one line to end visually earlier than the other in the chart.
+  const maxPoints = 24;
+  const n = Math.min(portfolioIndexed.length, benchmarkIndexed.length);
+  const step = n <= maxPoints ? 1 : Math.ceil(n / maxPoints);
+  const sampleIdxs: number[] = [];
+  for (let i = 0; i < n; i += step) sampleIdxs.push(i);
+  if (sampleIdxs.length === 0 || sampleIdxs[sampleIdxs.length - 1] !== n - 1) {
+    sampleIdxs.push(n - 1);
+  }
+  const portfolioSampled = sampleIdxs.map((i) => portfolioIndexed[i]);
+  const benchmarkSampled = sampleIdxs.map((i) => benchmarkIndexed[i]);
 
   const xAxisLabels = buildXAxisLabels(portfolioSampled.map((p) => p.date));
 

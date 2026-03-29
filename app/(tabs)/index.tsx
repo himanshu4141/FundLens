@@ -382,12 +382,16 @@ function PortfolioChartSection({
             yAxisTextStyle={styles.chartAxisText}
             xAxisLabelTexts={xAxisLabels}
             xAxisLabelTextStyle={styles.chartAxisText}
+            xAxisLabelsHeight={16}
+            labelsExtraHeight={40}
             hideRules
             xAxisColor={Colors.borderLight}
             yAxisColor="transparent"
             formatYLabel={(v) => `${Math.round(Number(v))}`}
             noOfSections={4}
-            spacing={Math.max(4, (CHART_WIDTH - 72) / Math.max(chartData.length - 1, 1))}
+            initialSpacing={0}
+            endSpacing={16}
+            spacing={Math.max(8, (CHART_WIDTH - 56) / Math.max(chartData.length - 1, 1))}
           />
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
