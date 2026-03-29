@@ -14,11 +14,18 @@ export default function TabLayout() {
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
+          height: 68,
+          paddingTop: 6,
+          paddingBottom: 8,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          marginBottom: 2,
+          marginBottom: 0,
+          paddingBottom: 2,
         },
       }}
     >
