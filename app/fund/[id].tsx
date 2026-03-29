@@ -21,9 +21,11 @@ import {
 } from '@/src/hooks/useFundDetail';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
+import { buildQuarterlyReturns, computePortfolioImpact } from '@/src/utils/fundInsights';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS } from '@/src/store/appStore';
+import { usePortfolio } from '@/src/hooks/usePortfolio';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
@@ -83,9 +85,13 @@ function TimeWindowSelector({
 function PerformanceTab({
   navHistory,
   defaultBenchmarkSymbol,
+  currentValue,
+  holdingValues,
 }: {
   navHistory: { date: string; value: number }[];
   defaultBenchmarkSymbol: string | null;
+  currentValue: number | null;
+  holdingValues: number[];
 }) {
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
@@ -154,6 +160,7 @@ function PerformanceTab({
     }
     if (lo === 0) return series[0].value;
     if (lo >= series.length) return series[series.length - 1].value;
+    if (series[lo].date === targetDate) return series[lo].value;
     return series[lo - 1].value;
   }
 
@@ -202,6 +209,8 @@ function PerformanceTab({
   const summaryNavReturn = ((summaryNavVal - 100) / 100) * 100;
   const summaryBenchReturn = summaryBenchVal !== null ? ((summaryBenchVal - 100) / 100) * 100 : null;
   const summaryDate = sampledNav[summaryIdx]?.date;
+  const quarterlyReturns = buildQuarterlyReturns(navHistory);
+  const impact = computePortfolioImpact({ currentValue, holdingValues });
 
   return (
     <View style={styles.tabContent}>
@@ -259,126 +268,164 @@ function PerformanceTab({
       </ScrollView>
 
       {hasNavData ? (
-        <View style={styles.chartCard}>
-          <View style={styles.chartLegendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-              <Text style={styles.legendLabel}>Fund NAV</Text>
-            </View>
-            {hasBenchmarkData && (
+        <>
+          <View style={styles.chartCard}>
+            <View style={styles.chartLegendRow}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-                <Text style={styles.legendLabel}>{selectedLabel}</Text>
+                <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+                <Text style={styles.legendLabel}>Fund NAV</Text>
               </View>
-            )}
-          </View>
-
-          <View style={{ overflow: 'hidden' }}>
-            <LineChart
-              data={navPoints}
-              data2={hasBenchmarkData ? benchmarkPoints : undefined}
-              width={CHART_WIDTH - 32}
-              height={180}
-              spacing={perfSpacing}
-              initialSpacing={0}
-              endSpacing={0}
-              hideDataPoints
-              color1={Colors.primary}
-              color2="#f59e0b"
-              thickness1={2.5}
-              thickness2={2}
-              startFillColor1={Colors.primary}
-              endFillColor1="#fff"
-              startOpacity1={0.15}
-              endOpacity1={0}
-              areaChart
-              curved
-              yAxisLabelWidth={32}
-              formatYLabel={(v: string) => Number(v).toFixed(0)}
-              yAxisTextStyle={styles.chartAxisLabel}
-              maxValue={chartMaxValue}
-              mostNegativeValue={chartMostNegative}
-              xAxisColor={Colors.borderLight}
-              yAxisColor="transparent"
-              rulesColor={Colors.borderLight}
-              rulesType="solid"
-              noOfSections={4}
-              xAxisLabelTexts={xLabels}
-              xAxisLabelTextStyle={styles.chartAxisLabel}
-              pointerConfig={{
-                showPointerStrip: true,
-                pointerStripHeight: 180,
-                pointerStripWidth: 1,
-                pointerStripColor: Colors.textTertiary + '88',
-                pointerColor: Colors.primary,
-                radius: 5,
-                pointerLabelWidth: 140,
-                pointerLabelHeight: hasBenchmarkData ? 52 : 36,
-                activatePointersOnLongPress: false,
-                autoAdjustPointerLabelPosition: true,
-                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                  // Schedule summary update outside of render to avoid setState-in-render.
-                  requestAnimationFrame(() => setActiveIdx(pointerIndex));
-                  const navVal = sampledNav[pointerIndex]?.value;
-                  const benchVal = hasBenchmarkData ? benchmarkPoints[pointerIndex]?.value : undefined;
-                  const date = sampledNav[pointerIndex]?.date;
-                  return (
-                    <View style={styles.pointerLabel}>
-                      {date !== undefined && (
-                        <Text style={styles.pointerDate}>{formatChartDate(date, window)}</Text>
-                      )}
-                      {navVal !== undefined && (
-                        <Text style={styles.pointerSeriesText}>
-                          <Text style={{ color: Colors.primary }}>● </Text>
-                          Fund: {navVal.toFixed(1)}
-                        </Text>
-                      )}
-                      {benchVal !== undefined && (
-                        <Text style={styles.pointerSeriesText}>
-                          <Text style={{ color: '#f59e0b' }}>● </Text>
-                          {selectedLabel}: {benchVal.toFixed(1)}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                },
-              }}
-            />
-          </View>
-
-          {/* Explainer */}
-          <Text style={styles.chartExplainer}>
-            Both series rebased to 100 at start of period · higher = outperforming
-          </Text>
-
-          {!hasBenchmarkData && (
-            <Text style={styles.noBenchmarkNote}>
-              {selectedLabel} data not available for the {window} window
-            </Text>
-          )}
-
-          <View style={styles.returnSummary}>
-            {activeIdx !== null && summaryDate && (
-              <Text style={styles.summaryDateLabel}>
-                as of {formatChartDate(summaryDate, window)}
-              </Text>
-            )}
-            <View style={styles.returnRow}>
-              <Text style={styles.returnLabel}>Fund</Text>
-              <Text style={[styles.returnVal, { color: summaryNavReturn >= 0 ? Colors.positive : Colors.negative }]}>
-                {summaryNavReturn >= 0 ? '+' : ''}{summaryNavReturn.toFixed(2)}%
-              </Text>
+              {hasBenchmarkData && (
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+                  <Text style={styles.legendLabel}>{selectedLabel}</Text>
+                </View>
+              )}
             </View>
-            {hasBenchmarkData && summaryBenchReturn !== null && (
+
+            <View style={{ overflow: 'hidden' }}>
+              <LineChart
+                data={navPoints}
+                data2={hasBenchmarkData ? benchmarkPoints : undefined}
+                width={CHART_WIDTH - 32}
+                height={180}
+                spacing={perfSpacing}
+                initialSpacing={0}
+                endSpacing={0}
+                hideDataPoints
+                color1={Colors.primary}
+                color2="#f59e0b"
+                thickness1={2.5}
+                thickness2={2}
+                startFillColor1={Colors.primary}
+                endFillColor1="#fff"
+                startOpacity1={0.15}
+                endOpacity1={0}
+                areaChart
+                curved
+                yAxisLabelWidth={32}
+                formatYLabel={(v: string) => Number(v).toFixed(0)}
+                yAxisTextStyle={styles.chartAxisLabel}
+                maxValue={chartMaxValue}
+                mostNegativeValue={chartMostNegative}
+                xAxisColor={Colors.borderLight}
+                yAxisColor="transparent"
+                rulesColor={Colors.borderLight}
+                rulesType="solid"
+                noOfSections={4}
+                xAxisLabelTexts={xLabels}
+                xAxisLabelTextStyle={styles.chartAxisLabel}
+                pointerConfig={{
+                  showPointerStrip: true,
+                  pointerStripHeight: 180,
+                  pointerStripWidth: 1,
+                  pointerStripColor: Colors.textTertiary + '88',
+                  pointerColor: Colors.primary,
+                  radius: 5,
+                  pointerLabelWidth: 140,
+                  pointerLabelHeight: hasBenchmarkData ? 52 : 36,
+                  activatePointersOnLongPress: false,
+                  autoAdjustPointerLabelPosition: true,
+                  pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                    requestAnimationFrame(() => setActiveIdx(pointerIndex));
+                    const navVal = sampledNav[pointerIndex]?.value;
+                    const benchVal = hasBenchmarkData ? benchmarkPoints[pointerIndex]?.value : undefined;
+                    const date = sampledNav[pointerIndex]?.date;
+                    return (
+                      <View style={styles.pointerLabel}>
+                        {date !== undefined && (
+                          <Text style={styles.pointerDate}>{formatChartDate(date, window)}</Text>
+                        )}
+                        {navVal !== undefined && (
+                          <Text style={styles.pointerSeriesText}>
+                            <Text style={{ color: Colors.primary }}>● </Text>
+                            Fund: {navVal.toFixed(1)}
+                          </Text>
+                        )}
+                        {benchVal !== undefined && (
+                          <Text style={styles.pointerSeriesText}>
+                            <Text style={{ color: '#f59e0b' }}>● </Text>
+                            {selectedLabel}: {benchVal.toFixed(1)}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  },
+                }}
+              />
+            </View>
+
+            <Text style={styles.chartExplainer}>
+              Both series rebased to 100 at start of period · higher = outperforming
+            </Text>
+
+            {!hasBenchmarkData && (
+              <Text style={styles.noBenchmarkNote}>
+                {selectedLabel} data not available for the {window} window
+              </Text>
+            )}
+
+            <View style={styles.returnSummary}>
+              {activeIdx !== null && summaryDate && (
+                <Text style={styles.summaryDateLabel}>
+                  as of {formatChartDate(summaryDate, window)}
+                </Text>
+              )}
               <View style={styles.returnRow}>
-                <Text style={styles.returnLabel}>{selectedLabel}</Text>
-                <Text style={[styles.returnVal, { color: summaryBenchReturn >= 0 ? Colors.positive : Colors.negative }]}>
-                  {summaryBenchReturn >= 0 ? '+' : ''}{summaryBenchReturn.toFixed(2)}%
+                <Text style={styles.returnLabel}>Fund</Text>
+                <Text style={[styles.returnVal, { color: summaryNavReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                  {summaryNavReturn >= 0 ? '+' : ''}{summaryNavReturn.toFixed(2)}%
                 </Text>
               </View>
-            )}
+              {hasBenchmarkData && summaryBenchReturn !== null && (
+                <View style={styles.returnRow}>
+                  <Text style={styles.returnLabel}>{selectedLabel}</Text>
+                  <Text style={[styles.returnVal, { color: summaryBenchReturn >= 0 ? Colors.positive : Colors.negative }]}>
+                    {summaryBenchReturn >= 0 ? '+' : ''}{summaryBenchReturn.toFixed(2)}%
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
+
+          {quarterlyReturns.length > 0 && (
+            <View style={styles.insightCard}>
+              <Text style={styles.insightTitle}>Growth Consistency</Text>
+              <Text style={styles.insightSub}>Trailing quarter-on-quarter NAV moves</Text>
+              <View style={styles.quarterGrid}>
+                {quarterlyReturns.map((quarter) => (
+                  <View key={quarter.label} style={styles.quarterCard}>
+                    <Text style={styles.quarterLabel}>{quarter.label}</Text>
+                    <Text
+                      style={[
+                        styles.quarterValue,
+                        { color: quarter.returnPct >= 0 ? Colors.positive : Colors.negative },
+                      ]}
+                    >
+                      {quarter.returnPct >= 0 ? '+' : ''}{quarter.returnPct.toFixed(1)}%
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {impact && (
+            <View style={styles.insightCard}>
+              <Text style={styles.insightTitle}>Portfolio Impact</Text>
+              <Text style={styles.insightSub}>
+                This holding is {impact.sharePct.toFixed(1)}% of your portfolio and ranks #{impact.rank} of {impact.holdingCount}.
+              </Text>
+              <View style={styles.impactTrack}>
+                <View style={[styles.impactFill, { width: `${Math.min(impact.sharePct, 100)}%` }]} />
+              </View>
+              <View style={styles.impactStats}>
+                <Text style={styles.impactStatLabel}>Current value</Text>
+                <Text style={styles.impactStatValue}>{formatCurrency(currentValue ?? 0)}</Text>
+              </View>
+            </View>
+          )}
+        </>
       ) : (
         <View style={styles.noData}>
           <Ionicons name="bar-chart-outline" size={32} color={Colors.textTertiary} />
@@ -527,6 +574,11 @@ export default function FundDetailScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'performance' | 'nav'>('performance');
   const { data, isLoading, isError } = useFundDetail(id);
+  const portfolioData = usePortfolio('^NSEI');
+  const holdingValues =
+    portfolioData.data?.fundCards
+      .map((fund) => fund.currentValue)
+      .filter((value): value is number => value != null) ?? [];
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -638,6 +690,8 @@ export default function FundDetailScreen() {
             <PerformanceTab
               navHistory={data.navHistory}
               defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
+              currentValue={data.currentValue}
+              holdingValues={holdingValues}
             />
           ) : (
             <NavHistoryTab navHistory={data.navHistory} />
@@ -816,6 +870,67 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     textAlign: 'center',
     marginTop: 2,
+  },
+  insightCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
+    padding: Spacing.md,
+    gap: 10,
+  },
+  insightTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  insightSub: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+  },
+  quarterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quarterCard: {
+    backgroundColor: Colors.background,
+    borderRadius: Radii.sm,
+    minWidth: '30%',
+    padding: 10,
+  },
+  quarterLabel: {
+    color: Colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  quarterValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  impactTrack: {
+    backgroundColor: Colors.borderLight,
+    borderRadius: Radii.full,
+    height: 12,
+    overflow: 'hidden',
+  },
+  impactFill: {
+    backgroundColor: Colors.primary,
+    height: '100%',
+  },
+  impactStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  impactStatLabel: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  impactStatValue: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
 
   benchmarkSelectorContent: {
