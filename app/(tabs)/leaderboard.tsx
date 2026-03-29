@@ -1,12 +1,15 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { AppScreenHeader } from '@/src/components/AppScreenHeader';
 import { useLeaderboard } from '@/src/hooks/useLeaderboard';
 import { useThemeVariant } from '@/src/hooks/useThemeVariant';
 import { useSession } from '@/src/hooks/useSession';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
 import { formatCurrency } from '@/src/utils/formatting';
+import { navStaleness } from '@/src/utils/navUtils';
+import { supabase } from '@/src/lib/supabase';
 
 export default function LeaderboardScreen() {
   const theme = useThemeVariant();
@@ -19,6 +22,24 @@ export default function LeaderboardScreen() {
   const hasBenchmarkFallback = rows.some((row) => !row.benchmarkAvailable);
   const benchmarkLabel =
     BENCHMARK_OPTIONS.find((option) => option.symbol === defaultBenchmarkSymbol)?.label ?? defaultBenchmarkSymbol;
+  const { data: latestIndexDate } = useQuery({
+    queryKey: ['latest-index-date', defaultBenchmarkSymbol],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('index_history')
+        .select('index_date')
+        .eq('index_symbol', defaultBenchmarkSymbol)
+        .order('index_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return (data?.index_date as string | null) ?? null;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+  const benchmarkFreshness = navStaleness(latestIndexDate ?? null);
+  const benchmarkIsStale = !latestIndexDate || benchmarkFreshness.stale;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -61,8 +82,10 @@ export default function LeaderboardScreen() {
         <View style={[styles.alphaCard, { backgroundColor: theme.colors.primary }]}>
           <Text style={styles.alphaTitle}>Portfolio Insight</Text>
           <Text style={styles.alphaBody}>
-            {hasBenchmarkFallback
+            {benchmarkIsStale
               ? `Benchmark history for ${benchmarkLabel} is stale in this environment, so affected funds are ranked by absolute 1Y return until market data catches up.`
+              : hasBenchmarkFallback
+              ? `Some funds do not yet have enough overlapping 1Y history with ${benchmarkLabel}, so those rows fall back to absolute 1Y return while the rest still use benchmark delta.`
               : `Ranked by 1Y fund return minus ${benchmarkLabel}. Positive delta means a fund is outperforming the chosen benchmark over the same window.`}
           </Text>
         </View>
