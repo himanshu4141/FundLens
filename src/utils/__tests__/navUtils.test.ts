@@ -41,7 +41,7 @@ describe('navStaleness()', () => {
     expect(r.veryStale).toBe(false);
   });
 
-  test('latestNavDate 2 days ago → stale but not veryStale', () => {
+  test('latestNavDate 2 calendar days ago on a weekday boundary → stale but not veryStale', () => {
     const r = navStaleness('2026-03-24');
     expect(r.stale).toBe(true);
     expect(r.veryStale).toBe(false);
@@ -56,6 +56,14 @@ describe('navStaleness()', () => {
     expect(r.veryStale).toBe(true);
     expect(r.label).toContain('as of');
     expect(r.label).toContain('22');
+  });
+
+  test('friday NAV on sunday is not stale because no market sessions were missed', () => {
+    jest.setSystemTime(new Date('2026-03-29T10:00:00.000Z'));
+    const r = navStaleness('2026-03-27');
+    expect(r.stale).toBe(false);
+    expect(r.veryStale).toBe(false);
+    expect(r.label).toContain('27 Mar');
   });
 
   test('label uses correct month abbreviation', () => {

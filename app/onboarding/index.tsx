@@ -48,7 +48,15 @@ async function requestCAS(email: string): Promise<void> {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function CopyBox({ label, value }: { label: string; value: string }) {
+function CopyBox({
+  label,
+  value,
+  colors,
+}: {
+  label: string;
+  value: string;
+  colors: typeof Colors;
+}) {
   const [copied, setCopied] = useState(false);
   async function handleCopy() {
     await Clipboard.setStringAsync(value);
@@ -56,14 +64,14 @@ function CopyBox({ label, value }: { label: string; value: string }) {
     setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <View style={styles.copyBox}>
-      <Text style={styles.copyLabel}>{label}</Text>
+    <View style={[styles.copyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Text style={[styles.copyLabel, { color: colors.textTertiary }]}>{label}</Text>
       <View style={styles.copyRow}>
-        <Text style={[styles.copyValue, styles.mono]} numberOfLines={2} selectable>
+        <Text style={[styles.copyValue, styles.mono, { color: colors.textSecondary }]} numberOfLines={2} selectable>
           {value}
         </Text>
-        <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
-          <Text style={styles.copyBtnText}>{copied ? 'Copied!' : 'Copy'}</Text>
+        <TouchableOpacity style={[styles.copyBtn, { backgroundColor: colors.primaryLight }]} onPress={handleCopy}>
+          <Text style={[styles.copyBtnText, { color: colors.primaryDark }]}>{copied ? 'Copied!' : 'Copy'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -181,7 +189,7 @@ function SetupComplete({
         )}
       </View>
 
-      <CopyBox label="Your import address" value={inboundEmail} />
+      <CopyBox label="Your import address" value={inboundEmail} colors={colors} />
 
       {/* Auto-forward tip */}
       <TouchableOpacity
@@ -346,42 +354,53 @@ export default function OnboardingScreen() {
       />
 
       {/* ── Step 1 — PAN ──────────────────────────────────────── */}
-      <View style={styles.step}>
+      <View style={[styles.step, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepNum, panDone && styles.stepNumDone]}>
             <Text style={styles.stepNumText}>{panDone ? '✓' : '1'}</Text>
           </View>
           <View style={styles.stepTitleWrap}>
-            <Text style={styles.stepLabel}>Step 1</Text>
-            <Text style={styles.stepTitle}>Save your PAN</Text>
+            <Text style={[styles.stepLabel, { color: theme.colors.primary }]}>Step 1</Text>
+            <Text style={[styles.stepTitle, { color: theme.colors.textPrimary }]}>Save your PAN</Text>
           </View>
         </View>
         <View style={styles.stepBody}>
-          <Text style={styles.stepDesc}>
+          <Text style={[styles.stepDesc, { color: theme.colors.textSecondary }]}>
             Used to decrypt your CAS PDF. Stored securely, never shared, never asked again.
           </Text>
           {panDone ? (
             <View style={styles.savedRow}>
-              <Text style={styles.savedText}>PAN saved: {profile?.pan ?? pan}</Text>
+              <Text style={[styles.savedText, { color: theme.colors.primary }]}>PAN saved: {profile?.pan ?? pan}</Text>
               <TouchableOpacity onPress={() => setPanState('idle')}>
-                <Text style={styles.changeLink}>Change</Text>
+                <Text style={[styles.changeLink, { color: theme.colors.primary }]}>Change</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
               <TextInput
-                style={styles.panInput}
+                style={[
+                  styles.panInput,
+                  {
+                    borderColor: theme.colors.border,
+                    color: theme.colors.textPrimary,
+                    backgroundColor: theme.colors.surfaceAlt,
+                  },
+                ]}
                 placeholder="ABCDE1234F"
-                placeholderTextColor="#999"
+                placeholderTextColor={theme.colors.textTertiary}
                 value={pan}
                 onChangeText={(t) => { setPan(t.toUpperCase()); setPanError(null); }}
                 autoCapitalize="characters"
                 maxLength={10}
                 editable={panState !== 'saving'}
               />
-              {panError && <Text style={styles.errorText}>{panError}</Text>}
+              {panError && <Text style={[styles.errorText, { color: theme.colors.negative }]}>{panError}</Text>}
               <TouchableOpacity
-                style={[styles.primaryBtn, panState === 'saving' && styles.btnDisabled]}
+                style={[
+                  styles.primaryBtn,
+                  { backgroundColor: theme.colors.primary },
+                  panState === 'saving' && styles.btnDisabled,
+                ]}
                 onPress={handleSavePAN}
                 disabled={panState === 'saving'}
               >
@@ -393,30 +412,40 @@ export default function OnboardingScreen() {
       </View>
 
       {/* ── Step 2 — Inbound address ───────────────────────────── */}
-      <View style={[styles.step, !step2Enabled && styles.stepDisabled]}>
+      <View style={[
+        styles.step,
+        {
+          borderColor: !step2Enabled ? theme.colors.borderLight : theme.colors.border,
+          backgroundColor: !step2Enabled ? theme.colors.surfaceAlt : theme.colors.surface,
+        },
+      ]}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepNum, !step2Enabled && styles.stepNumGray, !!inboundEmail && styles.stepNumDone]}>
             <Text style={styles.stepNumText}>{inboundEmail ? '✓' : '2'}</Text>
           </View>
           <View style={styles.stepTitleWrap}>
-            <Text style={[styles.stepLabel, !step2Enabled && styles.stepTitleGray]}>Step 2</Text>
-            <Text style={[styles.stepTitle, !step2Enabled && styles.stepTitleGray]}>
+            <Text style={[styles.stepLabel, { color: step2Enabled ? theme.colors.primary : theme.colors.textTertiary }]}>Step 2</Text>
+            <Text style={[styles.stepTitle, { color: step2Enabled ? theme.colors.textPrimary : theme.colors.textTertiary }]}>
               Get your import address
             </Text>
           </View>
         </View>
         <View style={styles.stepBody}>
-          <Text style={[styles.stepDesc, !step2Enabled && styles.stepDescGray]}>
+          <Text style={[styles.stepDesc, { color: step2Enabled ? theme.colors.textSecondary : theme.colors.textTertiary }]}>
             A permanent address unique to you. Forward any CAS email to it and transactions
             import automatically. You only generate this once.
           </Text>
           {sessionLoading ? (
             <ActivityIndicator style={{ marginTop: 8 }} />
           ) : inboundEmail ? (
-            <CopyBox label="Your import address" value={inboundEmail} />
+            <CopyBox label="Your import address" value={inboundEmail} colors={theme.colors} />
           ) : (
             <TouchableOpacity
-              style={[styles.primaryBtn, (!step2Enabled || createSession.isPending) && styles.btnDisabled]}
+              style={[
+                styles.primaryBtn,
+                { backgroundColor: theme.colors.primary },
+                (!step2Enabled || createSession.isPending) && styles.btnDisabled,
+              ]}
               onPress={handleGenerateAddress}
               disabled={!step2Enabled || createSession.isPending}
             >
@@ -429,23 +458,29 @@ export default function OnboardingScreen() {
       </View>
 
       {/* ── Step 3 — Request CAS ───────────────────────────────── */}
-      <View style={[styles.step, !step3Enabled && styles.stepDisabled]}>
+      <View style={[
+        styles.step,
+        {
+          borderColor: !step3Enabled ? theme.colors.borderLight : theme.colors.border,
+          backgroundColor: !step3Enabled ? theme.colors.surfaceAlt : theme.colors.surface,
+        },
+      ]}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray, casState === 'requested' && styles.stepNumDone]}>
             <Text style={styles.stepNumText}>{casState === 'requested' ? '✓' : '3'}</Text>
           </View>
           <View style={styles.stepTitleWrap}>
-            <Text style={[styles.stepLabel, !step3Enabled && styles.stepTitleGray]}>Step 3</Text>
-            <Text style={[styles.stepTitle, !step3Enabled && styles.stepTitleGray]}>
+            <Text style={[styles.stepLabel, { color: step3Enabled ? theme.colors.primary : theme.colors.textTertiary }]}>Step 3</Text>
+            <Text style={[styles.stepTitle, { color: step3Enabled ? theme.colors.textPrimary : theme.colors.textTertiary }]}>
               Request your CAS
             </Text>
           </View>
         </View>
         <View style={styles.stepBody}>
           {casState === 'requested' ? (
-            <View style={styles.hintCard}>
-              <Text style={styles.hintTitle}>CAS requested!</Text>
-              <Text style={styles.hintItem}>
+            <View style={[styles.hintCard, { backgroundColor: theme.colors.primaryLight, borderColor: theme.colors.primaryLight }]}>
+              <Text style={[styles.hintTitle, { color: theme.colors.primaryDark }]}>CAS requested!</Text>
+              <Text style={[styles.hintItem, { color: theme.colors.primaryDark }]}>
                 KFintech will email your CAS to <Text style={styles.bold}>{casEmail}</Text> within
                 1–2 minutes. Forward that email to your import address above.{'\n\n'}
                 <Text style={styles.bold}>Tip:</Text> Set up an auto-forward filter so future
@@ -453,19 +488,27 @@ export default function OnboardingScreen() {
                 after setup.
               </Text>
               <TouchableOpacity onPress={() => setCasState('idle')}>
-                <Text style={[styles.changeLink, { marginTop: 6 }]}>Request again</Text>
+                <Text style={[styles.changeLink, { marginTop: 6, color: theme.colors.primary }]}>Request again</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
-              <Text style={[styles.stepDesc, !step3Enabled && styles.stepDescGray]}>
+              <Text style={[styles.stepDesc, { color: step3Enabled ? theme.colors.textSecondary : theme.colors.textTertiary }]}>
                 Enter the email registered with KFintech. We&apos;ll request your CAS — it
                 arrives in 1–2 minutes. This email is saved so future refreshes need no input.
               </Text>
               <TextInput
-                style={[styles.emailInput, !step3Enabled && styles.inputDisabled]}
+                style={[
+                  styles.emailInput,
+                  {
+                    borderColor: theme.colors.border,
+                    color: theme.colors.textPrimary,
+                    backgroundColor: theme.colors.surfaceAlt,
+                  },
+                  !step3Enabled && styles.inputDisabled,
+                ]}
                 placeholder="your@email.com"
-                placeholderTextColor="#999"
+                placeholderTextColor={theme.colors.textTertiary}
                 value={casEmail}
                 onChangeText={setCasEmail}
                 keyboardType="email-address"
@@ -473,7 +516,11 @@ export default function OnboardingScreen() {
                 editable={step3Enabled && casState !== 'requesting'}
               />
               <TouchableOpacity
-                style={[styles.primaryBtn, (!step3Enabled || casState === 'requesting') && styles.btnDisabled]}
+                style={[
+                  styles.primaryBtn,
+                  { backgroundColor: theme.colors.primary },
+                  (!step3Enabled || casState === 'requesting') && styles.btnDisabled,
+                ]}
                 onPress={async () => {
                   if (!casEmail.trim()) return;
                   setCasState('requesting');
@@ -497,10 +544,13 @@ export default function OnboardingScreen() {
       </View>
 
       {/* ── Alternative: PDF upload ────────────────────────────── */}
-      <Text style={styles.altTitle}>Prefer manual upload?</Text>
-      <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
-        <Text style={styles.altCardTitle}>Upload a CAS PDF</Text>
-        <Text style={styles.altCardSub}>Use this if you already downloaded the statement.</Text>
+      <Text style={[styles.altTitle, { color: theme.colors.textTertiary }]}>Prefer manual upload?</Text>
+      <TouchableOpacity
+        style={[styles.altCard, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
+        onPress={() => router.push('/onboarding/pdf')}
+      >
+        <Text style={[styles.altCardTitle, { color: theme.colors.textPrimary }]}>Upload a CAS PDF</Text>
+        <Text style={[styles.altCardSub, { color: theme.colors.textSecondary }]}>Use this if you already downloaded the statement.</Text>
       </TouchableOpacity>
     </ScrollView>
   );

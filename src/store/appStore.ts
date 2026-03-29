@@ -40,17 +40,7 @@ function isReactNativeRuntime() {
   return typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
 }
 
-async function readPersistedState(): Promise<PersistedAppState | null> {
-  let raw: string | null = null;
-
-  if (isWebRuntime()) {
-    raw = window.localStorage.getItem(STORAGE_KEY);
-  } else if (isReactNativeRuntime()) {
-    raw = await AsyncStorage.getItem(STORAGE_KEY);
-  } else {
-    raw = memoryStore.get(STORAGE_KEY) ?? null;
-  }
-
+function parsePersistedState(raw: string | null): PersistedAppState | null {
   if (!raw) return null;
 
   try {
@@ -62,6 +52,28 @@ async function readPersistedState(): Promise<PersistedAppState | null> {
   } catch {
     return null;
   }
+}
+
+function getInitialPersistedState(): PersistedAppState {
+  if (isWebRuntime()) {
+    return parsePersistedState(window.localStorage.getItem(STORAGE_KEY)) ?? DEFAULT_STATE;
+  }
+
+  return DEFAULT_STATE;
+}
+
+async function readPersistedState(): Promise<PersistedAppState | null> {
+  let raw: string | null = null;
+
+  if (isWebRuntime()) {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } else if (isReactNativeRuntime()) {
+    raw = await AsyncStorage.getItem(STORAGE_KEY);
+  } else {
+    raw = memoryStore.get(STORAGE_KEY) ?? null;
+  }
+
+  return parsePersistedState(raw);
 }
 
 async function persistState(state: PersistedAppState) {
@@ -81,7 +93,7 @@ async function persistState(state: PersistedAppState) {
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
-  ...DEFAULT_STATE,
+  ...getInitialPersistedState(),
   setDefaultBenchmarkSymbol: (symbol) => {
     set({ defaultBenchmarkSymbol: symbol });
     void persistState({

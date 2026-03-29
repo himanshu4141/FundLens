@@ -20,6 +20,7 @@ import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useThemeVariant } from '@/src/hooks/useThemeVariant';
+import { navStaleness } from '@/src/utils/navUtils';
 
 async function fetchProfile(userId: string) {
   const { data } = await supabase
@@ -30,7 +31,17 @@ async function fetchProfile(userId: string) {
   return data ?? null;
 }
 
-function CopyRow({ label, value, sublabel }: { label: string; value: string; sublabel?: string }) {
+function CopyRow({
+  label,
+  value,
+  sublabel,
+  theme,
+}: {
+  label: string;
+  value: string;
+  sublabel?: string;
+  theme: ReturnType<typeof useThemeVariant>;
+}) {
   const [copied, setCopied] = useState(false);
   async function handleCopy() {
     await Clipboard.setStringAsync(value);
@@ -40,15 +51,26 @@ function CopyRow({ label, value, sublabel }: { label: string; value: string; sub
   return (
     <View style={styles.row}>
       <View style={styles.rowLeft}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue} numberOfLines={1} selectable>
+        <Text style={[styles.rowLabel, { color: theme.colors.textTertiary }]}>{label}</Text>
+        <Text style={[styles.rowValue, { color: theme.colors.textPrimary }]} numberOfLines={1} selectable>
           {value}
         </Text>
-        {sublabel && <Text style={styles.rowSubLabel}>{sublabel}</Text>}
+        {sublabel && <Text style={[styles.rowSubLabel, { color: theme.colors.textTertiary }]}>{sublabel}</Text>}
       </View>
-      <TouchableOpacity onPress={handleCopy} style={[styles.actionBtn, copied && styles.actionBtnDone]}>
-        <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={copied ? Colors.positive : Colors.primary} />
-        <Text style={[styles.actionBtnText, copied && { color: Colors.positive }]}>
+      <TouchableOpacity
+        onPress={handleCopy}
+        style={[
+          styles.actionBtn,
+          { backgroundColor: theme.colors.primaryLight },
+          copied && styles.actionBtnDone,
+        ]}
+      >
+        <Ionicons
+          name={copied ? 'checkmark' : 'copy-outline'}
+          size={14}
+          color={copied ? Colors.positive : theme.colors.primary}
+        />
+        <Text style={[styles.actionBtnText, { color: theme.colors.primary }, copied && { color: Colors.positive }]}>
           {copied ? 'Copied' : 'Copy'}
         </Text>
       </TouchableOpacity>
@@ -61,8 +83,8 @@ function maskPan(pan: string): string {
   return pan.slice(0, 2) + '•'.repeat(6) + pan.slice(8);
 }
 
-function SectionHeader({ title }: { title: string }) {
-  return <Text style={styles.sectionHeader}>{title}</Text>;
+function SectionHeader({ title, theme }: { title: string; theme: ReturnType<typeof useThemeVariant> }) {
+  return <Text style={[styles.sectionHeader, { color: theme.colors.textTertiary }]}>{title}</Text>;
 }
 
 export default function SettingsScreen() {
@@ -127,15 +149,15 @@ export default function SettingsScreen() {
   });
 
   function navStatusBadge(navDate: string | null | undefined) {
-    if (!navDate) return { color: Colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
-    const today = new Date().toISOString().split('T')[0];
-    const diffMs = new Date(today).getTime() - new Date(navDate).getTime();
-    const diffDays = Math.round(diffMs / 86_400_000);
-    const d = new Date(navDate);
-    const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-    if (diffDays <= 1) return { color: Colors.positive, dot: Colors.positive, label: 'Live' };
-    if (diffDays <= 3) return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${dateLabel}` };
-    return { color: Colors.negative, dot: Colors.negative, label: `Outdated · ${dateLabel}` };
+    if (!navDate) return { color: theme.colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
+    const freshness = navStaleness(navDate);
+    if (!freshness.stale) {
+      return { color: Colors.positive, dot: Colors.positive, label: `Live · ${freshness.label === 'today' ? 'Today' : freshness.label.replace('as of ', '')}` };
+    }
+    if (!freshness.veryStale) {
+      return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${freshness.label.replace('as of ', '')}` };
+    }
+    return { color: Colors.negative, dot: Colors.negative, label: `Outdated · ${freshness.label.replace('as of ', '')}` };
   }
 
   const navBadge = navStatusBadge(latestNavRow);
@@ -178,39 +200,39 @@ export default function SettingsScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Account ── */}
-        <SectionHeader title="Account" />
-        <View style={styles.card}>
+        <SectionHeader title="Account" theme={theme} />
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <View style={styles.accountBadge}>
-            <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={24} color={Colors.primary} />
+            <View style={[styles.avatarCircle, { backgroundColor: theme.colors.primaryLight }]}>
+              <Ionicons name="person" size={24} color={theme.colors.primary} />
             </View>
             <View style={styles.accountInfo}>
-              <Text style={styles.accountEmail}>{session?.user.email ?? '—'}</Text>
-              <Text style={styles.accountMeta}>
+              <Text style={[styles.accountEmail, { color: theme.colors.textPrimary }]}>{session?.user.email ?? '—'}</Text>
+              <Text style={[styles.accountMeta, { color: theme.colors.textTertiary }]}>
                 {profile?.pan ? maskPan(profile.pan) : 'PAN not set'}
               </Text>
             </View>
             <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.editIconBtn}>
-              <Ionicons name="pencil-outline" size={16} color={Colors.textTertiary} />
+              <Ionicons name="pencil-outline" size={16} color={theme.colors.textTertiary} />
             </TouchableOpacity>
           </View>
 
           {isLoading && (
             <View style={[styles.row, { justifyContent: 'center' }]}>
-              <ActivityIndicator size="small" color={Colors.textTertiary} />
+              <ActivityIndicator size="small" color={theme.colors.textTertiary} />
             </View>
           )}
 
           {!isLoading && profile?.kfintech_email && (
-            <View style={[styles.row, styles.borderTop]}>
+            <View style={[styles.row, styles.borderTop, { borderTopColor: theme.colors.borderLight }]}>
               <View style={styles.rowLeft}>
-                <Text style={styles.rowLabel}>CAS registrar email</Text>
-                <Text style={styles.rowValue} numberOfLines={1}>
+                <Text style={[styles.rowLabel, { color: theme.colors.textTertiary }]}>CAS registrar email</Text>
+                <Text style={[styles.rowValue, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                   {profile.kfintech_email}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
-                <Text style={styles.actionBtnText}>Edit</Text>
+              <TouchableOpacity onPress={() => router.push('/onboarding')} style={[styles.actionBtn, { backgroundColor: theme.colors.primaryLight }]}>
+                <Text style={[styles.actionBtnText, { color: theme.colors.primary }]}>Edit</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -219,24 +241,25 @@ export default function SettingsScreen() {
         {/* ── Import ── */}
         {inboundEmail && (
           <>
-            <SectionHeader title="Portfolio Import" />
-            <View style={styles.card}>
+            <SectionHeader title="Portfolio Import" theme={theme} />
+            <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
               <CopyRow
                 label="Your import address"
                 value={inboundEmail}
                 sublabel="Forward your CAMS CAS email here to auto-import"
+                theme={theme}
               />
-              <View style={[styles.row, styles.borderTop]}>
+              <View style={[styles.row, styles.borderTop, { borderTopColor: theme.colors.borderLight }]}>
                 <View style={styles.rowLeft}>
-                  <Text style={styles.rowLabel}>Upload a CAS PDF</Text>
-                  <Text style={styles.rowSubLabel}>Manually import from a downloaded PDF</Text>
+                  <Text style={[styles.rowLabel, { color: theme.colors.textTertiary }]}>Upload a CAS PDF</Text>
+                  <Text style={[styles.rowSubLabel, { color: theme.colors.textTertiary }]}>Manually import from a downloaded PDF</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => router.push('/onboarding/pdf')}
-                  style={styles.actionBtn}
+                  style={[styles.actionBtn, { backgroundColor: theme.colors.primaryLight }]}
                 >
-                  <Ionicons name="cloud-upload-outline" size={14} color={Colors.primary} />
-                  <Text style={styles.actionBtnText}>Upload</Text>
+                  <Ionicons name="cloud-upload-outline" size={14} color={theme.colors.primary} />
+                  <Text style={[styles.actionBtnText, { color: theme.colors.primary }]}>Upload</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -244,22 +267,22 @@ export default function SettingsScreen() {
         )}
 
         {/* ── Data ── */}
-        <SectionHeader title="Data" />
-        <View style={styles.card}>
+        <SectionHeader title="Data" theme={theme} />
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowLabel}>NAV data</Text>
-              <Text style={styles.rowSubLabel}>Updated hourly on weekdays via AMFI</Text>
+              <Text style={[styles.rowLabel, { color: theme.colors.textTertiary }]}>NAV data</Text>
+              <Text style={[styles.rowSubLabel, { color: theme.colors.textTertiary }]}>Updated hourly on weekdays via AMFI</Text>
             </View>
             <View style={styles.statusBadge}>
               <View style={[styles.statusDot, { backgroundColor: navBadge.dot }]} />
               <Text style={[styles.statusText, { color: navBadge.color }]}>{navBadge.label}</Text>
             </View>
           </View>
-          <View style={[styles.row, styles.borderTop]}>
+          <View style={[styles.row, styles.borderTop, { borderTopColor: theme.colors.borderLight }]}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowLabel}>Manual sync</Text>
-              <Text style={styles.rowSubLabel}>
+              <Text style={[styles.rowLabel, { color: theme.colors.textTertiary }]}>Manual sync</Text>
+              <Text style={[styles.rowSubLabel, { color: theme.colors.textTertiary }]}>
                 {syncState === 'done'
                   ? 'Sync complete — NAV and index data updated'
                   : syncState === 'error'
@@ -272,22 +295,24 @@ export default function SettingsScreen() {
               disabled={syncState === 'syncing'}
               style={[
                 styles.actionBtn,
+                { backgroundColor: theme.colors.primaryLight },
                 syncState === 'done' && styles.actionBtnDone,
                 syncState === 'error' && styles.actionBtnError,
               ]}
               activeOpacity={0.75}
             >
               {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
+                <ActivityIndicator size="small" color={theme.colors.primary} />
               ) : (
                 <Ionicons
                   name={syncState === 'done' ? 'checkmark' : syncState === 'error' ? 'alert-circle-outline' : 'refresh-outline'}
                   size={14}
-                  color={syncState === 'done' ? Colors.positive : syncState === 'error' ? Colors.negative : Colors.primary}
+                  color={syncState === 'done' ? Colors.positive : syncState === 'error' ? Colors.negative : theme.colors.primary}
                 />
               )}
               <Text style={[
                 styles.actionBtnText,
+                { color: theme.colors.primary },
                 syncState === 'done' && { color: Colors.positive },
                 syncState === 'error' && { color: Colors.negative },
               ]}>
@@ -299,20 +324,20 @@ export default function SettingsScreen() {
 
         {/* ── Preferences ── */}
         <View style={styles.sectionHeaderRow}>
-          <SectionHeader title="Preferences" />
+          <SectionHeader title="Preferences" theme={theme} />
           {benchmarkSaved && (
             <Text style={styles.savedFeedback}>✓ Saved</Text>
           )}
         </View>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
-            <Text style={styles.rowLabel}>Default Benchmark</Text>
-            <Text style={styles.rowSubLabel}>Used for &ldquo;You vs Market&rdquo; on the home screen</Text>
+            <Text style={[styles.rowLabel, { color: theme.colors.textTertiary }]}>Default Benchmark</Text>
+            <Text style={[styles.rowSubLabel, { color: theme.colors.textTertiary }]}>Used for &ldquo;You vs Market&rdquo; on the home screen</Text>
           </View>
           {BENCHMARK_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt.symbol}
-              style={[styles.row, styles.borderTop]}
+              style={[styles.row, styles.borderTop, { borderTopColor: theme.colors.borderLight }]}
               onPress={() => {
                 setDefaultBenchmarkSymbol(opt.symbol);
                 setBenchmarkSaved(true);
@@ -320,22 +345,22 @@ export default function SettingsScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Text style={[styles.rowValue, { flex: 1 }]}>{opt.label}</Text>
+              <Text style={[styles.rowValue, { flex: 1, color: theme.colors.textPrimary }]}>{opt.label}</Text>
               {defaultBenchmarkSymbol === opt.symbol && (
-                <Ionicons name="checkmark" size={16} color={Colors.primary} />
+                <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
               )}
             </TouchableOpacity>
           ))}
         </View>
 
         <View style={styles.sectionHeaderRow}>
-          <SectionHeader title="Design Theme" />
+          <SectionHeader title="Design Theme" theme={theme} />
           {variantSaved && <Text style={styles.savedFeedback}>✓ Saved</Text>}
         </View>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
-            <Text style={styles.rowLabel}>App Appearance</Text>
-            <Text style={styles.rowSubLabel}>Switch between the current and editorial design variants</Text>
+            <Text style={[styles.rowLabel, { color: theme.colors.textTertiary }]}>App Appearance</Text>
+            <Text style={[styles.rowSubLabel, { color: theme.colors.textTertiary }]}>Switch between the current and editorial design variants</Text>
           </View>
           <View style={styles.variantRow}>
             {(['classic', 'editorial'] as const).map((variant) => {
@@ -343,7 +368,11 @@ export default function SettingsScreen() {
               return (
                 <TouchableOpacity
                   key={variant}
-                  style={[styles.variantPill, selected && styles.variantPillActive]}
+                  style={[
+                    styles.variantPill,
+                    { borderColor: theme.colors.border, backgroundColor: theme.isEditorial ? theme.colors.surfaceAlt : theme.colors.surface },
+                    selected && [styles.variantPillActive, { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }],
+                  ]}
                   onPress={() => {
                     setDesignVariant(variant);
                     setVariantSaved(true);
@@ -351,7 +380,7 @@ export default function SettingsScreen() {
                   }}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.variantPillText, selected && styles.variantPillTextActive]}>
+                  <Text style={[styles.variantPillText, { color: selected ? '#fff' : theme.colors.textSecondary }, selected && styles.variantPillTextActive]}>
                     {variant === 'classic' ? 'Classic' : 'Editorial'}
                   </Text>
                 </TouchableOpacity>
@@ -361,11 +390,11 @@ export default function SettingsScreen() {
         </View>
 
         {/* ── Account actions ── */}
-        <SectionHeader title="Account Actions" />
-        <View style={styles.card}>
+        <SectionHeader title="Account Actions" theme={theme} />
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
             <Ionicons name="log-out-outline" size={18} color={Colors.negative} />
-            <Text style={styles.signOutText}>Sign out</Text>
+            <Text style={[styles.signOutText, { color: Colors.negative }]}>Sign out</Text>
           </TouchableOpacity>
         </View>
 
