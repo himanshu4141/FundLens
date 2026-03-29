@@ -1,6 +1,12 @@
 import { buildPortfolioTimelineSeries } from '../portfolioTimeline';
 
 describe('buildPortfolioTimelineSeries()', () => {
+  const isoDaysAgo = (daysAgo: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return date.toISOString().split('T')[0];
+  };
+
   it('builds indexed portfolio and benchmark series from holdings over time', () => {
     const result = buildPortfolioTimelineSeries({
       funds: [
@@ -85,5 +91,27 @@ describe('buildPortfolioTimelineSeries()', () => {
     });
 
     expect(result.points).toEqual([]);
+  });
+
+  it('ignores unknown transaction types when applying unit changes', () => {
+    const result = buildPortfolioTimelineSeries({
+      funds: [{ id: 'fund-1', scheme_code: 101 }],
+      transactions: [
+        { fund_id: 'fund-1', transaction_date: isoDaysAgo(300), transaction_type: 'purchase', units: 10 },
+        { fund_id: 'fund-1', transaction_date: isoDaysAgo(150), transaction_type: 'bonus', units: 999 },
+      ],
+      navRows: [
+        { scheme_code: 101, nav_date: isoDaysAgo(300), nav: 100 },
+        { scheme_code: 101, nav_date: isoDaysAgo(1), nav: 120 },
+      ],
+      indexRows: [
+        { index_date: isoDaysAgo(300), close_value: 1000 },
+        { index_date: isoDaysAgo(1), close_value: 1100 },
+      ],
+      window: '1Y',
+    });
+
+    expect(result.points).toHaveLength(2);
+    expect(result.points[1].portfolioValue).toBe(1200);
   });
 });

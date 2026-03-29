@@ -4,7 +4,7 @@ import { buildLeaderboardRows, type LeaderboardFund, type LeaderboardRow } from 
 import type { Transaction } from '@/src/utils/xirr';
 import type { NavPoint } from '@/src/utils/navUtils';
 
-async function fetchLeaderboardData(userId: string, benchmarkSymbol: string): Promise<LeaderboardRow[]> {
+export async function fetchLeaderboardData(userId: string, benchmarkSymbol: string): Promise<LeaderboardRow[]> {
   const { data: funds, error: fundsError } = await supabase
     .from('fund')
     .select('id, scheme_code, scheme_name, scheme_category')
