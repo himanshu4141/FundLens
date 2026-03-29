@@ -1,12 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -85,9 +87,12 @@ async function estimateMonthlySip(userId: string): Promise<number> {
   return Math.round(totalSip / 500) * 500;
 }
 
-// ─── Step control ────────────────────────────────────────────────────────────
+// ─── Input control ────────────────────────────────────────────────────────────
+//
+// ± buttons for quick ±1 step increments, plus a tappable value that opens a
+// keyboard input so the user can type any number directly.
 
-interface StepControlProps {
+interface InputControlProps {
   label: string;
   value: number;
   step: number;
@@ -98,7 +103,7 @@ interface StepControlProps {
   onChange: (v: number) => void;
 }
 
-function StepControl({
+function InputControl({
   label,
   value,
   step,
@@ -107,10 +112,28 @@ function StepControl({
   prefix,
   suffix,
   onChange,
-}: StepControlProps) {
+}: InputControlProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+
   const displayValue = prefix
     ? `${prefix}${value.toLocaleString('en-IN')}`
     : `${value}${suffix ?? ''}`;
+
+  const startEdit = useCallback(() => {
+    setDraft(String(value));
+    setEditing(true);
+  }, [value]);
+
+  const commit = useCallback(
+    (text: string) => {
+      const raw = text.replace(/[^0-9]/g, '');
+      const n = parseInt(raw, 10);
+      if (!isNaN(n)) onChange(Math.min(max, Math.max(min, n)));
+      setEditing(false);
+    },
+    [min, max, onChange],
+  );
 
   const decrement = () => onChange(Math.max(min, value - step));
   const increment = () => onChange(Math.min(max, value + step));
@@ -131,7 +154,25 @@ function StepControl({
             color={value <= min ? Colors.textTertiary : Colors.primary}
           />
         </TouchableOpacity>
-        <Text style={styles.stepValue}>{displayValue}</Text>
+
+        {editing ? (
+          <TextInput
+            style={styles.stepInput}
+            value={draft}
+            onChangeText={setDraft}
+            onBlur={() => commit(draft)}
+            onSubmitEditing={() => commit(draft)}
+            keyboardType="numeric"
+            autoFocus
+            selectTextOnFocus
+            returnKeyType="done"
+          />
+        ) : (
+          <TouchableOpacity onPress={startEdit} hitSlop={4} style={styles.stepValueTouchable}>
+            <Text style={styles.stepValue}>{displayValue}</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           onPress={increment}
           disabled={value >= max}
@@ -252,8 +293,14 @@ export default function SimulatorScreen() {
     })),
   ];
 
-  const chartMax =
-    Math.ceil(Math.max(horizonBaseline, horizonAdjusted) / 1000 / 10) * 10 * 1.1;
+  // No explicit maxValue — let gifted-charts auto-scale so the y-axis floor
+  // sits near the smallest data value (current corpus), giving visual room
+  // to show year-0 meaningfully rather than squashed at the bottom.
+
+  // Dynamic spacing so all year points fit without clipping.
+  // Total chart points = 1 (year0) + years; minimum 16px per point.
+  const totalChartPoints = 1 + years;
+  const chartSpacing = Math.max(16, Math.floor((CHART_WIDTH - 56) / totalChartPoints));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -333,7 +380,7 @@ export default function SimulatorScreen() {
           <Text style={styles.sectionTitle}>
             {hasPortfolio ? 'Adjust Your Plan' : 'Your Investment Plan'}
           </Text>
-          <StepControl
+          <InputControl
             label="Monthly SIP"
             value={sip}
             step={500}
@@ -342,7 +389,7 @@ export default function SimulatorScreen() {
             prefix="₹"
             onChange={setSip}
           />
-          <StepControl
+          <InputControl
             label={hasPortfolio ? 'Existing Corpus' : 'One-time Lumpsum'}
             value={lumpsum}
             step={hasPortfolio ? 25000 : 10000}
@@ -351,7 +398,7 @@ export default function SimulatorScreen() {
             prefix="₹"
             onChange={setLumpsum}
           />
-          <StepControl
+          <InputControl
             label="Expected Return"
             value={rate}
             step={1}
@@ -360,7 +407,7 @@ export default function SimulatorScreen() {
             suffix="% p.a."
             onChange={setRate}
           />
-          <StepControl
+          <InputControl
             label="Investment Period"
             value={years}
             step={1}
@@ -394,7 +441,7 @@ export default function SimulatorScreen() {
           <Text style={[styles.chartNote, { paddingHorizontal: Spacing.md }]}>
             Values in ₹ thousands
           </Text>
-          <View style={{ overflow: 'hidden', marginTop: Spacing.xs }}>
+          <View style={{ marginTop: Spacing.xs }}>
             <LineChart
               data={baselineChartData}
               data2={showTwoLines ? adjustedChartData : undefined}
@@ -406,18 +453,19 @@ export default function SimulatorScreen() {
               dataPointsColor2={Colors.positive}
               dataPointsRadius={3}
               thickness={2}
-              maxValue={chartMax}
               noOfSections={4}
               isAnimated
               curved
               yAxisLabelWidth={48}
+              spacing={chartSpacing}
+              initialSpacing={0}
+              endSpacing={8}
               formatYLabel={(v: string) =>
                 Number(v) >= 1000
                   ? `${(Number(v) / 1000).toFixed(0)}L`
                   : `${Number(v)}k`
               }
-              hideDataPoints={baselinePoints.length > 20}
-              scrollToEnd
+              hideDataPoints={totalChartPoints > 20}
             />
           </View>
           {/* Legend */}
@@ -610,12 +658,27 @@ const styles = StyleSheet.create({
   stepBtnDisabled: {
     backgroundColor: Colors.borderLight,
   },
+  stepValueTouchable: {
+    minWidth: 96,
+    alignItems: 'center',
+  },
   stepValue: {
     ...Typography.body,
     fontWeight: '600' as const,
     color: Colors.textPrimary,
     minWidth: 96,
     textAlign: 'center',
+  },
+  stepInput: {
+    ...Typography.body,
+    fontWeight: '600' as const,
+    color: Colors.primary,
+    minWidth: 96,
+    textAlign: 'center',
+    borderBottomWidth: 1.5,
+    borderBottomColor: Colors.primary,
+    paddingVertical: 2,
+    ...(Platform.OS === 'web' && { outlineStyle: 'none' } as object),
   },
   // ── Milestones ────────────────────────────────────────────────────────────
   milestonesGrid: {
