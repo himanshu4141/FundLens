@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,9 @@ import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { computeQuarterlyReturns } from '@/src/utils/quarterlyReturns';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
-import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useTheme } from '@/src/context/ThemeContext';
+import type { AppColors } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
 
@@ -65,16 +67,18 @@ function TimeWindowSelector({
   selected: TimeWindow;
   onChange: (w: TimeWindow) => void;
 }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={styles.windowRow}>
+    <View style={s.windowRow}>
       {TIME_WINDOWS.map((w) => (
         <TouchableOpacity
           key={w}
-          style={[styles.windowPill, selected === w && styles.windowPillActive]}
+          style={[s.windowPill, selected === w && s.windowPillActive]}
           onPress={() => onChange(w)}
           activeOpacity={0.75}
         >
-          <Text style={[styles.windowPillText, selected === w && styles.windowPillTextActive]}>
+          <Text style={[s.windowPillText, selected === w && s.windowPillTextActive]}>
             {w}
           </Text>
         </TouchableOpacity>
@@ -90,6 +94,8 @@ function PerformanceTab({
   navHistory: { date: string; value: number }[];
   defaultBenchmarkSymbol: string | null;
 }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
@@ -207,14 +213,14 @@ function PerformanceTab({
   const summaryDate = sampledNav[summaryIdx]?.date;
 
   return (
-    <View style={styles.tabContent}>
+    <View style={s.tabContent}>
       {/* Period return comparison card */}
-      <View style={styles.xirrCard}>
-        <View style={styles.comparisonRow}>
-          <View style={styles.comparisonCol}>
-            <Text style={styles.statLabel}>Your Fund ({window})</Text>
+      <View style={s.xirrCard}>
+        <View style={s.comparisonRow}>
+          <View style={s.comparisonCol}>
+            <Text style={s.statLabel}>Your Fund ({window})</Text>
             <Text
-              style={[styles.xirrValue, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}
+              style={[s.xirrValue, { color: navReturn >= 0 ? colors.positive : colors.negative }]}
               adjustsFontSizeToFit
               minimumFontScale={0.75}
               numberOfLines={1}
@@ -224,10 +230,15 @@ function PerformanceTab({
           </View>
           {hasBenchmarkData && (
             <>
-              <View style={styles.xirrDivider} />
-              <View style={styles.comparisonCol}>
-                <Text style={styles.statLabel}>{selectedLabel} ({window})</Text>
-                <Text style={[styles.xirrValue, { color: benchmarkReturn >= 0 ? Colors.positive : Colors.negative }]}>
+              <View style={s.xirrDivider} />
+              <View style={s.comparisonCol}>
+                <Text style={s.statLabel}>{selectedLabel} ({window})</Text>
+                <Text
+                  style={[s.xirrValue, { color: benchmarkReturn >= 0 ? colors.positive : colors.negative }]}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                  numberOfLines={1}
+                >
                   {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(1)}%
                 </Text>
               </View>
@@ -235,8 +246,8 @@ function PerformanceTab({
           )}
         </View>
         {hasBenchmarkData && (
-          <View style={styles.verdictRow}>
-            <Text style={[styles.verdictText, { color: isAhead ? Colors.positive : Colors.negative }]}>
+          <View style={s.verdictRow}>
+            <Text style={[s.verdictText, { color: isAhead ? colors.positive : colors.negative }]}>
               {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
               {' by '}{Math.abs(diff).toFixed(1)}% vs {selectedLabel}
             </Text>
@@ -250,16 +261,16 @@ function PerformanceTab({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.benchmarkSelectorContent}
+        contentContainerStyle={s.benchmarkSelectorContent}
       >
         {BENCHMARK_OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.symbol}
-            style={[styles.benchmarkPill, selectedSymbol === opt.symbol && styles.benchmarkPillActive]}
+            style={[s.benchmarkPill, selectedSymbol === opt.symbol && s.benchmarkPillActive]}
             onPress={() => setSelectedSymbol(opt.symbol)}
             activeOpacity={0.75}
           >
-            <Text style={[styles.benchmarkPillText, selectedSymbol === opt.symbol && styles.benchmarkPillTextActive]}>
+            <Text style={[s.benchmarkPillText, selectedSymbol === opt.symbol && s.benchmarkPillTextActive]}>
               {opt.label}
             </Text>
           </TouchableOpacity>
@@ -267,16 +278,16 @@ function PerformanceTab({
       </ScrollView>
 
       {hasNavData ? (
-        <View style={styles.chartCard}>
-          <View style={styles.chartLegendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-              <Text style={styles.legendLabel}>Fund NAV</Text>
+        <View style={s.chartCard}>
+          <View style={s.chartLegendRow}>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: colors.primary }]} />
+              <Text style={s.legendLabel}>Fund NAV</Text>
             </View>
             {hasBenchmarkData && (
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-                <Text style={styles.legendLabel}>{selectedLabel}</Text>
+              <View style={s.legendItem}>
+                <View style={[s.legendDot, { backgroundColor: '#f59e0b' }]} />
+                <Text style={s.legendLabel}>{selectedLabel}</Text>
               </View>
             )}
           </View>
@@ -290,38 +301,38 @@ function PerformanceTab({
               initialSpacing={0}
               endSpacing={32}
               hideDataPoints
-              color1={Colors.primary}
+              color1={colors.primary}
               color2="#f59e0b"
               thickness1={3}
               thickness2={2.5}
               curved
               yAxisLabelWidth={32}
               formatYLabel={(v: string) => Number(v).toFixed(0)}
-              yAxisTextStyle={styles.chartAxisLabel}
+              yAxisTextStyle={s.chartAxisLabel}
               maxValue={chartMaxValue}
               mostNegativeValue={chartMostNegative}
-              xAxisColor={Colors.borderLight}
+              xAxisColor={colors.borderLight}
               yAxisColor="transparent"
-              rulesColor={Colors.borderLight}
+              rulesColor={colors.borderLight}
               rulesType="solid"
               noOfSections={4}
               referenceLine1Config={{
-                color: Colors.textTertiary + '66',
+                color: colors.textTertiary + '66',
                 dashWidth: 4,
                 dashGap: 4,
                 thickness: 1,
               }}
               referenceLine1Position={100}
               xAxisLabelTexts={xLabels}
-              xAxisLabelTextStyle={styles.chartAxisLabel}
+              xAxisLabelTextStyle={s.chartAxisLabel}
               xAxisLabelsHeight={16}
               labelsExtraHeight={40}
               pointerConfig={{
                 showPointerStrip: true,
                 pointerStripHeight: 180,
                 pointerStripWidth: 1,
-                pointerStripColor: Colors.textTertiary + '88',
-                pointerColor: Colors.primary,
+                pointerStripColor: colors.textTertiary + '88',
+                pointerColor: colors.primary,
                 radius: 5,
                 pointerLabelWidth: 140,
                 pointerLabelHeight: hasBenchmarkData ? 52 : 36,
@@ -334,18 +345,18 @@ function PerformanceTab({
                   const benchVal = hasBenchmarkData ? benchmarkPoints[pointerIndex]?.value : undefined;
                   const date = sampledNav[pointerIndex]?.date;
                   return (
-                    <View style={styles.pointerLabel}>
+                    <View style={s.pointerLabel}>
                       {date !== undefined && (
-                        <Text style={styles.pointerDate}>{formatChartDate(date, window)}</Text>
+                        <Text style={s.pointerDate}>{formatChartDate(date, window)}</Text>
                       )}
                       {navVal !== undefined && (
-                        <Text style={styles.pointerSeriesText}>
-                          <Text style={{ color: Colors.primary }}>● </Text>
+                        <Text style={s.pointerSeriesText}>
+                          <Text style={{ color: colors.primary }}>● </Text>
                           Fund: {navVal.toFixed(1)}
                         </Text>
                       )}
                       {benchVal !== undefined && (
-                        <Text style={styles.pointerSeriesText}>
+                        <Text style={s.pointerSeriesText}>
                           <Text style={{ color: '#f59e0b' }}>● </Text>
                           {selectedLabel}: {benchVal.toFixed(1)}
                         </Text>
@@ -357,32 +368,32 @@ function PerformanceTab({
             />
 
           {/* Explainer */}
-          <Text style={styles.chartExplainer}>
+          <Text style={s.chartExplainer}>
             Both series rebased to 100 at start of period · higher = outperforming
           </Text>
 
           {!hasBenchmarkData && (
-            <Text style={styles.noBenchmarkNote}>
+            <Text style={s.noBenchmarkNote}>
               {selectedLabel} data not available for the {window} window
             </Text>
           )}
 
-          <View style={styles.returnSummary}>
+          <View style={s.returnSummary}>
             {activeIdx !== null && summaryDate && (
-              <Text style={styles.summaryDateLabel}>
+              <Text style={s.summaryDateLabel}>
                 as of {formatChartDate(summaryDate, window)}
               </Text>
             )}
-            <View style={styles.returnRow}>
-              <Text style={styles.returnLabel}>Fund</Text>
-              <Text style={[styles.returnVal, { color: summaryNavReturn >= 0 ? Colors.positive : Colors.negative }]}>
+            <View style={s.returnRow}>
+              <Text style={s.returnLabel}>Fund</Text>
+              <Text style={[s.returnVal, { color: summaryNavReturn >= 0 ? colors.positive : colors.negative }]}>
                 {summaryNavReturn >= 0 ? '+' : ''}{summaryNavReturn.toFixed(2)}%
               </Text>
             </View>
             {hasBenchmarkData && summaryBenchReturn !== null && (
-              <View style={styles.returnRow}>
-                <Text style={styles.returnLabel}>{selectedLabel}</Text>
-                <Text style={[styles.returnVal, { color: summaryBenchReturn >= 0 ? Colors.positive : Colors.negative }]}>
+              <View style={s.returnRow}>
+                <Text style={s.returnLabel}>{selectedLabel}</Text>
+                <Text style={[s.returnVal, { color: summaryBenchReturn >= 0 ? colors.positive : colors.negative }]}>
                   {summaryBenchReturn >= 0 ? '+' : ''}{summaryBenchReturn.toFixed(2)}%
                 </Text>
               </View>
@@ -390,9 +401,9 @@ function PerformanceTab({
           </View>
         </View>
       ) : (
-        <View style={styles.noData}>
-          <Ionicons name="bar-chart-outline" size={32} color={Colors.textTertiary} />
-          <Text style={styles.noDataText}>No NAV data available for this window.</Text>
+        <View style={s.noData}>
+          <Ionicons name="bar-chart-outline" size={32} color={colors.textTertiary} />
+          <Text style={s.noDataText}>No NAV data available for this window.</Text>
         </View>
       )}
     </View>
@@ -400,6 +411,8 @@ function PerformanceTab({
 }
 
 function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: number }[] }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const filtered = filterToWindow(navHistory, window);
 
@@ -435,11 +448,11 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   const navSpacing = sampledFiltered.length > 1 ? navChartBodyW / (sampledFiltered.length - 1) : 20;
 
   return (
-    <View style={styles.tabContent}>
+    <View style={s.tabContent}>
       <TimeWindowSelector selected={window} onChange={setWindow} />
 
       {points.length > 1 ? (
-        <View style={styles.chartCard}>
+        <View style={s.chartCard}>
           <LineChart
             data={points}
             width={CHART_WIDTH - 32}
@@ -448,7 +461,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             initialSpacing={0}
             endSpacing={32}
             hideDataPoints
-            color1={Colors.primary}
+            color1={colors.primary}
             thickness1={2.5}
             curved
             yAxisLabelWidth={44}
@@ -457,24 +470,24 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
               if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
               return `₹${n.toFixed(0)}`;
             }}
-            yAxisTextStyle={styles.chartAxisLabel}
+            yAxisTextStyle={s.chartAxisLabel}
             maxValue={navChartMax}
             mostNegativeValue={navChartMin}
-            xAxisColor={Colors.borderLight}
+            xAxisColor={colors.borderLight}
             yAxisColor="transparent"
-            rulesColor={Colors.borderLight}
+            rulesColor={colors.borderLight}
             rulesType="solid"
             noOfSections={4}
             xAxisLabelTexts={xLabels}
-            xAxisLabelTextStyle={styles.chartAxisLabel}
+            xAxisLabelTextStyle={s.chartAxisLabel}
             xAxisLabelsHeight={16}
             labelsExtraHeight={40}
             pointerConfig={{
               showPointerStrip: true,
               pointerStripHeight: 200,
               pointerStripWidth: 1,
-              pointerStripColor: Colors.textTertiary + '88',
-              pointerColor: Colors.primary,
+              pointerStripColor: colors.textTertiary + '88',
+              pointerColor: colors.primary,
               radius: 5,
               pointerLabelWidth: 110,
               pointerLabelHeight: 36,
@@ -484,10 +497,10 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
                 const p = sampledFiltered[pointerIndex];
                 if (!p) return null;
                 return (
-                  <View style={styles.pointerLabel}>
-                    <Text style={styles.pointerDate}>{formatChartDate(p.date, window)}</Text>
-                    <Text style={styles.pointerSeriesText}>
-                      <Text style={{ color: Colors.primary }}>● </Text>
+                  <View style={s.pointerLabel}>
+                    <Text style={s.pointerDate}>{formatChartDate(p.date, window)}</Text>
+                    <Text style={s.pointerSeriesText}>
+                      <Text style={{ color: colors.primary }}>● </Text>
                       ₹{p.value.toFixed(4)}
                     </Text>
                   </View>
@@ -496,20 +509,20 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             }}
           />
 
-          <View style={styles.navStatsRow}>
-            <View style={styles.navStat}>
-              <Text style={styles.statLabel}>Current NAV</Text>
-              <Text style={styles.navStatValue}>₹{currentNav?.toFixed(4) ?? '—'}</Text>
+          <View style={s.navStatsRow}>
+            <View style={s.navStat}>
+              <Text style={s.statLabel}>Current NAV</Text>
+              <Text style={s.navStatValue}>₹{currentNav?.toFixed(4) ?? '—'}</Text>
             </View>
-            <View style={styles.navStat}>
-              <Text style={styles.statLabel}>Period start</Text>
-              <Text style={styles.navStatValue}>₹{startNav?.toFixed(4) ?? '—'}</Text>
+            <View style={s.navStat}>
+              <Text style={s.statLabel}>Period start</Text>
+              <Text style={s.navStatValue}>₹{startNav?.toFixed(4) ?? '—'}</Text>
             </View>
             {navChange !== null && (
-              <View style={styles.navStat}>
-                <Text style={styles.statLabel}>Change ({window})</Text>
+              <View style={s.navStat}>
+                <Text style={s.statLabel}>Change ({window})</Text>
                 <Text
-                  style={[styles.navStatValue, { color: navChange >= 0 ? Colors.positive : Colors.negative }]}
+                  style={[s.navStatValue, { color: navChange >= 0 ? colors.positive : colors.negative }]}
                 >
                   {navChange >= 0 ? '+' : ''}{navChange.toFixed(2)}%
                 </Text>
@@ -518,9 +531,9 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
           </View>
         </View>
       ) : (
-        <View style={styles.noData}>
-          <Ionicons name="bar-chart-outline" size={32} color={Colors.textTertiary} />
-          <Text style={styles.noDataText}>No NAV data for this window.</Text>
+        <View style={s.noData}>
+          <Ionicons name="bar-chart-outline" size={32} color={colors.textTertiary} />
+          <Text style={s.noDataText}>No NAV data for this window.</Text>
         </View>
       )}
     </View>
@@ -544,6 +557,8 @@ function TechnicalDetailsCard({
   fundMetaSyncedAt: string | null;
   schemeCode: number;
 }) {
+  const { colors } = useTheme();
+  const ts = useMemo(() => makeTechStyles(colors), [colors]);
   const unsynced = !fundMetaSyncedAt;
 
   function openSid() {
@@ -552,90 +567,93 @@ function TechnicalDetailsCard({
   }
 
   return (
-    <View style={techStyles.card}>
-      <Text style={techStyles.title}>Technical Details</Text>
-      <View style={techStyles.row}>
-        <View style={techStyles.cell}>
-          <Text style={techStyles.label}>Expense Ratio</Text>
-          <Text style={techStyles.value}>
+    <View style={ts.card}>
+      <Text style={ts.title}>Technical Details</Text>
+      <View style={ts.row}>
+        <View style={ts.cell}>
+          <Text style={ts.label}>Expense Ratio</Text>
+          <Text style={ts.value}>
             {unsynced || expenseRatio == null ? '—' : `${expenseRatio.toFixed(2)}%`}
           </Text>
         </View>
-        <View style={techStyles.cell}>
-          <Text style={techStyles.label}>AUM</Text>
-          <Text style={techStyles.value}>
+        <View style={ts.cell}>
+          <Text style={ts.label}>AUM</Text>
+          <Text style={ts.value}>
             {unsynced || aumCr == null ? '—' : `₹${Math.round(aumCr).toLocaleString('en-IN')} Cr`}
           </Text>
         </View>
-        <View style={techStyles.cell}>
-          <Text style={techStyles.label}>Min SIP</Text>
-          <Text style={techStyles.value}>
+        <View style={ts.cell}>
+          <Text style={ts.label}>Min SIP</Text>
+          <Text style={ts.value}>
             {unsynced || minSipAmount == null ? '—' : `₹${minSipAmount.toLocaleString('en-IN')}`}
           </Text>
         </View>
       </View>
-      <TouchableOpacity onPress={openSid} style={techStyles.sidLink}>
-        <Text style={techStyles.sidLinkText}>View fund factsheet ↗</Text>
+      <TouchableOpacity onPress={openSid} style={ts.sidLink}>
+        <Text style={ts.sidLinkText}>View fund factsheet ↗</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-const techStyles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  title: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: Spacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
-  },
-  cell: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  label: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  value: {
-    ...Typography.body,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  sidLink: {
-    marginTop: Spacing.xs,
-    alignItems: 'center',
-  },
-  sidLinkText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-});
+function makeTechStyles(colors: AppColors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.lg,
+      padding: Spacing.md,
+      marginHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    title: {
+      ...Typography.label,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: Spacing.sm,
+    },
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.xs,
+    },
+    cell: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    label: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      marginBottom: 2,
+      textAlign: 'center',
+    },
+    value: {
+      ...Typography.body,
+      color: colors.textPrimary,
+      fontWeight: '600' as const,
+      textAlign: 'center',
+    },
+    sidLink: {
+      marginTop: Spacing.xs,
+      alignItems: 'center',
+    },
+    sidLinkText: {
+      ...Typography.caption,
+      color: colors.primary,
+      fontWeight: '600' as const,
+    },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Growth Consistency Chart — quarterly returns from navHistory
 // ---------------------------------------------------------------------------
 
 function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
-  // Muted semi-transparent colors so bars feel lighter, not heavy blocks
+  const { colors } = useTheme();
+  const gs = useMemo(() => makeGrowthStyles(colors), [colors]);
   const bars = computeQuarterlyReturns(navHistory, '#16a34a', '#dc2626');
   if (bars.length < 2) return null;
 
@@ -647,9 +665,9 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
   const spacing = Math.max(4, Math.floor((CHART_WIDTH - 64 - barWidth * bars.length) / (bars.length + 1)));
 
   return (
-    <View style={growthStyles.card}>
-      <Text style={growthStyles.title}>Growth Consistency</Text>
-      <Text style={growthStyles.subtitle}>Quarterly returns (%)</Text>
+    <View style={gs.card}>
+      <Text style={gs.title}>Growth Consistency</Text>
+      <Text style={gs.subtitle}>Quarterly returns (%)</Text>
       <View style={{ marginTop: Spacing.xs }}>
         <BarChart
           data={bars}
@@ -664,19 +682,19 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
           noOfSections={4}
           isAnimated
           hideRules={false}
-          rulesColor={Colors.borderLight}
+          rulesColor={colors.borderLight}
           rulesType="solid"
-          xAxisColor={Colors.borderLight}
+          xAxisColor={colors.borderLight}
           yAxisColor="transparent"
-          yAxisTextStyle={growthStyles.axisLabel}
-          xAxisLabelTextStyle={growthStyles.axisLabel}
+          yAxisTextStyle={gs.axisLabel}
+          xAxisLabelTextStyle={gs.axisLabel}
           formatYLabel={(v: string) => `${Number(v).toFixed(0)}%`}
           yAxisLabelWidth={36}
           showValuesAsTopLabel
-          topLabelTextStyle={{ ...growthStyles.barTopLabel }}
+          topLabelTextStyle={{ ...gs.barTopLabel }}
           showFractionalValues
           referenceLine1Config={{
-            color: Colors.textTertiary,
+            color: colors.textTertiary,
             dashWidth: 4,
             dashGap: 4,
             thickness: 1,
@@ -684,52 +702,54 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
           referenceLine1Position={0}
         />
       </View>
-      <View style={growthStyles.legend}>
-        <View style={growthStyles.legendItem}>
-          <View style={[growthStyles.legendDot, { backgroundColor: Colors.positive }]} />
-          <Text style={growthStyles.legendText}>Positive quarter</Text>
+      <View style={gs.legend}>
+        <View style={gs.legendItem}>
+          <View style={[gs.legendDot, { backgroundColor: colors.positive }]} />
+          <Text style={gs.legendText}>Positive quarter</Text>
         </View>
-        <View style={growthStyles.legendItem}>
-          <View style={[growthStyles.legendDot, { backgroundColor: Colors.negative }]} />
-          <Text style={growthStyles.legendText}>Negative quarter</Text>
+        <View style={gs.legendItem}>
+          <View style={[gs.legendDot, { backgroundColor: colors.negative }]} />
+          <Text style={gs.legendText}>Negative quarter</Text>
         </View>
       </View>
     </View>
   );
 }
 
-const growthStyles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  title: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  subtitle: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-  },
-  axisLabel: { fontSize: 10, color: Colors.textTertiary },
-  barTopLabel: { fontSize: 9, color: Colors.textSecondary },
-  legend: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.xs,
-  },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { ...Typography.caption, color: Colors.textTertiary },
-});
+function makeGrowthStyles(colors: AppColors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.lg,
+      padding: Spacing.md,
+      marginHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    title: {
+      ...Typography.label,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 2,
+    },
+    subtitle: {
+      ...Typography.caption,
+      color: colors.textTertiary,
+    },
+    axisLabel: { fontSize: 10, color: colors.textTertiary },
+    barTopLabel: { fontSize: 9, color: colors.textSecondary },
+    legend: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+      marginTop: Spacing.xs,
+    },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    legendDot: { width: 8, height: 8, borderRadius: 4 },
+    legendText: { ...Typography.caption, color: colors.textTertiary },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Portfolio Health Donut
@@ -749,6 +769,8 @@ function PortfolioHealthDonut({
   fundId: string;
   currentValue: number | null;
 }) {
+  const { colors } = useTheme();
+  const ds = useMemo(() => makeDonutStyles(colors), [colors]);
   const { defaultBenchmarkSymbol } = useAppStore();
   const { data: portfolioData } = usePortfolio(defaultBenchmarkSymbol);
   const fundCards = portfolioData?.fundCards ?? [];
@@ -768,147 +790,151 @@ function PortfolioHealthDonut({
   const rankLabel = rank > 0 ? ordinalRank(rank) : null;
 
   const donutData = [
-    { value: fundPct, color: Colors.primary },
-    { value: Math.max(restPct, 0), color: Colors.borderLight },
+    { value: fundPct, color: colors.primary },
+    { value: Math.max(restPct, 0), color: colors.borderLight },
   ];
 
   return (
-    <View style={donutStyles.card}>
-      <Text style={donutStyles.title}>Portfolio Weight</Text>
-      <View style={donutStyles.content}>
+    <View style={ds.card}>
+      <Text style={ds.title}>Portfolio Weight</Text>
+      <View style={ds.content}>
         <PieChart
           data={donutData}
           donut
           radius={56}
           innerRadius={38}
-          innerCircleColor={Colors.surface}
+          innerCircleColor={colors.surface}
           centerLabelComponent={() => (
-            <View style={donutStyles.centerLabel}>
-              <Text style={donutStyles.centerPct}>{fundPct.toFixed(1)}%</Text>
+            <View style={ds.centerLabel}>
+              <Text style={ds.centerPct}>{fundPct.toFixed(1)}%</Text>
             </View>
           )}
         />
-        <View style={donutStyles.info}>
-          <Text style={donutStyles.infoValue}>{fundPct.toFixed(1)}%</Text>
-          <Text style={donutStyles.infoLabel}>of portfolio</Text>
+        <View style={ds.info}>
+          <Text style={ds.infoValue}>{fundPct.toFixed(1)}%</Text>
+          <Text style={ds.infoLabel}>of portfolio</Text>
           {rankLabel && (
-            <Text style={donutStyles.rankLabel}>{rankLabel}</Text>
+            <Text style={ds.rankLabel}>{rankLabel}</Text>
           )}
-          <Text style={donutStyles.totalLabel}>
+          <Text style={ds.totalLabel}>
             Total: {formatCurrency(totalValue)}
           </Text>
         </View>
       </View>
-      <View style={donutStyles.legend}>
-        <View style={donutStyles.legendItem}>
-          <View style={[donutStyles.legendDot, { backgroundColor: Colors.primary }]} />
-          <Text style={donutStyles.legendText}>This fund</Text>
+      <View style={ds.legend}>
+        <View style={ds.legendItem}>
+          <View style={[ds.legendDot, { backgroundColor: colors.primary }]} />
+          <Text style={ds.legendText}>This fund</Text>
         </View>
-        <View style={donutStyles.legendItem}>
-          <View style={[donutStyles.legendDot, { backgroundColor: Colors.borderLight }]} />
-          <Text style={donutStyles.legendText}>Rest of portfolio</Text>
+        <View style={ds.legendItem}>
+          <View style={[ds.legendDot, { backgroundColor: colors.borderLight }]} />
+          <Text style={ds.legendText}>Rest of portfolio</Text>
         </View>
       </View>
     </View>
   );
 }
 
-const donutStyles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  title: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: Spacing.sm,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  centerLabel: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerPct: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  info: {
-    flex: 1,
-    gap: 4,
-  },
-  infoValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.primary,
-    lineHeight: 32,
-  },
-  infoLabel: {
-    ...Typography.bodySmall,
-    color: Colors.textTertiary,
-  },
-  rankLabel: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  totalLabel: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    marginTop: 4,
-  },
-  legend: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
-  },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { ...Typography.caption, color: Colors.textTertiary },
-});
+function makeDonutStyles(colors: AppColors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.lg,
+      padding: Spacing.md,
+      marginHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    title: {
+      ...Typography.label,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: Spacing.sm,
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+    },
+    centerLabel: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    centerPct: {
+      fontSize: 14,
+      fontWeight: '700' as const,
+      color: colors.primary,
+    },
+    info: {
+      flex: 1,
+      gap: 4,
+    },
+    infoValue: {
+      fontSize: 28,
+      fontWeight: '700' as const,
+      color: colors.primary,
+      lineHeight: 32,
+    },
+    infoLabel: {
+      ...Typography.bodySmall,
+      color: colors.textTertiary,
+    },
+    rankLabel: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      fontWeight: '600' as const,
+      marginTop: 2,
+    },
+    totalLabel: {
+      ...Typography.caption,
+      color: colors.textTertiary,
+      marginTop: 4,
+    },
+    legend: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+      marginTop: Spacing.sm,
+    },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    legendDot: { width: 8, height: 8, borderRadius: 4 },
+    legendText: { ...Typography.caption, color: colors.textTertiary },
+  });
+}
 
 // ---------------------------------------------------------------------------
 
 export default function FundDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const [activeTab, setActiveTab] = useState<'performance' | 'nav'>('performance');
   const { data, isLoading, isError } = useFundDetail(id);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={s.container} edges={['bottom']}>
       {/* ── Header ── */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+      <View style={s.headerBar}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <Text style={s.headerTitle} numberOfLines={1}>
           Portfolio
         </Text>
       </View>
 
       {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+        <View style={s.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : isError || !data ? (
-        <View style={styles.centered}>
-          <Ionicons name="alert-circle-outline" size={40} color={Colors.textTertiary} />
-          <Text style={styles.errorText}>Couldn&apos;t load fund data</Text>
+        <View style={s.centered}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.textTertiary} />
+          <Text style={s.errorText}>Couldn&apos;t load fund data</Text>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backLink}>Go back</Text>
+            <Text style={s.backLink}>Go back</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -923,39 +949,39 @@ export default function FundDetailScreen() {
               ? (gain / data.investedAmount) * 100 : null;
             const gainPositive = gain !== null ? gain >= 0 : true;
             return (
-              <View style={styles.fundHeader}>
-                <Text style={styles.fundName}>{data.schemeName}</Text>
-                <Text style={styles.fundCategory}>{data.schemeCategory}</Text>
+              <View style={s.fundHeader}>
+                <Text style={s.fundName}>{data.schemeName}</Text>
+                <Text style={s.fundCategory}>{data.schemeCategory}</Text>
 
-                <View style={styles.holdingRow}>
-                  <View style={styles.holdingStat}>
-                    <Text style={styles.statLabel}>Current Value</Text>
+                <View style={s.holdingRow}>
+                  <View style={s.holdingStat}>
+                    <Text style={s.statLabel}>Current Value</Text>
                     {data.currentValue !== null ? (
                       <>
-                        <Text style={styles.holdingValue}>{formatCurrency(data.currentValue)}</Text>
+                        <Text style={s.holdingValue}>{formatCurrency(data.currentValue)}</Text>
                         {navIsStale && (
-                          <Text style={styles.navStaleLabel}>as of {formatNavDate(latestNavDate!)}</Text>
+                          <Text style={s.navStaleLabel}>as of {formatNavDate(latestNavDate!)}</Text>
                         )}
                       </>
                     ) : (
-                      <Text style={styles.holdingValuePending}>NAV pending</Text>
+                      <Text style={s.holdingValuePending}>NAV pending</Text>
                     )}
                   </View>
-                  <View style={styles.holdingStat}>
-                    <Text style={styles.statLabel}>Invested</Text>
-                    <Text style={styles.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
+                  <View style={s.holdingStat}>
+                    <Text style={s.statLabel}>Invested</Text>
+                    <Text style={s.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
                   </View>
-                  <View style={styles.holdingStat}>
-                    <Text style={styles.statLabel}>Units</Text>
-                    <Text style={styles.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
+                  <View style={s.holdingStat}>
+                    <Text style={s.statLabel}>Units</Text>
+                    <Text style={s.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
                   </View>
                 </View>
 
                 {/* Gain / Loss row */}
                 {gain !== null && gainPct !== null && (
-                  <View style={styles.gainRow}>
-                    <Text style={styles.statLabel}>Gain / Loss</Text>
-                    <Text style={[styles.gainValue, { color: gainPositive ? Colors.positive : Colors.negative }]}>
+                  <View style={s.gainRow}>
+                    <Text style={s.statLabel}>Gain / Loss</Text>
+                    <Text style={[s.gainValue, { color: gainPositive ? colors.positive : colors.negative }]}>
                       {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))}{' '}
                       ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%)
                     </Text>
@@ -964,12 +990,12 @@ export default function FundDetailScreen() {
 
                 {/* XIRR row — SIP-adjusted annualised return */}
                 {isFinite(data.fundXirr) && (
-                  <View style={styles.xirrHeaderRow}>
-                    <Text style={styles.statLabel}>XIRR</Text>
-                    <Text style={[styles.xirrHeaderValue, { color: data.fundXirr >= 0 ? Colors.positive : Colors.negative }]}>
+                  <View style={s.xirrHeaderRow}>
+                    <Text style={s.statLabel}>XIRR</Text>
+                    <Text style={[s.xirrHeaderValue, { color: data.fundXirr >= 0 ? colors.positive : colors.negative }]}>
                       {formatXirr(data.fundXirr)}
                     </Text>
-                    <Text style={styles.xirrHeaderHint}> · SIP-adjusted, annualised</Text>
+                    <Text style={s.xirrHeaderHint}> · SIP-adjusted, annualised</Text>
                   </View>
                 )}
 
@@ -978,15 +1004,15 @@ export default function FundDetailScreen() {
           })()}
 
           {/* ── Tab bar ── */}
-          <View style={styles.tabBar}>
+          <View style={s.tabBar}>
             {(['performance', 'nav'] as const).map((tab) => (
               <TouchableOpacity
                 key={tab}
-                style={[styles.tab, activeTab === tab && styles.tabActive]}
+                style={[s.tab, activeTab === tab && s.tabActive]}
                 onPress={() => setActiveTab(tab)}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
                   {tab === 'performance' ? 'Performance' : 'NAV History'}
                 </Text>
               </TouchableOpacity>
@@ -1017,210 +1043,212 @@ export default function FundDetailScreen() {
             currentValue={data.currentValue}
           />
 
-          <View style={styles.bottomPad} />
+          <View style={s.bottomPad} />
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
 
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    gap: 8,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primaryLight,
-  },
-  headerTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+    headerBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      gap: 8,
+    },
+    backBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primaryLight,
+    },
+    headerTitle: { flex: 1, fontSize: 15, fontWeight: '600' as const, color: colors.textPrimary },
 
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  errorText: { ...Typography.body, color: Colors.textSecondary },
-  backLink: { color: Colors.primary, fontSize: 14, fontWeight: '600' },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    errorText: { ...Typography.body, color: colors.textSecondary },
+    backLink: { color: colors.primary, fontSize: 14, fontWeight: '600' as const },
 
-  // ── Fund header ──
-  fundHeader: {
-    backgroundColor: Colors.surface,
-    margin: Spacing.md,
-    borderRadius: Radii.md,
-    padding: 18,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  fundName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, lineHeight: 22 },
-  fundCategory: { ...Typography.bodySmall, color: Colors.textTertiary, marginBottom: 4 },
+    // ── Fund header ──
+    fundHeader: {
+      backgroundColor: colors.surface,
+      margin: Spacing.md,
+      borderRadius: Radii.md,
+      padding: 18,
+      gap: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    fundName: { fontSize: 16, fontWeight: '700' as const, color: colors.textPrimary, lineHeight: 22 },
+    fundCategory: { ...Typography.bodySmall, color: colors.textTertiary, marginBottom: 4 },
 
-  holdingRow: { flexDirection: 'row', marginTop: 4 },
-  holdingStat: { flex: 1, alignItems: 'center', gap: 3 },
-  holdingValue: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  holdingValuePending: { fontSize: 13, fontWeight: '500', color: Colors.textTertiary, fontStyle: 'italic' },
-  navStaleLabel: { fontSize: 11, color: Colors.textTertiary, fontStyle: 'italic' },
+    holdingRow: { flexDirection: 'row', marginTop: 4 },
+    holdingStat: { flex: 1, alignItems: 'center', gap: 3 },
+    holdingValue: { fontSize: 15, fontWeight: '700' as const, color: colors.textPrimary },
+    holdingValuePending: { fontSize: 13, fontWeight: '500' as const, color: colors.textTertiary, fontStyle: 'italic' },
+    navStaleLabel: { fontSize: 11, color: colors.textTertiary, fontStyle: 'italic' },
 
-  gainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  gainValue: { fontSize: 14, fontWeight: '600' },
+    gainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+    gainValue: { fontSize: 14, fontWeight: '600' as const },
 
-  xirrHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  xirrHeaderValue: { fontSize: 14, fontWeight: '600' },
-  xirrHeaderHint: { fontSize: 11, color: Colors.textTertiary },
+    xirrHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    xirrHeaderValue: { fontSize: 14, fontWeight: '600' as const },
+    xirrHeaderHint: { fontSize: 11, color: colors.textTertiary },
 
-  // ── Tab bar ──
-  tabBar: {
-    flexDirection: 'row',
-    marginHorizontal: Spacing.md,
-    backgroundColor: Colors.borderLight,
-    borderRadius: Radii.sm + 2,
-    padding: 3,
-    marginBottom: 4,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: Radii.sm,
-  },
-  tabActive: {
-    backgroundColor: Colors.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  tabText: { fontSize: 13, fontWeight: '500', color: Colors.textTertiary },
-  tabTextActive: { color: Colors.textPrimary, fontWeight: '700' },
+    // ── Tab bar ──
+    tabBar: {
+      flexDirection: 'row',
+      marginHorizontal: Spacing.md,
+      backgroundColor: colors.borderLight,
+      borderRadius: Radii.sm + 2,
+      padding: 3,
+      marginBottom: 4,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: 'center',
+      borderRadius: Radii.sm,
+    },
+    tabActive: {
+      backgroundColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    tabText: { fontSize: 13, fontWeight: '500' as const, color: colors.textTertiary },
+    tabTextActive: { color: colors.textPrimary, fontWeight: '700' as const },
 
-  // ── Tab content ──
-  tabContent: { paddingHorizontal: Spacing.md, gap: 14 },
+    // ── Tab content ──
+    tabContent: { paddingHorizontal: Spacing.md, gap: 14 },
 
-  // XIRR card
-  xirrCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  comparisonRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  comparisonCol: { flex: 1, gap: 4 },
-  xirrDivider: { width: 1, backgroundColor: Colors.borderLight, marginHorizontal: 12 },
-  xirrValue: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  verdictRow: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-  },
-  verdictText: { fontSize: 13, fontWeight: '600' },
+    // XIRR card
+    xirrCard: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      flexDirection: 'row',
+      gap: Spacing.md,
+      marginTop: Spacing.sm,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    comparisonRow: { flexDirection: 'row', alignItems: 'flex-start' },
+    comparisonCol: { flex: 1, gap: 4 },
+    xirrDivider: { width: 1, backgroundColor: colors.borderLight, marginHorizontal: 12 },
+    xirrValue: { fontSize: 22, fontWeight: '800' as const, color: colors.textPrimary, letterSpacing: -0.5 },
+    verdictRow: {
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    verdictText: { fontSize: 13, fontWeight: '600' as const },
 
-  // Chart
-  chartCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  chartLegendRow: { flexDirection: 'row', gap: 16 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontSize: 12, color: Colors.textSecondary },
+    // Chart
+    chartCard: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      gap: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    chartLegendRow: { flexDirection: 'row', gap: 16 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendDot: { width: 10, height: 10, borderRadius: 5 },
+    legendLabel: { fontSize: 12, color: colors.textSecondary },
 
-  returnSummary: { gap: 6, marginTop: 4 },
-  summaryDateLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 2 },
-  returnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  returnLabel: { fontSize: 13, color: Colors.textSecondary },
-  returnVal: { fontSize: 14, fontWeight: '700' },
+    returnSummary: { gap: 6, marginTop: 4 },
+    summaryDateLabel: { fontSize: 11, color: colors.textTertiary, marginBottom: 2 },
+    returnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    returnLabel: { fontSize: 13, color: colors.textSecondary },
+    returnVal: { fontSize: 14, fontWeight: '700' as const },
 
-  navStatsRow: { flexDirection: 'row' },
-  navStat: { flex: 1, alignItems: 'center', gap: 3 },
-  navStatValue: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+    navStatsRow: { flexDirection: 'row' },
+    navStat: { flex: 1, alignItems: 'center', gap: 3 },
+    navStatValue: { fontSize: 13, fontWeight: '700' as const, color: colors.textPrimary },
 
-  statLabel: { ...Typography.caption, color: Colors.textTertiary, textTransform: 'uppercase' },
+    statLabel: { ...Typography.caption, color: colors.textTertiary, textTransform: 'uppercase' },
 
-  windowRow: { flexDirection: 'row', gap: 6 },
-  windowPill: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: Radii.full,
-    alignItems: 'center',
-    backgroundColor: Colors.borderLight,
-  },
-  windowPillActive: { backgroundColor: Colors.primary },
-  windowPillText: { fontSize: 12, fontWeight: '600', color: Colors.textTertiary },
-  windowPillTextActive: { color: '#fff' },
+    windowRow: { flexDirection: 'row', gap: 6 },
+    windowPill: {
+      flex: 1,
+      paddingVertical: 6,
+      borderRadius: Radii.full,
+      alignItems: 'center',
+      backgroundColor: colors.borderLight,
+    },
+    windowPillActive: { backgroundColor: colors.primary },
+    windowPillText: { fontSize: 12, fontWeight: '600' as const, color: colors.textTertiary },
+    windowPillTextActive: { color: '#fff' },
 
-  chartAxisLabel: { fontSize: 9, color: Colors.textTertiary },
+    chartAxisLabel: { fontSize: 9, color: colors.textTertiary },
 
-  chartExplainer: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  noBenchmarkNote: {
-    fontSize: 12,
-    color: Colors.textTertiary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
+    chartExplainer: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      lineHeight: 16,
+    },
+    noBenchmarkNote: {
+      fontSize: 12,
+      color: colors.textTertiary,
+      textAlign: 'center',
+      marginTop: 2,
+    },
 
-  benchmarkSelectorContent: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 0,
-  },
-  benchmarkPill: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.borderLight,
-  },
-  benchmarkPillActive: { backgroundColor: Colors.primary },
-  benchmarkPillText: { fontSize: 11, fontWeight: '600', color: Colors.textTertiary },
-  benchmarkPillTextActive: { color: '#fff' },
+    benchmarkSelectorContent: {
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 0,
+    },
+    benchmarkPill: {
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      borderRadius: Radii.full,
+      backgroundColor: colors.borderLight,
+    },
+    benchmarkPillActive: { backgroundColor: colors.primary },
+    benchmarkPillText: { fontSize: 11, fontWeight: '600' as const, color: colors.textTertiary },
+    benchmarkPillTextActive: { color: '#fff' },
 
-  pointerLabel: {
-    backgroundColor: Colors.surface,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    gap: 2,
-  },
-  pointerDate: { fontSize: 10, color: Colors.textTertiary, fontWeight: '600' },
-  pointerSeriesText: { fontSize: 11, color: Colors.textSecondary },
+    pointerLabel: {
+      backgroundColor: colors.surface,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      gap: 2,
+    },
+    pointerDate: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' as const },
+    pointerSeriesText: { fontSize: 11, color: colors.textSecondary },
 
-  noData: { padding: 40, alignItems: 'center', gap: 10 },
-  noDataText: { ...Typography.body, color: Colors.textTertiary, textAlign: 'center' },
+    noData: { padding: 40, alignItems: 'center', gap: 10 },
+    noDataText: { ...Typography.body, color: colors.textTertiary, textAlign: 'center' },
 
-  bottomPad: { height: 32 },
-});
+    bottomPad: { height: 32 },
+  });
+}
