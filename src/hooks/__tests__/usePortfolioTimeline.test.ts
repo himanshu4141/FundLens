@@ -13,8 +13,9 @@ function makeChain(response: { data: unknown; error: unknown }): any {
     eq: jest.fn(),
     in: jest.fn(),
     order: jest.fn(),
+    range: jest.fn(),
   };
-  ['select', 'eq', 'in', 'order'].forEach((method) =>
+  ['select', 'eq', 'in', 'order', 'range'].forEach((method) =>
     (chain as Record<string, jest.Mock>)[method].mockReturnValue(chain),
   );
   return chain;

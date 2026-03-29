@@ -167,7 +167,9 @@ export function buildPersonalizedSimulationBaseline(params: {
     : monthlySip;
   const trailingLumpSums = purchaseMonths.filter((value) => value > monthlySip * 1.35);
   const currentXirrPct = Number.isFinite(params.portfolioXirr) ? params.portfolioXirr * 100 : null;
-  const annualReturnPct = currentXirrPct != null ? clampAnnualReturn(currentXirrPct) : 12;
+  const annualReturnPct = currentXirrPct != null
+    ? Math.round(clampAnnualReturn(currentXirrPct) * 10) / 10
+    : 12;
 
   return {
     currentCorpus: params.currentCorpus,

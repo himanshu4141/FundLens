@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -139,15 +140,27 @@ export default function SettingsScreen() {
 
   const navBadge = navStatusBadge(latestNavRow);
 
+  async function signOutNow() {
+    const { error } = await supabase.auth.signOut();
+    if (error) Alert.alert('Error', error.message);
+  }
+
   async function handleSignOut() {
+    if (Platform.OS === 'web') {
+      const confirmed = globalThis.confirm?.('Are you sure you want to sign out?') ?? true;
+      if (confirmed) {
+        await signOutNow();
+      }
+      return;
+    }
+
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',
         style: 'destructive',
-        onPress: async () => {
-          const { error } = await supabase.auth.signOut();
-          if (error) Alert.alert('Error', error.message);
+        onPress: () => {
+          void signOutNow();
         },
       },
     ]);

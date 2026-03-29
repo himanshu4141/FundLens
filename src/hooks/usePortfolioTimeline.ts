@@ -13,6 +13,27 @@ import {
 
 export type { PortfolioTimelineData, PortfolioTimelinePoint, PortfolioTimelineWindow };
 
+const PAGE_SIZE = 1000;
+
+async function fetchPagedRows<T>(
+  fetchPage: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await fetchPage(from, to);
+    if (error) throw error;
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
 export async function fetchPortfolioTimeline(
   userId: string,
   benchmarkSymbol: string,
@@ -35,27 +56,29 @@ export async function fetchPortfolioTimeline(
 
   if (txError) throw txError;
 
-  const { data: navRows, error: navError } = await supabase
-    .from('nav_history')
-    .select('scheme_code, nav_date, nav')
-    .in('scheme_code', funds.map((fund) => fund.scheme_code))
-    .order('nav_date', { ascending: true });
+  const navRows = await fetchPagedRows<TimelineNavRow>(async (from, to) =>
+    await supabase
+      .from('nav_history')
+      .select('scheme_code, nav_date, nav')
+      .in('scheme_code', funds.map((fund) => fund.scheme_code))
+      .order('nav_date', { ascending: true })
+      .range(from, to),
+  );
 
-  if (navError) throw navError;
-
-  const { data: indexRows, error: indexError } = await supabase
-    .from('index_history')
-    .select('index_date, close_value')
-    .eq('index_symbol', benchmarkSymbol)
-    .order('index_date', { ascending: true });
-
-  if (indexError) throw indexError;
+  const indexRows = await fetchPagedRows<TimelineIndexRow>(async (from, to) =>
+    await supabase
+      .from('index_history')
+      .select('index_date, close_value')
+      .eq('index_symbol', benchmarkSymbol)
+      .order('index_date', { ascending: true })
+      .range(from, to),
+  );
 
   return buildPortfolioTimelineSeries({
     funds: (funds ?? []) as TimelineFundRow[],
     transactions: (transactions ?? []) as TimelineTxRow[],
-    navRows: (navRows ?? []) as TimelineNavRow[],
-    indexRows: (indexRows ?? []) as TimelineIndexRow[],
+    navRows,
+    indexRows,
     window,
   });
 }

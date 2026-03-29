@@ -134,26 +134,32 @@ function formatTimelineLabel(dateStr: string): string {
 function PortfolioTimelineSection({
   points,
   benchmarkLabel,
+  benchmarkAvailable,
   window,
   onWindowChange,
   theme,
 }: {
   points: PortfolioTimelinePoint[];
   benchmarkLabel: string;
+  benchmarkAvailable: boolean;
   window: PortfolioTimelineWindow;
   onWindowChange: (window: PortfolioTimelineWindow) => void;
   theme: ReturnType<typeof useThemeVariant>;
 }) {
   const sampled = sampleTimeline(points, 44);
   const data = sampled.map((point) => ({ value: point.portfolioIndexed }));
-  const data2 = sampled.map((point) => ({ value: point.benchmarkIndexed }));
+  const data2 = benchmarkAvailable
+    ? sampled.map((point) => ({ value: point.benchmarkIndexed }))
+    : [];
   const bodyWidth = 320;
   const spacing = sampled.length > 1 ? bodyWidth / (sampled.length - 1) : 20;
   const labelInterval = Math.max(1, Math.floor(sampled.length / 4));
   const xLabels = sampled.map((point, index) =>
     index % labelInterval === 0 || index === sampled.length - 1 ? formatTimelineLabel(point.date) : '',
   );
-  const allValues = [...data.map((point) => point.value), ...data2.map((point) => point.value)];
+  const allValues = benchmarkAvailable
+    ? [...data.map((point) => point.value), ...data2.map((point) => point.value)]
+    : data.map((point) => point.value);
   const maxValue = Math.max(...allValues);
   const minValue = Math.min(...allValues);
   const pad = Math.max(4, (maxValue - minValue) * 0.15);
@@ -170,7 +176,7 @@ function PortfolioTimelineSection({
 
       <LineChart
         data={data}
-        data2={data2}
+        {...(benchmarkAvailable ? { data2 } : {})}
         width={bodyWidth}
         height={180}
         areaChart
@@ -205,10 +211,16 @@ function PortfolioTimelineSection({
           <View style={[styles.timelineLegendDot, { backgroundColor: theme.colors.primary }]} />
           <Text style={[styles.timelineLegendText, { color: theme.colors.textSecondary }]}>Portfolio</Text>
         </View>
-        <View style={styles.timelineLegendItem}>
-          <View style={[styles.timelineLegendDot, { backgroundColor: theme.colors.warning }]} />
-          <Text style={[styles.timelineLegendText, { color: theme.colors.textSecondary }]}>{benchmarkLabel}</Text>
-        </View>
+        {benchmarkAvailable ? (
+          <View style={styles.timelineLegendItem}>
+            <View style={[styles.timelineLegendDot, { backgroundColor: theme.colors.warning }]} />
+            <Text style={[styles.timelineLegendText, { color: theme.colors.textSecondary }]}>{benchmarkLabel}</Text>
+          </View>
+        ) : (
+          <Text style={[styles.timelineLegendText, { color: theme.colors.textTertiary }]}>
+            Benchmark history unavailable right now
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -702,7 +714,8 @@ export default function HomeScreen() {
           ) : timelineData?.points?.length ? (
             <PortfolioTimelineSection
               points={timelineData.points}
-              benchmarkLabel={timelineData.benchmarkAvailable ? benchmarkLabel : 'Benchmark unavailable'}
+              benchmarkLabel={benchmarkLabel}
+              benchmarkAvailable={timelineData.benchmarkAvailable}
               window={timelineWindow}
               onWindowChange={setTimelineWindow}
               theme={theme}
