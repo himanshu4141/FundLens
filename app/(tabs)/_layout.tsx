@@ -1,8 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/src/constants/theme';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -14,6 +17,13 @@ export default function TabLayout() {
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
+          // Ensure the bar clears the home indicator / gesture nav bar on all devices
+          paddingBottom: insets.bottom,
+          height: 49 + insets.bottom,
+        },
+        // Force each visible tab item to fill its fair share of the bar width
+        tabBarItemStyle: {
+          flex: 1,
         },
         tabBarLabelStyle: {
           fontSize: 11,
