@@ -1,6 +1,6 @@
 # FundLens
 
-Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see XIRR, compare funds side-by-side.
+Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see XIRR, ranked leaders and laggards, and a simple wealth simulator.
 
 ---
 
@@ -9,10 +9,11 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - Magic link authentication (sign in / sign out)
 - Optional local-only dev auth shortcut backed by a seeded demo user
 - **Import portfolio** — enter your CAS registrar email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
-- **Home screen** — total portfolio value + gain/loss, NAV staleness banner, XIRR vs configurable benchmark (Nifty 50 / Sensex / Nifty Bank etc.), scrollable fund cards with parsed short names and "Direct · Growth" badges, per-card staleness label
-- **Fund detail** — holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised); Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
-- **Compare** — select up to 3 funds or indexes, % return chart from common start, crosshair tooltips, side-by-side metrics table
-- **Settings** — account info, inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker, sign out
+- **Home screen** — total portfolio value + gain/loss, NAV staleness banner, XIRR vs configurable benchmark, portfolio-vs-market chart, top gainers/losers, scrollable fund cards with parsed short names and "Direct · Growth" badges, per-card staleness label
+- **Leaderboard** — ranked leaders and laggards based on 1Y fund return versus the selected benchmark, with drill-through to fund detail
+- **Fund detail** — holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised); Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary, growth consistency, and portfolio impact; NAV History tab with 4dp precision
+- **Simulator** — client-side SIP/lumpsum projection with editable inputs and a baseline-vs-scenario chart
+- **Settings** — account info, inbound CAS address, PDF upload shortcut, benchmark picker, design variant toggle, sign out
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
 - Full CI/CD: typecheck + lint + EAS Update on every PR; Supabase deploy + production EAS Update on merge to main
 
@@ -154,12 +155,12 @@ The deep link scheme `fundlens://` is configured in `app.json` and the Supabase 
 app/               Expo Router screens
   _layout.tsx      Root layout: providers + auth gate
   auth/            Sign in + confirm screens
-  (tabs)/          Home, Compare, Settings tabs
+  (tabs)/          Home, Leaderboard, Simulator, hidden Settings route
   fund/[id].tsx    Fund detail
   onboarding/      CAS import flows (onboarding, qr, pdf)
 src/
   components/      Shared UI components
-  hooks/           useSession, usePortfolio, useFundDetail, useCompare, ...
+  hooks/           useSession, usePortfolio, useFundDetail, useLeaderboard, ...
   lib/             supabase.ts, queryClient.ts
   types/           database.types.ts (auto-generated), app.ts
   utils/           xirr.ts, formatCurrency.ts, cashflows.ts, filterToWindow.ts
@@ -182,5 +183,5 @@ docs/
 | 3 | `milestone/3-onboarding` | CAS import via CASParser inbound email, PDF upload |
 | 4 | `milestone/4-home-screen` | Portfolio total, XIRR vs benchmark, fund cards |
 | 5 | `milestone/5-fund-detail` | Fund vs benchmark chart, NAV history, time windows |
-| 6 | `milestone/6-compare` | Multi-fund comparison chart and metrics table |
+| 6 | `milestone/6-compare` | Historical milestone documenting the removed Compare screen |
 | 7 | `milestone/7-improvements` | Settings screen, smart import, hourly cron |
