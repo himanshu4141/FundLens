@@ -17,6 +17,7 @@ import { supabase } from '@/src/lib/supabase';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
 import Logo from '@/src/components/Logo';
+import { useThemeVariant } from '@/src/hooks/useThemeVariant';
 import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
@@ -72,14 +73,21 @@ function CopyBox({ label, value }: { label: string; value: string }) {
 function OnboardingHero({
   title,
   subtitle,
+  colors,
+  isEditorial,
 }: {
   title: string;
   subtitle: string;
+  colors: typeof Colors;
+  isEditorial: boolean;
 }) {
   return (
-    <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
+    <LinearGradient colors={colors.gradientHeader} style={styles.hero}>
       <Logo size={46} showWordmark light />
       <View style={styles.heroCopy}>
+        <Text style={[styles.heroEyebrow, isEditorial && styles.heroEyebrowEditorial]}>
+          Import workflow
+        </Text>
         <Text style={styles.heroTitle}>{title}</Text>
         <Text style={styles.heroSubtitle}>{subtitle}</Text>
       </View>
@@ -103,12 +111,16 @@ function SetupComplete({
   onRefresh,
   onReset,
   onGoToPortfolio,
+  colors,
+  isEditorial,
 }: {
   inboundEmail: string;
   kftechEmail: string;
   onRefresh: () => Promise<void>;
   onReset: () => void;
   onGoToPortfolio: () => void;
+  colors: typeof Colors;
+  isEditorial: boolean;
 }) {
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
@@ -128,19 +140,24 @@ function SetupComplete({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       <OnboardingHero
         title="Your import setup is ready"
         subtitle="Refresh your latest transactions in one tap, or keep auto-forward on and let the inbox do the work."
+        colors={colors}
+        isEditorial={isEditorial}
       />
 
-      <View style={styles.sectionCard}>
+      <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionEyebrow}>Refresh</Text>
-          <Text style={styles.sectionTitle}>Pull your latest CAS</Text>
+          <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>Refresh</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Pull your latest CAS</Text>
         </View>
         <TouchableOpacity
-          style={[styles.refreshBtn, requesting && styles.btnDisabled]}
+          style={[styles.refreshBtn, { backgroundColor: colors.primary }, requesting && styles.btnDisabled]}
           onPress={handleRefresh}
           disabled={requesting}
         >
@@ -152,8 +169,8 @@ function SetupComplete({
         </TouchableOpacity>
 
         {requested && (
-          <View style={styles.requestedBanner}>
-            <Text style={styles.requestedText}>
+          <View style={[styles.requestedBanner, { backgroundColor: colors.primaryLight, borderColor: colors.primaryLight }]}>
+            <Text style={[styles.requestedText, { color: colors.primaryDark }]}>
               CAS requested! KFintech will email <Text style={styles.bold}>{kftechEmail}</Text>.
               {'\n'}
               {showAutoForward
@@ -171,14 +188,14 @@ function SetupComplete({
         style={styles.tipToggle}
         onPress={() => setShowAutoForward((v) => !v)}
       >
-        <Text style={styles.tipToggleText}>
+        <Text style={[styles.tipToggleText, { color: colors.primary }]}>
           {showAutoForward ? '▾' : '▸'} Set up auto-forward (skip the manual step forever)
         </Text>
       </TouchableOpacity>
 
       {showAutoForward && (
-        <View style={styles.tipCard}>
-          <Text style={styles.tipTitle}>Auto-forward filter</Text>
+        <View style={[styles.tipCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.tipTitle, { color: colors.primary }]}>Auto-forward filter</Text>
           <Text style={styles.tipStep}>
             1. Open Gmail → Settings → Filters → Create new filter
           </Text>
@@ -193,18 +210,18 @@ function SetupComplete({
           <Text style={styles.tipStep}>
             4. Save. From now on, hitting <Text style={styles.bold}>Refresh</Text> is all you need.
           </Text>
-          <Text style={styles.tipNote}>
+          <Text style={[styles.tipNote, { color: colors.textTertiary }]}>
             Outlook: Settings → Rules → New rule → From address → Forward to import address.
           </Text>
         </View>
       )}
 
-      <TouchableOpacity style={styles.portfolioBtn} onPress={onGoToPortfolio}>
+      <TouchableOpacity style={[styles.portfolioBtn, { backgroundColor: colors.primary }]} onPress={onGoToPortfolio}>
         <Text style={styles.portfolioBtnText}>Go to portfolio</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.resetLink} onPress={onReset}>
-        <Text style={styles.resetLinkText}>Change PAN or email</Text>
+        <Text style={[styles.resetLinkText, { color: colors.textTertiary }]}>Change PAN or email</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -214,6 +231,7 @@ function SetupComplete({
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const theme = useThemeVariant();
   const { session } = useSession();
   const queryClient = useQueryClient();
   const { inboundEmail, isLoading: sessionLoading, createSession } = useInboundSession(
@@ -304,6 +322,8 @@ export default function OnboardingScreen() {
           queryClient.setQueryData(['user-profile', session?.user.id], null);
         }}
         onGoToPortfolio={() => router.replace('/')}
+        colors={theme.colors}
+        isEditorial={theme.isEditorial}
       />
     );
   }
@@ -314,10 +334,15 @@ export default function OnboardingScreen() {
   const step3Enabled = !!inboundEmail;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       <OnboardingHero
         title="Import your portfolio"
         subtitle="Set this up once and future refreshes become a single tap. Email forwarding is the fastest path, PDF upload stays available as fallback."
+        colors={theme.colors}
+        isEditorial={theme.isEditorial}
       />
 
       {/* ── Step 1 — PAN ──────────────────────────────────────── */}
@@ -493,6 +518,14 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   heroCopy: { gap: Spacing.sm },
+  heroEyebrow: {
+    ...Typography.label,
+    color: 'rgba(255,255,255,0.72)',
+    textTransform: 'uppercase',
+  },
+  heroEyebrowEditorial: {
+    letterSpacing: 1.1,
+  },
   heroTitle: {
     ...Typography.h1,
     color: Colors.textOnDark,

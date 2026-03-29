@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import { canShowDevAuthShortcut, getDevAuthCredentials } from '@/src/lib/devAuth';
 import Logo from '@/src/components/Logo';
+import { useThemeVariant } from '@/src/hooks/useThemeVariant';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 /**
@@ -41,6 +42,7 @@ const VALUE_PROPS = [
 
 export default function SignInScreen() {
   const router = useRouter();
+  const theme = useThemeVariant();
   const [email, setEmail] = useState('');
   const [loadingMode, setLoadingMode] = useState<'magic' | 'demo' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,10 +111,13 @@ export default function SignInScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Hero panel ── */}
-        <LinearGradient colors={Colors.gradientHero} style={styles.hero}>
+        <LinearGradient colors={theme.colors.gradientHero} style={styles.hero}>
           <Logo size={52} showWordmark light />
+          <Text style={[styles.heroEyebrow, theme.isEditorial && styles.heroEyebrowEditorial]}>
+            Private portfolio intelligence
+          </Text>
 
-          <Text style={styles.heroTagline}>
+          <Text style={[styles.heroTagline, theme.isEditorial && styles.heroTaglineEditorial]}>
             Know if you&apos;re beating the market.{'\n'}No jargon. No noise.
           </Text>
 
@@ -121,23 +126,40 @@ export default function SignInScreen() {
             {VALUE_PROPS.map(({ icon, text }) => (
               <View key={text} style={styles.valuePropRow}>
                 <Text style={styles.valuePropIcon}>{icon}</Text>
-                <Text style={styles.valuePropText}>{text}</Text>
+                <Text style={[styles.valuePropText, theme.isEditorial && styles.valuePropTextEditorial]}>{text}</Text>
               </View>
             ))}
           </View>
         </LinearGradient>
 
         {/* ── Form panel ── */}
-        <View style={styles.formPanel}>
-          <Text style={styles.formTitle}>Sign in</Text>
-          <Text style={styles.formSubtitle}>
+        <View
+          style={[
+            styles.formPanel,
+            {
+              backgroundColor: theme.colors.surface,
+              shadowColor: theme.isEditorial ? theme.colors.primary : '#000',
+            },
+            theme.isEditorial && styles.formPanelEditorial,
+          ]}
+        >
+          <Text style={[styles.formTitle, { color: theme.colors.textPrimary }]}>Sign in</Text>
+          <Text style={[styles.formSubtitle, { color: theme.colors.textSecondary }]}>
             Enter your email — we&apos;ll send a secure link. No password needed.
           </Text>
 
           <TextInput
-            style={[styles.input, error ? styles.inputError : null]}
+            style={[
+              styles.input,
+              {
+                borderColor: error ? theme.colors.negative : theme.colors.border,
+                color: theme.colors.textPrimary,
+                backgroundColor: theme.colors.surfaceAlt,
+              },
+              error ? styles.inputError : null,
+            ]}
             placeholder="you@example.com"
-            placeholderTextColor={Colors.textTertiary}
+            placeholderTextColor={theme.colors.textTertiary}
             value={email}
             onChangeText={(v) => { setEmail(v); setError(null); }}
             keyboardType="email-address"
@@ -149,10 +171,14 @@ export default function SignInScreen() {
             onSubmitEditing={handleSendMagicLink}
           />
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {error && <Text style={[styles.errorText, { color: theme.colors.negative }]}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.button, loadingMode !== null && styles.buttonDisabled]}
+            style={[
+              styles.button,
+              { backgroundColor: theme.colors.primary },
+              loadingMode !== null && styles.buttonDisabled,
+            ]}
             onPress={handleSendMagicLink}
             disabled={loadingMode !== null}
             activeOpacity={0.85}
@@ -167,25 +193,36 @@ export default function SignInScreen() {
           {showDevAuthShortcut && (
             <>
               <View style={styles.devDividerRow}>
-                <View style={styles.devDivider} />
-                <Text style={styles.devDividerText}>Local development only</Text>
-                <View style={styles.devDivider} />
+                <View style={[styles.devDivider, { backgroundColor: theme.colors.border }]} />
+                <Text style={[styles.devDividerText, { color: theme.colors.textTertiary }]}>
+                  Local development only
+                </Text>
+                <View style={[styles.devDivider, { backgroundColor: theme.colors.border }]} />
               </View>
 
               <TouchableOpacity
-                style={[styles.devButton, loadingMode !== null && styles.buttonDisabled]}
+                style={[
+                  styles.devButton,
+                  {
+                    borderColor: theme.colors.primary,
+                    backgroundColor: theme.colors.primaryLight,
+                  },
+                  loadingMode !== null && styles.buttonDisabled,
+                ]}
                 onPress={handleDevSignIn}
                 disabled={loadingMode !== null}
                 activeOpacity={0.85}
               >
                 {loadingMode === 'demo' ? (
-                  <ActivityIndicator color={Colors.primary} />
+                  <ActivityIndicator color={theme.colors.primary} />
                 ) : (
-                  <Text style={styles.devButtonText}>Continue as demo user</Text>
+                  <Text style={[styles.devButtonText, { color: theme.colors.primary }]}>
+                    Continue as demo user
+                  </Text>
                 )}
               </TouchableOpacity>
 
-              <Text style={styles.devHint}>
+              <Text style={[styles.devHint, { color: theme.colors.textTertiary }]}>
                 Uses locally configured demo credentials. Keep this disabled outside local development.
               </Text>
             </>
@@ -197,14 +234,14 @@ export default function SignInScreen() {
             onPress={() => setShowMagicLinkInfo((v) => !v)}
             activeOpacity={0.7}
           >
-            <Text style={styles.infoToggleText}>
+            <Text style={[styles.infoToggleText, { color: theme.colors.primary }]}>
               {showMagicLinkInfo ? '▲' : '▼'} What is a magic link?
             </Text>
           </TouchableOpacity>
 
           {showMagicLinkInfo && (
-            <View style={styles.infoBox}>
-              <Text style={styles.infoBoxText}>
+            <View style={[styles.infoBox, { backgroundColor: theme.colors.primaryLight }]}>
+              <Text style={[styles.infoBoxText, { color: theme.colors.primaryDark }]}>
                 A magic link is a one-time, expiring link we email you. Tap it to sign in
                 instantly — no password to remember, nothing to forget. The link expires in
                 10 minutes and can only be used once.
@@ -212,7 +249,7 @@ export default function SignInScreen() {
             </View>
           )}
 
-          <Text style={styles.securityNote}>
+          <Text style={[styles.securityNote, { color: theme.colors.textTertiary }]}>
             🔒 Your data is private and encrypted. We never share it.
           </Text>
         </View>
@@ -243,6 +280,20 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     marginTop: Spacing.sm,
   },
+  heroEyebrow: {
+    ...Typography.label,
+    color: 'rgba(255,255,255,0.72)',
+    textTransform: 'uppercase',
+    marginBottom: -Spacing.sm,
+  },
+  heroEyebrowEditorial: {
+    letterSpacing: 1.1,
+  },
+  heroTaglineEditorial: {
+    fontSize: 34,
+    lineHeight: 40,
+    letterSpacing: -1.2,
+  },
   valueProps: {
     gap: Spacing.sm,
     marginTop: Spacing.xs,
@@ -262,6 +313,9 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
+  valuePropTextEditorial: {
+    color: 'rgba(255,255,255,0.88)',
+  },
 
   // ── Form ──
   formPanel: {
@@ -280,6 +334,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 6,
+  },
+  formPanelEditorial: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
   },
   formTitle: {
     ...Typography.h1,

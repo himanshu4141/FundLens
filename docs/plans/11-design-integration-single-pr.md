@@ -700,23 +700,76 @@ Mitigation:
 - The editorial concept is treated as a design direction, not a literal feature spec.
 - No paid data source may be added for this work.
 
+## Amendments
+
+### Amendment 1: Theme architecture stayed hook-based instead of adding a provider
+
+Implemented shape:
+- added editorial tokens in `src/constants/themeEditorial.ts`
+- added `src/hooks/useThemeVariant.ts`
+- persisted `designVariant` in the Zustand app store
+
+Reason:
+- the existing codebase already imports theme tokens directly in most screens
+- a lightweight selector hook was enough to land the variant toggle without a larger provider refactor
+
+### Amendment 2: Technical metadata enrichment was deferred
+
+Implemented shape:
+- fund detail gained growth consistency and portfolio impact
+- no free-source metadata sync for expense ratio, AUM, or minimum SIP was added in this branch
+
+Reason:
+- metadata enrichment was explicitly non-blocking in the plan
+- the higher-value shell, Home, Leaderboard, Simulator, and Fund Detail work already filled the branch scope
+
+### Amendment 3: Cleanup landed before the final polish milestone was fully closed
+
+Implemented shape:
+- Compare removal and README / `docs/SCREENS.md` cleanup were committed before the final auth/onboarding polish commit
+
+Reason:
+- Compare was isolated and safe to delete once the new nav shell, Home, Leaderboard, and Simulator were in place
+- keeping the dead code around until the very end had no benefit
+
+### Amendment 4: Local web validation required env bootstrapping in the review worktree
+
+Observed behavior:
+- the separate review worktree did not include `.env.local`, so local web boot initially failed with `supabaseUrl is required`
+- copying the local env into the review worktree fixed app boot for branch validation
+
+Reason:
+- `.env.local` is intentionally untracked, so the worktree did not inherit it automatically
+
+### Amendment 5: Browser automation could validate rendering, but demo sign-in remained flaky through RN Web pressables
+
+Observed behavior:
+- Playwright MCP could open the local web app and navigate routes
+- the local-only demo sign-in shortcut was not reliably clickable through Playwright against the React Native Web markup, even though the seeded account and data were valid
+- demo data seeding was verified from the branch with `npm run seed:demo`
+
+Impact:
+- code-quality validation is complete
+- local browser validation covered app boot, route rendering, and shell navigation
+- full scripted sign-in via Playwright should be treated as follow-up tooling work rather than a release blocker for this branch
+
 ## Progress
 
-- [ ] Create the working branch from current `main`
-- [ ] Capture baseline screenshots and notes
-- [ ] Add design-variant architecture
-- [ ] Remove Compare from navigation
-- [ ] Add new nav shell with Settings access
-- [ ] Redesign Home and add portfolio-vs-market chart
-- [ ] Add top movers section if data support is sufficient
-- [ ] Build Leaderboard screen
-- [ ] Refresh Fund Detail and preserve current advanced behavior
-- [ ] Add growth-consistency and portfolio-impact modules if feasible
+- [x] Create the working branch from current `main`
+- [~] Capture baseline screenshots and notes
+- [x] Add design-variant architecture
+- [x] Remove Compare from navigation
+- [x] Add new nav shell with Settings access
+- [x] Redesign Home and add portfolio-vs-market chart
+- [x] Add top movers section if data support is sufficient
+- [x] Build Leaderboard screen
+- [x] Refresh Fund Detail and preserve current advanced behavior
+- [x] Add growth-consistency and portfolio-impact modules if feasible
 - [ ] Add optional free-source metadata enrichment only if stable
-- [ ] Build Simulator screen and projection math tests
-- [ ] Redesign Settings and add design toggle
-- [ ] Refresh auth/onboarding visuals without changing core import behavior
-- [ ] Remove dead Compare code and references
-- [ ] Update README and docs
-- [ ] Add Amendments section if implementation diverges
-- [ ] Run typecheck, lint, tests, and manual local validation
+- [x] Build Simulator screen and projection math tests
+- [x] Redesign Settings and add design toggle
+- [x] Refresh auth/onboarding visuals without changing core import behavior
+- [x] Remove dead Compare code and references
+- [x] Update README and docs
+- [x] Add Amendments section if implementation diverges
+- [~] Run typecheck, lint, tests, and manual local validation

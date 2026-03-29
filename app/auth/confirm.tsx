@@ -2,10 +2,12 @@ import { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import Logo from '@/src/components/Logo';
+import { useThemeVariant } from '@/src/hooks/useThemeVariant';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 export default function ConfirmScreen() {
   const router = useRouter();
+  const theme = useThemeVariant();
 
   /**
    * Web-only: bridge magic-link tokens back into the native app.
@@ -40,10 +42,10 @@ export default function ConfirmScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       {/* Logo at top */}
       <View style={styles.logoArea}>
-        <Logo size={44} showWordmark />
+        <Logo size={44} showWordmark color={theme.colors.primary} />
       </View>
 
       {/* Envelope illustration — built from primitives, no emoji dependency */}
@@ -61,26 +63,35 @@ export default function ConfirmScreen() {
         </View>
       </View>
 
-      <Text style={styles.title}>Check your inbox</Text>
+      <Text style={[styles.eyebrow, { color: theme.colors.primary }]}>Magic link sent</Text>
+      <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Check your inbox</Text>
 
-      <Text style={styles.body}>
+      <Text style={[styles.body, { color: theme.colors.textSecondary }]}>
         We sent a secure sign-in link to your email. Tap it to open FundLens — no
         password needed.
       </Text>
 
-      <View style={styles.tips}>
-        <Text style={styles.tipText}>⏱ The link expires in 10 minutes.</Text>
-        <Text style={styles.tipText}>📂 Check your spam folder if you don&apos;t see it.</Text>
-        <Text style={styles.tipText}>📱 Open the link on this device for the smoothest experience.</Text>
+      <View style={[styles.tips, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+          ⏱ The link expires in 10 minutes.
+        </Text>
+        <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+          📂 Check your spam folder if you don&apos;t see it.
+        </Text>
+        <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+          📱 Open the link on this device for the smoothest experience.
+        </Text>
       </View>
 
       <View style={styles.actions}>
         <TouchableOpacity
-          style={styles.secondaryBtn}
+          style={[styles.secondaryBtn, { borderColor: theme.colors.border }]}
           onPress={handleResend}
           activeOpacity={0.75}
         >
-          <Text style={styles.secondaryBtnText}>Use a different email</Text>
+          <Text style={[styles.secondaryBtnText, { color: theme.colors.textSecondary }]}>
+            Use a different email
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -166,6 +177,11 @@ const styles = StyleSheet.create({
   },
 
   // ── Text ──
+  eyebrow: {
+    ...Typography.label,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
   title: {
     ...Typography.h1,
     color: Colors.textPrimary,

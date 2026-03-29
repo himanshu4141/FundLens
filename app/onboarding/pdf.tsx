@@ -12,12 +12,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
+import { useThemeVariant } from '@/src/hooks/useThemeVariant';
 import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
 
 export default function PDFScreen() {
   const router = useRouter();
+  const theme = useThemeVariant();
   const [state, setState] = useState<UploadState>('idle');
   const [result, setResult] = useState<{ funds: number; transactions: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -71,10 +73,14 @@ export default function PDFScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={styles.content}
+    >
+      <LinearGradient colors={theme.colors.gradientHeader} style={styles.hero}>
         <Logo size={44} showWordmark light />
         <View style={styles.heroCopy}>
+          <Text style={[styles.eyebrow, { color: 'rgba(255,255,255,0.72)' }]}>Manual fallback</Text>
           <Text style={styles.title}>Upload a CAS PDF</Text>
           <Text style={styles.subtitle}>
             Use this when you already downloaded your statement and want to import it directly.
@@ -82,45 +88,45 @@ export default function PDFScreen() {
         </View>
       </LinearGradient>
 
-      <View style={styles.panel}>
-        <Text style={styles.sectionLabel}>Supported PDFs</Text>
-        <Text style={styles.infoTitle}>Detailed CAS statements we can import</Text>
-        <Text style={styles.infoItem}>• CAMS CAS (password = your PAN)</Text>
-        <Text style={styles.infoItem}>• KFintech / Karvy CAS (password = your PAN)</Text>
-        <Text style={styles.infoItem}>• MFcentral CAS (password = your PAN)</Text>
+      <View style={[styles.panel, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: theme.colors.primary }]}>Supported PDFs</Text>
+        <Text style={[styles.infoTitle, { color: theme.colors.textPrimary }]}>Detailed CAS statements we can import</Text>
+        <Text style={[styles.infoItem, { color: theme.colors.textSecondary }]}>• CAMS CAS (password = your PAN)</Text>
+        <Text style={[styles.infoItem, { color: theme.colors.textSecondary }]}>• KFintech / Karvy CAS (password = your PAN)</Text>
+        <Text style={[styles.infoItem, { color: theme.colors.textSecondary }]}>• MFcentral CAS (password = your PAN)</Text>
       </View>
 
-      <View style={styles.panel}>
-        <Text style={styles.sectionLabel}>Get the file</Text>
-        <Text style={styles.howTitle}>Download your CAS from the source</Text>
-        <Text style={styles.howStep}>
+      <View style={[styles.panel, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: theme.colors.primary }]}>Get the file</Text>
+        <Text style={[styles.howTitle, { color: theme.colors.textPrimary }]}>Download your CAS from the source</Text>
+        <Text style={[styles.howStep, { color: theme.colors.textSecondary }]}>
           <Text style={styles.bold}>CAMS: </Text>
           camsonline.com → Statements → CAS → Detailed → Download PDF
         </Text>
-        <Text style={styles.howStep}>
+        <Text style={[styles.howStep, { color: theme.colors.textSecondary }]}>
           <Text style={styles.bold}>KFintech: </Text>
           kfintech.com → MF → CAS → Request → Download PDF
         </Text>
-        <Text style={styles.howStep}>
+        <Text style={[styles.howStep, { color: theme.colors.textSecondary }]}>
           <Text style={styles.bold}>MFcentral: </Text>
           mfcentral.com → CAS → Detailed → Download PDF
         </Text>
       </View>
 
-      <View style={styles.panNote}>
-        <Text style={styles.panNoteText}>
+      <View style={[styles.panNote, { backgroundColor: theme.colors.primaryLight, borderColor: theme.colors.primaryLight }]}>
+        <Text style={[styles.panNoteText, { color: theme.colors.primaryDark }]}>
           Make sure your PAN is saved in import settings first. We use it as the PDF password.
         </Text>
       </View>
 
       {state === 'success' && result && (
-        <View style={styles.successCard}>
-          <Text style={styles.successTitle}>Import complete</Text>
-          <Text style={styles.successText}>
+        <View style={[styles.successCard, { backgroundColor: theme.colors.primaryLight, borderColor: theme.colors.primaryLight }]}>
+          <Text style={[styles.successTitle, { color: theme.colors.primaryDark }]}>Import complete</Text>
+          <Text style={[styles.successText, { color: theme.colors.primaryDark }]}>
             {result.funds} fund{result.funds !== 1 ? 's' : ''} ·{' '}
             {result.transactions} transaction{result.transactions !== 1 ? 's' : ''} imported
           </Text>
-          <TouchableOpacity style={styles.doneBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.doneBtn, { backgroundColor: theme.colors.primary }]} onPress={() => router.back()}>
             <Text style={styles.doneBtnText}>Back to import setup</Text>
           </TouchableOpacity>
         </View>
@@ -137,6 +143,7 @@ export default function PDFScreen() {
         <TouchableOpacity
           style={[
             styles.uploadBtn,
+            { backgroundColor: theme.colors.primary },
             (state === 'picking' || state === 'uploading') && styles.uploadBtnDisabled,
           ]}
           onPress={handlePickAndUpload}
@@ -156,7 +163,7 @@ export default function PDFScreen() {
       )}
 
       <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-        <Text style={styles.backLinkText}>Back to import options</Text>
+        <Text style={[styles.backLinkText, { color: theme.colors.primary }]}>Back to import options</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -172,6 +179,10 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   heroCopy: { gap: Spacing.sm },
+  eyebrow: {
+    ...Typography.label,
+    textTransform: 'uppercase',
+  },
   title: { ...Typography.h1, color: Colors.textOnDark },
   subtitle: { ...Typography.body, color: 'rgba(255,255,255,0.8)' },
 
