@@ -28,6 +28,10 @@ function formatAxisCurrency(value: number) {
   return `${Math.round(value / 1000)}K`;
 }
 
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 export default function SimulatorScreen() {
   const theme = useThemeVariant();
   const { width: viewportWidth } = useWindowDimensions();
@@ -121,8 +125,7 @@ export default function SimulatorScreen() {
     ...chartData.map((point) => point.value),
     ...chartData2.map((point) => point.value),
   );
-  const chartBodyWidth = Math.max(180, chartViewportWidth > 0 ? chartViewportWidth - 28 : viewportWidth - 220);
-  const chartSpacing = timeline.length > 1 ? Math.max(36, (chartBodyWidth - 12) / (timeline.length - 1)) : 20;
+  const chartBodyWidth = Math.max(240, chartViewportWidth > 0 ? chartViewportWidth - 8 : viewportWidth - 72);
 
   const deltaValue = scenario.terminalValue - baseline.terminalValue;
   const sipDelta = scenarioSip - monthlySip;
@@ -199,6 +202,10 @@ export default function SimulatorScreen() {
             value={monthlySip}
             onChange={setMonthlySipInput}
             theme={theme}
+            kind="currency"
+            quickActions={[-10000, -5000, 5000, 10000]}
+            min={0}
+            max={1000000}
           />
           <NumberField
             label="Proposed monthly SIP"
@@ -206,6 +213,10 @@ export default function SimulatorScreen() {
             value={scenarioSip}
             onChange={setScenarioSipInput}
             theme={theme}
+            kind="currency"
+            quickActions={[-10000, -5000, 5000, 10000]}
+            min={0}
+            max={1000000}
           />
           <NumberField
             label="One-time top-up"
@@ -213,6 +224,10 @@ export default function SimulatorScreen() {
             value={oneTimeTopUp}
             onChange={setOneTimeTopUpInput}
             theme={theme}
+            kind="currency"
+            quickActions={[-50000, -25000, 25000, 50000]}
+            min={0}
+            max={10000000}
           />
           <NumberField
             label="Expected annual return (%)"
@@ -220,6 +235,10 @@ export default function SimulatorScreen() {
             value={annualReturnPct}
             onChange={setAnnualReturnPctInput}
             theme={theme}
+            kind="percent"
+            quickActions={[-1, -0.5, 0.5, 1]}
+            min={0}
+            max={30}
           />
           <NumberField
             label="Investment horizon (years)"
@@ -227,6 +246,10 @@ export default function SimulatorScreen() {
             value={years}
             onChange={setYearsInput}
             theme={theme}
+            kind="years"
+            quickActions={[-5, -1, 1, 5]}
+            min={1}
+            max={40}
           />
         </View>
 
@@ -246,12 +269,14 @@ export default function SimulatorScreen() {
               data={chartData}
               data2={chartData2}
               width={chartBodyWidth}
+              parentWidth={chartBodyWidth}
               height={240}
               curved
               hideDataPoints
-              initialSpacing={20}
-              endSpacing={12}
-              spacing={chartSpacing}
+              adjustToWidth
+              disableScroll
+              initialSpacing={12}
+              endSpacing={8}
               color1={theme.colors.textSecondary}
               color2={theme.colors.primary}
               thickness1={2}
@@ -344,20 +369,40 @@ function NumberField({
   value,
   onChange,
   theme,
+  kind,
+  quickActions,
+  min,
+  max,
 }: {
   label: string;
   helper: string;
   value: number;
   onChange: (value: number) => void;
   theme: ReturnType<typeof useThemeVariant>;
+  kind: 'currency' | 'percent' | 'years';
+  quickActions: number[];
+  min: number;
+  max: number;
 }) {
+  const applyDelta = (delta: number) => {
+    const precision = Number.isInteger(delta) ? 0 : 1;
+    const next = clampNumber(Number((value + delta).toFixed(precision)), min, max);
+    onChange(next);
+  };
+
+  const formatQuickAction = (delta: number) => {
+    if (kind === 'percent') return `${delta > 0 ? '+' : ''}${delta}%`;
+    if (kind === 'years') return `${delta > 0 ? '+' : ''}${delta}Y`;
+    return `${delta > 0 ? '+' : '-'}${formatCompactCurrency(Math.abs(delta)).replace('₹', '')}`;
+  };
+
   return (
     <View style={styles.field}>
       <Text style={[styles.fieldLabel, { color: theme.colors.textPrimary }]}>{label}</Text>
       <Text style={[styles.fieldHelper, { color: theme.colors.textSecondary }]}>{helper}</Text>
       <TextInput
         keyboardType="numeric"
-        onChangeText={(text) => onChange(Number(text.replace(/[^0-9.]/g, '')) || 0)}
+        onChangeText={(text) => onChange(clampNumber(Number(text.replace(/[^0-9.]/g, '')) || 0, min, max))}
         style={[
           styles.fieldInput,
           {
@@ -368,6 +413,27 @@ function NumberField({
         ]}
         value={String(value)}
       />
+      <View style={styles.quickActionsRow}>
+        {quickActions.map((delta) => (
+          <View
+            key={`${label}-${delta}`}
+            style={[
+              styles.quickActionChip,
+              {
+                backgroundColor: theme.colors.surfaceAlt,
+                borderColor: theme.colors.borderLight,
+              },
+            ]}
+          >
+            <Text
+              onPress={() => applyDelta(delta)}
+              style={[styles.quickActionText, { color: theme.colors.textSecondary }]}
+            >
+              {formatQuickAction(delta)}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -518,5 +584,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  quickActionChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
