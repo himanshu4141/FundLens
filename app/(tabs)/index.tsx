@@ -13,7 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { LineChart } from 'react-native-gifted-charts';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
+import { usePortfolioTimeline, type PortfolioTimelinePoint, type PortfolioTimelineWindow } from '@/src/hooks/usePortfolioTimeline';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
 import { parseFundName } from '@/src/utils/fundName';
@@ -72,6 +74,161 @@ function BenchmarkSelector({
           </Text>
         </TouchableOpacity>
       ))}
+    </View>
+  );
+}
+
+function TimelineWindowSelector({
+  selected,
+  onChange,
+}: {
+  selected: PortfolioTimelineWindow;
+  onChange: (window: PortfolioTimelineWindow) => void;
+}) {
+  return (
+    <View style={styles.timelineWindowRow}>
+      {(['1Y', '3Y'] as const).map((window) => (
+        <TouchableOpacity
+          key={window}
+          style={[styles.timelineWindowPill, selected === window && styles.timelineWindowPillActive]}
+          onPress={() => onChange(window)}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.timelineWindowText, selected === window && styles.timelineWindowTextActive]}>
+            {window}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function sampleTimeline(points: PortfolioTimelinePoint[], max: number): PortfolioTimelinePoint[] {
+  if (points.length <= max) return points;
+  const step = Math.ceil(points.length / max);
+  return points.filter((_, index) => index % step === 0 || index === points.length - 1);
+}
+
+function formatTimelineLabel(dateStr: string): string {
+  const [year, month] = dateStr.split('-');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${monthNames[parseInt(month ?? '1', 10) - 1]} '${year.slice(2)}`;
+}
+
+function PortfolioTimelineSection({
+  points,
+  benchmarkLabel,
+  window,
+  onWindowChange,
+}: {
+  points: PortfolioTimelinePoint[];
+  benchmarkLabel: string;
+  window: PortfolioTimelineWindow;
+  onWindowChange: (window: PortfolioTimelineWindow) => void;
+}) {
+  const sampled = sampleTimeline(points, 44);
+  const data = sampled.map((point) => ({ value: point.portfolioIndexed }));
+  const data2 = sampled.map((point) => ({ value: point.benchmarkIndexed }));
+  const bodyWidth = 320;
+  const spacing = sampled.length > 1 ? bodyWidth / (sampled.length - 1) : 20;
+  const labelInterval = Math.max(1, Math.floor(sampled.length / 4));
+  const xLabels = sampled.map((point, index) =>
+    index % labelInterval === 0 || index === sampled.length - 1 ? formatTimelineLabel(point.date) : '',
+  );
+  const allValues = [...data.map((point) => point.value), ...data2.map((point) => point.value)];
+  const maxValue = Math.max(...allValues);
+  const minValue = Math.min(...allValues);
+  const pad = Math.max(4, (maxValue - minValue) * 0.15);
+
+  return (
+    <View style={styles.timelineCard}>
+      <View style={styles.timelineHeader}>
+        <View>
+          <Text style={styles.timelineTitle}>Portfolio vs Market</Text>
+          <Text style={styles.timelineSub}>Indexed to 100 from the start of the selected window</Text>
+        </View>
+        <TimelineWindowSelector selected={window} onChange={onWindowChange} />
+      </View>
+
+      <LineChart
+        data={data}
+        data2={data2}
+        width={bodyWidth}
+        height={180}
+        areaChart
+        curved
+        hideDataPoints
+        initialSpacing={0}
+        endSpacing={0}
+        spacing={spacing}
+        color1={Colors.primary}
+        color2={Colors.warning}
+        startFillColor1={Colors.primary}
+        endFillColor1="#ffffff"
+        startOpacity1={0.14}
+        endOpacity1={0}
+        thickness1={2.5}
+        thickness2={2}
+        noOfSections={4}
+        xAxisLabelTexts={xLabels}
+        xAxisLabelTextStyle={styles.timelineAxisLabel}
+        yAxisTextStyle={styles.timelineAxisLabel}
+        yAxisLabelWidth={32}
+        formatYLabel={(value: string) => Number(value).toFixed(0)}
+        maxValue={maxValue + pad}
+        mostNegativeValue={Math.min(0, minValue - pad)}
+        xAxisColor={Colors.borderLight}
+        yAxisColor="transparent"
+        rulesColor={Colors.borderLight}
+      />
+
+      <View style={styles.timelineLegendRow}>
+        <View style={styles.timelineLegendItem}>
+          <View style={[styles.timelineLegendDot, { backgroundColor: Colors.primary }]} />
+          <Text style={styles.timelineLegendText}>Portfolio</Text>
+        </View>
+        <View style={styles.timelineLegendItem}>
+          <View style={[styles.timelineLegendDot, { backgroundColor: Colors.warning }]} />
+          <Text style={styles.timelineLegendText}>{benchmarkLabel}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function TopMoversSection({ fundCards }: { fundCards: FundCardData[] }) {
+  const movers = fundCards.filter(
+    (fund): fund is FundCardData & { dailyChangePct: number; dailyChangeAmount: number } =>
+      fund.dailyChangePct != null && fund.dailyChangeAmount != null,
+  );
+
+  if (movers.length < 2) return null;
+
+  const sorted = [...movers].sort((a, b) => b.dailyChangePct - a.dailyChangePct);
+  const best = sorted[0];
+  const worst = sorted[sorted.length - 1];
+
+  return (
+    <View style={styles.moversSection}>
+      <Text style={styles.moversTitle}>Top Gainers & Losers Today</Text>
+      <View style={styles.moversGrid}>
+        <View style={[styles.moverCard, styles.moverCardPositive]}>
+          <Text style={styles.moverLabel}>Today&apos;s Best</Text>
+          <Text style={styles.moverName} numberOfLines={2}>{parseFundName(best.schemeName).base}</Text>
+          <Text style={styles.moverCategory}>{best.schemeCategory}</Text>
+          <Text style={[styles.moverValue, { color: Colors.positive }]}>
+            +{best.dailyChangePct.toFixed(2)}% · +{formatCurrency(best.dailyChangeAmount)}
+          </Text>
+        </View>
+        <View style={[styles.moverCard, styles.moverCardNegative]}>
+          <Text style={styles.moverLabel}>Today&apos;s Worst</Text>
+          <Text style={styles.moverName} numberOfLines={2}>{parseFundName(worst.schemeName).base}</Text>
+          <Text style={styles.moverCategory}>{worst.schemeCategory}</Text>
+          <Text style={[styles.moverValue, { color: Colors.negative }]}>
+            {worst.dailyChangePct.toFixed(2)}% · {formatCurrency(worst.dailyChangeAmount)}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -346,6 +503,7 @@ export default function HomeScreen() {
   });
 
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [timelineWindow, setTimelineWindow] = useState<PortfolioTimelineWindow>('1Y');
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -362,9 +520,15 @@ export default function HomeScreen() {
   }
 
   const { data, isLoading, isError, refetch, isRefetching } = usePortfolio(defaultBenchmarkSymbol);
+  const {
+    data: timelineData,
+    isLoading: timelineLoading,
+  } = usePortfolioTimeline(userId, defaultBenchmarkSymbol, timelineWindow);
 
   const fundCards = data?.fundCards ?? [];
   const summary = data?.summary ?? null;
+  const benchmarkLabel =
+    BENCHMARK_OPTIONS.find((option) => option.symbol === defaultBenchmarkSymbol)?.label ?? defaultBenchmarkSymbol;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -444,6 +608,21 @@ export default function HomeScreen() {
             latestNavDate={summary.latestNavDate ?? null}
             onBenchmarkChange={setDefaultBenchmarkSymbol}
           />
+
+          {timelineLoading ? (
+            <View style={styles.timelineLoadingCard}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : timelineData?.points?.length ? (
+            <PortfolioTimelineSection
+              points={timelineData.points}
+              benchmarkLabel={benchmarkLabel}
+              window={timelineWindow}
+              onWindowChange={setTimelineWindow}
+            />
+          ) : null}
+
+          <TopMoversSection fundCards={fundCards} />
 
           <View style={styles.fundListHeader}>
             <Text style={styles.fundListTitle}>Your Funds</Text>
@@ -623,6 +802,137 @@ const styles = StyleSheet.create({
   benchmarkPillActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
   benchmarkPillText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
   benchmarkPillTextActive: { color: Colors.primaryDark },
+
+  timelineLoadingCard: {
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.lg,
+    minHeight: 120,
+  },
+  timelineCard: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+  },
+  timelineHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  timelineTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  timelineSub: {
+    ...Typography.bodySmall,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  timelineWindowRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  timelineWindowPill: {
+    backgroundColor: Colors.background,
+    borderRadius: Radii.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  timelineWindowPillActive: {
+    backgroundColor: Colors.primary,
+  },
+  timelineWindowText: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timelineWindowTextActive: {
+    color: '#fff',
+  },
+  timelineAxisLabel: {
+    color: Colors.textTertiary,
+    fontSize: 10,
+  },
+  timelineLegendRow: {
+    flexDirection: 'row',
+    gap: 18,
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  timelineLegendItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  timelineLegendDot: {
+    borderRadius: 999,
+    height: 8,
+    width: 8,
+  },
+  timelineLegendText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  moversSection: {
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+  },
+  moversTitle: {
+    ...Typography.h3,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  moversGrid: {
+    gap: 10,
+  },
+  moverCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+  },
+  moverCardPositive: {
+    borderColor: Colors.positive + '44',
+  },
+  moverCardNegative: {
+    borderColor: Colors.negative + '33',
+  },
+  moverLabel: {
+    color: Colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  moverName: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  moverCategory: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  moverValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 8,
+  },
 
   fundListHeader: {
     flexDirection: 'row',
