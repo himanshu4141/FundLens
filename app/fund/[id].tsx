@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart } from 'react-native-gifted-charts';
+import { LineChart, BarChart, PieChart } from 'react-native-gifted-charts';
 import { useQuery } from '@tanstack/react-query';
 import {
   useFundDetail,
@@ -20,11 +20,13 @@ import {
   indexTo100,
   type TimeWindow,
 } from '@/src/hooks/useFundDetail';
+import { usePortfolio } from '@/src/hooks/usePortfolio';
+import { computeQuarterlyReturns } from '@/src/utils/quarterlyReturns';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 import { supabase } from '@/src/lib/supabase';
-import { BENCHMARK_OPTIONS } from '@/src/store/appStore';
+import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
@@ -627,6 +629,253 @@ const techStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
+// Growth Consistency Chart — quarterly returns from navHistory
+// ---------------------------------------------------------------------------
+
+function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
+  const bars = computeQuarterlyReturns(navHistory, Colors.positive, Colors.negative);
+  if (bars.length < 2) return null;
+
+  const vals = bars.map((b) => Math.abs(b.value));
+  const maxAbs = Math.max(...vals, 1);
+  const chartMax = maxAbs * 1.3;
+
+  const barWidth = Math.min(28, Math.floor((CHART_WIDTH - 64) / bars.length) - 4);
+  const spacing = Math.max(4, Math.floor((CHART_WIDTH - 64 - barWidth * bars.length) / (bars.length + 1)));
+
+  return (
+    <View style={growthStyles.card}>
+      <Text style={growthStyles.title}>Growth Consistency</Text>
+      <Text style={growthStyles.subtitle}>Quarterly returns (%)</Text>
+      <View style={{ overflow: 'hidden', marginTop: Spacing.xs }}>
+        <BarChart
+          data={bars}
+          width={CHART_WIDTH - 64}
+          height={140}
+          barWidth={barWidth}
+          spacing={spacing}
+          initialSpacing={spacing}
+          maxValue={chartMax}
+          mostNegativeValue={-chartMax}
+          noOfSections={4}
+          isAnimated
+          hideRules={false}
+          rulesColor={Colors.borderLight}
+          rulesType="solid"
+          xAxisColor={Colors.borderLight}
+          yAxisColor="transparent"
+          yAxisTextStyle={growthStyles.axisLabel}
+          xAxisLabelTextStyle={growthStyles.axisLabel}
+          formatYLabel={(v: string) => `${Number(v).toFixed(0)}%`}
+          yAxisLabelWidth={36}
+          showValuesAsTopLabel
+          topLabelTextStyle={{ ...growthStyles.barTopLabel }}
+          showFractionalValues
+          referenceLine1Config={{
+            color: Colors.textTertiary,
+            dashWidth: 4,
+            dashGap: 4,
+            thickness: 1,
+          }}
+          referenceLine1Position={0}
+        />
+      </View>
+      <View style={growthStyles.legend}>
+        <View style={growthStyles.legendItem}>
+          <View style={[growthStyles.legendDot, { backgroundColor: Colors.positive }]} />
+          <Text style={growthStyles.legendText}>Positive quarter</Text>
+        </View>
+        <View style={growthStyles.legendItem}>
+          <View style={[growthStyles.legendDot, { backgroundColor: Colors.negative }]} />
+          <Text style={growthStyles.legendText}>Negative quarter</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const growthStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  title: {
+    ...Typography.label,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  subtitle: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+  },
+  axisLabel: { fontSize: 10, color: Colors.textTertiary },
+  barTopLabel: { fontSize: 9, color: Colors.textSecondary },
+  legend: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { ...Typography.caption, color: Colors.textTertiary },
+});
+
+// ---------------------------------------------------------------------------
+// Portfolio Health Donut
+// ---------------------------------------------------------------------------
+
+function ordinalRank(rank: number): string {
+  if (rank === 1) return 'Largest position';
+  if (rank === 2) return '2nd largest';
+  if (rank === 3) return '3rd largest';
+  return `${rank}th largest`;
+}
+
+function PortfolioHealthDonut({
+  fundId,
+  currentValue,
+}: {
+  fundId: string;
+  currentValue: number | null;
+}) {
+  const { defaultBenchmarkSymbol } = useAppStore();
+  const { data: portfolioData } = usePortfolio(defaultBenchmarkSymbol);
+  const fundCards = portfolioData?.fundCards ?? [];
+  const summary = portfolioData?.summary ?? null;
+  const totalValue = summary?.totalValue ?? 0;
+
+  if (!currentValue || currentValue <= 0 || totalValue <= 0) return null;
+
+  const fundPct = (currentValue / totalValue) * 100;
+  const restPct = 100 - fundPct;
+
+  // Rank this fund among all holdings by currentValue (descending)
+  const sorted = [...fundCards]
+    .filter((f) => f.currentValue !== null && f.currentValue > 0)
+    .sort((a, b) => (b.currentValue ?? 0) - (a.currentValue ?? 0));
+  const rank = sorted.findIndex((f) => f.id === fundId) + 1;
+  const rankLabel = rank > 0 ? ordinalRank(rank) : null;
+
+  const donutData = [
+    { value: fundPct, color: Colors.primary },
+    { value: Math.max(restPct, 0), color: Colors.borderLight },
+  ];
+
+  return (
+    <View style={donutStyles.card}>
+      <Text style={donutStyles.title}>Portfolio Weight</Text>
+      <View style={donutStyles.content}>
+        <PieChart
+          data={donutData}
+          donut
+          radius={56}
+          innerRadius={38}
+          innerCircleColor={Colors.surface}
+          centerLabelComponent={() => (
+            <View style={donutStyles.centerLabel}>
+              <Text style={donutStyles.centerPct}>{fundPct.toFixed(1)}%</Text>
+            </View>
+          )}
+        />
+        <View style={donutStyles.info}>
+          <Text style={donutStyles.infoValue}>{fundPct.toFixed(1)}%</Text>
+          <Text style={donutStyles.infoLabel}>of portfolio</Text>
+          {rankLabel && (
+            <Text style={donutStyles.rankLabel}>{rankLabel}</Text>
+          )}
+          <Text style={donutStyles.totalLabel}>
+            Total: {formatCurrency(totalValue)}
+          </Text>
+        </View>
+      </View>
+      <View style={donutStyles.legend}>
+        <View style={donutStyles.legendItem}>
+          <View style={[donutStyles.legendDot, { backgroundColor: Colors.primary }]} />
+          <Text style={donutStyles.legendText}>This fund</Text>
+        </View>
+        <View style={donutStyles.legendItem}>
+          <View style={[donutStyles.legendDot, { backgroundColor: Colors.borderLight }]} />
+          <Text style={donutStyles.legendText}>Rest of portfolio</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const donutStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  title: {
+    ...Typography.label,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  centerLabel: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerPct: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  info: {
+    flex: 1,
+    gap: 4,
+  },
+  infoValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: Colors.primary,
+    lineHeight: 32,
+  },
+  infoLabel: {
+    ...Typography.bodySmall,
+    color: Colors.textTertiary,
+  },
+  rankLabel: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  totalLabel: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    marginTop: 4,
+  },
+  legend: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { ...Typography.caption, color: Colors.textTertiary },
+});
+
+// ---------------------------------------------------------------------------
 
 export default function FundDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -755,6 +1004,13 @@ export default function FundDetailScreen() {
             minSipAmount={data.minSipAmount}
             fundMetaSyncedAt={data.fundMetaSyncedAt}
             schemeCode={data.schemeCode}
+          />
+
+          <GrowthConsistencyChart navHistory={data.navHistory} />
+
+          <PortfolioHealthDonut
+            fundId={data.id}
+            currentValue={data.currentValue}
           />
 
           <View style={styles.bottomPad} />
