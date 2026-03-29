@@ -17,20 +17,20 @@ describe('parseFundName()', () => {
   test('splits Direct Plan IDCW into base + badge', () => {
     const { base, planBadge } = parseFundName('SBI Blue Chip Fund - Direct Plan - IDCW');
     expect(base).toBe('SBI Blue Chip Fund');
-    expect(planBadge).toBe('Direct · Idcw');
+    expect(planBadge).toBe('Direct · IDCW');
   });
 
   test('splits Regular Plan IDCW into base + badge', () => {
     const { base, planBadge } = parseFundName('Mirae Asset Large Cap Fund - Regular Plan - IDCW');
     expect(base).toBe('Mirae Asset Large Cap Fund');
-    expect(planBadge).toBe('Regular · Idcw');
+    expect(planBadge).toBe('Regular · IDCW');
   });
 
   // ── IDCW with extra words (e.g. "IDCW Reinvestment") ────────────────────
   test('uses only the first word of the option for IDCW variants', () => {
     const { base, planBadge } = parseFundName('Franklin India Bluechip Fund - Direct Plan - IDCW Reinvestment');
     expect(base).toBe('Franklin India Bluechip Fund');
-    expect(planBadge).toBe('Direct · Idcw');
+    expect(planBadge).toBe('Direct · IDCW');
   });
 
   // ── Case insensitivity ───────────────────────────────────────────────────
@@ -73,5 +73,35 @@ describe('parseFundName()', () => {
     const badges = combinations.map((n) => parseFundName(n).planBadge);
     const unique = new Set(badges);
     expect(unique.size).toBe(4);
+  });
+
+  test('handles plan names without the second hyphen separator', () => {
+    const { base, planBadge } = parseFundName('Parag Parikh Flexi Cap Fund - Direct Plan Growth');
+    expect(base).toBe('Parag Parikh Flexi Cap Fund');
+    expect(planBadge).toBe('Direct · Growth');
+  });
+
+  test('handles direct growth plan ordering', () => {
+    const { base, planBadge } = parseFundName('HDFC Small Cap Fund - Direct Growth Plan');
+    expect(base).toBe('HDFC Small Cap Fund');
+    expect(planBadge).toBe('Direct · Growth');
+  });
+
+  test('handles abbreviated dir growth suffixes', () => {
+    const { base, planBadge } = parseFundName('DSP Nifty Next 50 Index Fund - Dir - Growth');
+    expect(base).toBe('DSP Nifty Next 50 Index Fund');
+    expect(planBadge).toBe('Direct · Growth');
+  });
+
+  test('drops trailing growth option wording from the badge', () => {
+    const { base, planBadge } = parseFundName('HDFC Flexi Cap Fund - Direct Plan - Growth Option');
+    expect(base).toBe('HDFC Flexi Cap Fund');
+    expect(planBadge).toBe('Direct · Growth');
+  });
+
+  test('handles long index-fund names with plan growth suffixes', () => {
+    const { base, planBadge } = parseFundName('Motilal Oswal Nifty 500 Momentum 50 Index Fund - Direct Plan Growth');
+    expect(base).toBe('Motilal Oswal Nifty 500 Momentum 50 Index Fund');
+    expect(planBadge).toBe('Direct · Growth');
   });
 });
