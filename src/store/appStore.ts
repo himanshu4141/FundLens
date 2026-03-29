@@ -1,5 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 
 export interface BenchmarkOption {
   symbol: string;
@@ -9,79 +9,96 @@ export interface BenchmarkOption {
 export type DesignVariant = 'classic' | 'editorial';
 
 export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
-  { symbol: '^NSEI',     label: 'Nifty 50' },
+  { symbol: '^NSEI', label: 'Nifty 50' },
   { symbol: '^NIFTY100', label: 'Nifty 100' },
-  { symbol: '^BSESN',    label: 'BSE Sensex' },
+  { symbol: '^BSESN', label: 'BSE Sensex' },
 ];
 
-interface AppStore {
+interface PersistedAppState {
   defaultBenchmarkSymbol: string;
   designVariant: DesignVariant;
+}
+
+interface AppStore extends PersistedAppState {
   setDefaultBenchmarkSymbol: (symbol: string) => void;
   setDesignVariant: (variant: DesignVariant) => void;
 }
 
+const STORAGE_KEY = 'fundlens-app';
+const DEFAULT_STATE: PersistedAppState = {
+  defaultBenchmarkSymbol: '^NSEI',
+  designVariant: 'classic',
+};
+
 const memoryStore = new Map<string, string>();
+
+function isWebRuntime() {
+  return typeof window !== 'undefined' && !!window.localStorage;
+}
 
 function isReactNativeRuntime() {
   return typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
 }
 
-async function getNativeAsyncStorage() {
-  return (await import('@react-native-async-storage/async-storage')).default;
+async function readPersistedState(): Promise<PersistedAppState | null> {
+  let raw: string | null = null;
+
+  if (isWebRuntime()) {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } else if (isReactNativeRuntime()) {
+    raw = await AsyncStorage.getItem(STORAGE_KEY);
+  } else {
+    raw = memoryStore.get(STORAGE_KEY) ?? null;
+  }
+
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<PersistedAppState>;
+    return {
+      defaultBenchmarkSymbol: parsed.defaultBenchmarkSymbol ?? DEFAULT_STATE.defaultBenchmarkSymbol,
+      designVariant: parsed.designVariant ?? DEFAULT_STATE.designVariant,
+    };
+  } catch {
+    return null;
+  }
 }
 
-const appStateStorage: StateStorage = {
-  getItem: async (name) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(name);
-    }
-    if (isReactNativeRuntime()) {
-      return (await getNativeAsyncStorage()).getItem(name);
-    }
-    return memoryStore.get(name) ?? null;
-  },
-  setItem: async (name, value) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(name, value);
-      return;
-    }
-    if (isReactNativeRuntime()) {
-      await (await getNativeAsyncStorage()).setItem(name, value);
-      return;
-    }
-    memoryStore.set(name, value);
-  },
-  removeItem: async (name) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.removeItem(name);
-      return;
-    }
-    if (isReactNativeRuntime()) {
-      await (await getNativeAsyncStorage()).removeItem(name);
-      return;
-    }
-    memoryStore.delete(name);
+async function persistState(state: PersistedAppState) {
+  const value = JSON.stringify(state);
+
+  if (isWebRuntime()) {
+    window.localStorage.setItem(STORAGE_KEY, value);
+    return;
   }
-};
 
-const storage = createJSONStorage(() => appStateStorage);
+  if (isReactNativeRuntime()) {
+    await AsyncStorage.setItem(STORAGE_KEY, value);
+    return;
+  }
 
-export const useAppStore = create<AppStore>()(
-  persist(
-    (set) => ({
-      defaultBenchmarkSymbol: '^NSEI',
-      designVariant: 'classic',
-      setDefaultBenchmarkSymbol: (symbol) => set({ defaultBenchmarkSymbol: symbol }),
-      setDesignVariant: (variant) => set({ designVariant: variant }),
-    }),
-    {
-      name: 'fundlens-app',
-      storage,
-      partialize: (state) => ({
-        defaultBenchmarkSymbol: state.defaultBenchmarkSymbol,
-        designVariant: state.designVariant,
-      }),
-    },
-  ),
-);
+  memoryStore.set(STORAGE_KEY, value);
+}
+
+export const useAppStore = create<AppStore>((set, get) => ({
+  ...DEFAULT_STATE,
+  setDefaultBenchmarkSymbol: (symbol) => {
+    set({ defaultBenchmarkSymbol: symbol });
+    void persistState({
+      defaultBenchmarkSymbol: symbol,
+      designVariant: get().designVariant,
+    });
+  },
+  setDesignVariant: (variant) => {
+    set({ designVariant: variant });
+    void persistState({
+      defaultBenchmarkSymbol: get().defaultBenchmarkSymbol,
+      designVariant: variant,
+    });
+  },
+}));
+
+void readPersistedState().then((persisted) => {
+  if (!persisted) return;
+  useAppStore.setState(persisted);
+});
