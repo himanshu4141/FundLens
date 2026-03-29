@@ -9,7 +9,14 @@ function isLocalWebHost() {
 }
 
 export function canShowDevAuthShortcut() {
-  return DEV_AUTH_ENABLED && (__DEV__ || isLocalWebHost());
+  if (!DEV_AUTH_ENABLED) return false;
+
+  // Web previews can still evaluate with dev-like flags, so only trust the hostname.
+  if (Platform.OS === 'web') {
+    return isLocalWebHost();
+  }
+
+  return __DEV__;
 }
 
 export function getDevAuthCredentials() {
