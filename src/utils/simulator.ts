@@ -240,6 +240,53 @@ function buildRecurringSipCandidates(transactions: SimulatorTransaction[]) {
   return candidates;
 }
 
+interface RecurringFundProfile {
+  fundId: string;
+  representativeMonthlyAmount: number;
+  activeMonths: string[];
+}
+
+function buildRecurringFundProfiles(transactions: SimulatorTransaction[]) {
+  const purchases = transactions
+    .filter(isCashPurchase)
+    .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+  if (!purchases.length) return [] as RecurringFundProfile[];
+
+  const latestMonth = purchases[purchases.length - 1].transaction_date.slice(0, 7);
+  const relevantMonths = [...new Set(purchases.map((tx) => monthKey(tx.transaction_date)))]
+    .filter((month) => monthDiff(month, latestMonth) >= 0 && monthDiff(month, latestMonth) < 12)
+    .sort();
+
+  const monthlyFundTotals = new Map<string, Map<string, number>>();
+
+  for (const tx of purchases) {
+    const month = monthKey(tx.transaction_date);
+    if (!relevantMonths.includes(month)) continue;
+
+    const fundId = tx.fund_id ?? 'unknown';
+    const fundMonths = monthlyFundTotals.get(fundId) ?? new Map<string, number>();
+    fundMonths.set(month, (fundMonths.get(month) ?? 0) + tx.amount);
+    monthlyFundTotals.set(fundId, fundMonths);
+  }
+
+  return [...monthlyFundTotals.entries()]
+    .map(([fundId, monthTotals]) => {
+      const activeMonths = [...monthTotals.keys()].sort();
+      const latestActiveMonth = activeMonths[activeMonths.length - 1];
+      const monthlyAmounts = activeMonths.map((month) => monthTotals.get(month) ?? 0);
+
+      if (activeMonths.length < 4) return null;
+      if (monthDiff(latestActiveMonth, latestMonth) > 2) return null;
+
+      return {
+        fundId,
+        representativeMonthlyAmount: median(monthlyAmounts),
+        activeMonths,
+      } satisfies RecurringFundProfile;
+    })
+    .filter((profile): profile is RecurringFundProfile => profile != null);
+}
+
 export function buildPersonalizedSimulationBaseline(params: {
   transactions: SimulatorTransaction[];
   currentCorpus: number;
@@ -265,6 +312,16 @@ export function buildPersonalizedSimulationBaseline(params: {
   const recentMonths = [...monthlyTotals.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-6);
   const netMonths = recentMonths.map(([, month]) => month.net);
   const redemptionMonths = recentMonths.map(([, month]) => month.redemptions);
+  const recurringFundProfiles = buildRecurringFundProfiles(params.transactions);
+  const recurringSipCandidates = buildRecurringSipCandidates(params.transactions);
+  const recurringFundMedianTotal = recurringFundProfiles.reduce(
+    (sum, profile) => sum + profile.representativeMonthlyAmount,
+    0,
+  );
+  const recurringSipTotal = recurringSipCandidates.reduce(
+    (sum, candidate) => sum + median(candidate.monthlyAmounts),
+    0,
+  );
   const recentPurchaseMonths = [...recentMonths];
   if (
     recentPurchaseMonths.length >= 5 &&
@@ -272,21 +329,14 @@ export function buildPersonalizedSimulationBaseline(params: {
   ) {
     recentPurchaseMonths.pop();
   }
-  const recurringSipCandidates = buildRecurringSipCandidates(params.transactions);
-  const recurringSipTotal = recurringSipCandidates.reduce(
-    (sum, candidate) => sum + median(candidate.monthlyAmounts),
-    0,
-  );
-  const typicalPurchaseMedian = median(
-    recentPurchaseMonths
-      .map(([, month]) => month.purchases)
-      .filter((value) => value > 0),
-  );
+  const typicalPurchaseMedian = median(recentPurchaseMonths.map(([, month]) => month.purchases).filter((value) => value > 0));
   const fallbackSip = Math.max(10_000, median(netMonths.filter((value) => value > 0)));
   const monthlySip =
-    recurringSipTotal > 0 && typicalPurchaseMedian > 0
-      ? Math.min(recurringSipTotal, typicalPurchaseMedian)
-      : recurringSipTotal || typicalPurchaseMedian || fallbackSip;
+    recurringFundMedianTotal > 0
+      ? recurringFundMedianTotal
+      : recurringSipTotal > 0 && typicalPurchaseMedian > 0
+        ? Math.min(recurringSipTotal, typicalPurchaseMedian)
+        : recurringSipTotal || typicalPurchaseMedian || fallbackSip;
   const monthlyNetContribution = netMonths.length
     ? netMonths.reduce((sum, value) => sum + value, 0) / netMonths.length
     : monthlySip;

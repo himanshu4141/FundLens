@@ -88,6 +88,28 @@ describe('simulator utils', () => {
     expect(baseline.trailingLumpSumAverage).toBe(100000);
   });
 
+  it('uses a representative long-run median when a fund SIP amount changes recently', () => {
+    const baseline = buildPersonalizedSimulationBaseline({
+      currentCorpus: 5000000,
+      portfolioXirr: 0.1269,
+      transactions: [
+        { fund_id: 'fund-a', transaction_date: '2025-05-05', transaction_type: 'purchase', units: 10, amount: 10000 },
+        { fund_id: 'fund-a', transaction_date: '2025-06-05', transaction_type: 'purchase', units: 10, amount: 10000 },
+        { fund_id: 'fund-a', transaction_date: '2025-07-07', transaction_type: 'purchase', units: 10, amount: 10000 },
+        { fund_id: 'fund-a', transaction_date: '2025-08-07', transaction_type: 'purchase', units: 10, amount: 10000 },
+        { fund_id: 'fund-a', transaction_date: '2025-09-08', transaction_type: 'purchase', units: 10, amount: 10000 },
+        { fund_id: 'fund-a', transaction_date: '2025-10-06', transaction_type: 'purchase', units: 10, amount: 10000 },
+        { fund_id: 'fund-a', transaction_date: '2025-11-07', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-a', transaction_date: '2025-12-08', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-a', transaction_date: '2026-01-07', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-a', transaction_date: '2026-02-09', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-a', transaction_date: '2026-03-09', transaction_type: 'purchase', units: 10, amount: 20000 },
+      ],
+    });
+
+    expect(baseline.monthlySip).toBe(10000);
+  });
+
   it('falls back to sane defaults when xirr is unavailable and ignores unsupported transaction types', () => {
     const baseline = buildPersonalizedSimulationBaseline({
       currentCorpus: 250000,

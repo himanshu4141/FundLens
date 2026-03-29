@@ -67,6 +67,7 @@ export default function SimulatorScreen() {
   const [oneTimeTopUpInput, setOneTimeTopUpInput] = useState<number | null>(null);
   const [annualReturnPctInput, setAnnualReturnPctInput] = useState<number | null>(null);
   const [yearsInput, setYearsInput] = useState<number | null>(null);
+  const [chartViewportWidth, setChartViewportWidth] = useState(0);
 
   const monthlySip = monthlySipInput ?? baselineProfile.monthlySip;
   const scenarioSip = scenarioSipInput ?? (baselineProfile.monthlySip + 5000);
@@ -120,8 +121,8 @@ export default function SimulatorScreen() {
     ...chartData.map((point) => point.value),
     ...chartData2.map((point) => point.value),
   );
-  const chartWidth = Math.max(260, viewportWidth - 92);
-  const chartSpacing = timeline.length > 1 ? Math.max(44, (chartWidth - 40) / (timeline.length - 1)) : 20;
+  const chartBodyWidth = Math.max(180, chartViewportWidth > 0 ? chartViewportWidth - 28 : viewportWidth - 220);
+  const chartSpacing = timeline.length > 1 ? Math.max(36, (chartBodyWidth - 12) / (timeline.length - 1)) : 20;
 
   const deltaValue = scenario.terminalValue - baseline.terminalValue;
   const sipDelta = scenarioSip - monthlySip;
@@ -234,31 +235,70 @@ export default function SimulatorScreen() {
           <Text style={[styles.chartBody, { color: theme.colors.textSecondary }]}>
             Both lines start from your current portfolio value today. Changes you make below only affect the future path.
           </Text>
-          <LineChart
-            data={chartData}
-            data2={chartData2}
-            width={chartWidth}
-            height={240}
-            curved
-            hideDataPoints
-            initialSpacing={8}
-            endSpacing={16}
-            spacing={chartSpacing}
-            color1={theme.colors.textSecondary}
-            color2={theme.colors.primary}
-            thickness1={2}
-            thickness2={3}
-            xAxisLabelTexts={xLabels}
-            xAxisLabelTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
-            yAxisTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
-            formatYLabel={(value: string) => formatAxisCurrency(Number(value))}
-            yAxisLabelWidth={64}
-            noOfSections={4}
-            maxValue={maxValue * 1.08}
-            xAxisColor={theme.colors.borderLight}
-            yAxisColor="transparent"
-            rulesColor={theme.colors.borderLight}
-          />
+          <Text style={[styles.chartHint, { color: theme.colors.textTertiary }]}>
+            Press and drag on the chart to inspect values at any point.
+          </Text>
+          <View
+            style={styles.chartViewport}
+            onLayout={(event) => setChartViewportWidth(event.nativeEvent.layout.width)}
+          >
+            <LineChart
+              data={chartData}
+              data2={chartData2}
+              width={chartBodyWidth}
+              height={240}
+              curved
+              hideDataPoints
+              initialSpacing={20}
+              endSpacing={12}
+              spacing={chartSpacing}
+              color1={theme.colors.textSecondary}
+              color2={theme.colors.primary}
+              thickness1={2}
+              thickness2={3}
+              xAxisLabelTexts={xLabels}
+              xAxisLabelTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
+              yAxisTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
+              formatYLabel={(value: string) => formatAxisCurrency(Number(value))}
+              yAxisLabelWidth={72}
+              noOfSections={4}
+              maxValue={maxValue * 1.08}
+              xAxisColor={theme.colors.borderLight}
+              yAxisColor="transparent"
+              rulesColor={theme.colors.borderLight}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 240,
+                pointerStripWidth: 1,
+                pointerStripColor: theme.colors.textTertiary + '88',
+                pointerColor: theme.colors.primary,
+                radius: 5,
+                pointerLabelWidth: 150,
+                pointerLabelHeight: 54,
+                activatePointersOnLongPress: true,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  const point = timeline[pointerIndex];
+                  if (!point) return null;
+                  return (
+                    <View style={[styles.pointerLabel, { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.borderLight }]}>
+                      <Text style={[styles.pointerDate, { color: theme.colors.textPrimary }]}>
+                        {point.year === 0 ? 'Today' : `${point.year} years`}
+                      </Text>
+                      <Text style={[styles.pointerSeriesText, { color: theme.colors.textSecondary }]}>
+                        <Text style={{ color: theme.colors.textSecondary }}>● </Text>
+                        Current: {formatCompactCurrency(point.baselineValue)}
+                      </Text>
+                      <Text style={[styles.pointerSeriesText, { color: theme.colors.textPrimary }]}>
+                        <Text style={{ color: theme.colors.primary }}>● </Text>
+                        Proposed: {formatCompactCurrency(point.scenarioValue)}
+                      </Text>
+                    </View>
+                  );
+                },
+              }}
+            />
+          </View>
           <View style={styles.legendRow}>
             <LegendItem color={theme.colors.textSecondary} label={`Current plan · ${formatCompactCurrency(baseline.terminalValue)}`} />
             <LegendItem color={theme.colors.primary} label={`Proposed plan · ${formatCompactCurrency(scenario.terminalValue)}`} />
@@ -418,6 +458,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
   },
+  chartViewport: {
+    overflow: 'hidden',
+  },
+  chartHint: {
+    fontSize: 12,
+    marginBottom: 10,
+  },
   legendRow: {
     gap: 8,
     marginTop: 14,
@@ -435,6 +482,22 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  pointerLabel: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  pointerDate: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  pointerSeriesText: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   field: {
     marginTop: 16,

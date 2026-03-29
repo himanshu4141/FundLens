@@ -625,41 +625,26 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <AppScreenHeader showLogo />
-      <View style={styles.headerActionsRow}>
-        <TouchableOpacity
-          style={[
-            styles.actionPill,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.borderLight,
-            },
-            syncState === 'syncing' && styles.syncBtnDisabled,
-          ]}
-          onPress={handleSync}
-          disabled={syncState === 'syncing'}
-        >
-          {syncState === 'syncing' ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <Text style={[styles.actionPillText, { color: theme.colors.textPrimary }]}>Sync portfolio</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.actionPill,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.borderLight,
-            },
-          ]}
-          onPress={() =>
-            router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')
-          }
-        >
-          <Text style={[styles.actionPillText, { color: theme.colors.textPrimary }]}>Import CAS</Text>
-        </TouchableOpacity>
-      </View>
+      <AppScreenHeader
+        showLogo
+        menuItems={[
+          {
+            label: syncState === 'syncing' ? 'Syncing…' : 'Sync portfolio',
+            icon: 'refresh-outline',
+            onPress: handleSync,
+          },
+          {
+            label: 'Import CAS',
+            icon: 'cloud-upload-outline',
+            onPress: () => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding'),
+          },
+          {
+            label: 'Settings',
+            icon: 'settings-outline',
+            onPress: () => router.push('/settings'),
+          },
+        ]}
+      />
 
       {syncState === 'requested' && (
         <View style={[styles.syncBanner, { backgroundColor: theme.colors.primaryLight, borderBottomColor: theme.colors.primary + '33' }]}>
@@ -755,59 +740,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  headerActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.sm,
-  },
-  actionPill: {
-    alignItems: 'center',
-    borderRadius: Radii.full,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 42,
-    paddingHorizontal: Spacing.md,
-  },
-  actionPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  // Dark header — matches gradientHeader[0] for seamless join with portfolio gradient
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: 14,
-    backgroundColor: '#0a2e25',
-  },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerIconBtn: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: Radii.full,
-    height: 34,
-    justifyContent: 'center',
-    width: 34,
-  },
-  syncBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: Radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 64,
-    justifyContent: 'center',
-  },
   syncBtnDisabled: { opacity: 0.6 },
-  syncBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  importLink: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
 
   syncBanner: {
     backgroundColor: Colors.primaryLight,
