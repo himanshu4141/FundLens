@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,9 @@ import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import Logo from '@/src/components/Logo';
-import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useTheme } from '@/src/context/ThemeContext';
+import type { AppColors } from '@/src/context/ThemeContext';
 
 // ---------------------------------------------------------------------------
 // Benchmark Selector (same pattern as Home)
@@ -29,6 +31,8 @@ function BenchmarkSelector({
   selected: string;
   onChange: (symbol: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.benchmarkRow}>
       <Text style={styles.benchmarkRowLabel}>vs</Text>
@@ -65,10 +69,12 @@ function AlphaInsightCard({
   marketXirr: number;
   benchmarkLabel: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   // xirr values are decimal fractions (e.g. 0.0703 = 7.03%)
   const alphaPp = (portfolioXirr - marketXirr) * 100;
   const isAhead = alphaPp >= 0;
-  const alphaColor = isAhead ? Colors.positive : Colors.negative;
+  const alphaColor = isAhead ? colors.positive : colors.negative;
   const alphaSign = isAhead ? '+' : '';
 
   return (
@@ -108,11 +114,13 @@ function FundRankCard({
   marketXirr: number;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { base: shortName } = parseFundName(fund.schemeName);
   // returnXirr and marketXirr are decimal fractions (e.g. 0.0881 = 8.81%)
   const alphaPp = (fund.returnXirr - marketXirr) * 100;
   const isLeader = alphaPp >= 0;
-  const alphaColor = isLeader ? Colors.positive : Colors.negative;
+  const alphaColor = isLeader ? colors.positive : colors.negative;
   const alphaSign = isLeader ? '+' : '';
 
   return (
@@ -151,6 +159,8 @@ function FundRankCard({
 // ---------------------------------------------------------------------------
 
 function SkeletonCard() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.skeletonCard}>
       <View style={styles.skeletonLine} />
@@ -165,6 +175,8 @@ function SkeletonCard() {
 
 export default function LeaderboardScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
   const [benchmarkSymbol, setBenchmarkSymbol] = useState(defaultBenchmarkSymbol);
 
@@ -193,7 +205,7 @@ export default function LeaderboardScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <LinearGradient
-        colors={Colors.gradientHeader}
+        colors={colors.gradientHeader}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -224,7 +236,7 @@ export default function LeaderboardScreen() {
         {/* No data */}
         {!isLoading && fundCards.length === 0 && (
           <View style={styles.emptyContainer}>
-            <Ionicons name="trophy-outline" size={48} color={Colors.textTertiary} />
+            <Ionicons name="trophy-outline" size={48} color={colors.textTertiary} />
             <Text style={styles.emptyTitle}>No funds yet</Text>
             <Text style={styles.emptySubtitle}>Import your portfolio to see the leaderboard.</Text>
           </View>
@@ -243,7 +255,7 @@ export default function LeaderboardScreen() {
         {!isLoading && leaders.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionDot, { backgroundColor: Colors.positive }]} />
+              <View style={[styles.sectionDot, { backgroundColor: colors.positive }]} />
               <Text style={styles.sectionTitle}>Leaders</Text>
               <Text style={styles.sectionCount}>{leaders.length} fund{leaders.length > 1 ? 's' : ''}</Text>
             </View>
@@ -262,7 +274,7 @@ export default function LeaderboardScreen() {
         {!isLoading && laggards.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionDot, { backgroundColor: Colors.negative }]} />
+              <View style={[styles.sectionDot, { backgroundColor: colors.negative }]} />
               <Text style={styles.sectionTitle}>Laggards</Text>
               <Text style={styles.sectionCount}>{laggards.length} fund{laggards.length > 1 ? 's' : ''}</Text>
             </View>
@@ -285,229 +297,231 @@ export default function LeaderboardScreen() {
 // Styles
 // ---------------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.xl,
-    gap: Spacing.md,
-  },
-  // Benchmark selector
-  benchmarkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-  },
-  benchmarkRowLabel: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-    marginRight: 4,
-  },
-  benchmarkPill: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  benchmarkPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  benchmarkPillText: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-  },
-  benchmarkPillTextActive: {
-    color: '#fff',
-  },
-  // Alpha Insight
-  alphaCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  alphaTitle: {
-    ...Typography.label,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  alphaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  alphaColumn: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  alphaDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: Colors.border,
-  },
-  alphaLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: 2,
-  },
-  alphaValue: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  alphaFooter: {
-    borderRadius: Radii.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    alignItems: 'center',
-    marginTop: Spacing.xs,
-  },
-  alphaFooterText: {
-    ...Typography.label,
-    fontWeight: '600',
-  },
-  // Fund rank card
-  fundCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: Spacing.xs,
-  },
-  fundCardAccent: {
-    width: 4,
-  },
-  fundCardBody: {
-    flex: 1,
-    padding: Spacing.sm,
-  },
-  fundCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  fundCardInfo: {
-    flex: 1,
-    marginRight: Spacing.sm,
-  },
-  fundCardName: {
-    ...Typography.body,
-    color: Colors.textPrimary,
-  },
-  fundCardCategory: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  fundCardBadge: {
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-    borderRadius: Radii.sm,
-    backgroundColor: Colors.background,
-  },
-  fundCardBadgeText: {
-    ...Typography.label,
-    fontWeight: '700',
-  },
-  fundCardBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  fundCardValue: {
-    ...Typography.body,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  fundCardXirr: {
-    ...Typography.label,
-    fontWeight: '600',
-  },
-  fundCardVerdict: {
-    ...Typography.caption,
-    fontWeight: '500',
-  },
-  // Section headers
-  section: {
-    gap: Spacing.xs,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: 4,
-  },
-  sectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  sectionTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  sectionCount: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  // Loading
-  loadingContainer: {
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  skeletonCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    height: 80,
-    justifyContent: 'center',
-  },
-  skeletonLine: {
-    height: 14,
-    width: '80%',
-    borderRadius: Radii.sm,
-    backgroundColor: Colors.border,
-  },
-  // Empty
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.xl * 2,
-    gap: Spacing.sm,
-  },
-  emptyTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  emptySubtitle: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-});
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: Spacing.md,
+      paddingBottom: Spacing.xl,
+      gap: Spacing.md,
+    },
+    // Benchmark selector
+    benchmarkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+      marginTop: Spacing.sm,
+    },
+    benchmarkRowLabel: {
+      ...Typography.label,
+      color: colors.textSecondary,
+      marginRight: 4,
+    },
+    benchmarkPill: {
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 4,
+      borderRadius: Radii.full,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    benchmarkPillActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    benchmarkPillText: {
+      ...Typography.label,
+      color: colors.textSecondary,
+    },
+    benchmarkPillTextActive: {
+      color: '#fff',
+    },
+    // Alpha Insight
+    alphaCard: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    alphaTitle: {
+      ...Typography.label,
+      color: colors.textSecondary,
+      marginBottom: Spacing.sm,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    alphaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: Spacing.sm,
+    },
+    alphaColumn: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    alphaDivider: {
+      width: 1,
+      height: 36,
+      backgroundColor: colors.border,
+    },
+    alphaLabel: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    alphaValue: {
+      ...Typography.h3,
+      color: colors.textPrimary,
+    },
+    alphaFooter: {
+      borderRadius: Radii.sm,
+      paddingVertical: Spacing.xs,
+      paddingHorizontal: Spacing.sm,
+      alignItems: 'center',
+      marginTop: Spacing.xs,
+    },
+    alphaFooterText: {
+      ...Typography.label,
+      fontWeight: '600',
+    },
+    // Fund rank card
+    fundCard: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      overflow: 'hidden',
+      marginBottom: Spacing.xs,
+    },
+    fundCardAccent: {
+      width: 4,
+    },
+    fundCardBody: {
+      flex: 1,
+      padding: Spacing.sm,
+    },
+    fundCardTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 4,
+    },
+    fundCardInfo: {
+      flex: 1,
+      marginRight: Spacing.sm,
+    },
+    fundCardName: {
+      ...Typography.body,
+      color: colors.textPrimary,
+    },
+    fundCardCategory: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    fundCardBadge: {
+      paddingHorizontal: Spacing.xs,
+      paddingVertical: 2,
+      borderRadius: Radii.sm,
+      backgroundColor: colors.background,
+    },
+    fundCardBadgeText: {
+      ...Typography.label,
+      fontWeight: '700',
+    },
+    fundCardBottom: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    fundCardValue: {
+      ...Typography.body,
+      color: colors.textPrimary,
+      fontWeight: '600',
+    },
+    fundCardXirr: {
+      ...Typography.label,
+      fontWeight: '600',
+    },
+    fundCardVerdict: {
+      ...Typography.caption,
+      fontWeight: '500',
+    },
+    // Section headers
+    section: {
+      gap: Spacing.xs,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+      marginBottom: 4,
+    },
+    sectionDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    sectionTitle: {
+      ...Typography.h3,
+      color: colors.textPrimary,
+    },
+    sectionCount: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+    },
+    // Loading
+    loadingContainer: {
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    skeletonCard: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      height: 80,
+      justifyContent: 'center',
+    },
+    skeletonLine: {
+      height: 14,
+      width: '80%',
+      borderRadius: Radii.sm,
+      backgroundColor: colors.border,
+    },
+    // Empty
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: Spacing.xl * 2,
+      gap: Spacing.sm,
+    },
+    emptyTitle: {
+      ...Typography.h3,
+      color: colors.textPrimary,
+    },
+    emptySubtitle: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+  });
+}

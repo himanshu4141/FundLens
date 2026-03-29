@@ -9,6 +9,12 @@ dist/
 web-build/
 expo-env.d.ts
 
+#Playwright
+.playwright-mcp/
+#temp desing work
+funlens_design_concept/
+fundlens_design_concept/
+
 # Native builds
 android/
 ios/

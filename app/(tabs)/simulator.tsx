@@ -17,7 +17,9 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
 import Logo from '@/src/components/Logo';
-import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useTheme } from '@/src/context/ThemeContext';
+import type { AppColors } from '@/src/context/ThemeContext';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -118,6 +120,8 @@ function InputControl({
   suffix,
   onChange,
 }: InputControlProps) {
+  const { colors } = useTheme();
+  const stepStyles = useMemo(() => makeStepStyles(colors), [colors]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
@@ -144,25 +148,25 @@ function InputControl({
   const increment = () => onChange(Math.min(max, value + step));
 
   return (
-    <View style={styles.stepRow}>
-      <Text style={styles.stepLabel}>{label}</Text>
-      <View style={styles.stepControl}>
+    <View style={stepStyles.row}>
+      <Text style={stepStyles.label}>{label}</Text>
+      <View style={stepStyles.control}>
         <TouchableOpacity
           onPress={decrement}
           disabled={value <= min}
-          style={[styles.stepBtn, value <= min && styles.stepBtnDisabled]}
+          style={[stepStyles.btn, value <= min && stepStyles.btnDisabled]}
           hitSlop={8}
         >
           <Ionicons
             name="remove"
             size={18}
-            color={value <= min ? Colors.textTertiary : Colors.primary}
+            color={value <= min ? colors.textTertiary : colors.primary}
           />
         </TouchableOpacity>
 
         {editing ? (
           <TextInput
-            style={styles.stepInput}
+            style={stepStyles.input}
             value={draft}
             onChangeText={setDraft}
             onBlur={() => commit(draft)}
@@ -173,21 +177,21 @@ function InputControl({
             returnKeyType="done"
           />
         ) : (
-          <TouchableOpacity onPress={startEdit} hitSlop={4} style={styles.stepValueTouchable}>
-            <Text style={styles.stepValue}>{displayValue}</Text>
+          <TouchableOpacity onPress={startEdit} hitSlop={4} style={stepStyles.valueTouchable}>
+            <Text style={stepStyles.value}>{displayValue}</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
           onPress={increment}
           disabled={value >= max}
-          style={[styles.stepBtn, value >= max && styles.stepBtnDisabled]}
+          style={[stepStyles.btn, value >= max && stepStyles.btnDisabled]}
           hitSlop={8}
         >
           <Ionicons
             name="add"
             size={18}
-            color={value >= max ? Colors.textTertiary : Colors.primary}
+            color={value >= max ? colors.textTertiary : colors.primary}
           />
         </TouchableOpacity>
       </View>
@@ -195,10 +199,69 @@ function InputControl({
   );
 }
 
+function makeStepStyles(colors: AppColors) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: Spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    label: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      flex: 1,
+    },
+    control: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    btn: {
+      width: 32,
+      height: 32,
+      borderRadius: Radii.sm,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnDisabled: {
+      backgroundColor: colors.borderLight,
+    },
+    value: {
+      ...Typography.body,
+      fontWeight: '600' as const,
+      color: colors.textPrimary,
+      minWidth: 96,
+      textAlign: 'center',
+    },
+    valueTouchable: {
+      minWidth: 96,
+      alignItems: 'center' as const,
+    },
+    input: {
+      ...Typography.body,
+      fontWeight: '600' as const,
+      color: colors.primary,
+      minWidth: 96,
+      textAlign: 'center' as const,
+      borderBottomWidth: 1.5,
+      borderBottomColor: colors.primary,
+      paddingVertical: 2,
+      ...(Platform.OS === 'web' && { outlineStyle: 'none' } as object),
+    },
+  });
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function SimulatorScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -314,7 +377,7 @@ export default function SimulatorScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <LinearGradient
-        colors={Colors.gradientHeader}
+        colors={colors.gradientHeader}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -344,7 +407,7 @@ export default function SimulatorScreen() {
         {/* Portfolio loading indicator */}
         {portfolioLoading && (
           <View style={[styles.card, styles.loadingCard]}>
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.loadingText}>Loading your portfolio data…</Text>
           </View>
         )}
@@ -353,7 +416,7 @@ export default function SimulatorScreen() {
         {!portfolioLoading && hasPortfolio && portfolioData?.summary && (
           <View style={styles.contextCard}>
             <View style={styles.contextHeader}>
-              <Ionicons name="person-circle-outline" size={16} color={Colors.primary} />
+              <Ionicons name="person-circle-outline" size={16} color={colors.primary} />
               <Text style={styles.contextLabel}>YOUR PORTFOLIO TODAY</Text>
             </View>
             <View style={styles.contextRow}>
@@ -365,7 +428,7 @@ export default function SimulatorScreen() {
               </View>
               {Number.isFinite(portfolioData.summary.xirr) && (
                 <View style={styles.contextStat}>
-                  <Text style={[styles.contextStatValue, { color: Colors.positive }]}>
+                  <Text style={[styles.contextStatValue, { color: colors.positive }]}>
                     {(portfolioData.summary.xirr * 100).toFixed(1)}% p.a.
                   </Text>
                   <Text style={styles.contextStatLabel}>Your XIRR</Text>
@@ -455,10 +518,10 @@ export default function SimulatorScreen() {
               data2={showTwoLines ? adjustedChartData : undefined}
               width={CHART_WIDTH - 32}
               height={180}
-              color1={Colors.primary}
-              color2={Colors.positive}
-              dataPointsColor1={Colors.primary}
-              dataPointsColor2={Colors.positive}
+              color1={colors.primary}
+              color2={colors.positive}
+              dataPointsColor1={colors.primary}
+              dataPointsColor2={colors.positive}
               dataPointsRadius={3}
               thickness={2}
               noOfSections={4}
@@ -480,14 +543,14 @@ export default function SimulatorScreen() {
           {/* Legend */}
           <View style={styles.legend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
               <Text style={styles.legendLabel}>
                 {showTwoLines ? 'Current plan' : 'Projected'}
               </Text>
             </View>
             {showTwoLines && (
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.positive }]} />
+                <View style={[styles.legendDot, { backgroundColor: colors.positive }]} />
                 <Text style={styles.legendLabel}>Adjusted plan</Text>
               </View>
             )}
@@ -505,7 +568,7 @@ export default function SimulatorScreen() {
             <Ionicons
               name={planDelta >= 0 ? 'trending-up-outline' : 'trending-down-outline'}
               size={20}
-              color={planDelta >= 0 ? Colors.primary : Colors.negative}
+              color={planDelta >= 0 ? colors.primary : colors.negative}
             />
             <Text style={styles.insightText}>
               {planDelta >= 0 ? (
@@ -519,7 +582,7 @@ export default function SimulatorScreen() {
               ) : (
                 <>
                   Your adjusted plan results in{' '}
-                  <Text style={[styles.insightHighlight, { color: Colors.negative }]}>
+                  <Text style={[styles.insightHighlight, { color: colors.negative }]}>
                     {formatCurrency(Math.abs(planDelta))}
                   </Text>{' '}
                   less over {years} years compared to continuing as-is.
@@ -532,7 +595,7 @@ export default function SimulatorScreen() {
         {/* Generic insight for no-portfolio users */}
         {!showTwoLines && horizonAdjusted > 0 && (
           <View style={styles.insightCard}>
-            <Ionicons name="bulb-outline" size={20} color={Colors.primary} />
+            <Ionicons name="bulb-outline" size={20} color={colors.primary} />
             <Text style={styles.insightText}>
               At {rate}% p.a. your ₹{sip.toLocaleString('en-IN')}/month SIP
               could grow to{' '}
@@ -550,215 +613,162 @@ export default function SimulatorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-  },
-  titleBlock: {
-    marginBottom: Spacing.md,
-  },
-  title: {
-    ...Typography.h2,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  // ── Portfolio context card ─────────────────────────────────────────────────
-  contextCard: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  contextHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: Spacing.sm,
-  },
-  contextLabel: {
-    ...Typography.label,
-    color: Colors.primary,
-    letterSpacing: 0.5,
-  },
-  contextRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  contextStat: {
-    flex: 1,
-  },
-  contextStatValue: {
-    ...Typography.body,
-    fontWeight: '700' as const,
-    color: Colors.textPrimary,
-  },
-  contextStatLabel: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    marginTop: 2,
-  },
-  loadingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  loadingText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  // ── Card ──────────────────────────────────────────────────────────────────
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  sectionTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  // ── Step control ──────────────────────────────────────────────────────────
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  stepLabel: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    flex: 1,
-  },
-  stepControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  stepBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: Radii.sm,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBtnDisabled: {
-    backgroundColor: Colors.borderLight,
-  },
-  stepValueTouchable: {
-    minWidth: 96,
-    alignItems: 'center',
-  },
-  stepValue: {
-    ...Typography.body,
-    fontWeight: '600' as const,
-    color: Colors.textPrimary,
-    minWidth: 96,
-    textAlign: 'center',
-  },
-  stepInput: {
-    ...Typography.body,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-    minWidth: 96,
-    textAlign: 'center',
-    borderBottomWidth: 1.5,
-    borderBottomColor: Colors.primary,
-    paddingVertical: 2,
-    ...(Platform.OS === 'web' && { outlineStyle: 'none' } as object),
-  },
-  // ── Milestones ────────────────────────────────────────────────────────────
-  milestonesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  milestoneItem: {
-    flex: 1,
-    minWidth: 100,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radii.sm,
-    padding: Spacing.sm,
-    alignItems: 'center',
-  },
-  milestoneYear: {
-    ...Typography.label,
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  milestoneValue: {
-    ...Typography.bodySmall,
-    fontWeight: '600' as const,
-    color: Colors.textPrimary,
-  },
-  // ── Chart ─────────────────────────────────────────────────────────────────
-  chartNote: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    marginBottom: Spacing.xs,
-  },
-  legend: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  // ── Insight ───────────────────────────────────────────────────────────────
-  insightCard: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  insightText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    flex: 1,
-    lineHeight: 22,
-  },
-  insightHighlight: {
-    ...Typography.body,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-  },
-});
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+    },
+    scrollContent: {
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.md,
+    },
+    titleBlock: {
+      marginBottom: Spacing.md,
+    },
+    title: {
+      ...Typography.h2,
+      color: colors.textPrimary,
+    },
+    subtitle: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    // ── Portfolio context card ─────────────────────────────────────────────
+    contextCard: {
+      backgroundColor: colors.primaryLight,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    contextHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: Spacing.sm,
+    },
+    contextLabel: {
+      ...Typography.label,
+      color: colors.primary,
+      letterSpacing: 0.5,
+    },
+    contextRow: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+    },
+    contextStat: {
+      flex: 1,
+    },
+    contextStatValue: {
+      ...Typography.body,
+      fontWeight: '700' as const,
+      color: colors.textPrimary,
+    },
+    contextStatLabel: {
+      ...Typography.caption,
+      color: colors.textTertiary,
+      marginTop: 2,
+    },
+    loadingCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    loadingText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+    },
+    // ── Card ──────────────────────────────────────────────────────────────
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.md,
+    },
+    sectionTitle: {
+      ...Typography.h3,
+      color: colors.textPrimary,
+      marginBottom: Spacing.sm,
+    },
+    milestonesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginTop: Spacing.xs,
+    },
+    milestoneItem: {
+      flex: 1,
+      minWidth: 100,
+      backgroundColor: colors.primaryLight,
+      borderRadius: Radii.sm,
+      padding: Spacing.sm,
+      alignItems: 'center',
+    },
+    milestoneYear: {
+      ...Typography.label,
+      color: colors.primary,
+      marginBottom: 4,
+    },
+    milestoneValue: {
+      ...Typography.bodySmall,
+      fontWeight: '600' as const,
+      color: colors.textPrimary,
+    },
+    chartNote: {
+      ...Typography.caption,
+      color: colors.textTertiary,
+      marginBottom: Spacing.xs,
+    },
+    legend: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.sm,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    legendLabel: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+    },
+    insightCard: {
+      backgroundColor: colors.primaryLight,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    insightText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 22,
+    },
+    insightHighlight: {
+      ...Typography.body,
+      fontWeight: '600' as const,
+      color: colors.primary,
+    },
+  });
+}

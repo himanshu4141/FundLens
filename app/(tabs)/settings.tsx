@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,9 @@ import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
-import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useTheme } from '@/src/context/ThemeContext';
+import type { AppColors } from '@/src/context/ThemeContext';
 
 async function fetchProfile(userId: string) {
   const { data } = await supabase
@@ -29,6 +31,8 @@ async function fetchProfile(userId: string) {
 }
 
 function CopyRow({ label, value, sublabel }: { label: string; value: string; sublabel?: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [copied, setCopied] = useState(false);
   async function handleCopy() {
     await Clipboard.setStringAsync(value);
@@ -45,8 +49,8 @@ function CopyRow({ label, value, sublabel }: { label: string; value: string; sub
         {sublabel && <Text style={styles.rowSubLabel}>{sublabel}</Text>}
       </View>
       <TouchableOpacity onPress={handleCopy} style={[styles.actionBtn, copied && styles.actionBtnDone]}>
-        <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={copied ? Colors.positive : Colors.primary} />
-        <Text style={[styles.actionBtnText, copied && { color: Colors.positive }]}>
+        <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={copied ? colors.positive : colors.primary} />
+        <Text style={[styles.actionBtnText, copied && { color: colors.positive }]}>
           {copied ? 'Copied' : 'Copy'}
         </Text>
       </TouchableOpacity>
@@ -60,6 +64,8 @@ function maskPan(pan: string): string {
 }
 
 function SectionHeader({ title }: { title: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
@@ -68,8 +74,10 @@ export default function SettingsScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
+  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol, designVariant, setDesignVariant } = useAppStore();
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
 
   type SyncState = 'idle' | 'syncing' | 'done' | 'error';
@@ -118,15 +126,15 @@ export default function SettingsScreen() {
   });
 
   function navStatusBadge(navDate: string | null | undefined) {
-    if (!navDate) return { color: Colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
+    if (!navDate) return { color: colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
     const today = new Date().toISOString().split('T')[0];
     const diffMs = new Date(today).getTime() - new Date(navDate).getTime();
     const diffDays = Math.round(diffMs / 86_400_000);
     const d = new Date(navDate);
     const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-    if (diffDays <= 1) return { color: Colors.positive, dot: Colors.positive, label: 'Live' };
+    if (diffDays <= 1) return { color: colors.positive, dot: colors.positive, label: 'Live' };
     if (diffDays <= 3) return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${dateLabel}` };
-    return { color: Colors.negative, dot: Colors.negative, label: `Outdated · ${dateLabel}` };
+    return { color: colors.negative, dot: colors.negative, label: `Outdated · ${dateLabel}` };
   }
 
   const navBadge = navStatusBadge(latestNavRow);
@@ -158,7 +166,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.accountBadge}>
             <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={24} color={Colors.primary} />
+              <Ionicons name="person" size={24} color={colors.primary} />
             </View>
             <View style={styles.accountInfo}>
               <Text style={styles.accountEmail}>{session?.user.email ?? '—'}</Text>
@@ -167,13 +175,13 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.editIconBtn}>
-              <Ionicons name="pencil-outline" size={16} color={Colors.textTertiary} />
+              <Ionicons name="pencil-outline" size={16} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
 
           {isLoading && (
             <View style={[styles.row, { justifyContent: 'center' }]}>
-              <ActivityIndicator size="small" color={Colors.textTertiary} />
+              <ActivityIndicator size="small" color={colors.textTertiary} />
             </View>
           )}
 
@@ -211,7 +219,7 @@ export default function SettingsScreen() {
                   onPress={() => router.push('/onboarding/pdf')}
                   style={styles.actionBtn}
                 >
-                  <Ionicons name="cloud-upload-outline" size={14} color={Colors.primary} />
+                  <Ionicons name="cloud-upload-outline" size={14} color={colors.primary} />
                   <Text style={styles.actionBtnText}>Upload</Text>
                 </TouchableOpacity>
               </View>
@@ -254,18 +262,18 @@ export default function SettingsScreen() {
               activeOpacity={0.75}
             >
               {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Ionicons
                   name={syncState === 'done' ? 'checkmark' : syncState === 'error' ? 'alert-circle-outline' : 'refresh-outline'}
                   size={14}
-                  color={syncState === 'done' ? Colors.positive : syncState === 'error' ? Colors.negative : Colors.primary}
+                  color={syncState === 'done' ? colors.positive : syncState === 'error' ? colors.negative : colors.primary}
                 />
               )}
               <Text style={[
                 styles.actionBtnText,
-                syncState === 'done' && { color: Colors.positive },
-                syncState === 'error' && { color: Colors.negative },
+                syncState === 'done' && { color: colors.positive },
+                syncState === 'error' && { color: colors.negative },
               ]}>
                 {syncState === 'syncing' ? 'Syncing…' : syncState === 'done' ? 'Done' : syncState === 'error' ? 'Failed' : 'Sync now'}
               </Text>
@@ -298,8 +306,30 @@ export default function SettingsScreen() {
             >
               <Text style={[styles.rowValue, { flex: 1 }]}>{opt.label}</Text>
               {defaultBenchmarkSymbol === opt.symbol && (
-                <Ionicons name="checkmark" size={16} color={Colors.primary} />
+                <Ionicons name="checkmark" size={16} color={colors.primary} />
               )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── Design Theme ── */}
+        <SectionHeader title="Design Theme" />
+        <View style={styles.card}>
+          {(['v1', 'v2'] as const).map((v, idx) => (
+            <TouchableOpacity
+              key={v}
+              style={[styles.row, idx > 0 && styles.borderTop]}
+              onPress={() => setDesignVariant(v)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.rowValue, { flex: 1 }]}>
+                {v === 'v1' ? 'Classic' : 'Editorial'}
+              </Text>
+              <Ionicons
+                name={designVariant === v ? 'radio-button-on' : 'radio-button-off'}
+                size={20}
+                color={designVariant === v ? colors.primary : colors.textTertiary}
+              />
             </TouchableOpacity>
           ))}
         </View>
@@ -308,7 +338,7 @@ export default function SettingsScreen() {
         <SectionHeader title="Account Actions" />
         <View style={styles.card}>
           <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
-            <Ionicons name="log-out-outline" size={18} color={Colors.negative} />
+            <Ionicons name="log-out-outline" size={18} color={colors.negative} />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
         </View>
@@ -319,114 +349,116 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
 
-  header: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: 12,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  headerTitle: { ...Typography.h2, color: Colors.textPrimary },
+    header: {
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.sm,
+      paddingBottom: 12,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    headerTitle: { ...Typography.h2, color: colors.textPrimary },
 
-  sectionHeader: {
-    ...Typography.label,
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
-    marginHorizontal: Spacing.md,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: Spacing.md,
-  },
-  savedFeedback: {
-    fontSize: 12,
-    color: Colors.positive,
-    fontWeight: '600',
-    marginTop: Spacing.lg,
-  },
+    sectionHeader: {
+      ...Typography.label,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      marginTop: Spacing.lg,
+      marginBottom: Spacing.sm,
+      marginHorizontal: Spacing.md,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingRight: Spacing.md,
+    },
+    savedFeedback: {
+      fontSize: 12,
+      color: colors.positive,
+      fontWeight: '600',
+      marginTop: Spacing.lg,
+    },
 
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    marginHorizontal: Spacing.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      marginHorizontal: Spacing.md,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  // Account badge row
-  accountBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountInfo: { flex: 1, gap: 2 },
-  accountEmail: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  accountMeta: { fontSize: 12, color: Colors.textTertiary },
-  editIconBtn: { padding: 6 },
+    // Account badge row
+    accountBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 14,
+      gap: 12,
+    },
+    avatarCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    accountInfo: { flex: 1, gap: 2 },
+    accountEmail: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    accountMeta: { fontSize: 12, color: colors.textTertiary },
+    editIconBtn: { padding: 6 },
 
-  // Generic row
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 13,
-    gap: 12,
-  },
-  borderTop: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-  },
-  rowLeft: { flex: 1, gap: 3 },
-  rowLabel: { ...Typography.label, color: Colors.textTertiary, textTransform: 'uppercase' },
-  rowValue: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary },
-  rowSubLabel: { ...Typography.bodySmall, color: Colors.textTertiary, marginTop: 1 },
+    // Generic row
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 13,
+      gap: 12,
+    },
+    borderTop: {
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    rowLeft: { flex: 1, gap: 3 },
+    rowLabel: { ...Typography.label, color: colors.textTertiary, textTransform: 'uppercase' },
+    rowValue: { fontSize: 14, fontWeight: '500', color: colors.textPrimary },
+    rowSubLabel: { ...Typography.bodySmall, color: colors.textTertiary, marginTop: 1 },
 
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radii.sm,
-  },
-  actionBtnDone: { backgroundColor: '#f0fdf4' },
-  actionBtnError: { backgroundColor: '#fef2f2' },
-  actionBtnText: { fontSize: 12, fontWeight: '600', color: Colors.primary },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: colors.primaryLight,
+      borderRadius: Radii.sm,
+    },
+    actionBtnDone: { backgroundColor: '#f0fdf4' },
+    actionBtnError: { backgroundColor: '#fef2f2' },
+    actionBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
 
-  // Status badge
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.positive },
-  statusText: { fontSize: 12, fontWeight: '600', color: Colors.positive },
+    // Status badge
+    statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.positive },
+    statusText: { fontSize: 12, fontWeight: '600', color: colors.positive },
 
-  // Sign out
-  signOutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 15,
-  },
-  signOutText: { color: Colors.negative, fontSize: 15, fontWeight: '600' },
+    // Sign out
+    signOutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 15,
+    },
+    signOutText: { color: colors.negative, fontSize: 15, fontWeight: '600' },
 
-  bottomPad: { height: 40 },
-});
+    bottomPad: { height: 40 },
+  });
+}
