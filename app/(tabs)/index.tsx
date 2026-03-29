@@ -373,6 +373,13 @@ export default function HomeScreen() {
         <Logo size={28} showWordmark light />
         <View style={styles.headerActions}>
           <TouchableOpacity
+            accessibilityLabel="Open settings"
+            onPress={() => router.push('/settings')}
+            style={styles.headerIconBtn}
+          >
+            <Ionicons name="settings-outline" size={18} color="#ffffff" />
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.syncBtn, syncState === 'syncing' && styles.syncBtnDisabled]}
             onPress={handleSync}
             disabled={syncState === 'syncing'}
@@ -472,7 +479,15 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     backgroundColor: '#0a2e25',
   },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIconBtn: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: Radii.full,
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+  },
   syncBtn: {
     flexDirection: 'row',
     alignItems: 'center',

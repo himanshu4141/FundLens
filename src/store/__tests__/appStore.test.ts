@@ -1,4 +1,4 @@
-import { BENCHMARK_OPTIONS } from '../appStore';
+import { BENCHMARK_OPTIONS, useAppStore } from '../appStore';
 
 describe('BENCHMARK_OPTIONS', () => {
   it('contains exactly 3 entries — Nifty 50, Nifty 100, BSE Sensex', () => {
@@ -56,5 +56,17 @@ describe('headline delta formula', () => {
 
   it('delta is 0.0 when portfolio exactly matches the benchmark', () => {
     expect(computeHeadlineDelta(0.15, 0.15)).toBe(0);
+  });
+});
+
+describe('appStore', () => {
+  it('defaults to the classic design variant', () => {
+    expect(useAppStore.getState().designVariant).toBe('classic');
+  });
+
+  it('allows switching the design variant', () => {
+    useAppStore.getState().setDesignVariant('editorial');
+    expect(useAppStore.getState().designVariant).toBe('editorial');
+    useAppStore.getState().setDesignVariant('classic');
   });
 });

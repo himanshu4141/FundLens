@@ -1,0 +1,30 @@
+export const EditorialColors = {
+  primary: '#003d9b',
+  primaryDark: '#002a6c',
+  primaryLight: '#dae2ff',
+  positive: '#006c47',
+  negative: '#ba1a1a',
+  warning: '#874c00',
+  background: '#f8f9fb',
+  surface: '#ffffff',
+  surfaceAlt: '#f3f4f6',
+  border: '#c3c6d6',
+  borderLight: '#e7e8ea',
+  textPrimary: '#191c1e',
+  textSecondary: '#434654',
+  textTertiary: '#737685',
+  textOnDark: '#ffffff',
+  gradientHero: ['#003d9b', '#0052cc'] as [string, string],
+  gradientHeader: ['#003d9b', '#0052cc'] as [string, string],
+};
+
+export const EditorialTypography = {
+  hero: { fontSize: 38, fontWeight: '800' as const, letterSpacing: -1 },
+  h1: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.6 },
+  h2: { fontSize: 22, fontWeight: '700' as const },
+  h3: { fontSize: 18, fontWeight: '700' as const },
+  body: { fontSize: 15, fontWeight: '400' as const, lineHeight: 22 },
+  bodySmall: { fontSize: 13, fontWeight: '400' as const, lineHeight: 20 },
+  label: { fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.8 },
+  caption: { fontSize: 10, fontWeight: '600' as const, letterSpacing: 0.4 },
+};

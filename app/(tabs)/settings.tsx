@@ -18,6 +18,7 @@ import { useSession } from '@/src/hooks/useSession';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useThemeVariant } from '@/src/hooks/useThemeVariant';
 
 async function fetchProfile(userId: string) {
   const { data } = await supabase
@@ -68,9 +69,16 @@ export default function SettingsScreen() {
   const { session } = useSession();
   const userId = session?.user.id;
   const queryClient = useQueryClient();
+  const theme = useThemeVariant();
 
-  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
+  const {
+    defaultBenchmarkSymbol,
+    setDefaultBenchmarkSymbol,
+    designVariant,
+    setDesignVariant,
+  } = useAppStore();
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
+  const [variantSaved, setVariantSaved] = useState(false);
 
   type SyncState = 'idle' | 'syncing' | 'done' | 'error';
   const [syncState, setSyncState] = useState<SyncState>('idle');
@@ -146,10 +154,13 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* ── Header ── */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
+      <View style={[styles.header, theme.isEditorial && styles.headerEditorial]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.75}>
+          <Ionicons name="arrow-back" size={18} color={theme.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Settings</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -304,6 +315,38 @@ export default function SettingsScreen() {
           ))}
         </View>
 
+        <View style={styles.sectionHeaderRow}>
+          <SectionHeader title="Design Theme" />
+          {variantSaved && <Text style={styles.savedFeedback}>✓ Saved</Text>}
+        </View>
+        <View style={styles.card}>
+          <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
+            <Text style={styles.rowLabel}>App Appearance</Text>
+            <Text style={styles.rowSubLabel}>Switch between the current and editorial design variants</Text>
+          </View>
+          <View style={styles.variantRow}>
+            {(['classic', 'editorial'] as const).map((variant) => {
+              const selected = designVariant === variant;
+              return (
+                <TouchableOpacity
+                  key={variant}
+                  style={[styles.variantPill, selected && styles.variantPillActive]}
+                  onPress={() => {
+                    setDesignVariant(variant);
+                    setVariantSaved(true);
+                    setTimeout(() => setVariantSaved(false), 1500);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.variantPillText, selected && styles.variantPillTextActive]}>
+                    {variant === 'classic' ? 'Classic' : 'Editorial'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* ── Account actions ── */}
         <SectionHeader title="Account Actions" />
         <View style={styles.card}>
@@ -329,6 +372,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerEditorial: {
+    backgroundColor: '#f8f9fb',
+  },
+  backBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: Radii.full,
   },
   headerTitle: { ...Typography.h2, color: Colors.textPrimary },
 
@@ -351,6 +407,32 @@ const styles = StyleSheet.create({
     color: Colors.positive,
     fontWeight: '600',
     marginTop: Spacing.lg,
+  },
+  variantRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: 16,
+    paddingTop: 8,
+  },
+  variantPill: {
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  variantPillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  variantPillText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  variantPillTextActive: {
+    color: '#fff',
   },
 
   card: {
