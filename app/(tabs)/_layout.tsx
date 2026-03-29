@@ -16,18 +16,19 @@ export default function TabLayout() {
           backgroundColor: theme.isEditorial ? theme.colors.surface : theme.colors.background,
           borderTopColor: theme.colors.borderLight,
           borderTopWidth: theme.isEditorial ? StyleSheet.hairlineWidth : 1,
-          height: 68,
-          paddingTop: 6,
-          paddingBottom: 8,
+          height: 84,
+          paddingTop: 10,
+          paddingBottom: 16,
         },
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 8,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
           marginBottom: 0,
-          paddingBottom: 2,
+          marginTop: 4,
+          lineHeight: 14,
         },
       }}
     >

@@ -28,7 +28,8 @@ describe('simulator utils', () => {
       years: 5,
     });
 
-    expect(timeline).toHaveLength(5);
+    expect(timeline).toHaveLength(6);
+    expect(timeline[0].baselineValue).toBe(500000);
     expect(timeline[4].scenarioValue).toBeGreaterThan(timeline[4].baselineValue);
   });
 
@@ -37,11 +38,11 @@ describe('simulator utils', () => {
       currentCorpus: 1800000,
       portfolioXirr: 0.1425,
       transactions: [
-        { transaction_date: '2025-09-05', transaction_type: 'purchase', units: 5, amount: 15000 },
-        { transaction_date: '2025-10-05', transaction_type: 'purchase', units: 5, amount: 15000 },
-        { transaction_date: '2025-11-05', transaction_type: 'purchase', units: 5, amount: 15000 },
-        { transaction_date: '2025-12-15', transaction_type: 'purchase', units: 12, amount: 60000 },
-        { transaction_date: '2026-01-05', transaction_type: 'purchase', units: 5, amount: 15000 },
+        { fund_id: 'fund-a', transaction_date: '2025-09-05', transaction_type: 'purchase', units: 5, amount: 15000 },
+        { fund_id: 'fund-a', transaction_date: '2025-10-05', transaction_type: 'purchase', units: 5, amount: 15000 },
+        { fund_id: 'fund-a', transaction_date: '2025-11-05', transaction_type: 'purchase', units: 5, amount: 15000 },
+        { fund_id: 'fund-b', transaction_date: '2025-12-15', transaction_type: 'purchase', units: 12, amount: 60000 },
+        { fund_id: 'fund-a', transaction_date: '2026-01-05', transaction_type: 'purchase', units: 5, amount: 15000 },
         { transaction_date: '2026-02-10', transaction_type: 'redemption', units: 2, amount: 10000 },
       ],
     });
@@ -52,6 +53,39 @@ describe('simulator utils', () => {
     expect(baseline.monthlyNetContribution).toBeGreaterThan(0);
     expect(baseline.trailingLumpSumAverage).toBe(60000);
     expect(baseline.annualRedemptionRate).toBeGreaterThan(0);
+  });
+
+  it('ignores switch-ins and only counts recurring purchase patterns as SIP pace', () => {
+    const baseline = buildPersonalizedSimulationBaseline({
+      currentCorpus: 5000000,
+      portfolioXirr: 0.1269,
+      transactions: [
+        { fund_id: 'fund-1', transaction_date: '2025-10-06', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-2', transaction_date: '2025-10-07', transaction_type: 'purchase', units: 10, amount: 25000 },
+        { fund_id: 'fund-3', transaction_date: '2025-11-07', transaction_type: 'purchase', units: 10, amount: 50000 },
+        { fund_id: 'fund-1', transaction_date: '2025-11-07', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-2', transaction_date: '2025-11-07', transaction_type: 'purchase', units: 10, amount: 25000 },
+        { fund_id: 'fund-3', transaction_date: '2025-11-11', transaction_type: 'switch_in', units: 10, amount: 45000 },
+        { fund_id: 'fund-1', transaction_date: '2025-12-08', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-2', transaction_date: '2025-12-08', transaction_type: 'purchase', units: 10, amount: 25000 },
+        { fund_id: 'fund-3', transaction_date: '2025-12-08', transaction_type: 'purchase', units: 10, amount: 50000 },
+        { fund_id: 'fund-1', transaction_date: '2026-01-07', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-2', transaction_date: '2026-01-07', transaction_type: 'purchase', units: 10, amount: 25000 },
+        { fund_id: 'fund-3', transaction_date: '2026-01-09', transaction_type: 'switch_in', units: 10, amount: 45000 },
+        { fund_id: 'fund-3', transaction_date: '2026-01-07', transaction_type: 'purchase', units: 10, amount: 50000 },
+        { fund_id: 'fund-1', transaction_date: '2026-02-09', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-2', transaction_date: '2026-02-09', transaction_type: 'purchase', units: 10, amount: 25000 },
+        { fund_id: 'fund-3', transaction_date: '2026-02-09', transaction_type: 'purchase', units: 10, amount: 50000 },
+        { fund_id: 'fund-4', transaction_date: '2026-02-09', transaction_type: 'purchase', units: 10, amount: 100000 },
+        { fund_id: 'fund-1', transaction_date: '2026-03-09', transaction_type: 'purchase', units: 10, amount: 20000 },
+        { fund_id: 'fund-2', transaction_date: '2026-03-09', transaction_type: 'purchase', units: 10, amount: 25000 },
+        { fund_id: 'fund-3', transaction_date: '2026-03-09', transaction_type: 'purchase', units: 10, amount: 50000 },
+        { fund_id: 'fund-4', transaction_date: '2026-03-18', transaction_type: 'purchase', units: 10, amount: 100000 },
+      ],
+    });
+
+    expect(baseline.monthlySip).toBe(95000);
+    expect(baseline.trailingLumpSumAverage).toBe(100000);
   });
 
   it('falls back to sane defaults when xirr is unavailable and ignores unsupported transaction types', () => {

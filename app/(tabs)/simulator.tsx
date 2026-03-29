@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
 import { AppScreenHeader } from '@/src/components/AppScreenHeader';
@@ -22,8 +22,15 @@ function formatCompactCurrency(value: number) {
   return `₹${(value / 100000).toFixed(1)}L`;
 }
 
+function formatAxisCurrency(value: number) {
+  if (value >= 10000000) return `${(value / 10000000).toFixed(1)}Cr`;
+  if (value >= 100000) return `${(value / 100000).toFixed(0)}L`;
+  return `${Math.round(value / 1000)}K`;
+}
+
 export default function SimulatorScreen() {
   const theme = useThemeVariant();
+  const { width: viewportWidth } = useWindowDimensions();
   const { session } = useSession();
   const { defaultBenchmarkSymbol } = useAppStore();
   const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio(defaultBenchmarkSymbol);
@@ -37,12 +44,12 @@ export default function SimulatorScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transaction')
-        .select('transaction_date, transaction_type, units, amount')
+        .select('fund_id, transaction_date, transaction_type, units, amount')
         .eq('user_id', userId!)
         .order('transaction_date', { ascending: true });
 
       if (error) throw error;
-      return (data ?? []) as Transaction[];
+      return (data ?? []) as (Transaction & { fund_id?: string | null })[];
     },
   });
 
@@ -101,14 +108,20 @@ export default function SimulatorScreen() {
     [annualReturnPct, baselineProfile.currentCorpus, monthlySip, oneTimeTopUp, scenarioSip, years],
   );
 
-  const chartData = timeline.map((point) => ({ value: point.baselineValue / 100000 }));
-  const chartData2 = timeline.map((point) => ({ value: point.scenarioValue / 100000 }));
-  const xLabels = timeline.map((point) => (point.year === years || point.year % 5 === 0 ? `Y${point.year}` : ''));
+  const chartData = timeline.map((point) => ({ value: point.baselineValue }));
+  const chartData2 = timeline.map((point) => ({ value: point.scenarioValue }));
+  const xLabels = timeline.map((point) => {
+    if (point.year === 0) return 'Today';
+    if (point.year === years || point.year % 5 === 0) return `${point.year}Y`;
+    return '';
+  });
   const maxValue = Math.max(
     1,
     ...chartData.map((point) => point.value),
     ...chartData2.map((point) => point.value),
   );
+  const chartWidth = Math.max(260, viewportWidth - 92);
+  const chartSpacing = timeline.length > 1 ? Math.max(44, (chartWidth - 40) / (timeline.length - 1)) : 20;
 
   const deltaValue = scenario.terminalValue - baseline.terminalValue;
   const sipDelta = scenarioSip - monthlySip;
@@ -174,42 +187,6 @@ export default function SimulatorScreen() {
           />
         </View>
 
-        <View style={[styles.chartCard, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Current plan vs proposed plan</Text>
-          <Text style={[styles.chartBody, { color: theme.colors.textSecondary }]}>
-            Baseline uses your current corpus and recent SIP pace. The proposal reflects the inputs below.
-          </Text>
-          <LineChart
-            data={chartData}
-            data2={chartData2}
-            width={320}
-            height={220}
-            curved
-            hideDataPoints
-            initialSpacing={0}
-            endSpacing={0}
-            spacing={timeline.length > 1 ? 320 / (timeline.length - 1) : 20}
-            color1={theme.colors.textSecondary}
-            color2={theme.colors.primary}
-            thickness1={2}
-            thickness2={3}
-            xAxisLabelTexts={xLabels}
-            xAxisLabelTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
-            yAxisTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
-            formatYLabel={(value: string) => `${Number(value).toFixed(0)}L`}
-            yAxisLabelWidth={36}
-            noOfSections={4}
-            maxValue={maxValue * 1.1}
-            xAxisColor={theme.colors.borderLight}
-            yAxisColor="transparent"
-            rulesColor={theme.colors.borderLight}
-          />
-          <View style={styles.legendRow}>
-            <LegendItem color={theme.colors.textSecondary} label={`Current plan · ${formatCompactCurrency(baseline.terminalValue)}`} />
-            <LegendItem color={theme.colors.primary} label={`Proposed plan · ${formatCompactCurrency(scenario.terminalValue)}`} />
-          </View>
-        </View>
-
         <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Adjust your plan</Text>
           <Text style={[styles.chartBody, { color: theme.colors.textSecondary }]}>
@@ -250,6 +227,42 @@ export default function SimulatorScreen() {
             onChange={setYearsInput}
             theme={theme}
           />
+        </View>
+
+        <View style={[styles.chartCard, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Current plan vs proposed plan</Text>
+          <Text style={[styles.chartBody, { color: theme.colors.textSecondary }]}>
+            Both lines start from your current portfolio value today. Changes you make below only affect the future path.
+          </Text>
+          <LineChart
+            data={chartData}
+            data2={chartData2}
+            width={chartWidth}
+            height={240}
+            curved
+            hideDataPoints
+            initialSpacing={8}
+            endSpacing={16}
+            spacing={chartSpacing}
+            color1={theme.colors.textSecondary}
+            color2={theme.colors.primary}
+            thickness1={2}
+            thickness2={3}
+            xAxisLabelTexts={xLabels}
+            xAxisLabelTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
+            yAxisTextStyle={[styles.axisLabel, { color: theme.colors.textTertiary }]}
+            formatYLabel={(value: string) => formatAxisCurrency(Number(value))}
+            yAxisLabelWidth={64}
+            noOfSections={4}
+            maxValue={maxValue * 1.08}
+            xAxisColor={theme.colors.borderLight}
+            yAxisColor="transparent"
+            rulesColor={theme.colors.borderLight}
+          />
+          <View style={styles.legendRow}>
+            <LegendItem color={theme.colors.textSecondary} label={`Current plan · ${formatCompactCurrency(baseline.terminalValue)}`} />
+            <LegendItem color={theme.colors.primary} label={`Proposed plan · ${formatCompactCurrency(scenario.terminalValue)}`} />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -383,7 +396,7 @@ const styles = StyleSheet.create({
   chartCard: {
     borderRadius: 20,
     margin: 16,
-    marginTop: 4,
+    marginTop: 12,
     padding: 20,
   },
   card: {
@@ -402,7 +415,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   axisLabel: {
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 14,
   },
   legendRow: {
     gap: 8,
