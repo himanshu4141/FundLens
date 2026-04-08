@@ -188,7 +188,7 @@ function PerformanceTab({
   const yMin = allVals.length > 0 ? Math.min(...allVals) : 90;
   const yPad = ((yMax - yMin) || yMax * 0.1 || 1) * 0.12;
   const chartMaxValue = yMax + yPad;
-  const chartMostNegative = Math.min(0, yMin - yPad);
+  const chartMostNegative = yMin - yPad;
 
   const latestNav = indexedNav[indexedNav.length - 1]?.value ?? 100;
   const latestBenchmark = indexedBenchmark[indexedBenchmark.length - 1]?.value ?? 100;
@@ -423,7 +423,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   const navYMin = navVals.length > 0 ? Math.min(...navVals) : 0;
   const navYPad = ((navYMax - navYMin) || navYMax * 0.1 || 1) * 0.12;
   const navChartMax = navYMax + navYPad;
-  const navChartMin = Math.max(0, navYMin - navYPad);
+  const navChartMin = navYMin - navYPad;
 
   const NAV_Y_AXIS_W = 44;
   const navChartBodyW = CHART_WIDTH - 32 - NAV_Y_AXIS_W;
@@ -435,22 +435,16 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
 
       {points.length > 1 ? (
         <View style={styles.chartCard}>
-          <View style={{ overflow: 'hidden' }}>
           <LineChart
             data={points}
             width={CHART_WIDTH - 32}
             height={200}
             spacing={navSpacing}
             initialSpacing={0}
-            endSpacing={0}
+            endSpacing={32}
             hideDataPoints
             color1={Colors.primary}
             thickness1={2.5}
-            startFillColor1={Colors.primary}
-            endFillColor1="#fff"
-            startOpacity1={0.15}
-            endOpacity1={0}
-            areaChart
             curved
             yAxisLabelWidth={44}
             formatYLabel={(v: string) => {
@@ -468,6 +462,8 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             noOfSections={4}
             xAxisLabelTexts={xLabels}
             xAxisLabelTextStyle={styles.chartAxisLabel}
+            xAxisLabelsHeight={16}
+            labelsExtraHeight={40}
             pointerConfig={{
               showPointerStrip: true,
               pointerStripHeight: 200,
@@ -494,7 +490,6 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
               },
             }}
           />
-          </View>
 
           <View style={styles.navStatsRow}>
             <View style={styles.navStat}>
