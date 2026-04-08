@@ -272,10 +272,7 @@ export function buildXAxisLabels(dates: string[], count = 5): string[] {
       lastPlaced = label;
     }
   }
-  // Always label the last point (skip if it would duplicate the previous label)
-  const lastLabel = formatDateShort(dates[dates.length - 1]);
-  if (lastLabel !== lastPlaced) {
-    labels[dates.length - 1] = lastLabel;
-  }
+  // Always label the last point — it marks end-of-data regardless of month duplicates
+  labels[dates.length - 1] = formatDateShort(dates[dates.length - 1]);
   return labels;
 }
