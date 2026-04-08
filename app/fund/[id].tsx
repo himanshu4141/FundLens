@@ -287,13 +287,8 @@ function PerformanceTab({
               hideDataPoints
               color1={Colors.primary}
               color2="#f59e0b"
-              thickness1={2.5}
-              thickness2={2}
-              startFillColor1={Colors.primary}
-              endFillColor1="#fff"
-              startOpacity1={0.15}
-              endOpacity1={0}
-              areaChart
+              thickness1={3}
+              thickness2={2.5}
               curved
               yAxisLabelWidth={32}
               formatYLabel={(v: string) => Number(v).toFixed(0)}
@@ -305,6 +300,13 @@ function PerformanceTab({
               rulesColor={Colors.borderLight}
               rulesType="solid"
               noOfSections={4}
+              referenceLine1Config={{
+                color: Colors.textTertiary + '66',
+                dashWidth: 4,
+                dashGap: 4,
+                thickness: 1,
+              }}
+              referenceLine1Position={100}
               xAxisLabelTexts={xLabels}
               xAxisLabelTextStyle={styles.chartAxisLabel}
               xAxisLabelsHeight={16}
@@ -633,27 +635,29 @@ const techStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 
 function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
-  const bars = computeQuarterlyReturns(navHistory, Colors.positive, Colors.negative);
+  // Muted semi-transparent colors so bars feel lighter, not heavy blocks
+  const bars = computeQuarterlyReturns(navHistory, '#16a34a', '#dc2626');
   if (bars.length < 2) return null;
 
   const vals = bars.map((b) => Math.abs(b.value));
   const maxAbs = Math.max(...vals, 1);
   const chartMax = maxAbs * 1.3;
 
-  const barWidth = Math.min(28, Math.floor((CHART_WIDTH - 64) / bars.length) - 4);
+  const barWidth = Math.min(20, Math.floor((CHART_WIDTH - 64) / bars.length) - 6);
   const spacing = Math.max(4, Math.floor((CHART_WIDTH - 64 - barWidth * bars.length) / (bars.length + 1)));
 
   return (
     <View style={growthStyles.card}>
       <Text style={growthStyles.title}>Growth Consistency</Text>
       <Text style={growthStyles.subtitle}>Quarterly returns (%)</Text>
-      <View style={{ overflow: 'hidden', marginTop: Spacing.xs }}>
+      <View style={{ marginTop: Spacing.xs }}>
         <BarChart
           data={bars}
           width={CHART_WIDTH - 64}
           height={140}
           barWidth={barWidth}
           spacing={spacing}
+          barBorderRadius={4}
           initialSpacing={spacing}
           maxValue={chartMax}
           mostNegativeValue={-chartMax}
