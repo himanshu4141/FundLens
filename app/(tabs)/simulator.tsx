@@ -270,8 +270,11 @@ export default function SimulatorScreen() {
   const horizonAdjusted = adjustedPoints[adjustedPoints.length - 1]?.value ?? 0;
   const planDelta = horizonAdjusted - horizonBaseline;
 
-  // Show two lines only when user has a real portfolio (baseline is meaningful)
-  const showTwoLines = hasPortfolio && seeded;
+  // Show two lines only when user has a real portfolio AND has changed something
+  // (otherwise both lines overlap exactly and the chart looks broken)
+  const scenarioChanged =
+    sip !== seededSip || lumpsum !== seededLumpsum;
+  const showTwoLines = hasPortfolio && seeded && scenarioChanged;
 
   // Chart data — prepend year-0 at the actual current corpus so the chart
   // starts from today's real value, not from zero.
@@ -460,11 +463,12 @@ export default function SimulatorScreen() {
               spacing={chartSpacing}
               initialSpacing={0}
               endSpacing={8}
-              formatYLabel={(v: string) =>
-                Number(v) >= 1000
-                  ? `${(Number(v) / 1000).toFixed(0)}L`
-                  : `${Number(v)}k`
-              }
+              formatYLabel={(v: string) => {
+                const n = Number(v);
+                if (n >= 10000) return `${(n / 10000).toFixed(1)}Cr`;
+                if (n >= 100) return `${(n / 100).toFixed(0)}L`;
+                return `${n}L`;
+              }}
               hideDataPoints={totalChartPoints > 20}
             />
           </View>
