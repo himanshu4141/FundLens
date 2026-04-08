@@ -276,15 +276,14 @@ function PerformanceTab({
             )}
           </View>
 
-          <View style={{ overflow: 'hidden' }}>
-            <LineChart
+          <LineChart
               data={navPoints}
               data2={hasBenchmarkData ? benchmarkPoints : undefined}
               width={CHART_WIDTH - 32}
               height={180}
               spacing={perfSpacing}
               initialSpacing={0}
-              endSpacing={0}
+              endSpacing={32}
               hideDataPoints
               color1={Colors.primary}
               color2="#f59e0b"
@@ -308,6 +307,8 @@ function PerformanceTab({
               noOfSections={4}
               xAxisLabelTexts={xLabels}
               xAxisLabelTextStyle={styles.chartAxisLabel}
+              xAxisLabelsHeight={16}
+              labelsExtraHeight={40}
               pointerConfig={{
                 showPointerStrip: true,
                 pointerStripHeight: 180,
@@ -347,7 +348,6 @@ function PerformanceTab({
                 },
               }}
             />
-          </View>
 
           {/* Explainer */}
           <Text style={styles.chartExplainer}>
