@@ -263,8 +263,8 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
               <Sparkline
                 data={fund.navHistory30d.map((p) => p.value)}
                 color={fund.returnXirr >= 0 ? Colors.positive : Colors.negative}
-                width={60}
-                height={24}
+                width={72}
+                height={36}
               />
             ) : (
               <Text style={styles.fundMetaValue}>
@@ -374,19 +374,10 @@ function PortfolioChartSection({
             height={140}
             color1={Colors.primary}
             color2="#f59e0b"
-            thickness1={2.5}
-            thickness2={2}
+            thickness1={3}
+            thickness2={2.5}
             curved
             hideDataPoints
-            areaChart
-            startFillColor1={Colors.primary + '22'}
-            endFillColor1={Colors.primary + '00'}
-            startFillColor2={'#f59e0b22'}
-            endFillColor2={'#f59e0b00'}
-            startOpacity1={0.25}
-            endOpacity1={0}
-            startOpacity2={0.15}
-            endOpacity2={0}
             yAxisLabelWidth={40}
             yAxisTextStyle={styles.chartAxisText}
             xAxisLabelTexts={xAxisLabels}
