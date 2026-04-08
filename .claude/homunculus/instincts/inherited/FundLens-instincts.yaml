@@ -1,0 +1,431 @@
+# Instincts generated from https://github.com/himanshu4141/FundLens
+# Generated: 2026-04-08T00:45:39.034Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: FundLens-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: fix, docs, feat
+
+## Evidence
+
+- 6 commits analyzed
+- Detected conventional commit pattern
+- Examples: fix(m5): fix fund detail performance chart label truncation and overflow, docs: add M6 Wealth Simulator ExecPlan
+
+---
+id: FundLens-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Commit Length
+
+## Action
+
+Write moderate-length commit messages (~64 characters)
+
+## Evidence
+
+- Average commit message length: 64 chars
+- Based on 6 commits
+
+---
+id: FundLens-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: FundLens-import-alias
+trigger: "when importing modules"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Import Alias
+
+## Action
+
+Use path aliases (@/, ~/) instead of relative imports
+
+## Evidence
+
+- Import analysis shows alias pattern
+- Example: import { x } from '@/lib/x'
+
+---
+id: FundLens-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Export Style
+
+## Action
+
+Prefer mixed exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: mixed
+
+---
+id: FundLens-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: utils
+
+---
+id: FundLens-workflow-feature-enhancement-with-iterative-fixes
+trigger: "when doing feature enhancement with iterative fixes"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Feature Enhancement With Iterative Fixes
+
+## Action
+
+Follow the feature-enhancement-with-iterative-fixes workflow:
+1. Step 1: Implement new feature or screen, including core logic and tests.
+2. Step 2: Commit initial implementation (often touching a main screen file and utility/test files).
+3. Step 3: Make a series of focused fix commits to the same main file(s), each addressing specific UX, logic, or UI issues.
+4. Step 4: Each fix commit typically changes only the main screen file or closely related files.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: app/(tabs)/simulator.tsx, src/utils/simulatorCalc.ts, src/utils/__tests__/simulatorCalc.test.ts
+
+---
+id: FundLens-workflow-single-file-ui-bugfix
+trigger: "when doing single file ui bugfix"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Single File Ui Bugfix
+
+## Action
+
+Follow the single-file-ui-bugfix workflow:
+1. Step 1: Identify the UI bug or visual issue.
+2. Step 2: Make targeted changes to the affected screen/component file.
+3. Step 3: Commit with a descriptive message referencing the bug and affected UI element.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: app/fund/[id].tsx, app/(tabs)/simulator.tsx
+
+---
+id: fundlens-instinct-file-naming-camelcase
+trigger: "When creating a new file in the codebase"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct File Naming Camelcase
+
+## Action
+
+Name the file using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.files
+- Observed in src/utils/simulatorCalc.ts
+
+---
+id: fundlens-instinct-function-naming-camelcase
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Function Naming Camelcase
+
+## Action
+
+Name the function using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.functions
+
+---
+id: fundlens-instinct-class-naming-pascalcase
+trigger: "When defining a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Class Naming Pascalcase
+
+## Action
+
+Name the class using PascalCase
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: fundlens-instinct-constant-naming-screaming-snake-case
+trigger: "When defining a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Constant Naming Screaming Snake Case
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: fundlens-instinct-import-alias-style
+trigger: "When importing modules"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Import Alias Style
+
+## Action
+
+Use alias import style
+
+## Evidence
+
+- Pattern in importStyle: alias
+
+---
+id: fundlens-instinct-export-mixed-style
+trigger: "When exporting modules or functions"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Export Mixed Style
+
+## Action
+
+Use mixed export style (named and default exports as appropriate)
+
+## Evidence
+
+- Pattern in exportStyle: mixed
+
+---
+id: fundlens-instinct-test-location-mixed
+trigger: "When adding or updating tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Test Location Mixed
+
+## Action
+
+Place test files alongside source files or in a __tests__ subfolder
+
+## Evidence
+
+- Pattern in architecture.testLocation: mixed
+- Seen in src/utils/__tests__/simulatorCalc.test.ts
+
+---
+id: fundlens-instinct-test-utility-coverage
+trigger: "When implementing or updating utility functions"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Test Utility Coverage
+
+## Action
+
+Add or update corresponding test files for utilities
+
+## Evidence
+
+- Pattern in feature-enhancement-with-iterative-fixes workflow
+- src/utils/simulatorCalc.ts and src/utils/__tests__/simulatorCalc.test.ts changed together
+
+---
+id: fundlens-instinct-git-conventional-commits
+trigger: "When writing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Git Conventional Commits
+
+## Action
+
+Use conventional commit prefixes: fix, feat, docs
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Examples: fix(m5): fix fund detail performance chart label truncation and overflow
+
+---
+id: fundlens-instinct-git-commit-length-medium
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Git Commit Length Medium
+
+## Action
+
+Write a concise, descriptive commit message around 60-70 characters
+
+## Evidence
+
+- Pattern in commits.averageLength: 64
+- Examples: fix(m6): improve SIP estimation and fix simulator chart/projection logic
+
+---
+id: fundlens-instinct-feature-enhancement-iterative-fixes
+trigger: "When shipping a new feature or major screen"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Feature Enhancement Iterative Fixes
+
+## Action
+
+Rapidly follow up with focused fix commits to the same files for UX, logic, or UI improvements
+
+## Evidence
+
+- feature-enhancement-with-iterative-fixes workflow
+- Commit sequence: feat(m6): implement Wealth Simulator screen → fix(m6): simulator UX — editable inputs, chart overflow, corpus baseline
+
+---
+id: fundlens-instinct-feature-tests-initial-commit
+trigger: "When committing a new feature or screen"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Feature Tests Initial Commit
+
+## Action
+
+Include core logic and corresponding tests in the initial commit
+
+## Evidence
+
+- feature-enhancement-with-iterative-fixes workflow
+- Initial implementation touches main screen file and utility/test files
+
+---
+id: fundlens-instinct-single-file-ui-bugfix
+trigger: "When fixing a UI bug or visual issue in a screen"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Single File Ui Bugfix
+
+## Action
+
+Make targeted changes only to the affected screen/component file and commit with a descriptive message
+
+## Evidence
+
+- single-file-ui-bugfix workflow
+- Commits: fix(m5): fix fund detail performance chart label truncation and overflow
+
