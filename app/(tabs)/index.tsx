@@ -333,6 +333,15 @@ function PortfolioChartSection({
   const chartData = portfolioPoints.map((p) => ({ value: p.value }));
   const benchmarkData = benchmarkPoints.map((p) => ({ value: p.value }));
 
+  // Compute y-axis floor so indexed-to-100 lines fill the chart height
+  // rather than floating in the top quarter above a large empty area.
+  const allChartVals = [...portfolioPoints, ...benchmarkPoints].map((p) => p.value);
+  const chartYMax = allChartVals.length > 0 ? Math.max(...allChartVals) : 120;
+  const chartYMin = allChartVals.length > 0 ? Math.min(...allChartVals) : 90;
+  const chartYPad = ((chartYMax - chartYMin) || chartYMax * 0.1 || 1) * 0.15;
+  const chartMaxValue = Math.ceil((chartYMax + chartYPad) / 10) * 10;
+  const chartMinValue = Math.floor((chartYMin - chartYPad) / 10) * 10;
+
   if (!isLoading && chartData.length === 0) return null;
 
   return (
@@ -388,9 +397,11 @@ function PortfolioChartSection({
             xAxisColor={Colors.borderLight}
             yAxisColor="transparent"
             formatYLabel={(v) => `${Math.round(Number(v))}`}
+            maxValue={chartMaxValue}
+            mostNegativeValue={chartMinValue}
             noOfSections={4}
             initialSpacing={0}
-            endSpacing={16}
+            endSpacing={32}
             spacing={Math.max(8, (CHART_WIDTH - 56) / Math.max(chartData.length - 1, 1))}
           />
           <View style={styles.chartLegend}>
