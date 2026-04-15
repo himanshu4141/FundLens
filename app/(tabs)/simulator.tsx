@@ -79,9 +79,14 @@ async function estimateMonthlySip(userId: string): Promise<number> {
     }
     if (monthAmounts.size < 3) continue; // not recurring enough — lumpsum pattern
 
-    const avg =
-      [...monthAmounts.values()].reduce((a, b) => a + b, 0) / monthAmounts.size;
-    totalSip += avg;
+    // Use median instead of mean to avoid outlier months where an extra lumpsum
+    // happened to fall on the same day as a recurring SIP (would inflate the mean).
+    const sorted = [...monthAmounts.values()].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+    totalSip += median;
   }
 
   return Math.round(totalSip / 500) * 500;
