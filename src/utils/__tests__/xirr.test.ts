@@ -94,6 +94,26 @@ describe('xirr()', () => {
     expect(rate).toBeGreaterThan(0);
   });
 
+  it('returns NaN for pathological cashflows that cannot converge', () => {
+    // Alternating huge values with very short durations — NPV never settles
+    const flows: Cashflow[] = [
+      { date: ORIGIN, amount: -1e12 },
+      { date: daysFrom(ORIGIN, 1), amount: 1 },
+    ];
+    expect(xirr(flows)).toBeNaN();
+  });
+
+  it('handles extremely high return (>100x) without infinite loop', () => {
+    // 100x return in 1 year — rate diverges past 100 and resets
+    const flows: Cashflow[] = [
+      { date: ORIGIN, amount: -1 },
+      { date: yearsFrom(ORIGIN, 1), amount: 10000 },
+    ];
+    const rate = xirr(flows);
+    // May converge or return NaN depending on implementation, but must not throw
+    expect(typeof rate === 'number').toBe(true);
+  });
+
   it('sorts unsorted cashflows before computing', () => {
     // Same flows as the 15% test but passed in reverse order
     const flows: Cashflow[] = [
