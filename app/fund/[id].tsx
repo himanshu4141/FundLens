@@ -213,7 +213,12 @@ function PerformanceTab({
         <View style={styles.comparisonRow}>
           <View style={styles.comparisonCol}>
             <Text style={styles.statLabel}>Your Fund ({window})</Text>
-            <Text style={[styles.xirrValue, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}>
+            <Text
+              style={[styles.xirrValue, { color: navReturn >= 0 ? Colors.positive : Colors.negative }]}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              numberOfLines={1}
+            >
               {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
             </Text>
           </View>
@@ -1121,7 +1126,7 @@ const styles = StyleSheet.create({
   comparisonRow: { flexDirection: 'row', alignItems: 'flex-start' },
   comparisonCol: { flex: 1, gap: 4 },
   xirrDivider: { width: 1, backgroundColor: Colors.borderLight, marginHorizontal: 12 },
-  xirrValue: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
+  xirrValue: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
   verdictRow: {
     marginTop: 10,
     paddingTop: 10,
