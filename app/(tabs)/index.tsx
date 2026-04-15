@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -388,8 +389,8 @@ function PortfolioChartSection({
             xAxisColor={Colors.borderLight}
             yAxisColor="transparent"
             formatYLabel={(v) => `${Math.round(Number(v))}`}
-            maxValue={chartMaxValue}
-            mostNegativeValue={chartMinValue}
+            maxValue={chartMaxValue - chartMinValue}
+            yAxisOffset={chartMinValue}
             noOfSections={4}
             initialSpacing={0}
             endSpacing={32}
@@ -492,6 +493,7 @@ export default function HomeScreen() {
   });
 
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -520,28 +522,67 @@ export default function HomeScreen() {
         <Logo size={28} showWordmark light />
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={[styles.syncBtn, syncState === 'syncing' && styles.syncBtnDisabled]}
-            onPress={handleSync}
-            disabled={syncState === 'syncing'}
+            hitSlop={8}
+            onPress={() => setOverflowOpen(true)}
           >
-            {syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color="rgba(255,255,255,0.8)" />
-            ) : (
-              <Text style={styles.syncBtnText}>↻ Sync</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() =>
-              router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')
-            }
-          >
-            <Text style={styles.importLink}>Import</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Overflow menu */}
+      <Modal
+        visible={overflowOpen}
+        transparent
+        animationType="none"
+        onRequestClose={() => setOverflowOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overflowBackdrop}
+          activeOpacity={1}
+          onPress={() => setOverflowOpen(false)}
+        >
+          <View style={styles.overflowMenu}>
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => {
+                setOverflowOpen(false);
+                handleSync();
+              }}
+              disabled={syncState === 'syncing'}
+            >
+              {syncState === 'syncing' ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Ionicons name="sync-outline" size={18} color={Colors.textPrimary} />
+              )}
+              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => {
+                setOverflowOpen(false);
+                router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding');
+              }}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color={Colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Import CAS</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => {
+                setOverflowOpen(false);
+                router.push('/(tabs)/settings');
+              }}
+            >
+              <Ionicons name="settings-outline" size={18} color={Colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {syncState === 'requested' && (
         <View style={styles.syncBanner}>
@@ -631,20 +672,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a2e25',
   },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  syncBtn: {
+  // Overflow menu
+  overflowBackdrop: {
+    flex: 1,
+  },
+  overflowMenu: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  overflowItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: Radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 64,
-    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
   },
-  syncBtnDisabled: { opacity: 0.6 },
-  syncBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  importLink: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
+  overflowItemText: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+  },
+  overflowDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginHorizontal: Spacing.sm,
+  },
 
   syncBanner: {
     backgroundColor: Colors.primaryLight,

@@ -17,20 +17,64 @@ describe('parseFundName()', () => {
   test('splits Direct Plan IDCW into base + badge', () => {
     const { base, planBadge } = parseFundName('SBI Blue Chip Fund - Direct Plan - IDCW');
     expect(base).toBe('SBI Blue Chip Fund');
-    expect(planBadge).toBe('Direct · Idcw');
+    expect(planBadge).toBe('Direct · IDCW');
   });
 
   test('splits Regular Plan IDCW into base + badge', () => {
     const { base, planBadge } = parseFundName('Mirae Asset Large Cap Fund - Regular Plan - IDCW');
     expect(base).toBe('Mirae Asset Large Cap Fund');
-    expect(planBadge).toBe('Regular · Idcw');
+    expect(planBadge).toBe('Regular · IDCW');
   });
 
-  // ── IDCW with extra words (e.g. "IDCW Reinvestment") ────────────────────
-  test('uses only the first word of the option for IDCW variants', () => {
+  // ── IDCW variants ────────────────────────────────────────────────────────
+  test('normalises "IDCW Reinvestment" to "IDCW"', () => {
     const { base, planBadge } = parseFundName('Franklin India Bluechip Fund - Direct Plan - IDCW Reinvestment');
     expect(base).toBe('Franklin India Bluechip Fund');
-    expect(planBadge).toBe('Direct · Idcw');
+    expect(planBadge).toBe('Direct · IDCW');
+  });
+
+  test('normalises "IDCW Payout" to "IDCW"', () => {
+    const { base, planBadge } = parseFundName('Nippon India Liquid Fund - Direct Plan - IDCW Payout');
+    expect(base).toBe('Nippon India Liquid Fund');
+    expect(planBadge).toBe('Direct · IDCW');
+  });
+
+  test('normalises "Payout of IDCW" to "IDCW"', () => {
+    const { base, planBadge } = parseFundName('Quant Small Cap Fund - Direct Plan - Payout of IDCW');
+    expect(base).toBe('Quant Small Cap Fund');
+    expect(planBadge).toBe('Direct · IDCW');
+  });
+
+  test('normalises "Reinvestment of IDCW" to "IDCW"', () => {
+    const { base, planBadge } = parseFundName('Kotak Equity Fund - Regular Plan - Reinvestment of IDCW');
+    expect(base).toBe('Kotak Equity Fund');
+    expect(planBadge).toBe('Regular · IDCW');
+  });
+
+  // ── Dividend variants ────────────────────────────────────────────────────
+  test('normalises "Dividend Reinvestment" to "Dividend"', () => {
+    const { base, planBadge } = parseFundName('DSP Top 100 Equity Fund - Regular Plan - Dividend Reinvestment');
+    expect(base).toBe('DSP Top 100 Equity Fund');
+    expect(planBadge).toBe('Regular · Dividend');
+  });
+
+  test('normalises "Dividend Payout" to "Dividend"', () => {
+    const { base, planBadge } = parseFundName('ICICI Prudential Value Fund - Direct Plan - Dividend Payout');
+    expect(base).toBe('ICICI Prudential Value Fund');
+    expect(planBadge).toBe('Direct · Dividend');
+  });
+
+  // ── No spaces around hyphens (some CAS PDFs) ─────────────────────────────
+  test('handles hyphens without surrounding spaces', () => {
+    const { base, planBadge } = parseFundName('Franklin India Prima Fund-Direct Plan-Growth');
+    expect(base).toBe('Franklin India Prima Fund');
+    expect(planBadge).toBe('Direct · Growth');
+  });
+
+  test('handles hyphens with single space', () => {
+    const { base, planBadge } = parseFundName('SBI Small Cap Fund - Direct Plan - Growth');
+    expect(base).toBe('SBI Small Cap Fund');
+    expect(planBadge).toBe('Direct · Growth');
   });
 
   // ── Case insensitivity ───────────────────────────────────────────────────
@@ -55,7 +99,6 @@ describe('parseFundName()', () => {
   });
 
   test('handles fund names that contain hyphens in the base name', () => {
-    // "Nippon India - ETF Nifty 50" style names (no Plan suffix)
     const name = 'Nippon India ETF Nifty 50 BeES';
     const { base, planBadge } = parseFundName(name);
     expect(base).toBe(name);
