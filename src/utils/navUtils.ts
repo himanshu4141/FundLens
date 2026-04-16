@@ -37,21 +37,42 @@ export function filterToWindow<T extends { date: string }>(history: T[], window:
 }
 
 /**
+ * Count business days (Mon–Fri) between two date strings (inclusive of start, exclusive of end).
+ * Does not account for public holidays — weekends only.
+ */
+function businessDaysBetween(fromDateStr: string, toDateStr: string): number {
+  const from = new Date(fromDateStr);
+  const to = new Date(toDateStr);
+  let count = 0;
+  const cur = new Date(from);
+  // Move one day past `from` so we count days elapsed, not including the NAV date itself
+  cur.setDate(cur.getDate() + 1);
+  while (cur <= to) {
+    const dow = cur.getDay(); // 0=Sun, 6=Sat
+    if (dow !== 0 && dow !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * Compute NAV staleness relative to today.
  *
- * Returns a label suitable for display (e.g. "as of 20 Mar") and boolean flags
- * for stale (≥2 days old) and veryStale (>3 days old).
+ * Uses business-day counting so weekend gaps don't trigger false stale warnings.
+ * NAV from last Friday is still fresh on Saturday, Sunday, and Monday morning.
+ *
+ * stale:     >1 business day since last NAV (missed a trading day)
+ * veryStale: >3 business days since last NAV
  */
 export function navStaleness(latestNavDate: string | null): { label: string; stale: boolean; veryStale: boolean } {
   if (!latestNavDate) return { label: '', stale: false, veryStale: false };
   const today = new Date().toISOString().split('T')[0];
   if (latestNavDate >= today) return { label: 'today', stale: false, veryStale: false };
-  const diffMs = new Date(today).getTime() - new Date(latestNavDate).getTime();
-  const diffDays = Math.round(diffMs / 86_400_000);
+  const bizDays = businessDaysBetween(latestNavDate, today);
   const [, month, day] = latestNavDate.split('-');
   const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const label = `as of ${parseInt(day, 10)} ${MONTH_ABBR[parseInt(month, 10) - 1]}`;
-  return { label, stale: diffDays >= 2, veryStale: diffDays > 3 };
+  return { label, stale: bizDays > 1, veryStale: bizDays > 3 };
 }
 
 /** Index a series to 100 at its first point (for relative comparison charts) */

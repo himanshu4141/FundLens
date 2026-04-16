@@ -71,6 +71,51 @@ describe('navStaleness()', () => {
   });
 });
 
+// ── Weekend / business-day tests ─────────────────────────────────────────────
+// Scenario: Friday NAV (2026-03-27) viewed on Sat/Sun/Mon should NOT be stale.
+// Tuesday should be the first stale day.
+
+describe('navStaleness() — weekend business-day handling', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function freeze(dateStr: string) {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(`${dateStr}T10:00:00.000Z`));
+  }
+
+  const FRIDAY_NAV = '2026-03-27'; // Friday
+
+  test('Friday NAV viewed on Saturday → not stale (0 business days)', () => {
+    freeze('2026-03-28'); // Saturday
+    const r = navStaleness(FRIDAY_NAV);
+    expect(r.stale).toBe(false);
+    expect(r.veryStale).toBe(false);
+  });
+
+  test('Friday NAV viewed on Sunday → not stale (0 business days)', () => {
+    freeze('2026-03-29'); // Sunday
+    const r = navStaleness(FRIDAY_NAV);
+    expect(r.stale).toBe(false);
+    expect(r.veryStale).toBe(false);
+  });
+
+  test('Friday NAV viewed on Monday → not stale (1 business day)', () => {
+    freeze('2026-03-30'); // Monday
+    const r = navStaleness(FRIDAY_NAV);
+    expect(r.stale).toBe(false);
+    expect(r.veryStale).toBe(false);
+  });
+
+  test('Friday NAV viewed on Tuesday → stale (2 business days)', () => {
+    freeze('2026-03-31'); // Tuesday
+    const r = navStaleness(FRIDAY_NAV);
+    expect(r.stale).toBe(true);
+    expect(r.veryStale).toBe(false);
+  });
+});
+
 // ── filterToWindow() ──────────────────────────────────────────────────────────
 
 describe('filterToWindow()', () => {
