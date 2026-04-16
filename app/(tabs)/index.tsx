@@ -527,6 +527,9 @@ export default function HomeScreen() {
           >
             <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
+            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
         </View>
       </View>
 
