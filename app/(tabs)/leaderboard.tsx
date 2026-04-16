@@ -5,12 +5,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
+import { useSession } from '@/src/hooks/useSession';
+import { supabase } from '@/src/lib/supabase';
 import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
@@ -173,12 +178,45 @@ function SkeletonCard() {
 // Main Screen
 // ---------------------------------------------------------------------------
 
+type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
+
 export default function LeaderboardScreen() {
   const router = useRouter();
+  const { session } = useSession();
+  const userId = session?.user.id;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
   const [benchmarkSymbol, setBenchmarkSymbol] = useState(defaultBenchmarkSymbol);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_profile')
+        .select('kfintech_email')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  async function handleSync() {
+    if (!profile?.kfintech_email) {
+      router.push('/onboarding');
+      return;
+    }
+    setSyncState('syncing');
+    const { error } = await supabase.functions.invoke('request-cas', {
+      method: 'POST',
+      body: { email: profile.kfintech_email },
+    });
+    setSyncState(error ? 'error' : 'requested');
+    setTimeout(() => setSyncState('idle'), 4000);
+  }
 
   const { data, isLoading } = usePortfolio(benchmarkSymbol);
   const fundCards = data?.fundCards ?? [];
@@ -210,11 +248,63 @@ export default function LeaderboardScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <Logo size={28} showWordmark light />
-        <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-          <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+        <TouchableOpacity onPress={() => router.push('/(tabs)')} hitSlop={8}>
+          <Logo size={28} showWordmark light />
         </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity hitSlop={8} onPress={() => setOverflowOpen(true)}>
+            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
+            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
+
+      {/* Overflow menu */}
+      <Modal
+        visible={overflowOpen}
+        transparent
+        animationType="none"
+        onRequestClose={() => setOverflowOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overflowBackdrop}
+          activeOpacity={1}
+          onPress={() => setOverflowOpen(false)}
+        >
+          <View style={styles.overflowMenu}>
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); handleSync(); }}
+              disabled={syncState === 'syncing'}
+            >
+              {syncState === 'syncing' ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
+              )}
+              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding'); }}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Import CAS</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); router.push('/(tabs)/settings'); }}
+            >
+              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <ScrollView
         style={styles.scroll}
@@ -310,6 +400,32 @@ function makeStyles(colors: AppColors) {
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm + 2,
     },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    overflowBackdrop: { flex: 1 },
+    overflowMenu: {
+      position: 'absolute',
+      top: 60,
+      right: 16,
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minWidth: 180,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    overflowItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+    },
+    overflowItemText: { fontSize: 15, color: colors.textPrimary, fontWeight: '500' },
+    overflowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: Spacing.sm },
     scroll: {
       flex: 1,
     },

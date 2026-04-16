@@ -23,8 +23,11 @@ export default function TabLayout() {
           height: 49 + insets.bottom,
         },
         // Force each visible tab item to fill its fair share of the bar width
+        // and center content so icons don't bunch left on wider screens / web
         tabBarItemStyle: {
           flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
         },
         tabBarLabelStyle: {
           fontSize: 11,

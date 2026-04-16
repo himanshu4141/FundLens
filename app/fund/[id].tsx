@@ -310,7 +310,7 @@ function PerformanceTab({
               formatYLabel={(v: string) => Number(v).toFixed(0)}
               yAxisTextStyle={s.chartAxisLabel}
               maxValue={chartMaxValue}
-              mostNegativeValue={chartMostNegative}
+              yAxisOffset={chartMostNegative}
               xAxisColor={colors.borderLight}
               yAxisColor="transparent"
               rulesColor={colors.borderLight}
@@ -329,7 +329,7 @@ function PerformanceTab({
               labelsExtraHeight={40}
               pointerConfig={{
                 showPointerStrip: true,
-                pointerStripHeight: 180,
+                pointerStripHeight: 200,
                 pointerStripWidth: 1,
                 pointerStripColor: colors.textTertiary + '88',
                 pointerColor: colors.primary,
@@ -472,7 +472,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             }}
             yAxisTextStyle={s.chartAxisLabel}
             maxValue={navChartMax}
-            mostNegativeValue={navChartMin}
+            yAxisOffset={navChartMin}
             xAxisColor={colors.borderLight}
             yAxisColor="transparent"
             rulesColor={colors.borderLight}
@@ -484,7 +484,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
             labelsExtraHeight={40}
             pointerConfig={{
               showPointerStrip: true,
-              pointerStripHeight: 200,
+              pointerStripHeight: 220,
               pointerStripWidth: 1,
               pointerStripColor: colors.textTertiary + '88',
               pointerColor: colors.primary,
@@ -1168,6 +1168,7 @@ function makeStyles(colors: AppColors) {
       borderRadius: Radii.md,
       padding: Spacing.md,
       gap: 10,
+      overflow: 'hidden',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.04,

@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Platform,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,67 +32,69 @@ const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 2;
 
 // ─── SIP pattern detection ────────────────────────────────────────────────────
 //
-// A "SIP" is a purchase that recurs on roughly the same day of the month
-// (±3 days to allow for weekends/holidays) across ≥3 of the last 6 months.
-// One-off lumpsum purchases that fall outside any recurring day cluster are
-// excluded from the estimate.
+// A "SIP" is a purchase that recurs with the same amount on roughly the same
+// day of the month (±2 days) across ≥3 of the last 12 months, per fund.
+// Lumpsums are excluded because they rarely repeat at the same amount on the
+// same day. We group by (fund_id, amount-bucket-₹100, day-bucket-3-day-window)
+// so two schemes with identical SIP amounts are counted separately.
 
 async function estimateMonthlySip(userId: string): Promise<number> {
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
   const { data } = await supabase
     .from('transaction')
-    .select('transaction_date, amount, transaction_type')
+    .select('transaction_date, amount, transaction_type, fund_id')
     .eq('user_id', userId)
-    .eq('transaction_type', 'purchase') // switch_in excluded (STP/fund switches, not SIPs)
-    .gte('transaction_date', sixMonthsAgo.toISOString().split('T')[0]);
+    .eq('transaction_type', 'purchase')
+    .gte('transaction_date', twelveMonthsAgo.toISOString().split('T')[0]);
 
   if (!data?.length) return 0;
 
-  const purchases = data.map((tx) => ({
-    month: (tx.transaction_date as string).substring(0, 7), // YYYY-MM
-    day: parseInt((tx.transaction_date as string).substring(8, 10), 10),
-    amount: tx.amount as number,
-  }));
+  // Group by (fund_id, amountBucket ₹100, dayBucket 3-day window) → set of months
+  const groups = new Map<string, { months: Set<string>; amounts: number[] }>();
 
-  // Sort by day-of-month to enable anchor-based clustering
-  const sorted = [...purchases].sort((a, b) => a.day - b.day);
+  for (const tx of data) {
+    const dateStr = tx.transaction_date as string;
+    const month = dateStr.substring(0, 7);
+    const day = parseInt(dateStr.substring(8, 10), 10);
+    const amount = tx.amount as number;
+    const fundId = (tx.fund_id as string) ?? 'unknown';
 
-  // Build day clusters: each cluster has an anchor day; purchases within ±3
-  // days of the anchor belong to it. The anchor is set by the first purchase
-  // seen for that range.
-  const clusters: { anchor: number; items: typeof purchases }[] = [];
-  for (const p of sorted) {
-    const existing = clusters.find((c) => Math.abs(p.day - c.anchor) <= 3);
-    if (existing) {
-      existing.items.push(p);
-    } else {
-      clusters.push({ anchor: p.day, items: [p] });
-    }
+    const amountBucket = Math.round(amount / 100) * 100;
+    const dayBucket = Math.round(day / 3) * 3;
+    const key = `${fundId}|${amountBucket}|${dayBucket}`;
+
+    if (!groups.has(key)) groups.set(key, { months: new Set(), amounts: [] });
+    const g = groups.get(key)!;
+    g.months.add(month);
+    g.amounts.push(amount);
   }
 
-  // For each cluster that appears in ≥3 distinct months, it is a recurring SIP.
-  // Average its per-month spend and add to the total.
-  let totalSip = 0;
-  for (const cluster of clusters) {
-    const monthAmounts = new Map<string, number>();
-    for (const p of cluster.items) {
-      monthAmounts.set(p.month, (monthAmounts.get(p.month) ?? 0) + p.amount);
-    }
-    if (monthAmounts.size < 3) continue; // not recurring enough — lumpsum pattern
+  // Keep only patterns that recur in ≥3 distinct months — those are real SIPs.
+  // For each fund, if multiple keys qualify, take the one with the most months
+  // (handles SIP step-ups: the current instalment wins because it's most recent).
+  const fundBestSip = new Map<string, { months: number; median: number }>();
 
-    // Use median instead of mean to avoid outlier months where an extra lumpsum
-    // happened to fall on the same day as a recurring SIP (would inflate the mean).
-    const sorted = [...monthAmounts.values()].sort((a, b) => a - b);
+  for (const [key, { months, amounts }] of groups) {
+    if (months.size < 3) continue;
+
+    const fundId = key.split('|')[0];
+    const sorted = [...amounts].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
-    totalSip += median;
+    const median =
+      sorted.length % 2 === 0
+        ? (sorted[mid - 1] + sorted[mid]) / 2
+        : sorted[mid];
+
+    const prev = fundBestSip.get(fundId);
+    if (!prev || months.size > prev.months) {
+      fundBestSip.set(fundId, { months: months.size, median });
+    }
   }
 
-  return Math.round(totalSip / 500) * 500;
+  const total = [...fundBestSip.values()].reduce((sum, { median }) => sum + median, 0);
+  return Math.round(total / 500) * 500;
 }
 
 // ─── Input control ────────────────────────────────────────────────────────────
@@ -257,6 +260,8 @@ function makeStepStyles(colors: AppColors) {
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
+type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
+
 export default function SimulatorScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -264,6 +269,33 @@ export default function SimulatorScreen() {
 
   const { session } = useSession();
   const userId = session?.user.id;
+
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_profile')
+        .select('kfintech_email')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  async function handleSync() {
+    if (!profile?.kfintech_email) { router.push('/onboarding'); return; }
+    setSyncState('syncing');
+    const { error } = await supabase.functions.invoke('request-cas', {
+      method: 'POST',
+      body: { email: profile.kfintech_email },
+    });
+    setSyncState(error ? 'error' : 'requested');
+    setTimeout(() => setSyncState('idle'), 4000);
+  }
 
   const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio();
   const { data: estimatedSip } = useQuery({
@@ -382,11 +414,63 @@ export default function SimulatorScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <Logo size={28} showWordmark light />
-        <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-          <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+        <TouchableOpacity onPress={() => router.push('/(tabs)')} hitSlop={8}>
+          <Logo size={28} showWordmark light />
         </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity hitSlop={8} onPress={() => setOverflowOpen(true)}>
+            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
+            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
+
+      {/* Overflow menu */}
+      <Modal
+        visible={overflowOpen}
+        transparent
+        animationType="none"
+        onRequestClose={() => setOverflowOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overflowBackdrop}
+          activeOpacity={1}
+          onPress={() => setOverflowOpen(false)}
+        >
+          <View style={styles.overflowMenu}>
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); handleSync(); }}
+              disabled={syncState === 'syncing'}
+            >
+              {syncState === 'syncing' ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
+              )}
+              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding'); }}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Import CAS</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); router.push('/(tabs)/settings'); }}
+            >
+              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -626,6 +710,32 @@ function makeStyles(colors: AppColors) {
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm + 2,
     },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    overflowBackdrop: { flex: 1 },
+    overflowMenu: {
+      position: 'absolute',
+      top: 60,
+      right: 16,
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minWidth: 180,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    overflowItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+    },
+    overflowItemText: { fontSize: 15, color: colors.textPrimary, fontWeight: '500' as const },
+    overflowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: Spacing.sm },
     scrollContent: {
       paddingHorizontal: Spacing.md,
       paddingTop: Spacing.md,
