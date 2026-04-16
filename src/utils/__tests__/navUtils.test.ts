@@ -6,7 +6,7 @@
  * and veryStale flags for boundary cases.
  */
 
-import { navStaleness } from '@/src/utils/navUtils';
+import { navStaleness, filterToWindow, indexTo100, NavPoint } from '@/src/utils/navUtils';
 
 // Freeze time to a known date for all tests
 const FAKE_TODAY = new Date('2026-03-26T10:00:00.000Z');
@@ -68,5 +68,120 @@ describe('navStaleness()', () => {
     const r = navStaleness('2026-03-05');
     expect(r.label).toContain('5 Mar');
     expect(r.label).not.toContain('05');
+  });
+});
+
+// ── filterToWindow() ──────────────────────────────────────────────────────────
+
+describe('filterToWindow()', () => {
+  // Build a series with one point per month for the last 4 years
+  const series: NavPoint[] = [];
+  for (let y = 2022; y <= 2026; y++) {
+    for (let m = 1; m <= 12; m++) {
+      if (y === 2026 && m > 3) break;
+      const mm = String(m).padStart(2, '0');
+      series.push({ date: `${y}-${mm}-15`, value: 100 + series.length });
+    }
+  }
+
+  test('returns full history for "All" window', () => {
+    const result = filterToWindow(series, 'All');
+    expect(result).toBe(series); // same reference
+  });
+
+  test('returns full history for empty input regardless of window', () => {
+    const result = filterToWindow([], '1Y');
+    expect(result).toEqual([]);
+  });
+
+  test('1M window returns only points within last month', () => {
+    const result = filterToWindow(series, '1M');
+    expect(result.length).toBeGreaterThan(0);
+    result.forEach((p) => {
+      expect(p.date >= '2026-02-26').toBe(true);
+    });
+  });
+
+  test('3M window returns only points within last 3 months', () => {
+    const result = filterToWindow(series, '3M');
+    expect(result.length).toBeGreaterThan(0);
+    result.forEach((p) => {
+      expect(p.date >= '2025-12-26').toBe(true);
+    });
+  });
+
+  test('6M window returns only points within last 6 months', () => {
+    const result = filterToWindow(series, '6M');
+    expect(result.length).toBeGreaterThan(0);
+    result.forEach((p) => {
+      expect(p.date >= '2025-09-26').toBe(true);
+    });
+  });
+
+  test('1Y window returns only points within last year', () => {
+    const result = filterToWindow(series, '1Y');
+    expect(result.length).toBeGreaterThan(0);
+    result.forEach((p) => {
+      expect(p.date >= '2025-03-26').toBe(true);
+    });
+  });
+
+  test('3Y window returns only points within last 3 years', () => {
+    const result = filterToWindow(series, '3Y');
+    expect(result.length).toBeGreaterThan(0);
+    result.forEach((p) => {
+      expect(p.date >= '2023-03-26').toBe(true);
+    });
+  });
+
+  test('falls back to full history when no points fit the window', () => {
+    const old: NavPoint[] = [{ date: '2010-01-01', value: 50 }];
+    // 1M window on data from 2010 → no points → fallback to full history
+    const result = filterToWindow(old, '1M');
+    expect(result).toEqual(old);
+  });
+});
+
+// ── indexTo100() ──────────────────────────────────────────────────────────────
+
+describe('indexTo100()', () => {
+  test('returns empty array for empty input', () => {
+    expect(indexTo100([])).toEqual([]);
+  });
+
+  test('first point value becomes 100', () => {
+    const pts: NavPoint[] = [
+      { date: '2025-01-01', value: 200 },
+      { date: '2025-06-01', value: 300 },
+    ];
+    const result = indexTo100(pts);
+    expect(result[0].value).toBe(100);
+  });
+
+  test('subsequent points are scaled relative to first', () => {
+    const pts: NavPoint[] = [
+      { date: '2025-01-01', value: 200 },
+      { date: '2025-06-01', value: 300 },
+      { date: '2025-12-01', value: 100 },
+    ];
+    const result = indexTo100(pts);
+    expect(result[1].value).toBeCloseTo(150);
+    expect(result[2].value).toBeCloseTo(50);
+  });
+
+  test('dates are preserved unchanged', () => {
+    const pts: NavPoint[] = [
+      { date: '2025-01-01', value: 50 },
+      { date: '2025-07-01', value: 75 },
+    ];
+    const result = indexTo100(pts);
+    expect(result[0].date).toBe('2025-01-01');
+    expect(result[1].date).toBe('2025-07-01');
+  });
+
+  test('returns original series unchanged when base value is 0', () => {
+    const pts: NavPoint[] = [{ date: '2025-01-01', value: 0 }];
+    const result = indexTo100(pts);
+    expect(result).toBe(pts); // same reference
   });
 });

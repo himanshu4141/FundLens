@@ -7,13 +7,17 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { LineChart } from 'react-native-gifted-charts';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
+import { usePortfolioTimeline, type FundRef } from '@/src/hooks/usePortfolioTimeline';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
 import { parseFundName } from '@/src/utils/fundName';
@@ -24,6 +28,9 @@ import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import Logo from '@/src/components/Logo';
 import { Sparkline } from '@/src/components/Sparkline';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 2;
 
 // Category → accent colour for fund card left-border indicator
 const CATEGORY_COLOR: Record<string, string> = {
@@ -257,8 +264,8 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
               <Sparkline
                 data={fund.navHistory30d.map((p) => p.value)}
                 color={fund.returnXirr >= 0 ? Colors.positive : Colors.negative}
-                width={60}
-                height={24}
+                width={72}
+                height={36}
               />
             ) : (
               <Text style={styles.fundMetaValue}>
@@ -304,6 +311,146 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
   );
 }
 
+type ChartWindow = '1Y' | '3Y';
+
+function PortfolioChartSection({
+  funds,
+  userId,
+  benchmarkSymbol,
+}: {
+  funds: FundRef[];
+  userId: string | undefined;
+  benchmarkSymbol: string;
+}) {
+  const [window, setWindow] = useState<ChartWindow>('1Y');
+  const { portfolioPoints, benchmarkPoints, xAxisLabels, isLoading } = usePortfolioTimeline(
+    funds,
+    userId,
+    benchmarkSymbol,
+    window,
+  );
+  const benchmarkLabel = BENCHMARK_OPTIONS.find((b) => b.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
+
+  const chartData = portfolioPoints.map((p) => ({ value: p.value }));
+  const benchmarkData = benchmarkPoints.map((p) => ({ value: p.value }));
+
+  // Compute y-axis floor so indexed-to-100 lines fill the chart height
+  // rather than floating in the top quarter above a large empty area.
+  const allChartVals = [...portfolioPoints, ...benchmarkPoints].map((p) => p.value);
+  const chartYMax = allChartVals.length > 0 ? Math.max(...allChartVals) : 120;
+  const chartYMin = allChartVals.length > 0 ? Math.min(...allChartVals) : 90;
+  const chartYPad = ((chartYMax - chartYMin) || chartYMax * 0.1 || 1) * 0.15;
+  const chartMaxValue = Math.ceil((chartYMax + chartYPad) / 10) * 10;
+  const chartMinValue = Math.floor((chartYMin - chartYPad) / 10) * 10;
+
+  if (!isLoading && chartData.length === 0) return null;
+
+  return (
+    <View style={styles.chartSection}>
+      <View style={styles.chartHeader}>
+        <Text style={styles.chartTitle}>Portfolio vs Market</Text>
+        <View style={styles.windowSelector}>
+          {(['1Y', '3Y'] as ChartWindow[]).map((w) => (
+            <TouchableOpacity
+              key={w}
+              style={[styles.windowPill, window === w && styles.windowPillActive]}
+              onPress={() => setWindow(w)}
+            >
+              <Text style={[styles.windowPillText, window === w && styles.windowPillTextActive]}>
+                {w}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.chartSkeleton} />
+      ) : (
+        <>
+          <LineChart
+            data={chartData}
+            data2={benchmarkData}
+            width={CHART_WIDTH - 32}
+            height={140}
+            color1={Colors.primary}
+            color2="#f59e0b"
+            thickness1={3}
+            thickness2={2.5}
+            curved
+            hideDataPoints
+            yAxisLabelWidth={40}
+            yAxisTextStyle={styles.chartAxisText}
+            xAxisLabelTexts={xAxisLabels}
+            xAxisLabelTextStyle={styles.chartAxisText}
+            xAxisLabelsHeight={16}
+            labelsExtraHeight={40}
+            hideRules
+            xAxisColor={Colors.borderLight}
+            yAxisColor="transparent"
+            formatYLabel={(v) => `${Math.round(Number(v))}`}
+            maxValue={chartMaxValue - chartMinValue}
+            yAxisOffset={chartMinValue}
+            noOfSections={4}
+            initialSpacing={0}
+            endSpacing={32}
+            spacing={Math.max(8, (CHART_WIDTH - 56) / Math.max(chartData.length - 1, 1))}
+          />
+          <View style={styles.chartLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+              <Text style={styles.legendText}>Your Portfolio</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+              <Text style={styles.legendText}>{benchmarkLabel}</Text>
+            </View>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+function GainersLosersRow({ fundCards }: { fundCards: FundCardData[] }) {
+  const withDailyChange = fundCards.filter(
+    (f) => f.dailyChangePct !== null && f.currentValue !== null,
+  );
+  if (withDailyChange.length < 2) return null;
+
+  const sorted = [...withDailyChange].sort(
+    (a, b) => (a.dailyChangePct ?? 0) - (b.dailyChangePct ?? 0),
+  );
+  const worst = sorted[0];
+  const best = sorted[sorted.length - 1];
+
+  function GainerCard({ fund, label, color }: { fund: FundCardData; label: string; color: string }) {
+    const { base } = parseFundName(fund.schemeName);
+    const pct = fund.dailyChangePct!;
+    const amt = fund.dailyChangeAmount!;
+    return (
+      <View style={[styles.gainerCard, { borderLeftColor: color }]}>
+        <Text style={[styles.gainerLabel, { color }]}>{label}</Text>
+        <Text style={styles.gainerName} numberOfLines={1}>{base}</Text>
+        <Text style={styles.gainerCategory}>{fund.schemeCategory}</Text>
+        <Text style={[styles.gainerPct, { color }]}>
+          {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+        </Text>
+        <Text style={[styles.gainerAmt, { color }]}>
+          {amt >= 0 ? '+' : ''}{formatCurrency(Math.abs(amt))}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.gainersRow}>
+      <GainerCard fund={best} label="Today's Best" color={Colors.positive} />
+      <GainerCard fund={worst} label="Today's Worst" color={Colors.negative} />
+    </View>
+  );
+}
+
 function EmptyState({ onImport }: { onImport: () => void }) {
   return (
     <View style={styles.emptyState}>
@@ -346,6 +493,7 @@ export default function HomeScreen() {
   });
 
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -365,6 +513,7 @@ export default function HomeScreen() {
 
   const fundCards = data?.fundCards ?? [];
   const summary = data?.summary ?? null;
+  const fundRefs: FundRef[] = fundCards.map((f) => ({ id: f.id, schemeCode: f.schemeCode }));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -373,28 +522,70 @@ export default function HomeScreen() {
         <Logo size={28} showWordmark light />
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={[styles.syncBtn, syncState === 'syncing' && styles.syncBtnDisabled]}
-            onPress={handleSync}
-            disabled={syncState === 'syncing'}
+            hitSlop={8}
+            onPress={() => setOverflowOpen(true)}
           >
-            {syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color="rgba(255,255,255,0.8)" />
-            ) : (
-              <Text style={styles.syncBtnText}>↻ Sync</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() =>
-              router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')
-            }
-          >
-            <Text style={styles.importLink}>Import</Text>
+            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
             <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Overflow menu */}
+      <Modal
+        visible={overflowOpen}
+        transparent
+        animationType="none"
+        onRequestClose={() => setOverflowOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overflowBackdrop}
+          activeOpacity={1}
+          onPress={() => setOverflowOpen(false)}
+        >
+          <View style={styles.overflowMenu}>
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => {
+                setOverflowOpen(false);
+                handleSync();
+              }}
+              disabled={syncState === 'syncing'}
+            >
+              {syncState === 'syncing' ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Ionicons name="sync-outline" size={18} color={Colors.textPrimary} />
+              )}
+              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => {
+                setOverflowOpen(false);
+                router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding');
+              }}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color={Colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Import CAS</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => {
+                setOverflowOpen(false);
+                router.push('/(tabs)/settings');
+              }}
+            >
+              <Ionicons name="settings-outline" size={18} color={Colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {syncState === 'requested' && (
         <View style={styles.syncBanner}>
@@ -441,6 +632,14 @@ export default function HomeScreen() {
             onBenchmarkChange={setDefaultBenchmarkSymbol}
           />
 
+          <PortfolioChartSection
+            funds={fundRefs}
+            userId={userId}
+            benchmarkSymbol={defaultBenchmarkSymbol}
+          />
+
+          <GainersLosersRow fundCards={fundCards} />
+
           <View style={styles.fundListHeader}>
             <Text style={styles.fundListTitle}>Your Funds</Text>
             <Text style={styles.fundCount}>{fundCards.length} fund{fundCards.length !== 1 ? 's' : ''}</Text>
@@ -476,20 +675,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a2e25',
   },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  syncBtn: {
+  // Overflow menu
+  overflowBackdrop: {
+    flex: 1,
+  },
+  overflowMenu: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  overflowItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: Radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 64,
-    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
   },
-  syncBtnDisabled: { opacity: 0.6 },
-  syncBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  importLink: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
+  overflowItemText: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+  },
+  overflowDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginHorizontal: Spacing.sm,
+  },
 
   syncBanner: {
     backgroundColor: Colors.primaryLight,
@@ -738,4 +959,72 @@ const styles = StyleSheet.create({
   emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
   bottomPad: { height: 32 },
+
+  // Portfolio vs Market chart
+  chartSection: {
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  chartTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  windowSelector: { flexDirection: 'row', gap: 6 },
+  windowPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  windowPillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  windowPillText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  windowPillTextActive: { color: '#fff' },
+  chartSkeleton: {
+    height: 140,
+    backgroundColor: Colors.borderLight,
+    borderRadius: Radii.sm,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+    justifyContent: 'center',
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
+  chartAxisText: { fontSize: 10, color: Colors.textTertiary },
+
+  // Gainers / Losers row
+  gainersRow: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  gainerCard: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderLeftWidth: 3,
+    padding: Spacing.sm,
+    gap: 3,
+  },
+  gainerLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  gainerName: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
+  gainerCategory: { fontSize: 11, color: Colors.textTertiary },
+  gainerPct: { fontSize: 14, fontWeight: '700', marginTop: 4 },
+  gainerAmt: { fontSize: 11, fontWeight: '500' },
 });

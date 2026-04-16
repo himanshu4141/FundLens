@@ -49,14 +49,22 @@ describe('buildXAxisLabels()', () => {
     expect(result).toHaveLength(60);
   });
 
-  it('labels are evenly distributed — non-label positions are empty strings', () => {
+  it('labels are evenly distributed — deduplicates same-month labels, no duplicates placed', () => {
+    // 60 dates spanning Jan–Feb 2024. 5 evenly-spaced positions all land in Jan or Feb,
+    // so deduplication correctly produces fewer than 5 labels (no point repeating "Jan '24").
     const dates = Array.from({ length: 60 }, (_, i) => {
       const d = new Date(2024, 0, i + 1);
       return d.toISOString().split('T')[0];
     });
     const result = buildXAxisLabels(dates, 5);
+    expect(result).toHaveLength(60);
     const nonEmpty = result.filter((l) => l !== '');
-    expect(nonEmpty).toHaveLength(5);
+    // Fewer labels than count because same-month positions are deduplicated
+    expect(nonEmpty.length).toBeLessThan(5);
+    // At least one label placed
+    expect(nonEmpty.length).toBeGreaterThanOrEqual(1);
+    // Last position must always be labeled
+    expect(result[result.length - 1]).not.toBe('');
   });
 
   it('always labels the last position', () => {

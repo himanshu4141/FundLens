@@ -253,14 +253,26 @@ export function buildXAxisLabels(dates: string[], count = 5): string[] {
   if (dates.length === 0) return [];
   const labels = new Array<string>(dates.length).fill('');
   if (dates.length <= count) {
-    return dates.map(formatDateShort);
+    // Deduplicate consecutive same-month labels for short date ranges
+    let prev = '';
+    return dates.map((d) => {
+      const label = formatDateShort(d);
+      if (label === prev) return '';
+      prev = label;
+      return label;
+    });
   }
   const step = (dates.length - 1) / (count - 1);
+  let lastPlaced = '';
   for (let i = 0; i < count; i++) {
     const idx = Math.min(Math.round(i * step), dates.length - 1);
-    labels[idx] = formatDateShort(dates[idx]);
+    const label = formatDateShort(dates[idx]);
+    if (label !== lastPlaced) {
+      labels[idx] = label;
+      lastPlaced = label;
+    }
   }
-  // Always label the last point
+  // Always label the last point — it marks end-of-data regardless of month duplicates
   labels[dates.length - 1] = formatDateShort(dates[dates.length - 1]);
   return labels;
 }
