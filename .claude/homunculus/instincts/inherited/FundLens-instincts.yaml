@@ -1,0 +1,496 @@
+# Instincts generated from https://github.com/himanshu4141/FundLens
+# Generated: 2026-04-16T17:09:58.447Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: FundLens-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, docs, fix
+
+## Evidence
+
+- 6 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat(m6): Wealth Simulator (#38), docs: add M7 A/B Theme Toggle ExecPlan
+
+---
+id: FundLens-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Commit Length
+
+## Action
+
+Write moderate-length commit messages (~53 characters)
+
+## Evidence
+
+- Average commit message length: 53 chars
+- Based on 6 commits
+
+---
+id: FundLens-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: FundLens-import-alias
+trigger: "when importing modules"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Import Alias
+
+## Action
+
+Use path aliases (@/, ~/) instead of relative imports
+
+## Evidence
+
+- Import analysis shows alias pattern
+- Example: import { x } from '@/lib/x'
+
+---
+id: FundLens-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Export Style
+
+## Action
+
+Prefer mixed exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: mixed
+
+---
+id: FundLens-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: components, constants, context, store, utils
+
+---
+id: FundLens-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~25x per month
+- Files: app/(tabs)/*, app/*, src/constants/*
+
+---
+id: FundLens-workflow-implement-feature-with-design-doc-and-tests
+trigger: "when doing implement feature with design doc and tests"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Implement Feature With Design Doc And Tests
+
+## Action
+
+Follow the implement-feature-with-design-doc-and-tests workflow:
+1. Add a design or exec plan markdown file under docs/plans/phase-*/
+2. Create or update implementation files (screen/component/utilities) under app/ and src/
+3. Add or update unit tests in src/utils/__tests__/
+4. Iteratively fix and enhance the feature with additional commits, often touching the same set of files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: docs/plans/phase-*/, app/(tabs)/*.tsx, src/utils/*.ts
+
+---
+id: FundLens-workflow-theme-support-extension
+trigger: "when doing theme support extension"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/himanshu4141/FundLens
+---
+
+# FundLens Workflow Theme Support Extension
+
+## Action
+
+Follow the theme-support-extension workflow:
+1. Refactor target screen/component to replace direct color imports with useTheme() hook
+2. Update styles to be generated from theme context (e.g., convert StyleSheet.create to makeStyles factories)
+3. Test to ensure the component updates correctly on theme change
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: app/(tabs)/*.tsx, app/fund/[id].tsx, src/components/*.tsx
+
+---
+id: fundlens-instinct-file-naming-camelcase
+trigger: "When creating or renaming files in the codebase"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct File Naming Camelcase
+
+## Action
+
+Use camelCase for file names
+
+## Evidence
+
+- Pattern in namingConventions.files
+- Observed in src/components, src/utils
+
+---
+id: fundlens-instinct-function-naming-camelcase
+trigger: "When defining new functions"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Function Naming Camelcase
+
+## Action
+
+Name functions using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.functions
+- Seen in src/utils/*.ts
+
+---
+id: fundlens-instinct-class-naming-pascalcase
+trigger: "When defining new classes"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Class Naming Pascalcase
+
+## Action
+
+Name classes using PascalCase
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: fundlens-instinct-constant-naming-screaming-snake-case
+trigger: "When defining constants"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Constant Naming Screaming Snake Case
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: fundlens-instinct-import-alias
+trigger: "When importing modules"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Import Alias
+
+## Action
+
+Use import aliases instead of relative paths where possible
+
+## Evidence
+
+- Pattern in importStyle: alias
+- Seen in src/components, src/utils
+
+---
+id: fundlens-instinct-export-mixed
+trigger: "When exporting modules or functions"
+confidence: 0.6
+domain: code-style
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Export Mixed
+
+## Action
+
+Use both named and default exports as appropriate
+
+## Evidence
+
+- Pattern in exportStyle: mixed
+
+---
+id: fundlens-instinct-test-location-mixed
+trigger: "When adding or updating tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Test Location Mixed
+
+## Action
+
+Place test files either alongside implementation or in __tests__ folders as appropriate
+
+## Evidence
+
+- Pattern in architecture.testLocation: mixed
+- Seen in src/utils/__tests__/*.test.ts
+
+---
+id: fundlens-instinct-test-naming
+trigger: "When naming test files"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Test Naming
+
+## Action
+
+Use .test.ts or .test.tsx suffix for test files
+
+## Evidence
+
+- Pattern in src/utils/__tests__/*.test.ts
+
+---
+id: fundlens-instinct-test-coverage-feature
+trigger: "When implementing a new feature"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Test Coverage Feature
+
+## Action
+
+Add or update unit tests covering the new feature
+
+## Evidence
+
+- Workflow: implement-feature-with-design-doc-and-tests
+- Example commits add tests after feature implementation
+
+---
+id: fundlens-instinct-git-conventional-commits
+trigger: "When writing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Git Conventional Commits
+
+## Action
+
+Use conventional commit prefixes: feat, fix, docs
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Examples: 'feat(m7): ...', 'docs: ...', 'fix(web): ...'
+
+---
+id: fundlens-instinct-git-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Git Commit Length
+
+## Action
+
+Keep commit messages concise (around 50 characters)
+
+## Evidence
+
+- Pattern in commits.averageLength: 53
+- Example commits
+
+---
+id: fundlens-instinct-git-feature-sequence
+trigger: "When implementing a new feature"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Git Feature Sequence
+
+## Action
+
+Sequence commits as: docs → feat → fix (if needed)
+
+## Evidence
+
+- Workflow: feature-development
+- Example commit sequence in workflows
+
+---
+id: fundlens-instinct-workflow-feature-with-docs-and-tests
+trigger: "When adding a significant new feature (screen, simulator, toggle)"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Workflow Feature With Docs And Tests
+
+## Action
+
+First add a design/exec plan doc, then implement code, add/update tests, and iterate with fixes/enhancements
+
+## Evidence
+
+- Workflow: implement-feature-with-design-doc-and-tests
+- Example commit and file sequence
+
+---
+id: fundlens-instinct-workflow-theme-support-extension
+trigger: "When making a screen or component responsive to theme toggles"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Workflow Theme Support Extension
+
+## Action
+
+Refactor to use useTheme() hook, update styles to use theme context, and test for correct theme switching
+
+## Evidence
+
+- Workflow: theme-support-extension
+- Example commit and file sequence
+
+---
+id: fundlens-instinct-workflow-feature-development
+trigger: "When developing a standard feature"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: himanshu4141/FundLens
+---
+
+# Fundlens Instinct Workflow Feature Development
+
+## Action
+
+Implement feature, add tests, update documentation in that order
+
+## Evidence
+
+- Workflow: feature-development
+- Example commit sequence: docs → feat → feat
+
