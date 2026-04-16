@@ -32,21 +32,35 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="compare"
+        name="leaderboard"
         options={{
-          title: 'Compare',
+          title: 'Leaderboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
+            <Ionicons name="trophy-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
+        name="simulator"
+        options={{
+          title: 'Simulator',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calculator-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      {/* Settings hidden from tab bar — accessible via gear icon in each screen's header */}
+      <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" size={size} color={color} />
-          ),
+          tabBarButton: () => null,
+        }}
+      />
+      {/* Compare deprecated — route kept to avoid broken deep-links during transition */}
+      <Tabs.Screen
+        name="compare"
+        options={{
+          tabBarButton: () => null,
         }}
       />
     </Tabs>
