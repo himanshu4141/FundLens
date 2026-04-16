@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -522,6 +523,111 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   );
 }
 
+// ---------------------------------------------------------------------------
+// Technical Details Card
+// ---------------------------------------------------------------------------
+
+function TechnicalDetailsCard({
+  expenseRatio,
+  aumCr,
+  minSipAmount,
+  fundMetaSyncedAt,
+  schemeCode,
+}: {
+  expenseRatio: number | null;
+  aumCr: number | null;
+  minSipAmount: number | null;
+  fundMetaSyncedAt: string | null;
+  schemeCode: number;
+}) {
+  const unsynced = !fundMetaSyncedAt;
+
+  function openSid() {
+    const url = `https://www.mfapi.in/mf/${schemeCode}`;
+    Linking.openURL(url);
+  }
+
+  return (
+    <View style={techStyles.card}>
+      <Text style={techStyles.title}>Technical Details</Text>
+      <View style={techStyles.row}>
+        <View style={techStyles.cell}>
+          <Text style={techStyles.label}>Expense Ratio</Text>
+          <Text style={techStyles.value}>
+            {unsynced || expenseRatio == null ? '—' : `${expenseRatio.toFixed(2)}%`}
+          </Text>
+        </View>
+        <View style={techStyles.cell}>
+          <Text style={techStyles.label}>AUM</Text>
+          <Text style={techStyles.value}>
+            {unsynced || aumCr == null ? '—' : `₹${Math.round(aumCr).toLocaleString('en-IN')} Cr`}
+          </Text>
+        </View>
+        <View style={techStyles.cell}>
+          <Text style={techStyles.label}>Min SIP</Text>
+          <Text style={techStyles.value}>
+            {unsynced || minSipAmount == null ? '—' : `₹${minSipAmount.toLocaleString('en-IN')}`}
+          </Text>
+        </View>
+      </View>
+      <TouchableOpacity onPress={openSid} style={techStyles.sidLink}>
+        <Text style={techStyles.sidLinkText}>View fund factsheet ↗</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const techStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  title: {
+    ...Typography.label,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
+  },
+  cell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  label: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  value: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  sidLink: {
+    marginTop: Spacing.xs,
+    alignItems: 'center',
+  },
+  sidLinkText: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+});
+
+// ---------------------------------------------------------------------------
+
 export default function FundDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -642,6 +748,14 @@ export default function FundDetailScreen() {
           ) : (
             <NavHistoryTab navHistory={data.navHistory} />
           )}
+
+          <TechnicalDetailsCard
+            expenseRatio={data.expenseRatio}
+            aumCr={data.aumCr}
+            minSipAmount={data.minSipAmount}
+            fundMetaSyncedAt={data.fundMetaSyncedAt}
+            schemeCode={data.schemeCode}
+          />
 
           <View style={styles.bottomPad} />
         </ScrollView>

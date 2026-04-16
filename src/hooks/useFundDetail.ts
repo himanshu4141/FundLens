@@ -36,13 +36,19 @@ export interface FundDetailData {
   fundXirr: number;
   navHistory: NavPoint[];      // ascending by date
   indexHistory: NavPoint[];    // ascending by date (benchmark)
+  // Technical metadata — populated by sync-fund-meta edge function
+  isin: string | null;
+  expenseRatio: number | null;
+  aumCr: number | null;
+  minSipAmount: number | null;
+  fundMetaSyncedAt: string | null;
 }
 
 export async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
   // Load fund metadata
   const { data: fund, error: fundError } = await supabase
     .from('fund')
-    .select('id, scheme_code, scheme_name, scheme_category, benchmark_index, benchmark_index_symbol')
+    .select('id, scheme_code, scheme_name, scheme_category, benchmark_index, benchmark_index_symbol, isin, expense_ratio, aum_cr, min_sip_amount, fund_meta_synced_at')
     .eq('id', fundId)
     .single();
 
@@ -93,6 +99,11 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
       fundXirr: NaN,
       navHistory: [],
       indexHistory: [],
+      isin: fund.isin ?? null,
+      expenseRatio: fund.expense_ratio ?? null,
+      aumCr: fund.aum_cr ?? null,
+      minSipAmount: fund.min_sip_amount ?? null,
+      fundMetaSyncedAt: fund.fund_meta_synced_at ?? null,
     };
   }
   const currentNav = navHistory[navHistory.length - 1].value;
@@ -131,6 +142,11 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
     fundXirr,
     navHistory,
     indexHistory,
+    isin: fund.isin ?? null,
+    expenseRatio: fund.expense_ratio ?? null,
+    aumCr: fund.aum_cr ?? null,
+    minSipAmount: fund.min_sip_amount ?? null,
+    fundMetaSyncedAt: fund.fund_meta_synced_at ?? null,
   };
 }
 
