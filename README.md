@@ -6,13 +6,13 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 
 ## What works now
 
-- Magic link authentication (sign in / sign out)
+- Magic link authentication (sign in / sign out) and **Google OAuth** — sign in with your Google account as an alternative; connect Google to an existing account from Settings
 - Optional local-only dev auth shortcut backed by a seeded demo user
 - **Import portfolio** — enter your CAS registrar email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
 - **Home screen** — total portfolio value + gain/loss, NAV staleness banner, XIRR vs configurable benchmark (Nifty 50 / Sensex / Nifty Bank etc.), scrollable fund cards with parsed short names and "Direct · Growth" badges, per-card staleness label
 - **Fund detail** — holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised); Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
 - **Compare** — select up to 3 funds or indexes, % return chart from common start, crosshair tooltips, side-by-side metrics table
-- **Settings** — account info, inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker, sign out
+- **Settings** — account info, **Connected Accounts** (shows linked providers; connect Google to an existing magic-link account), inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker, sign out
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
 - Full CI/CD: typecheck + lint + EAS Update on every PR; Supabase deploy + production EAS Update on merge to main
 
@@ -121,11 +121,52 @@ After ~20 minutes, EAS prints a download link. Open it on your phone, download t
 
 ## Auth: Magic Link
 
-1. Open the app → enter your email → tap "Send magic link"
+1. Open the app → enter your email → tap "Send secure link →"
 2. Check your inbox → tap the link
 3. The link opens `fundlens://auth/confirm` and signs you in automatically
 
 The deep link scheme `fundlens://` is configured in `app.json` and the Supabase Auth redirect URL allow-list.
+
+---
+
+## Auth: Google OAuth
+
+Tap "Continue with Google" on the sign-in screen. The app opens an in-app browser (or redirects on web), you authenticate with Google, and the app completes sign-in automatically.
+
+**Existing accounts:** if your Google email matches an existing magic-link account, Supabase auto-links the two identities and you see a confirmation. If you signed in via magic link first, go to Settings → Connected Accounts → Connect to add Google afterwards.
+
+### Setup required (one-time, in dashboards)
+
+**1. Google Cloud Console**
+
+- Create an OAuth 2.0 Web Client ID at [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials.
+- Add these to **Authorized redirect URIs**:
+  - `https://<your-project-ref>.supabase.co/auth/v1/callback`
+
+**2. Supabase Dashboard**
+
+- Go to Auth → Providers → Google → enable and paste the Client ID and Client Secret.
+- Go to Auth → URL Configuration → Redirect URLs → add:
+
+  | Environment | URL |
+  |---|---|
+  | Production | `https://fund-lens.vercel.app/auth/callback` |
+  | Vercel previews | `https://*.vercel.app/auth/callback` |
+  | Native (deep link) | `fundlens://auth/callback` |
+  | Local web dev | `http://localhost:8081/auth/callback` |
+
+**3. Local web development (`npm run web`)**
+
+For Google login to work at `http://localhost:8081`, add `http://localhost:8081/auth/callback` to both lists above (Supabase Redirect URLs **and** Google Cloud Console Authorized redirect URIs).
+
+No `.env.local` changes are needed — the client reads the Google OAuth configuration from Supabase automatically.
+
+**Native local testing**
+
+Google OAuth on native requires a build that has the `fundlens://` scheme registered. Expo Go cannot be used. Options:
+
+- Build a development client: `eas build --profile development --platform android` (or `ios`)
+- Use the PR preview APK published by CI on pull requests
 
 ---
 
@@ -153,7 +194,7 @@ The deep link scheme `fundlens://` is configured in `app.json` and the Supabase 
 ```
 app/               Expo Router screens
   _layout.tsx      Root layout: providers + auth gate
-  auth/            Sign in + confirm screens
+  auth/            Sign in, confirm, and OAuth callback screens
   (tabs)/          Home, Compare, Settings tabs
   fund/[id].tsx    Fund detail
   onboarding/      CAS import flows (onboarding, qr, pdf)
@@ -162,7 +203,7 @@ src/
   hooks/           useSession, usePortfolio, useFundDetail, useCompare, ...
   lib/             supabase.ts, queryClient.ts
   types/           database.types.ts (auto-generated), app.ts
-  utils/           xirr.ts, formatCurrency.ts, cashflows.ts, filterToWindow.ts
+  utils/           xirr.ts, formatCurrency.ts, cashflows.ts, filterToWindow.ts, authUtils.ts
 supabase/
   functions/       Edge Functions: sync-nav, sync-index, cas-webhook
   migrations/      SQL migrations

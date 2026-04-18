@@ -19,6 +19,12 @@ import { ThemeProvider } from '@/src/context/ThemeContext';
  *
  * On native `detectSessionInUrl` is false so Supabase won't pick these up
  * automatically — we parse and forward them ourselves.
+ *
+ * NOTE: Google OAuth (PKCE) callbacks do NOT flow through this function.
+ * They arrive as fundlens://auth/callback?code=... and are handled entirely
+ * within app/auth/callback.tsx, which calls supabase.auth.exchangeCodeForSession.
+ * The openAuthSessionAsync call in auth/index.tsx returns the URL directly,
+ * so the Linking listener below never fires for OAuth callbacks.
  */
 function handleAuthDeepLink(url: string) {
   const fragment = url.split('#')[1];

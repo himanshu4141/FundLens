@@ -61,8 +61,8 @@ jobs:
           script: |
             const updateUrl = '${{ steps.eas-update.outputs.update_url }}';
             const body = updateUrl
-              ? `### EAS Preview Update\n\nOpen in Expo Go or your development build:\n\n${updateUrl}`
-              : '### EAS Preview\n\nUpdate published. Check the [EAS dashboard](https://expo.dev) for the QR code.';
+              ? `### EAS Preview Update\n\nOpen in your **development build** or the installed FundLens app (not Expo Go — features that use custom URL schemes like Google OAuth require a native build):\n\n${updateUrl}\n\n> **Web preview:** use the Vercel preview URL in the Vercel bot comment below to test browser-based flows.`
+              : '### EAS Preview\n\nUpdate published. Check the [EAS dashboard](https://expo.dev) for the QR code.\n\n> **Web preview:** use the Vercel preview URL in the Vercel bot comment to test browser-based flows.';
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,

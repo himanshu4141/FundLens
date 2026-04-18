@@ -7,11 +7,13 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
@@ -19,6 +21,8 @@ import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
+import { GoogleIcon } from '@/src/components/GoogleIcon';
+import { parseOAuthCode } from '@/src/utils/authUtils';
 import type { AppColors } from '@/src/context/ThemeContext';
 
 async function fetchProfile(userId: string) {
@@ -79,6 +83,50 @@ export default function SettingsScreen() {
 
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol, designVariant, setDesignVariant } = useAppStore();
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
+
+  // ── Connected accounts ────────────────────────────────────────────────────
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const identities = session?.user?.identities ?? [];
+  const isGoogleLinked = identities.some((id: { provider: string }) => id.provider === 'google');
+  const googleIdentity = identities.find((id: { provider: string }) => id.provider === 'google');
+
+  async function handleLinkGoogle() {
+    setLinkError(null);
+    setLinkingGoogle(true);
+
+    const redirectTo = Platform.OS === 'web'
+      ? `${window.location.origin}/auth/callback`
+      : 'https://fund-lens.vercel.app/auth/callback';
+
+    const { data, error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: Platform.OS !== 'web' },
+    });
+
+    if (error) {
+      setLinkError(error.message);
+      setLinkingGoogle(false);
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      if (data?.url) window.location.href = data.url;
+      return;
+    }
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, 'fundlens://');
+    setLinkingGoogle(false);
+
+    if (result.type === 'success') {
+      const code = parseOAuthCode(result.url);
+      if (code) {
+        const { error: ex } = await supabase.auth.exchangeCodeForSession(result.url);
+        if (ex) setLinkError(ex.message);
+        // onAuthStateChange fires → useSession refreshes → identities updated → UI re-renders
+      }
+    }
+  }
 
   type SyncState = 'idle' | 'syncing' | 'done' | 'error';
   const [syncState, setSyncState] = useState<SyncState>('idle');
@@ -196,6 +244,64 @@ export default function SettingsScreen() {
               <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
                 <Text style={styles.actionBtnText}>Edit</Text>
               </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* ── Connected Accounts ── */}
+        <SectionHeader title="Connected Accounts" />
+        <View style={styles.card}>
+          {/* Email / magic link — always present */}
+          <View style={styles.row}>
+            <View style={styles.providerIconWrap}>
+              <Ionicons name="mail-outline" size={18} color={colors.textSecondary} />
+            </View>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowValue}>Email (magic link)</Text>
+              <Text style={styles.rowSubLabel}>{session?.user.email}</Text>
+            </View>
+            <View style={[styles.statusBadge, styles.connectedBadge]}>
+              <Text style={[styles.statusText, { color: colors.positive }]}>Connected</Text>
+            </View>
+          </View>
+
+          {/* Google */}
+          <View style={[styles.row, styles.borderTop]}>
+            <View style={styles.providerIconWrap}>
+              <GoogleIcon size={18} />
+            </View>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowValue}>Google</Text>
+              {isGoogleLinked && (googleIdentity?.identity_data?.['email'] as string | undefined) ? (
+                <Text style={styles.rowSubLabel}>
+                  {googleIdentity?.identity_data?.['email'] as string}
+                </Text>
+              ) : null}
+            </View>
+            {isGoogleLinked ? (
+              <View style={[styles.statusBadge, styles.connectedBadge]}>
+                <Text style={[styles.statusText, { color: colors.positive }]}>Connected</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionBtn, linkingGoogle && { opacity: 0.6 }]}
+                onPress={handleLinkGoogle}
+                disabled={linkingGoogle}
+                activeOpacity={0.75}
+              >
+                {linkingGoogle
+                  ? <ActivityIndicator size="small" color={colors.primary} />
+                  : <Text style={styles.actionBtnText}>Connect</Text>
+                }
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {linkError && (
+            <View style={[styles.row, styles.borderTop]}>
+              <Text style={[styles.rowSubLabel, { color: colors.negative, flex: 1 }]}>
+                {linkError}
+              </Text>
             </View>
           )}
         </View>
@@ -443,6 +549,20 @@ function makeStyles(colors: AppColors) {
     actionBtnDone: { backgroundColor: '#f0fdf4' },
     actionBtnError: { backgroundColor: '#fef2f2' },
     actionBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+
+    // Provider icon wrapper
+    providerIconWrap: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    connectedBadge: {
+      backgroundColor: '#f0fdf4',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: Radii.sm,
+    },
 
     // Status badge
     statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
