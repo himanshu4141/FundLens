@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/src/lib/supabase';
 import { canShowDevAuthShortcut, getDevAuthCredentials } from '@/src/lib/devAuth';
 import Logo from '@/src/components/Logo';
+import { GoogleIcon } from '@/src/components/GoogleIcon';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 /**
@@ -42,7 +44,7 @@ const VALUE_PROPS = [
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [loadingMode, setLoadingMode] = useState<'magic' | 'demo' | null>(null);
+  const [loadingMode, setLoadingMode] = useState<'magic' | 'google' | 'demo' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showMagicLinkInfo, setShowMagicLinkInfo] = useState(false);
   const showDevAuthShortcut = canShowDevAuthShortcut();
@@ -71,6 +73,45 @@ export default function SignInScreen() {
     }
 
     router.push('/auth/confirm');
+  }
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setLoadingMode('google');
+
+    const redirectTo = Platform.OS === 'web'
+      ? `${window.location.origin}/auth/callback`
+      : 'https://fund-lens.vercel.app/auth/callback';
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    });
+
+    if (error || !data?.url) {
+      setError(error?.message ?? 'Could not start Google sign-in. Please try again.');
+      setLoadingMode(null);
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      window.location.href = data.url;
+      return;
+    }
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, 'fundlens://');
+    setLoadingMode(null);
+
+    if (result.type === 'success') {
+      // Parse code using string splitting to avoid new URL() polyfill issues on RN
+      const query = result.url.split('?')[1] ?? '';
+      const params = new URLSearchParams(query);
+      const code = params.get('code');
+      if (code) {
+        router.push(`/auth/callback?code=${encodeURIComponent(code)}`);
+      }
+    }
+    // type 'cancel' or 'dismiss': user abandoned, stay on sign-in screen
   }
 
   async function handleDevSignIn() {
@@ -161,6 +202,30 @@ export default function SignInScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>Send secure link →</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* ── Or divider ── */}
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.divider} />
+          </View>
+
+          {/* ── Google sign-in ── */}
+          <TouchableOpacity
+            style={[styles.googleButton, loadingMode !== null && styles.buttonDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={loadingMode !== null}
+            activeOpacity={0.85}
+          >
+            {loadingMode === 'google' ? (
+              <ActivityIndicator color={Colors.textSecondary} />
+            ) : (
+              <>
+                <GoogleIcon size={20} />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </>
             )}
           </TouchableOpacity>
 
@@ -325,6 +390,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  googleButton: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  googleButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   devDividerRow: {
     flexDirection: 'row',
