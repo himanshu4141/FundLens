@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,30 +27,24 @@ import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import Logo from '@/src/components/Logo';
 import { Sparkline } from '@/src/components/Sparkline';
-import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useTheme } from '@/src/context/ThemeContext';
+import type { AppColors } from '@/src/context/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 2;
 
 // Category → accent colour for fund card left-border indicator
-const CATEGORY_COLOR: Record<string, string> = {
-  'Equity':    Colors.primary,
-  'Large Cap': Colors.primary,
-  'Mid Cap':   '#7c3aed',
-  'Small Cap': Colors.negative,
-  'Flexi Cap': '#0891b2',
-  'Multi Cap': '#0891b2',
-  'ELSS':      Colors.positive,
-  'Debt':      Colors.warning,
-  'Hybrid':    '#db2777',
-};
-
-function categoryColor(category: string | null): string {
-  if (!category) return Colors.primary;
-  for (const [key, color] of Object.entries(CATEGORY_COLOR)) {
-    if (category.toLowerCase().includes(key.toLowerCase())) return color;
-  }
-  return Colors.primary;
+function categoryColor(colors: AppColors, category: string | null): string {
+  if (!category) return colors.primary;
+  const cat = category.toLowerCase();
+  if (cat.includes('mid cap')) return '#7c3aed';
+  if (cat.includes('small cap')) return colors.negative;
+  if (cat.includes('flexi cap') || cat.includes('multi cap')) return '#0891b2';
+  if (cat.includes('elss')) return colors.positive;
+  if (cat.includes('debt')) return colors.warning;
+  if (cat.includes('hybrid')) return '#db2777';
+  return colors.primary;
 }
 
 function BenchmarkSelector({
@@ -61,18 +55,18 @@ function BenchmarkSelector({
   onChange: (symbol: string) => void;
 }) {
   return (
-    <View style={styles.benchmarkRow}>
-      <Text style={styles.benchmarkRowLabel}>vs</Text>
+    <View style={benchmarkStyles.benchmarkRow}>
+      <Text style={benchmarkStyles.benchmarkRowLabel}>vs</Text>
       {BENCHMARK_OPTIONS.map((opt) => (
         <TouchableOpacity
           key={opt.symbol}
-          style={[styles.benchmarkPill, selected === opt.symbol && styles.benchmarkPillActive]}
+          style={[benchmarkStyles.benchmarkPill, selected === opt.symbol && benchmarkStyles.benchmarkPillActive]}
           onPress={() => onChange(opt.symbol)}
         >
           <Text
             style={[
-              styles.benchmarkPillText,
-              selected === opt.symbol && styles.benchmarkPillTextActive,
+              benchmarkStyles.benchmarkPillText,
+              selected === opt.symbol && benchmarkStyles.benchmarkPillTextActive,
             ]}
           >
             {opt.label}
@@ -82,6 +76,36 @@ function BenchmarkSelector({
     </View>
   );
 }
+
+// The benchmark selector in the gradient header uses glass-style pills — static styles
+const benchmarkStyles = StyleSheet.create({
+  benchmarkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.15)',
+  },
+  benchmarkRowLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginRight: 2,
+  },
+  benchmarkPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  benchmarkPillActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
+  benchmarkPillText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
+  benchmarkPillTextActive: { color: '#0a2e25' },
+});
 
 
 function PortfolioHeader({
@@ -105,6 +129,7 @@ function PortfolioHeader({
   latestNavDate: string | null;
   onBenchmarkChange: (symbol: string) => void;
 }) {
+  const { colors } = useTheme();
   const isPositiveDay = dailyChangeAmount >= 0;
   const gain = totalValue - totalInvested;
   const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : null;
@@ -118,16 +143,16 @@ function PortfolioHeader({
 
   return (
     <LinearGradient
-      colors={Colors.gradientHeader}
+      colors={colors.gradientHeader}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.portfolioHeader}
+      style={portfolioHeaderStyles.portfolioHeader}
     >
       {/* Stale-data warning when NAV is more than 2 days old */}
       {staleness.stale && (
-        <View style={styles.staleBanner}>
+        <View style={portfolioHeaderStyles.staleBanner}>
           <Ionicons name="warning-outline" size={13} color={staleness.veryStale ? '#fca5a5' : '#fcd34d'} />
-          <Text style={[styles.staleBannerText, staleness.veryStale && styles.staleBannerTextRed]}>
+          <Text style={[portfolioHeaderStyles.staleBannerText, staleness.veryStale && portfolioHeaderStyles.staleBannerTextRed]}>
             Portfolio based on {staleness.label} NAV — sync may be paused
           </Text>
         </View>
@@ -135,11 +160,11 @@ function PortfolioHeader({
 
       {/* Narrative-first: verdict leads */}
       {isAheadOfMarket !== null && (
-        <View style={styles.verdictBlock}>
-          <Text style={styles.verdictHeadline}>
+        <View style={portfolioHeaderStyles.verdictBlock}>
+          <Text style={portfolioHeaderStyles.verdictHeadline}>
             {isAheadOfMarket ? 'Beating the market' : 'Lagging the market'}
           </Text>
-          <Text style={styles.verdictDelta}>
+          <Text style={portfolioHeaderStyles.verdictDelta}>
             {isAheadOfMarket ? '↑' : '↓'} {delta.toFixed(1)}%{' '}
             {isAheadOfMarket ? 'ahead' : 'behind'} · vs {benchmarkLabel}
           </Text>
@@ -147,15 +172,15 @@ function PortfolioHeader({
       )}
 
       {/* Portfolio value + today's change on one row */}
-      <View style={styles.valueRow}>
-        <Text style={styles.totalValue}>{formatCurrency(totalValue)}</Text>
-        <View style={styles.dailyPill}>
+      <View style={portfolioHeaderStyles.valueRow}>
+        <Text style={portfolioHeaderStyles.totalValue}>{formatCurrency(totalValue)}</Text>
+        <View style={portfolioHeaderStyles.dailyPill}>
           <Ionicons
             name={isPositiveDay ? 'trending-up' : 'trending-down'}
             size={13}
             color={isPositiveDay ? '#86efac' : '#fca5a5'}
           />
-          <Text style={[styles.dailyChange, { color: isPositiveDay ? '#86efac' : '#fca5a5' }]}>
+          <Text style={[portfolioHeaderStyles.dailyChange, { color: isPositiveDay ? '#86efac' : '#fca5a5' }]}>
             {formatChange(dailyChangeAmount, dailyChangePct)}{' '}
             {staleness.stale ? staleness.label : 'today'}
           </Text>
@@ -164,21 +189,21 @@ function PortfolioHeader({
 
       {/* Portfolio overall Gain / Loss */}
       {gainPct !== null && (
-        <Text style={[styles.portfolioGainLoss, { color: gainPositive ? '#86efac' : '#fca5a5' }]}>
+        <Text style={[portfolioHeaderStyles.portfolioGainLoss, { color: gainPositive ? '#86efac' : '#fca5a5' }]}>
           {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))} ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%) overall
         </Text>
       )}
 
       {/* Two-column Your Return | Benchmark */}
-      <View style={styles.xirrRow}>
-        <View style={styles.xirrItem}>
-          <Text style={styles.xirrLabel}>Your Return</Text>
-          <Text style={styles.xirrValue}>{formatXirr(xirrRate)}</Text>
+      <View style={portfolioHeaderStyles.xirrRow}>
+        <View style={portfolioHeaderStyles.xirrItem}>
+          <Text style={portfolioHeaderStyles.xirrLabel}>Your Return</Text>
+          <Text style={portfolioHeaderStyles.xirrValue}>{formatXirr(xirrRate)}</Text>
         </View>
-        <View style={styles.xirrDivider} />
-        <View style={styles.xirrItem}>
-          <Text style={styles.xirrLabel}>{benchmarkLabel}</Text>
-          <Text style={styles.xirrValue}>{formatXirr(marketXirr)}</Text>
+        <View style={portfolioHeaderStyles.xirrDivider} />
+        <View style={portfolioHeaderStyles.xirrItem}>
+          <Text style={portfolioHeaderStyles.xirrLabel}>{benchmarkLabel}</Text>
+          <Text style={portfolioHeaderStyles.xirrValue}>{formatXirr(marketXirr)}</Text>
         </View>
       </View>
 
@@ -187,9 +212,47 @@ function PortfolioHeader({
   );
 }
 
+// Portfolio header inner styles are all "on dark" — white text, no color tokens needed
+const portfolioHeaderStyles = StyleSheet.create({
+  portfolioHeader: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  staleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: Radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: Spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  staleBannerText: { fontSize: 12, color: '#fcd34d', fontWeight: '500' },
+  staleBannerTextRed: { color: '#fca5a5' },
+  verdictBlock: { marginBottom: Spacing.xs },
+  verdictHeadline: { fontSize: 20, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
+  verdictDelta: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  valueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap', marginTop: Spacing.xs },
+  totalValue: { fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: -1 },
+  dailyPill: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dailyChange: { fontSize: 14, fontWeight: '600' },
+  portfolioGainLoss: { fontSize: 13, fontWeight: '500', marginTop: 4 },
+  xirrRow: { flexDirection: 'row', marginTop: Spacing.sm, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  xirrItem: { flex: 1, alignItems: 'center', gap: 3 },
+  xirrDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  xirrLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  xirrValue: { fontSize: 15, fontWeight: '700', color: '#fff' },
+});
+
 function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latestNavDate: string | null; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const isPositiveDay = fund.dailyChangeAmount != null ? fund.dailyChangeAmount >= 0 : true;
-  const accentColor = categoryColor(fund.schemeCategory);
+  const accentColor = categoryColor(colors, fund.schemeCategory);
   const hasRedemptions = fund.redeemedUnits > 0;
   const isPressable = !fund.navUnavailable;
   const { base: fundBaseName, planBadge } = parseFundName(fund.schemeName);
@@ -236,13 +299,13 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
               <>
                 <Text style={styles.fundValue}>{formatCurrency(fund.currentValue!)}</Text>
                 <View style={styles.dailyChangePill}>
-                  <Text style={[styles.fundDailyChange, { color: isPositiveDay ? Colors.positive : Colors.negative }]}>
+                  <Text style={[styles.fundDailyChange, { color: isPositiveDay ? colors.positive : colors.negative }]}>
                     {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}%{' '}
                     {cardStaleness.stale ? cardStaleness.label : 'today'}
                   </Text>
                 </View>
                 {isFinite(fund.returnXirr) && (
-                  <Text style={[styles.fundXirr, { color: fund.returnXirr >= 0 ? Colors.positive : Colors.negative }]}>
+                  <Text style={[styles.fundXirr, { color: fund.returnXirr >= 0 ? colors.positive : colors.negative }]}>
                     {formatXirr(fund.returnXirr)} XIRR
                   </Text>
                 )}
@@ -263,7 +326,7 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
             {fund.navHistory30d.length >= 2 ? (
               <Sparkline
                 data={fund.navHistory30d.map((p) => p.value)}
-                color={fund.returnXirr >= 0 ? Colors.positive : Colors.negative}
+                color={fund.returnXirr >= 0 ? colors.positive : colors.negative}
                 width={72}
                 height={36}
               />
@@ -278,10 +341,10 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
             <Text style={styles.fundMetaLabel}>Gain / Loss</Text>
             {unrealizedGain != null ? (
               <>
-                <Text style={[styles.fundMetaValue, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+                <Text style={[styles.fundMetaValue, { color: unrealizedPositive ? colors.positive : colors.negative }]}>
                   {unrealizedPositive ? '+' : ''}{formatCurrency(Math.abs(unrealizedGain))}
                 </Text>
-                <Text style={[styles.fundMetaSub, { color: unrealizedPositive ? Colors.positive : Colors.negative }]}>
+                <Text style={[styles.fundMetaSub, { color: unrealizedPositive ? colors.positive : colors.negative }]}>
                   ({unrealizedPositive ? '+' : ''}{unrealizedPct!.toFixed(1)}%)
                 </Text>
               </>
@@ -300,7 +363,7 @@ function FundCard({ fund, latestNavDate, onPress }: { fund: FundCardData; latest
             </View>
             <View style={styles.realizedItem}>
               <Text style={styles.realizedLabel}>Realized P&amp;L</Text>
-              <Text style={[styles.realizedValue, { color: fund.realizedGain >= 0 ? Colors.positive : Colors.negative }]}>
+              <Text style={[styles.realizedValue, { color: fund.realizedGain >= 0 ? colors.positive : colors.negative }]}>
                 {fund.realizedGain >= 0 ? '+' : ''}{formatCurrency(Math.abs(fund.realizedGain))}
               </Text>
             </View>
@@ -322,6 +385,8 @@ function PortfolioChartSection({
   userId: string | undefined;
   benchmarkSymbol: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [window, setWindow] = useState<ChartWindow>('1Y');
   const { portfolioPoints, benchmarkPoints, xAxisLabels, isLoading } = usePortfolioTimeline(
     funds,
@@ -373,7 +438,7 @@ function PortfolioChartSection({
             data2={benchmarkData}
             width={CHART_WIDTH - 32}
             height={140}
-            color1={Colors.primary}
+            color1={colors.primary}
             color2="#f59e0b"
             thickness1={3}
             thickness2={2.5}
@@ -386,7 +451,7 @@ function PortfolioChartSection({
             xAxisLabelsHeight={16}
             labelsExtraHeight={40}
             hideRules
-            xAxisColor={Colors.borderLight}
+            xAxisColor={colors.borderLight}
             yAxisColor="transparent"
             formatYLabel={(v) => `${Math.round(Number(v))}`}
             maxValue={chartMaxValue - chartMinValue}
@@ -398,7 +463,7 @@ function PortfolioChartSection({
           />
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
               <Text style={styles.legendText}>Your Portfolio</Text>
             </View>
             <View style={styles.legendItem}>
@@ -413,6 +478,8 @@ function PortfolioChartSection({
 }
 
 function GainersLosersRow({ fundCards }: { fundCards: FundCardData[] }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const withDailyChange = fundCards.filter(
     (f) => f.dailyChangePct !== null && f.currentValue !== null,
   );
@@ -445,17 +512,19 @@ function GainersLosersRow({ fundCards }: { fundCards: FundCardData[] }) {
 
   return (
     <View style={styles.gainersRow}>
-      <GainerCard fund={best} label="Today's Best" color={Colors.positive} />
-      <GainerCard fund={worst} label="Today's Worst" color={Colors.negative} />
+      <GainerCard fund={best} label="Today's Best" color={colors.positive} />
+      <GainerCard fund={worst} label="Today's Worst" color={colors.negative} />
     </View>
   );
 }
 
 function EmptyState({ onImport }: { onImport: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIcon}>
-        <Ionicons name="pie-chart-outline" size={40} color={Colors.primary} />
+        <Ionicons name="pie-chart-outline" size={40} color={colors.primary} />
       </View>
       <Text style={styles.emptyTitle}>No portfolio yet</Text>
       <Text style={styles.emptySub}>
@@ -476,6 +545,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
 
@@ -555,9 +626,9 @@ export default function HomeScreen() {
               disabled={syncState === 'syncing'}
             >
               {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Ionicons name="sync-outline" size={18} color={Colors.textPrimary} />
+                <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
               )}
               <Text style={styles.overflowItemText}>Sync Portfolio</Text>
             </TouchableOpacity>
@@ -569,7 +640,7 @@ export default function HomeScreen() {
                 router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding');
               }}
             >
-              <Ionicons name="cloud-upload-outline" size={18} color={Colors.textPrimary} />
+              <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
               <Text style={styles.overflowItemText}>Import CAS</Text>
             </TouchableOpacity>
             <View style={styles.overflowDivider} />
@@ -580,7 +651,7 @@ export default function HomeScreen() {
                 router.push('/(tabs)/settings');
               }}
             >
-              <Ionicons name="settings-outline" size={18} color={Colors.textPrimary} />
+              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
               <Text style={styles.overflowItemText}>Settings</Text>
             </TouchableOpacity>
           </View>
@@ -602,7 +673,7 @@ export default function HomeScreen() {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : isError ? (
         <View style={styles.centered}>
@@ -617,7 +688,7 @@ export default function HomeScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
         >
           <PortfolioHeader
@@ -661,370 +732,233 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
 
-  // Dark header — matches gradientHeader[0] for seamless join with portfolio gradient
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: 14,
-    backgroundColor: '#0a2e25',
-  },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  // Overflow menu
-  overflowBackdrop: {
-    flex: 1,
-  },
-  overflowMenu: {
-    position: 'absolute',
-    top: 60,
-    right: 16,
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minWidth: 180,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  overflowItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-  },
-  overflowItemText: {
-    fontSize: 15,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
-  overflowDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginHorizontal: Spacing.sm,
-  },
+    // Dark header — matches gradientHeader[0] for seamless join with portfolio gradient
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.sm,
+      paddingBottom: 14,
+      backgroundColor: colors.gradientHeader[0],
+    },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    // Overflow menu
+    overflowBackdrop: {
+      flex: 1,
+    },
+    overflowMenu: {
+      position: 'absolute',
+      top: 60,
+      right: 16,
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minWidth: 180,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    overflowItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+    },
+    overflowItemText: {
+      fontSize: 15,
+      color: colors.textPrimary,
+      fontWeight: '500',
+    },
+    overflowDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginHorizontal: Spacing.sm,
+    },
 
-  syncBanner: {
-    backgroundColor: Colors.primaryLight,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.primary + '33',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 10,
-  },
-  syncBannerError: { backgroundColor: '#fef2f2', borderBottomColor: '#fecaca' },
-  syncBannerText: { fontSize: 13, color: Colors.primaryDark, lineHeight: 18 },
+    syncBanner: {
+      backgroundColor: colors.primaryLight,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.primary + '33',
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: 10,
+    },
+    syncBannerError: { backgroundColor: '#fef2f2', borderBottomColor: '#fecaca' },
+    syncBannerText: { fontSize: 13, color: colors.primaryDark, lineHeight: 18 },
 
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  errorText: { fontSize: 15, color: Colors.textSecondary },
-  retryLink: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    errorText: { fontSize: 15, color: colors.textSecondary },
+    retryLink: { fontSize: 14, color: colors.primary, fontWeight: '600' },
 
-  // Full-bleed portfolio header — no margin, no radius
-  portfolioHeader: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
-    gap: Spacing.xs,
-  },
+    fundListHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.lg,
+      marginTop: Spacing.lg,
+      marginBottom: Spacing.sm,
+    },
+    fundListTitle: { ...Typography.h3, color: colors.textPrimary },
+    fundCount: { fontSize: 13, color: colors.textTertiary },
 
-  // Stale-data warning
-  staleBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: Radii.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    marginBottom: Spacing.xs,
-    alignSelf: 'flex-start',
-  },
-  staleBannerText: { fontSize: 12, color: '#fcd34d', fontWeight: '500' },
-  staleBannerTextRed: { color: '#fca5a5' },
+    // Fund cards — borders-only depth (no shadows)
+    fundCard: {
+      backgroundColor: colors.surface,
+      marginHorizontal: Spacing.md,
+      marginBottom: 10,
+      borderRadius: Radii.md,
+      flexDirection: 'row',
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    fundCardDisabled: { opacity: 0.92 },
+    fundCardAccent: { width: 4 },
+    fundCardInner: { flex: 1, padding: Spacing.md, gap: 10 },
+    fundCardTop: { flexDirection: 'row', gap: 12 },
+    fundNameBlock: { flex: 1, gap: 3 },
+    fundName: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, lineHeight: 20 },
+    fundCategory: { fontSize: 12, fontWeight: '500' },
+    fundPlanBadge: { fontSize: 11, color: colors.textTertiary, fontWeight: '400' },
+    fundValueBlock: { alignItems: 'flex-end', gap: 4 },
+    fundValue: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+    dailyChangePill: {
+      backgroundColor: colors.background,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    fundDailyChange: { fontSize: 12, fontWeight: '600' },
+    fundXirr: { fontSize: 11, fontWeight: '600' },
 
-  // Verdict block — the signal, shown first
-  verdictBlock: {
-    marginBottom: Spacing.xs,
-  },
-  verdictHeadline: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: -0.3,
-  },
-  verdictDelta: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 2,
-  },
+    navPendingBadge: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    navPendingText: { fontSize: 11, fontWeight: '600', color: colors.textTertiary },
 
-  // Portfolio value + daily change on one line
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    flexWrap: 'wrap',
-    marginTop: Spacing.xs,
-  },
-  totalValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -1,
-  },
-  dailyPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  dailyChange: { fontSize: 14, fontWeight: '600' },
-  portfolioGainLoss: { fontSize: 13, fontWeight: '500', marginTop: 4 },
+    fundCardBottom: {
+      flexDirection: 'row',
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      alignItems: 'center',
+    },
+    fundMeta: { flex: 1, alignItems: 'center', gap: 4 },
+    fundMetaLabel: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    fundMetaValue: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    fundMetaDivider: { width: 1, backgroundColor: colors.borderLight, marginHorizontal: 4 },
+    fundMetaSub: { fontSize: 11, fontWeight: '500' },
 
-  // Two-column Your Return | Benchmark
-  xirrRow: {
-    flexDirection: 'row',
-    marginTop: Spacing.sm,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
-  },
-  xirrItem: { flex: 1, alignItems: 'center', gap: 3 },
-  xirrDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
-  xirrLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.65)',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  xirrValue: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    realizedRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    realizedItem: { gap: 3 },
+    realizedLabel: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    realizedValue: { fontSize: 13, fontWeight: '700' },
 
-  benchmarkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
-  },
-  benchmarkRowLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginRight: 2,
-  },
-  benchmarkPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  benchmarkPillActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
-  benchmarkPillText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
-  benchmarkPillTextActive: { color: Colors.primaryDark },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.md },
+    emptyIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: Spacing.sm,
+    },
+    emptyTitle: { ...Typography.h2, color: colors.textPrimary },
+    emptySub: { ...Typography.body, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+    emptyBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+      backgroundColor: colors.primary,
+      borderRadius: Radii.md,
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: 13,
+      marginTop: Spacing.sm,
+    },
+    emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  fundListHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
-  },
-  fundListTitle: { ...Typography.h3, color: Colors.textPrimary },
-  fundCount: { fontSize: 13, color: Colors.textTertiary },
+    bottomPad: { height: 32 },
 
-  // Fund cards — borders-only depth (no shadows)
-  fundCard: {
-    backgroundColor: Colors.surface,
-    marginHorizontal: Spacing.md,
-    marginBottom: 10,
-    borderRadius: Radii.md,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  fundCardDisabled: {
-    opacity: 0.92,
-  },
-  fundCardAccent: { width: 4 },
-  fundCardInner: { flex: 1, padding: Spacing.md, gap: 10 },
-  fundCardTop: { flexDirection: 'row', gap: 12 },
-  fundNameBlock: { flex: 1, gap: 3 },
-  fundName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, lineHeight: 20 },
-  fundCategory: { fontSize: 12, fontWeight: '500' },
-  fundPlanBadge: { fontSize: 11, color: Colors.textTertiary, fontWeight: '400' },
-  fundValueBlock: { alignItems: 'flex-end', gap: 4 },
-  fundValue: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  dailyChangePill: {
-    backgroundColor: Colors.background,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  fundDailyChange: { fontSize: 12, fontWeight: '600' },
-  fundXirr: { fontSize: 11, fontWeight: '600' },
+    // Portfolio vs Market chart
+    chartSection: {
+      backgroundColor: colors.surface,
+      marginHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: Spacing.md,
+    },
+    chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+    chartTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    windowSelector: { flexDirection: 'row', gap: 6 },
+    windowPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    windowPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    windowPillText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+    windowPillTextActive: { color: '#fff' },
+    chartSkeleton: { height: 140, backgroundColor: colors.borderLight, borderRadius: Radii.sm },
+    chartLegend: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm, justifyContent: 'center' },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    legendDot: { width: 8, height: 8, borderRadius: 4 },
+    legendText: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+    chartAxisText: { fontSize: 10, color: colors.textTertiary },
 
-  navPendingBadge: {
-    backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  navPendingText: { fontSize: 11, fontWeight: '600', color: Colors.textTertiary },
-
-  fundCardBottom: {
-    flexDirection: 'row',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    alignItems: 'center',
-  },
-  fundMeta: { flex: 1, alignItems: 'center', gap: 4 },
-  fundMetaLabel: {
-    fontSize: 10,
-    color: Colors.textTertiary,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  fundMetaValue: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  fundMetaDivider: { width: 1, backgroundColor: Colors.borderLight, marginHorizontal: 4 },
-  fundMetaSub: { fontSize: 11, fontWeight: '500' },
-
-  realizedRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-  },
-  realizedItem: { gap: 3 },
-  realizedLabel: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  realizedValue: { fontSize: 13, fontWeight: '700' },
-
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.xl,
-    gap: Spacing.md,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.sm,
-  },
-  emptyTitle: { ...Typography.h2, color: Colors.textPrimary },
-  emptySub: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  emptyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    backgroundColor: Colors.primary,
-    borderRadius: Radii.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 13,
-    marginTop: Spacing.sm,
-  },
-  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-
-  bottomPad: { height: 32 },
-
-  // Portfolio vs Market chart
-  chartSection: {
-    backgroundColor: Colors.surface,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  chartTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  windowSelector: { flexDirection: 'row', gap: 6 },
-  windowPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  windowPillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  windowPillText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  windowPillTextActive: { color: '#fff' },
-  chartSkeleton: {
-    height: 140,
-    backgroundColor: Colors.borderLight,
-    borderRadius: Radii.sm,
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
-    justifyContent: 'center',
-  },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
-  chartAxisText: { fontSize: 10, color: Colors.textTertiary },
-
-  // Gainers / Losers row
-  gainersRow: {
-    flexDirection: 'row',
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  gainerCard: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderLeftWidth: 3,
-    padding: Spacing.sm,
-    gap: 3,
-  },
-  gainerLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  gainerName: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary },
-  gainerCategory: { fontSize: 11, color: Colors.textTertiary },
-  gainerPct: { fontSize: 14, fontWeight: '700', marginTop: 4 },
-  gainerAmt: { fontSize: 11, fontWeight: '500' },
-});
+    // Gainers / Losers row
+    gainersRow: { flexDirection: 'row', marginHorizontal: Spacing.md, marginTop: Spacing.sm, gap: Spacing.sm },
+    gainerCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderLeftWidth: 3,
+      padding: Spacing.sm,
+      gap: 3,
+    },
+    gainerLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    gainerName: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
+    gainerCategory: { fontSize: 11, color: colors.textTertiary },
+    gainerPct: { fontSize: 14, fontWeight: '700', marginTop: 4 },
+    gainerAmt: { fontSize: 11, fontWeight: '500' },
+  });
+}

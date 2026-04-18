@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { queryClient } from '@/src/lib/queryClient';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
+import { ThemeProvider } from '@/src/context/ThemeContext';
 
 /**
  * Parse a magic-link deep-link URL and establish a Supabase session.
@@ -67,6 +68,7 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <SafeAreaProvider>
         <StatusBar style="auto" />
         <AuthGate>
@@ -78,6 +80,7 @@ export default function RootLayout() {
           </Stack>
         </AuthGate>
       </SafeAreaProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

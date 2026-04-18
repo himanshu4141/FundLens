@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Platform,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +18,9 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
 import Logo from '@/src/components/Logo';
-import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useTheme } from '@/src/context/ThemeContext';
+import type { AppColors } from '@/src/context/ThemeContext';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -29,67 +32,69 @@ const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 2;
 
 // ─── SIP pattern detection ────────────────────────────────────────────────────
 //
-// A "SIP" is a purchase that recurs on roughly the same day of the month
-// (±3 days to allow for weekends/holidays) across ≥3 of the last 6 months.
-// One-off lumpsum purchases that fall outside any recurring day cluster are
-// excluded from the estimate.
+// A "SIP" is a purchase that recurs with the same amount on roughly the same
+// day of the month (±2 days) across ≥3 of the last 12 months, per fund.
+// Lumpsums are excluded because they rarely repeat at the same amount on the
+// same day. We group by (fund_id, amount-bucket-₹100, day-bucket-3-day-window)
+// so two schemes with identical SIP amounts are counted separately.
 
 async function estimateMonthlySip(userId: string): Promise<number> {
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
   const { data } = await supabase
     .from('transaction')
-    .select('transaction_date, amount, transaction_type')
+    .select('transaction_date, amount, transaction_type, fund_id')
     .eq('user_id', userId)
-    .eq('transaction_type', 'purchase') // switch_in excluded (STP/fund switches, not SIPs)
-    .gte('transaction_date', sixMonthsAgo.toISOString().split('T')[0]);
+    .eq('transaction_type', 'purchase')
+    .gte('transaction_date', twelveMonthsAgo.toISOString().split('T')[0]);
 
   if (!data?.length) return 0;
 
-  const purchases = data.map((tx) => ({
-    month: (tx.transaction_date as string).substring(0, 7), // YYYY-MM
-    day: parseInt((tx.transaction_date as string).substring(8, 10), 10),
-    amount: tx.amount as number,
-  }));
+  // Group by (fund_id, amountBucket ₹100, dayBucket 3-day window) → set of months
+  const groups = new Map<string, { months: Set<string>; amounts: number[] }>();
 
-  // Sort by day-of-month to enable anchor-based clustering
-  const sorted = [...purchases].sort((a, b) => a.day - b.day);
+  for (const tx of data) {
+    const dateStr = tx.transaction_date as string;
+    const month = dateStr.substring(0, 7);
+    const day = parseInt(dateStr.substring(8, 10), 10);
+    const amount = tx.amount as number;
+    const fundId = (tx.fund_id as string) ?? 'unknown';
 
-  // Build day clusters: each cluster has an anchor day; purchases within ±3
-  // days of the anchor belong to it. The anchor is set by the first purchase
-  // seen for that range.
-  const clusters: { anchor: number; items: typeof purchases }[] = [];
-  for (const p of sorted) {
-    const existing = clusters.find((c) => Math.abs(p.day - c.anchor) <= 3);
-    if (existing) {
-      existing.items.push(p);
-    } else {
-      clusters.push({ anchor: p.day, items: [p] });
-    }
+    const amountBucket = Math.round(amount / 100) * 100;
+    const dayBucket = Math.round(day / 3) * 3;
+    const key = `${fundId}|${amountBucket}|${dayBucket}`;
+
+    if (!groups.has(key)) groups.set(key, { months: new Set(), amounts: [] });
+    const g = groups.get(key)!;
+    g.months.add(month);
+    g.amounts.push(amount);
   }
 
-  // For each cluster that appears in ≥3 distinct months, it is a recurring SIP.
-  // Average its per-month spend and add to the total.
-  let totalSip = 0;
-  for (const cluster of clusters) {
-    const monthAmounts = new Map<string, number>();
-    for (const p of cluster.items) {
-      monthAmounts.set(p.month, (monthAmounts.get(p.month) ?? 0) + p.amount);
-    }
-    if (monthAmounts.size < 3) continue; // not recurring enough — lumpsum pattern
+  // Keep only patterns that recur in ≥3 distinct months — those are real SIPs.
+  // For each fund, if multiple keys qualify, take the one with the most months
+  // (handles SIP step-ups: the current instalment wins because it's most recent).
+  const fundBestSip = new Map<string, { months: number; median: number }>();
 
-    // Use median instead of mean to avoid outlier months where an extra lumpsum
-    // happened to fall on the same day as a recurring SIP (would inflate the mean).
-    const sorted = [...monthAmounts.values()].sort((a, b) => a - b);
+  for (const [key, { months, amounts }] of groups) {
+    if (months.size < 3) continue;
+
+    const fundId = key.split('|')[0];
+    const sorted = [...amounts].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
-    totalSip += median;
+    const median =
+      sorted.length % 2 === 0
+        ? (sorted[mid - 1] + sorted[mid]) / 2
+        : sorted[mid];
+
+    const prev = fundBestSip.get(fundId);
+    if (!prev || months.size > prev.months) {
+      fundBestSip.set(fundId, { months: months.size, median });
+    }
   }
 
-  return Math.round(totalSip / 500) * 500;
+  const total = [...fundBestSip.values()].reduce((sum, { median }) => sum + median, 0);
+  return Math.round(total / 500) * 500;
 }
 
 // ─── Input control ────────────────────────────────────────────────────────────
@@ -118,6 +123,8 @@ function InputControl({
   suffix,
   onChange,
 }: InputControlProps) {
+  const { colors } = useTheme();
+  const stepStyles = useMemo(() => makeStepStyles(colors), [colors]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
@@ -144,25 +151,25 @@ function InputControl({
   const increment = () => onChange(Math.min(max, value + step));
 
   return (
-    <View style={styles.stepRow}>
-      <Text style={styles.stepLabel}>{label}</Text>
-      <View style={styles.stepControl}>
+    <View style={stepStyles.row}>
+      <Text style={stepStyles.label}>{label}</Text>
+      <View style={stepStyles.control}>
         <TouchableOpacity
           onPress={decrement}
           disabled={value <= min}
-          style={[styles.stepBtn, value <= min && styles.stepBtnDisabled]}
+          style={[stepStyles.btn, value <= min && stepStyles.btnDisabled]}
           hitSlop={8}
         >
           <Ionicons
             name="remove"
             size={18}
-            color={value <= min ? Colors.textTertiary : Colors.primary}
+            color={value <= min ? colors.textTertiary : colors.primary}
           />
         </TouchableOpacity>
 
         {editing ? (
           <TextInput
-            style={styles.stepInput}
+            style={stepStyles.input}
             value={draft}
             onChangeText={setDraft}
             onBlur={() => commit(draft)}
@@ -173,21 +180,21 @@ function InputControl({
             returnKeyType="done"
           />
         ) : (
-          <TouchableOpacity onPress={startEdit} hitSlop={4} style={styles.stepValueTouchable}>
-            <Text style={styles.stepValue}>{displayValue}</Text>
+          <TouchableOpacity onPress={startEdit} hitSlop={4} style={stepStyles.valueTouchable}>
+            <Text style={stepStyles.value}>{displayValue}</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
           onPress={increment}
           disabled={value >= max}
-          style={[styles.stepBtn, value >= max && styles.stepBtnDisabled]}
+          style={[stepStyles.btn, value >= max && stepStyles.btnDisabled]}
           hitSlop={8}
         >
           <Ionicons
             name="add"
             size={18}
-            color={value >= max ? Colors.textTertiary : Colors.primary}
+            color={value >= max ? colors.textTertiary : colors.primary}
           />
         </TouchableOpacity>
       </View>
@@ -195,12 +202,100 @@ function InputControl({
   );
 }
 
+function makeStepStyles(colors: AppColors) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: Spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    label: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      flex: 1,
+    },
+    control: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    btn: {
+      width: 32,
+      height: 32,
+      borderRadius: Radii.sm,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnDisabled: {
+      backgroundColor: colors.borderLight,
+    },
+    value: {
+      ...Typography.body,
+      fontWeight: '600' as const,
+      color: colors.textPrimary,
+      minWidth: 96,
+      textAlign: 'center',
+    },
+    valueTouchable: {
+      minWidth: 96,
+      alignItems: 'center' as const,
+    },
+    input: {
+      ...Typography.body,
+      fontWeight: '600' as const,
+      color: colors.primary,
+      minWidth: 96,
+      textAlign: 'center' as const,
+      borderBottomWidth: 1.5,
+      borderBottomColor: colors.primary,
+      paddingVertical: 2,
+      ...(Platform.OS === 'web' && { outlineStyle: 'none' } as object),
+    },
+  });
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
+
+type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 export default function SimulatorScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const { session } = useSession();
   const userId = session?.user.id;
+
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_profile')
+        .select('kfintech_email')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  async function handleSync() {
+    if (!profile?.kfintech_email) { router.push('/onboarding'); return; }
+    setSyncState('syncing');
+    const { error } = await supabase.functions.invoke('request-cas', {
+      method: 'POST',
+      body: { email: profile.kfintech_email },
+    });
+    setSyncState(error ? 'error' : 'requested');
+    setTimeout(() => setSyncState('idle'), 4000);
+  }
 
   const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio();
   const { data: estimatedSip } = useQuery({
@@ -314,16 +409,68 @@ export default function SimulatorScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <LinearGradient
-        colors={Colors.gradientHeader}
+        colors={colors.gradientHeader}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <Logo size={28} showWordmark light />
-        <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-          <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+        <TouchableOpacity onPress={() => router.push('/(tabs)')} hitSlop={8}>
+          <Logo size={28} showWordmark light />
         </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity hitSlop={8} onPress={() => setOverflowOpen(true)}>
+            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
+            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
+
+      {/* Overflow menu */}
+      <Modal
+        visible={overflowOpen}
+        transparent
+        animationType="none"
+        onRequestClose={() => setOverflowOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.overflowBackdrop}
+          activeOpacity={1}
+          onPress={() => setOverflowOpen(false)}
+        >
+          <View style={styles.overflowMenu}>
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); handleSync(); }}
+              disabled={syncState === 'syncing'}
+            >
+              {syncState === 'syncing' ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
+              )}
+              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding'); }}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Import CAS</Text>
+            </TouchableOpacity>
+            <View style={styles.overflowDivider} />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowOpen(false); router.push('/(tabs)/settings'); }}
+            >
+              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
+              <Text style={styles.overflowItemText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -344,7 +491,7 @@ export default function SimulatorScreen() {
         {/* Portfolio loading indicator */}
         {portfolioLoading && (
           <View style={[styles.card, styles.loadingCard]}>
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.loadingText}>Loading your portfolio data…</Text>
           </View>
         )}
@@ -353,7 +500,7 @@ export default function SimulatorScreen() {
         {!portfolioLoading && hasPortfolio && portfolioData?.summary && (
           <View style={styles.contextCard}>
             <View style={styles.contextHeader}>
-              <Ionicons name="person-circle-outline" size={16} color={Colors.primary} />
+              <Ionicons name="person-circle-outline" size={16} color={colors.primary} />
               <Text style={styles.contextLabel}>YOUR PORTFOLIO TODAY</Text>
             </View>
             <View style={styles.contextRow}>
@@ -365,7 +512,7 @@ export default function SimulatorScreen() {
               </View>
               {Number.isFinite(portfolioData.summary.xirr) && (
                 <View style={styles.contextStat}>
-                  <Text style={[styles.contextStatValue, { color: Colors.positive }]}>
+                  <Text style={[styles.contextStatValue, { color: colors.positive }]}>
                     {(portfolioData.summary.xirr * 100).toFixed(1)}% p.a.
                   </Text>
                   <Text style={styles.contextStatLabel}>Your XIRR</Text>
@@ -455,10 +602,10 @@ export default function SimulatorScreen() {
               data2={showTwoLines ? adjustedChartData : undefined}
               width={CHART_WIDTH - 32}
               height={180}
-              color1={Colors.primary}
-              color2={Colors.positive}
-              dataPointsColor1={Colors.primary}
-              dataPointsColor2={Colors.positive}
+              color1={colors.primary}
+              color2={colors.positive}
+              dataPointsColor1={colors.primary}
+              dataPointsColor2={colors.positive}
               dataPointsRadius={3}
               thickness={2}
               noOfSections={4}
@@ -480,14 +627,14 @@ export default function SimulatorScreen() {
           {/* Legend */}
           <View style={styles.legend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
               <Text style={styles.legendLabel}>
                 {showTwoLines ? 'Current plan' : 'Projected'}
               </Text>
             </View>
             {showTwoLines && (
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.positive }]} />
+                <View style={[styles.legendDot, { backgroundColor: colors.positive }]} />
                 <Text style={styles.legendLabel}>Adjusted plan</Text>
               </View>
             )}
@@ -505,7 +652,7 @@ export default function SimulatorScreen() {
             <Ionicons
               name={planDelta >= 0 ? 'trending-up-outline' : 'trending-down-outline'}
               size={20}
-              color={planDelta >= 0 ? Colors.primary : Colors.negative}
+              color={planDelta >= 0 ? colors.primary : colors.negative}
             />
             <Text style={styles.insightText}>
               {planDelta >= 0 ? (
@@ -519,7 +666,7 @@ export default function SimulatorScreen() {
               ) : (
                 <>
                   Your adjusted plan results in{' '}
-                  <Text style={[styles.insightHighlight, { color: Colors.negative }]}>
+                  <Text style={[styles.insightHighlight, { color: colors.negative }]}>
                     {formatCurrency(Math.abs(planDelta))}
                   </Text>{' '}
                   less over {years} years compared to continuing as-is.
@@ -532,7 +679,7 @@ export default function SimulatorScreen() {
         {/* Generic insight for no-portfolio users */}
         {!showTwoLines && horizonAdjusted > 0 && (
           <View style={styles.insightCard}>
-            <Ionicons name="bulb-outline" size={20} color={Colors.primary} />
+            <Ionicons name="bulb-outline" size={20} color={colors.primary} />
             <Text style={styles.insightText}>
               At {rate}% p.a. your ₹{sip.toLocaleString('en-IN')}/month SIP
               could grow to{' '}
@@ -550,215 +697,188 @@ export default function SimulatorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-  },
-  titleBlock: {
-    marginBottom: Spacing.md,
-  },
-  title: {
-    ...Typography.h2,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  // ── Portfolio context card ─────────────────────────────────────────────────
-  contextCard: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  contextHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: Spacing.sm,
-  },
-  contextLabel: {
-    ...Typography.label,
-    color: Colors.primary,
-    letterSpacing: 0.5,
-  },
-  contextRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  contextStat: {
-    flex: 1,
-  },
-  contextStatValue: {
-    ...Typography.body,
-    fontWeight: '700' as const,
-    color: Colors.textPrimary,
-  },
-  contextStatLabel: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    marginTop: 2,
-  },
-  loadingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  loadingText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  // ── Card ──────────────────────────────────────────────────────────────────
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  sectionTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  // ── Step control ──────────────────────────────────────────────────────────
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  stepLabel: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    flex: 1,
-  },
-  stepControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  stepBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: Radii.sm,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBtnDisabled: {
-    backgroundColor: Colors.borderLight,
-  },
-  stepValueTouchable: {
-    minWidth: 96,
-    alignItems: 'center',
-  },
-  stepValue: {
-    ...Typography.body,
-    fontWeight: '600' as const,
-    color: Colors.textPrimary,
-    minWidth: 96,
-    textAlign: 'center',
-  },
-  stepInput: {
-    ...Typography.body,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-    minWidth: 96,
-    textAlign: 'center',
-    borderBottomWidth: 1.5,
-    borderBottomColor: Colors.primary,
-    paddingVertical: 2,
-    ...(Platform.OS === 'web' && { outlineStyle: 'none' } as object),
-  },
-  // ── Milestones ────────────────────────────────────────────────────────────
-  milestonesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  milestoneItem: {
-    flex: 1,
-    minWidth: 100,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radii.sm,
-    padding: Spacing.sm,
-    alignItems: 'center',
-  },
-  milestoneYear: {
-    ...Typography.label,
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  milestoneValue: {
-    ...Typography.bodySmall,
-    fontWeight: '600' as const,
-    color: Colors.textPrimary,
-  },
-  // ── Chart ─────────────────────────────────────────────────────────────────
-  chartNote: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    marginBottom: Spacing.xs,
-  },
-  legend: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  // ── Insight ───────────────────────────────────────────────────────────────
-  insightCard: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  insightText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    flex: 1,
-    lineHeight: 22,
-  },
-  insightHighlight: {
-    ...Typography.body,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-  },
-});
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+    },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    overflowBackdrop: { flex: 1 },
+    overflowMenu: {
+      position: 'absolute',
+      top: 60,
+      right: 16,
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minWidth: 180,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    overflowItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm + 2,
+    },
+    overflowItemText: { fontSize: 15, color: colors.textPrimary, fontWeight: '500' as const },
+    overflowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: Spacing.sm },
+    scrollContent: {
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.md,
+    },
+    titleBlock: {
+      marginBottom: Spacing.md,
+    },
+    title: {
+      ...Typography.h2,
+      color: colors.textPrimary,
+    },
+    subtitle: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    // ── Portfolio context card ─────────────────────────────────────────────
+    contextCard: {
+      backgroundColor: colors.primaryLight,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    contextHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: Spacing.sm,
+    },
+    contextLabel: {
+      ...Typography.label,
+      color: colors.primary,
+      letterSpacing: 0.5,
+    },
+    contextRow: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+    },
+    contextStat: {
+      flex: 1,
+    },
+    contextStatValue: {
+      ...Typography.body,
+      fontWeight: '700' as const,
+      color: colors.textPrimary,
+    },
+    contextStatLabel: {
+      ...Typography.caption,
+      color: colors.textTertiary,
+      marginTop: 2,
+    },
+    loadingCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    loadingText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+    },
+    // ── Card ──────────────────────────────────────────────────────────────
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.md,
+    },
+    sectionTitle: {
+      ...Typography.h3,
+      color: colors.textPrimary,
+      marginBottom: Spacing.sm,
+    },
+    milestonesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginTop: Spacing.xs,
+    },
+    milestoneItem: {
+      flex: 1,
+      minWidth: 100,
+      backgroundColor: colors.primaryLight,
+      borderRadius: Radii.sm,
+      padding: Spacing.sm,
+      alignItems: 'center',
+    },
+    milestoneYear: {
+      ...Typography.label,
+      color: colors.primary,
+      marginBottom: 4,
+    },
+    milestoneValue: {
+      ...Typography.bodySmall,
+      fontWeight: '600' as const,
+      color: colors.textPrimary,
+    },
+    chartNote: {
+      ...Typography.caption,
+      color: colors.textTertiary,
+      marginBottom: Spacing.xs,
+    },
+    legend: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.sm,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    legendLabel: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+    },
+    insightCard: {
+      backgroundColor: colors.primaryLight,
+      borderRadius: Radii.md,
+      padding: Spacing.md,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    insightText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 22,
+    },
+    insightHighlight: {
+      ...Typography.body,
+      fontWeight: '600' as const,
+      color: colors.primary,
+    },
+  });
+}
