@@ -22,6 +22,7 @@ import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
+import { parseOAuthCode } from '@/src/utils/authUtils';
 import type { AppColors } from '@/src/context/ThemeContext';
 
 async function fetchProfile(userId: string) {
@@ -118,9 +119,7 @@ export default function SettingsScreen() {
     setLinkingGoogle(false);
 
     if (result.type === 'success') {
-      const query = result.url.split('?')[1] ?? '';
-      const params = new URLSearchParams(query);
-      const code = params.get('code');
+      const code = parseOAuthCode(result.url);
       if (code) {
         const { error: ex } = await supabase.auth.exchangeCodeForSession(result.url);
         if (ex) setLinkError(ex.message);

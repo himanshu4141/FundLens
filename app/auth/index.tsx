@@ -17,6 +17,7 @@ import { supabase } from '@/src/lib/supabase';
 import { canShowDevAuthShortcut, getDevAuthCredentials } from '@/src/lib/devAuth';
 import Logo from '@/src/components/Logo';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
+import { parseOAuthCode } from '@/src/utils/authUtils';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 /**
@@ -103,10 +104,7 @@ export default function SignInScreen() {
     setLoadingMode(null);
 
     if (result.type === 'success') {
-      // Parse code using string splitting to avoid new URL() polyfill issues on RN
-      const query = result.url.split('?')[1] ?? '';
-      const params = new URLSearchParams(query);
-      const code = params.get('code');
+      const code = parseOAuthCode(result.url);
       if (code) {
         router.push(`/auth/callback?code=${encodeURIComponent(code)}`);
       }
