@@ -13,6 +13,7 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - **Fund detail** — holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised); Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
 - **Compare** — select up to 3 funds or indexes, % return chart from common start, crosshair tooltips, side-by-side metrics table
 - **Settings** — account info, **Connected Accounts** (shows linked providers; connect Google to an existing magic-link account), inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker, sign out
+- **Portfolio Insights** — one-tap access from the Portfolio screen to asset mix, market cap distribution, sector exposure, and top holdings aggregated across all funds; two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer); prominent "estimated" banner when showing category-derived data; auto-syncs when data is >35 days old
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
 - Full CI/CD: typecheck + lint + EAS Update on every PR; Supabase deploy + production EAS Update on merge to main
 
@@ -225,3 +226,5 @@ docs/
 | 5 | `milestone/5-fund-detail` | Fund vs benchmark chart, NAV history, time windows |
 | 6 | `milestone/6-compare` | Multi-fund comparison chart and metrics table |
 | 7 | `milestone/7-improvements` | Settings screen, smart import, hourly cron |
+| 8 | `milestone/8-google-login` | Google OAuth sign-in, account linking |
+| 9 | `claude/portfolio-insights-feature-ciUhb` | Portfolio Insights: asset mix, market cap, sectors, top holdings |

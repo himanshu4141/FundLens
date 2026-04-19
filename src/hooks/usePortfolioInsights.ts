@@ -53,11 +53,7 @@ async function fetchCompositions(schemeCodes: number[]): Promise<FundPortfolioCo
   // source DESC puts 'category_rules' < 'amfi' alphabetically — gives us amfi first.
   const { data, error } = await supabase
     .from('fund_portfolio_composition')
-    .select(
-      'scheme_code, portfolio_date, equity_pct, debt_pct, cash_pct, other_pct, ' +
-      'large_cap_pct, mid_cap_pct, small_cap_pct, not_classified_pct, ' +
-      'sector_allocation, top_holdings, source',
-    )
+    .select('scheme_code, portfolio_date, equity_pct, debt_pct, cash_pct, other_pct, large_cap_pct, mid_cap_pct, small_cap_pct, not_classified_pct, sector_allocation, top_holdings, source')
     .in('scheme_code', schemeCodes)
     .order('scheme_code', { ascending: true })
     .order('portfolio_date', { ascending: false })
@@ -94,7 +90,7 @@ async function fetchCompositions(schemeCodes: number[]): Promise<FundPortfolioCo
 // Weighted aggregation
 // ---------------------------------------------------------------------------
 
-function computeInsights(
+export function computeInsights(
   fundCards: FundCardData[],
   compositions: FundPortfolioComposition[],
 ): PortfolioInsights {

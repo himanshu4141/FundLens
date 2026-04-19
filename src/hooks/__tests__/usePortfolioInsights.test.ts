@@ -1,0 +1,302 @@
+import { computeInsights } from '../usePortfolioInsights';
+import type { FundPortfolioComposition } from '@/src/types/app';
+import type { FundCardData } from '../usePortfolio';
+
+jest.mock('@tanstack/react-query', () => ({
+  useQuery: jest.fn(),
+  useMutation: jest.fn(),
+  useQueryClient: jest.fn(),
+}));
+jest.mock('@/src/lib/supabase', () => ({
+  supabase: {
+    from: jest.fn(),
+    auth: { getSession: jest.fn() },
+    functions: { invoke: jest.fn() },
+  },
+}));
+jest.mock('@/src/utils/fundName', () => ({
+  parseFundName: (name: string) => ({ base: name.split(' ')[0], planBadge: null }),
+}));
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeFundCard(overrides: Partial<FundCardData> = {}): FundCardData {
+  return {
+    id: 'fund-1',
+    schemeCode: 100001,
+    schemeName: 'HDFC Large Cap Fund Direct Growth',
+    schemeCategory: 'Large Cap Fund',
+    currentNav: 100,
+    previousNav: 99,
+    currentUnits: 1000,
+    currentValue: 100_000,
+    investedAmount: 80_000,
+    dailyChangeAmount: 1000,
+    dailyChangePct: 1,
+    returnXirr: 0.15,
+    realizedGain: 0,
+    realizedAmount: 0,
+    redeemedUnits: 0,
+    navHistory30d: [],
+    ...overrides,
+  } as FundCardData;
+}
+
+function makeComposition(overrides: Partial<FundPortfolioComposition> = {}): FundPortfolioComposition {
+  return {
+    schemeCode: 100001,
+    portfolioDate: '2024-11-30',
+    equityPct: 95,
+    debtPct: 0,
+    cashPct: 5,
+    otherPct: 0,
+    largeCapPct: 80,
+    midCapPct: 12,
+    smallCapPct: 8,
+    notClassifiedPct: 0,
+    sectorAllocation: { Financial: 35, Technology: 15, Healthcare: 10 },
+    topHoldings: [
+      { name: 'HDFC Bank', isin: 'INE040A01034', sector: 'Financial', marketCap: 'Large Cap', pctOfNav: 8 },
+      { name: 'Infosys', isin: 'INE009A01021', sector: 'Technology', marketCap: 'Large Cap', pctOfNav: 5 },
+    ],
+    source: 'amfi',
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('computeInsights', () => {
+  describe('single fund — full data', () => {
+    const fund = makeFundCard();
+    const comp = makeComposition();
+    const result = computeInsights([fund], [comp]);
+
+    it('sets totalValue to fund currentValue', () => {
+      expect(result.totalValue).toBe(100_000);
+    });
+
+    it('computes asset mix weighted by fund value', () => {
+      expect(result.assetMix.equity).toBeCloseTo(95, 1);
+      expect(result.assetMix.debt).toBeCloseTo(0, 1);
+      expect(result.assetMix.cash).toBeCloseTo(5, 1);
+      expect(result.assetMix.other).toBeCloseTo(0, 1);
+    });
+
+    it('normalises market cap mix to sum to ~100%', () => {
+      const { large, mid, small, notClassified } = result.marketCapMix;
+      const total = large + mid + small + notClassified;
+      expect(total).toBeCloseTo(100, 0);
+    });
+
+    it('market cap mix reflects composition percentages', () => {
+      // 80/12/8 normalised to 100
+      expect(result.marketCapMix.large).toBeCloseTo(80, 0);
+      expect(result.marketCapMix.mid).toBeCloseTo(12, 0);
+      expect(result.marketCapMix.small).toBeCloseTo(8, 0);
+    });
+
+    it('returns sector breakdown sorted descending', () => {
+      const sectors = result.sectorBreakdown!;
+      expect(sectors[0].sector).toBe('Financial');
+      expect(sectors[1].sector).toBe('Technology');
+      expect(sectors[2].sector).toBe('Healthcare');
+    });
+
+    it('attaches ₹ value to each sector', () => {
+      const financial = result.sectorBreakdown!.find((s) => s.sector === 'Financial')!;
+      // 35% of NAV × 100% fund weight × totalValue
+      expect(financial.value).toBeGreaterThan(0);
+    });
+
+    it('returns top holdings', () => {
+      expect(result.topHoldings).toHaveLength(2);
+      expect(result.topHoldings![0].name).toBe('HDFC Bank');
+    });
+
+    it('converts holding pctOfNav to portfolio weight %', () => {
+      const hdfc = result.topHoldings![0];
+      // 8% of NAV × 100% fund weight = 8% portfolio weight
+      expect(hdfc.portfolioWeight).toBeCloseTo(8, 1);
+    });
+
+    it('uses amfi as dataSource when all compositions are amfi', () => {
+      expect(result.dataSource).toBe('amfi');
+    });
+
+    it('has no missing data funds', () => {
+      expect(result.missingDataFunds).toHaveLength(0);
+    });
+
+    it('builds fund allocation with correct pct', () => {
+      expect(result.fundAllocation).toHaveLength(1);
+      expect(result.fundAllocation[0].pct).toBeCloseTo(100, 1);
+      expect(result.fundAllocation[0].value).toBe(100_000);
+    });
+  });
+
+  describe('two funds — weighted averaging', () => {
+    const fundA = makeFundCard({ id: 'a', schemeCode: 100001, schemeName: 'Equity Fund', currentValue: 60_000 });
+    const fundB = makeFundCard({ id: 'b', schemeCode: 100002, schemeName: 'Debt Fund', currentValue: 40_000 });
+
+    const compA = makeComposition({
+      schemeCode: 100001,
+      equityPct: 95, debtPct: 0, cashPct: 5, otherPct: 0,
+      sectorAllocation: { Financial: 30, Technology: 20 },
+      topHoldings: [
+        { name: 'HDFC Bank', isin: 'INE040A01034', sector: 'Financial', marketCap: 'Large Cap', pctOfNav: 10 },
+      ],
+    });
+    const compB = makeComposition({
+      schemeCode: 100002,
+      equityPct: 0, debtPct: 90, cashPct: 10, otherPct: 0,
+      largeCapPct: null, midCapPct: null, smallCapPct: null, notClassifiedPct: null,
+      sectorAllocation: null,
+      topHoldings: null,
+      source: 'category_rules',
+    });
+
+    const result = computeInsights([fundA, fundB], [compA, compB]);
+
+    it('totalValue is sum of both funds', () => {
+      expect(result.totalValue).toBe(100_000);
+    });
+
+    it('weights equity pct: 60% × 95% + 40% × 0% = 57%', () => {
+      expect(result.assetMix.equity).toBeCloseTo(57, 1);
+    });
+
+    it('weights debt pct: 60% × 0% + 40% × 90% = 36%', () => {
+      expect(result.assetMix.debt).toBeCloseTo(36, 1);
+    });
+
+    it('weights cash pct: 60% × 5% + 40% × 10% = 7%', () => {
+      expect(result.assetMix.cash).toBeCloseTo(7, 1);
+    });
+
+    it('uses category_rules as dataSource when any fund has category_rules', () => {
+      expect(result.dataSource).toBe('category_rules');
+    });
+
+    it('sectors come only from fund with sectorAllocation', () => {
+      const sectors = result.sectorBreakdown!;
+      expect(sectors.some((s) => s.sector === 'Financial')).toBe(true);
+    });
+
+    it('sorts fund allocation by value descending', () => {
+      expect(result.fundAllocation[0].value).toBe(60_000);
+      expect(result.fundAllocation[1].value).toBe(40_000);
+    });
+  });
+
+  describe('holding deduplication across funds', () => {
+    const fundA = makeFundCard({ id: 'a', schemeCode: 100001, currentValue: 50_000 });
+    const fundB = makeFundCard({ id: 'b', schemeCode: 100002, currentValue: 50_000 });
+
+    const sharedHolding = { name: 'HDFC Bank', isin: 'INE040A01034', sector: 'Financial', marketCap: 'Large Cap' as const, pctOfNav: 10 };
+    const compA = makeComposition({ schemeCode: 100001, topHoldings: [sharedHolding] });
+    const compB = makeComposition({ schemeCode: 100002, topHoldings: [sharedHolding, { name: 'Infosys', isin: 'INE009A01021', sector: 'Technology', marketCap: 'Large Cap' as const, pctOfNav: 8 }] });
+
+    const result = computeInsights([fundA, fundB], [compA, compB]);
+
+    it('deduplicates HDFC Bank from both funds into one holding', () => {
+      const hdfcEntries = result.topHoldings!.filter((h) => h.isin === 'INE040A01034');
+      expect(hdfcEntries).toHaveLength(1);
+    });
+
+    it('aggregates weight of shared holding across both funds', () => {
+      const hdfc = result.topHoldings!.find((h) => h.isin === 'INE040A01034')!;
+      // 10% pctOfNav × 50% weight from each fund = 5% + 5% = 10% portfolio weight
+      expect(hdfc.portfolioWeight).toBeCloseTo(10, 1);
+    });
+
+    it('sorts holdings by portfolio weight descending', () => {
+      const [first, second] = result.topHoldings!;
+      expect(first.portfolioWeight).toBeGreaterThanOrEqual(second.portfolioWeight);
+    });
+  });
+
+  describe('missing composition data', () => {
+    const fund = makeFundCard();
+    const result = computeInsights([fund], []); // no compositions
+
+    it('lists funds with no composition data in missingDataFunds', () => {
+      expect(result.missingDataFunds).toContain('HDFC Large Cap Fund Direct Growth');
+    });
+
+    it('returns null sectorBreakdown when no sector data is present', () => {
+      expect(result.sectorBreakdown).toBeNull();
+    });
+
+    it('returns null topHoldings when no holdings data is present', () => {
+      expect(result.topHoldings).toBeNull();
+    });
+
+    it('still computes fund allocation (no composition needed)', () => {
+      expect(result.fundAllocation).toHaveLength(1);
+      expect(result.fundAllocation[0].pct).toBeCloseTo(100, 1);
+    });
+  });
+
+  describe('empty portfolio', () => {
+    const result = computeInsights([], []);
+
+    it('totalValue is 0', () => {
+      expect(result.totalValue).toBe(0);
+    });
+
+    it('fund allocation is empty', () => {
+      expect(result.fundAllocation).toHaveLength(0);
+    });
+
+    it('sector breakdown is null', () => {
+      expect(result.sectorBreakdown).toBeNull();
+    });
+  });
+
+  describe('fund with zero currentValue', () => {
+    const fund = makeFundCard({ currentValue: 0 });
+    const comp = makeComposition();
+    const result = computeInsights([fund], [comp]);
+
+    it('excludes zero-value fund from allocation', () => {
+      expect(result.fundAllocation).toHaveLength(0);
+    });
+
+    it('totalValue is 0', () => {
+      expect(result.totalValue).toBe(0);
+    });
+  });
+
+  describe('market cap normalisation with null caps', () => {
+    const fund = makeFundCard({ currentValue: 100_000 });
+    const comp = makeComposition({
+      largeCapPct: null,
+      midCapPct: null,
+      smallCapPct: null,
+      notClassifiedPct: null,
+    });
+    const result = computeInsights([fund], [comp]);
+
+    it('market cap mix stays at zero when caps are null', () => {
+      const { large, mid, small, notClassified } = result.marketCapMix;
+      expect(large + mid + small + notClassified).toBe(0);
+    });
+  });
+
+  describe('sector breakdown values', () => {
+    const fund = makeFundCard({ currentValue: 100_000 });
+    const comp = makeComposition({ sectorAllocation: { Financial: 40, Healthcare: 20 } });
+    const result = computeInsights([fund], [comp]);
+
+    it('computes ₹ value for each sector correctly', () => {
+      const fin = result.sectorBreakdown!.find((s) => s.sector === 'Financial')!;
+      // 40% × 1.0 fund weight × 100,000 total → 40,000
+      expect(fin.value).toBe(40_000);
+    });
+  });
+});
