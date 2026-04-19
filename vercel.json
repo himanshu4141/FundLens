@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export --platform web",
+  "buildCommand": "python3 scripts/vercel-build.py",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
