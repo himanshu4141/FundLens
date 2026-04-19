@@ -1,5 +1,5 @@
 {
-  "buildCommand": "bash -c 'trap \"kill 0\" EXIT; npx expo export --platform web'",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
