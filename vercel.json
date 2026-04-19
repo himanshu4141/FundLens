@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export --platform web; EXIT=$?; pkill -9 node 2>/dev/null; true; exit $EXIT",
+  "buildCommand": "bash -c 'trap \"kill 0\" EXIT; npx expo export --platform web'",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
