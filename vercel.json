@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export --platform web; EXIT=$?; pkill -f metro 2>/dev/null; pkill -f jest-worker 2>/dev/null; true; exit $EXIT",
+  "buildCommand": "npx expo export --platform web; EXIT=$?; pkill -9 node 2>/dev/null; true; exit $EXIT",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
