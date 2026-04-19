@@ -43,3 +43,76 @@ export interface IndexDataPoint {
 }
 
 export type TimeWindow = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'ALL';
+
+// ---------------------------------------------------------------------------
+// Portfolio Insights types
+// ---------------------------------------------------------------------------
+
+export type CompositionSource = 'category_rules' | 'amfi';
+
+export interface HoldingItem {
+  name: string;
+  isin: string;
+  sector: string;
+  marketCap: 'Large Cap' | 'Mid Cap' | 'Small Cap' | 'Other';
+  pctOfNav: number;
+}
+
+export interface FundPortfolioComposition {
+  schemeCode: number;
+  portfolioDate: string;
+  equityPct: number;
+  debtPct: number;
+  cashPct: number;
+  otherPct: number;
+  largeCapPct: number | null;
+  midCapPct: number | null;
+  smallCapPct: number | null;
+  notClassifiedPct: number | null;
+  sectorAllocation: Record<string, number> | null;
+  topHoldings: HoldingItem[] | null;
+  source: CompositionSource;
+}
+
+export interface AssetMix {
+  equity: number;
+  debt: number;
+  cash: number;
+  other: number;
+}
+
+export interface MarketCapMix {
+  large: number;
+  mid: number;
+  small: number;
+  notClassified: number;
+}
+
+export interface InsightHolding {
+  name: string;
+  isin: string;
+  sector: string;
+  marketCap: string;
+  portfolioWeight: number;
+  value: number;
+}
+
+export interface InsightFundAllocation {
+  fundId: string;
+  shortName: string;
+  pct: number;
+  value: number;
+  color: string;
+}
+
+export interface PortfolioInsights {
+  totalValue: number;
+  dataAsOf: string;
+  dataSource: CompositionSource;
+  assetMix: AssetMix;
+  marketCapMix: MarketCapMix;
+  sectorBreakdown: Array<{ sector: string; weight: number; value: number }> | null;
+  topHoldings: InsightHolding[] | null;
+  fundAllocation: InsightFundAllocation[];
+  missingDataFunds: string[];
+}

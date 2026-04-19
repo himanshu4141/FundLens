@@ -18,6 +18,8 @@ import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioTimeline, type FundRef } from '@/src/hooks/usePortfolioTimeline';
+import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
+import { PortfolioInsightsEntryCard } from '@/src/components/insights/PortfolioInsightsEntryCard';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
 import { parseFundName } from '@/src/utils/fundName';
@@ -586,6 +588,9 @@ export default function HomeScreen() {
   const summary = data?.summary ?? null;
   const fundRefs: FundRef[] = fundCards.map((f) => ({ id: f.id, schemeCode: f.schemeCode }));
 
+  const { insights, isLoading: insightsLoading, isStale, isSyncing, triggerSync } =
+    usePortfolioInsights(fundCards);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Dark header bar — seamlessly joins the gradient below */}
@@ -710,6 +715,14 @@ export default function HomeScreen() {
           />
 
           <GainersLosersRow fundCards={fundCards} />
+
+          <PortfolioInsightsEntryCard
+            insights={insights}
+            isLoading={insightsLoading}
+            isStale={isStale}
+            isSyncing={isSyncing}
+            onSyncPress={triggerSync}
+          />
 
           <View style={styles.fundListHeader}>
             <Text style={styles.fundListTitle}>Your Funds</Text>
