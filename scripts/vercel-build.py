@@ -11,6 +11,8 @@ own before terminating the whole process group.
 from __future__ import annotations
 
 import os
+import select
+import shlex
 import signal
 import subprocess
 import sys
@@ -21,8 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DIST_DIR = ROOT / "dist"
 SUCCESS_MARKER = "Exported: dist"
-GRACE_SECONDS = 15
-HARD_TIMEOUT_SECONDS = 15 * 60
+GRACE_SECONDS = int(os.environ.get("VERCEL_BUILD_GRACE_SECONDS", "15"))
+HARD_TIMEOUT_SECONDS = int(os.environ.get("VERCEL_BUILD_TIMEOUT_SECONDS", str(15 * 60)))
 
 
 def terminate_process_group(proc: subprocess.Popen[str]) -> None:
@@ -46,7 +48,9 @@ def terminate_process_group(proc: subprocess.Popen[str]) -> None:
 
 
 def main() -> int:
-    command = ["npx", "expo", "export", "--platform", "web"]
+    command = shlex.split(
+        os.environ.get("VERCEL_BUILD_COMMAND", "npx expo export --platform web")
+    )
     proc = subprocess.Popen(
         command,
         cwd=ROOT,
@@ -62,12 +66,14 @@ def main() -> int:
 
     assert proc.stdout is not None
     while True:
-        line = proc.stdout.readline()
-        if line:
-            sys.stdout.write(line)
-            sys.stdout.flush()
-            if SUCCESS_MARKER in line:
-                exported_at = time.monotonic()
+        ready, _, _ = select.select([proc.stdout], [], [], 0.5)
+        if ready:
+            line = proc.stdout.readline()
+            if line:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                if SUCCESS_MARKER in line:
+                    exported_at = time.monotonic()
 
         exit_code = proc.poll()
         if exit_code is not None:
