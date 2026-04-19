@@ -1,9 +1,17 @@
 /**
- * sync-amfi-portfolios.mjs — GitHub Actions AMFI portfolio scraper.
+ * sync-amfi-portfolios.mjs — GitHub Actions portfolio data sync via mfdata.in.
  *
- * Runs from Azure-hosted GitHub Actions runners (different IP space from
- * Supabase/Deno/Cloudflare), which can reach the AMFI portal where the
- * Supabase edge function cannot.
+ * mfdata.in is a free REST API that sources from AMFI monthly disclosures.
+ * It is accessible from GitHub Actions (Azure IPs) with no auth required.
+ *
+ * Flow per scheme:
+ *   1. GET /api/v1/schemes/{scheme_code} → family_id
+ *   2. GET /api/v1/families/{family_id}/holdings → real equity holdings + sector allocation
+ *   3. Upsert to fund_portfolio_composition with source='amfi'
+ *
+ * For schemes where mfdata.in returns no data, falls back to category_rules.
+ *
+ * Rate limits: 120 req/min, 10k req/day — well within budget for typical portfolios.
  *
  * Required env vars:
  *   SUPABASE_URL         — project URL (reuse EXPO_PUBLIC_SUPABASE_URL secret)
@@ -12,11 +20,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const FETCH_TIMEOUT_MS = 30_000;
-const AMC_DELAY_MS = 500;
+const MFDATA_BASE = 'https://mfdata.in/api/v1';
+const FETCH_TIMEOUT_MS = 15_000;
+const REQUEST_DELAY_MS = 300; // stay well within 120 req/min
 
 // ---------------------------------------------------------------------------
-// SEBI category → approximate composition
+// SEBI category → approximate composition (used as fallback for market cap
+// breakdown and for schemes mfdata.in doesn't cover)
 // ---------------------------------------------------------------------------
 
 const CATEGORY_RULES = {
@@ -77,139 +87,59 @@ function getCategoryRules(schemeCategory) {
 }
 
 // ---------------------------------------------------------------------------
-// AMC code ranges
-// ---------------------------------------------------------------------------
-
-const AMC_SCHEME_CODE_RANGES = [
-  { prefix: '100',  amcId: '1',  amcName: 'SBI' },
-  { prefix: '101',  amcId: '2',  amcName: 'HDFC' },
-  { prefix: '102',  amcId: '3',  amcName: 'ICICI Prudential' },
-  { prefix: '103',  amcId: '4',  amcName: 'Franklin' },
-  { prefix: '104',  amcId: '5',  amcName: 'Birla' },
-  { prefix: '105',  amcId: '6',  amcName: 'Kotak' },
-  { prefix: '106',  amcId: '7',  amcName: 'Reliance' },
-  { prefix: '107',  amcId: '8',  amcName: 'UTI' },
-  { prefix: '108',  amcId: '9',  amcName: 'Tata' },
-  { prefix: '109',  amcId: '10', amcName: 'Principal' },
-  { prefix: '110',  amcId: '11', amcName: 'DSP' },
-  { prefix: '118',  amcId: '18', amcName: 'PPFAS' },
-  { prefix: '119',  amcId: '19', amcName: 'Mirae' },
-  { prefix: '120',  amcId: '20', amcName: 'HDFC (new)' },
-  { prefix: '122',  amcId: '22', amcName: 'Axis' },
-  { prefix: '128',  amcId: '28', amcName: 'Motilal Oswal' },
-  { prefix: '135',  amcId: '35', amcName: 'Nippon' },
-  { prefix: '140',  amcId: '40', amcName: 'Quant' },
-];
-
-// ---------------------------------------------------------------------------
-// Fetch helpers
+// HTTP helpers
 // ---------------------------------------------------------------------------
 
 function delay(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchWithTimeout(url) {
+async function fetchJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; FundLens/1.0; +https://fundlens.app)',
-        'Accept': 'text/plain,text/html,*/*',
-        'Accept-Language': 'en-IN,en;q=0.9',
-        'Referer': 'https://www.amfiindia.com/',
-      },
+      headers: { 'Accept': 'application/json', 'User-Agent': 'FundLens/1.0' },
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
   } finally {
     clearTimeout(timer);
   }
 }
 
-function amfiUrlCandidates(amcId, year, month) {
-  const mm = String(month).padStart(2, '0');
-  const yyyy = String(year);
-  const mmyyyy = `${mm}${yyyy}`;
-  const yyyymm = `${yyyy}${mm}`;
-  return [
-    `https://www.amfiindia.com/spages/Portfolio${amcId}${mmyyyy}.txt`,
-    `https://www.amfiindia.com/modules/portfolio_download?mf=${amcId}&disc=Portfolio${mmyyyy}`,
-    `https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=${amcId}&tp=1`,
-    `https://www.amfiindia.com/spages/Portfolio${amcId}${yyyymm}.txt`,
-  ];
+// ---------------------------------------------------------------------------
+// mfdata.in helpers
+// ---------------------------------------------------------------------------
+
+async function getSchemeInfo(schemeCode) {
+  const data = await fetchJson(`${MFDATA_BASE}/schemes/${schemeCode}`);
+  return data?.data ?? null;
 }
 
-// ---------------------------------------------------------------------------
-// AMFI text parser
-// ---------------------------------------------------------------------------
+async function getFamilyHoldings(familyId) {
+  const data = await fetchJson(`${MFDATA_BASE}/families/${familyId}/holdings`);
+  return data?.data ?? null;
+}
 
-function parseAmfiPortfolioText(text, targetSchemeCode) {
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  if (lines.length < 5) return null;
+function buildPortfolioFromHoldings(holdings, schemeCategory) {
+  const catRules = getCategoryRules(schemeCategory);
 
-  const firstDataLine = lines.find((l) => l.includes('|') || l.includes(';') || l.includes('\t'));
-  if (!firstDataLine) return null;
-  const delimiter = firstDataLine.includes('|') ? '|'
-    : firstDataLine.includes(';') ? ';'
-    : '\t';
+  // equity_pct from API is reliable for equity funds
+  const equityPct = typeof holdings.equity_pct === 'number' ? holdings.equity_pct : catRules.equity;
+  // debt/cash from category_rules (API's debt_pct is unreliable for equity funds)
+  const debtPct = catRules.debt;
+  const cashPct = Math.max(0, 100 - equityPct - debtPct);
+  const otherPct = Math.max(0, 100 - equityPct - debtPct - cashPct);
 
-  let inTargetScheme = false;
-  const holdings = [];
-  let equityPct = 0, debtPct = 0, cashPct = 0, otherPct = 0;
-  let largeCapPct = 0, midCapPct = 0, smallCapPct = 0;
+  // Build sector allocation from real holdings
   const sectorMap = {};
-
-  for (const line of lines) {
-    const cols = line.split(delimiter).map((c) => c.trim());
-
-    if (cols[0] && String(targetSchemeCode) === cols[0]) {
-      inTargetScheme = true;
-      continue;
+  const equityHoldings = holdings.equity_holdings ?? [];
+  for (const h of equityHoldings) {
+    if (h.sector && typeof h.weight_pct === 'number') {
+      sectorMap[h.sector] = (sectorMap[h.sector] ?? 0) + h.weight_pct;
     }
-    if (inTargetScheme && cols[0] && /^\d{5,6}$/.test(cols[0]) && cols[0] !== String(targetSchemeCode)) {
-      break;
-    }
-    if (!inTargetScheme) continue;
-    if (cols[0]?.toLowerCase().includes('company') || cols[0]?.toLowerCase().includes('scheme')) continue;
-
-    const navPct = parseFloat(cols[5] ?? cols[6] ?? '');
-    if (isNaN(navPct) || navPct <= 0) continue;
-
-    const name = cols[0] ?? '';
-    const isin = cols[1] ?? '';
-    const sector = cols[2] ?? 'Other';
-    const assetType = (cols[8] ?? cols[7] ?? '').toLowerCase();
-    const marketCapRaw = (cols[9] ?? '').toLowerCase();
-
-    const marketCap = marketCapRaw.includes('large') ? 'Large Cap'
-      : marketCapRaw.includes('mid') ? 'Mid Cap'
-      : marketCapRaw.includes('small') ? 'Small Cap'
-      : 'Other';
-
-    if (assetType.includes('equity') || assetType.includes('stock')) {
-      equityPct += navPct;
-      if (marketCap === 'Large Cap') largeCapPct += navPct;
-      else if (marketCap === 'Mid Cap') midCapPct += navPct;
-      else if (marketCap === 'Small Cap') smallCapPct += navPct;
-      if (sector) sectorMap[sector] = (sectorMap[sector] ?? 0) + navPct;
-    } else if (assetType.includes('debt') || assetType.includes('bond') || assetType.includes('debenture')) {
-      debtPct += navPct;
-    } else if (assetType.includes('cash') || assetType.includes('cblo') || assetType.includes('reverse repo')) {
-      cashPct += navPct;
-    } else {
-      otherPct += navPct;
-    }
-
-    if (name) holdings.push({ name, isin, sector, marketCap, pctOfNav: navPct });
-  }
-
-  if (holdings.length === 0 && equityPct === 0 && debtPct === 0) return null;
-
-  if (equityPct > 0) {
-    largeCapPct = (largeCapPct / equityPct) * 100;
-    midCapPct = (midCapPct / equityPct) * 100;
-    smallCapPct = (smallCapPct / equityPct) * 100;
   }
 
   const sectorAllocation = {};
@@ -217,18 +147,30 @@ function parseAmfiPortfolioText(text, targetSchemeCode) {
     sectorAllocation[s] = Math.round(w * 100) / 100;
   }
 
-  holdings.sort((a, b) => b.pctOfNav - a.pctOfNav);
+  // Top holdings
+  const topHoldings = equityHoldings
+    .filter((h) => h.stock_name && typeof h.weight_pct === 'number')
+    .sort((a, b) => b.weight_pct - a.weight_pct)
+    .slice(0, 50)
+    .map((h) => ({
+      name: h.stock_name,
+      isin: h.isin ?? '',
+      sector: h.sector ?? 'Other',
+      marketCap: 'Other', // mfdata.in doesn't provide market cap classification
+      pctOfNav: h.weight_pct,
+    }));
 
   return {
     equityPct: Math.round(equityPct * 100) / 100,
     debtPct: Math.round(debtPct * 100) / 100,
     cashPct: Math.round(cashPct * 100) / 100,
     otherPct: Math.round(otherPct * 100) / 100,
-    largeCapPct: Math.round(largeCapPct * 100) / 100,
-    midCapPct: Math.round(midCapPct * 100) / 100,
-    smallCapPct: Math.round(smallCapPct * 100) / 100,
-    sectorAllocation,
-    topHoldings: holdings.slice(0, 50),
+    // Market cap breakdown from category_rules (mfdata.in doesn't classify by cap)
+    largeCapPct: catRules.large,
+    midCapPct: catRules.mid,
+    smallCapPct: catRules.small,
+    sectorAllocation: Object.keys(sectorAllocation).length > 0 ? sectorAllocation : null,
+    topHoldings: topHoldings.length > 0 ? topHoldings : null,
   };
 }
 
@@ -241,7 +183,7 @@ async function main() {
   const secretKey = process.env.SUPABASE_SECRET_KEY;
 
   if (!supabaseUrl || !secretKey) {
-    console.error('[sync-amfi] SUPABASE_URL and SUPABASE_SECRET_KEY are required');
+    console.error('[sync-portfolio] SUPABASE_URL and SUPABASE_SECRET_KEY are required');
     process.exit(1);
   }
 
@@ -249,11 +191,13 @@ async function main() {
     auth: { persistSession: false },
   });
 
-  console.log('[sync-amfi] invoked');
+  console.log('[sync-portfolio] invoked');
 
   const now = new Date();
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     .toISOString().split('T')[0];
+  const portfolioDate = new Date(now.getFullYear(), now.getMonth(), 0)
+    .toISOString().split('T')[0]; // last day of previous month
 
   // Load all active funds
   const { data: funds, error: fundsError } = await supabase
@@ -262,12 +206,12 @@ async function main() {
     .eq('is_active', true);
 
   if (fundsError) {
-    console.error('[sync-amfi] failed to load funds:', fundsError.message);
+    console.error('[sync-portfolio] failed to load funds:', fundsError.message);
     process.exit(1);
   }
 
   if (!funds?.length) {
-    console.log('[sync-amfi] no active funds, nothing to do');
+    console.log('[sync-portfolio] no active funds, nothing to do');
     return;
   }
 
@@ -277,11 +221,11 @@ async function main() {
     if (!schemeMap.has(f.scheme_code)) schemeMap.set(f.scheme_code, f);
   }
   const schemes = [...schemeMap.values()];
-  console.log('[sync-amfi] %d distinct schemes to process', schemes.length);
+  console.log('[sync-portfolio] %d distinct schemes to process', schemes.length);
 
   const schemeCodes = schemes.map((s) => s.scheme_code);
 
-  // Check which schemes already have fresh AMFI data this month
+  // Skip schemes already synced this month
   const { data: existing } = await supabase
     .from('fund_portfolio_composition')
     .select('scheme_code')
@@ -289,103 +233,78 @@ async function main() {
     .gte('portfolio_date', currentMonthStart)
     .eq('source', 'amfi');
 
-  const freshAmfiCodes = new Set((existing ?? []).map((r) => r.scheme_code));
-  const staleSchemes = schemes.filter((s) => !freshAmfiCodes.has(s.scheme_code));
-  console.log('[sync-amfi] %d schemes need AMFI refresh (%d already fresh)',
-    staleSchemes.length, freshAmfiCodes.size);
-
-  // Group stale schemes by AMC
-  const amcGroups = new Map();
-  for (const scheme of staleSchemes) {
-    const prefix = String(scheme.scheme_code).substring(0, 3);
-    const amcInfo = AMC_SCHEME_CODE_RANGES.find((a) => prefix.startsWith(a.prefix.substring(0, 3)))
-      ?? { amcId: prefix, amcName: `AMC-${prefix}` };
-    const key = amcInfo.amcId;
-    if (!amcGroups.has(key)) {
-      amcGroups.set(key, { amcId: amcInfo.amcId, amcName: amcInfo.amcName, schemes: [] });
-    }
-    amcGroups.get(key).schemes.push(scheme);
-  }
+  const freshCodes = new Set((existing ?? []).map((r) => r.scheme_code));
+  const staleSchemes = schemes.filter((s) => !freshCodes.has(s.scheme_code));
+  console.log('[sync-portfolio] %d schemes need refresh (%d already fresh)',
+    staleSchemes.length, freshCodes.size);
 
   let amfiSynced = 0;
-  const amfiErrors = [];
+  let errors = 0;
 
-  // Sequential per-AMC (polite to AMFI's server)
-  const amcList = [...amcGroups.values()];
-  for (let idx = 0; idx < amcList.length; idx++) {
-    const group = amcList[idx];
-    if (idx > 0) await delay(AMC_DELAY_MS);
+  for (let i = 0; i < staleSchemes.length; i++) {
+    const scheme = staleSchemes[i];
+    if (i > 0) await delay(REQUEST_DELAY_MS);
 
-    const urls = amfiUrlCandidates(group.amcId, now.getFullYear(), now.getMonth() + 1);
-    let portfolioText = null;
-
-    for (const url of urls) {
-      try {
-        const res = await fetchWithTimeout(url);
-        if (res.ok) {
-          const text = await res.text();
-          if (text.length > 500) {
-            portfolioText = text;
-            console.log('[sync-amfi] AMC %s: fetched %d chars from %s',
-              group.amcName, text.length, url);
-            break;
-          }
-        }
-        console.warn('[sync-amfi] AMC %s: HTTP %d from %s', group.amcName, res.status, url);
-      } catch (err) {
-        console.warn('[sync-amfi] AMC %s: fetch error %s', group.amcName, String(err));
-      }
-    }
-
-    if (!portfolioText) {
-      console.warn('[sync-amfi] AMC %s: all URL candidates failed', group.amcName);
-      amfiErrors.push(`${group.amcName}: all_urls_failed`);
-      continue;
-    }
-
-    // portfolio_date = last day of previous month (the month the data covers)
-    const portfolioDate = new Date(now.getFullYear(), now.getMonth(), 0)
-      .toISOString().split('T')[0];
-
-    for (const scheme of group.schemes) {
-      const parsed = parseAmfiPortfolioText(portfolioText, scheme.scheme_code);
-      if (!parsed) {
-        console.warn('[sync-amfi] scheme %d: parse returned null — skipping', scheme.scheme_code);
+    try {
+      // Step 1: resolve family_id
+      const schemeInfo = await getSchemeInfo(scheme.scheme_code);
+      if (!schemeInfo?.family_id) {
+        console.warn('[sync-portfolio] scheme %d: no family_id from mfdata.in', scheme.scheme_code);
+        errors++;
         continue;
       }
 
-      const notClassified = Math.max(0,
-        100 - parsed.largeCapPct - parsed.midCapPct - parsed.smallCapPct);
+      const familyId = schemeInfo.family_id;
+      await delay(REQUEST_DELAY_MS);
+
+      // Step 2: fetch holdings
+      const holdings = await getFamilyHoldings(familyId);
+      if (!holdings || !holdings.equity_holdings?.length) {
+        console.warn('[sync-portfolio] scheme %d (family %d): no holdings data', scheme.scheme_code, familyId);
+        errors++;
+        continue;
+      }
+
+      // Step 3: build portfolio row
+      const portfolio = buildPortfolioFromHoldings(holdings, scheme.scheme_category);
+      const notClassified = Math.max(0, 100 - portfolio.largeCapPct - portfolio.midCapPct - portfolio.smallCapPct);
 
       const { error } = await supabase
         .from('fund_portfolio_composition')
         .upsert({
           scheme_code: scheme.scheme_code,
           portfolio_date: portfolioDate,
-          equity_pct: parsed.equityPct,
-          debt_pct: parsed.debtPct,
-          cash_pct: parsed.cashPct,
-          other_pct: parsed.otherPct,
-          large_cap_pct: parsed.largeCapPct,
-          mid_cap_pct: parsed.midCapPct,
-          small_cap_pct: parsed.smallCapPct,
+          equity_pct: portfolio.equityPct,
+          debt_pct: portfolio.debtPct,
+          cash_pct: portfolio.cashPct,
+          other_pct: portfolio.otherPct,
+          large_cap_pct: portfolio.largeCapPct,
+          mid_cap_pct: portfolio.midCapPct,
+          small_cap_pct: portfolio.smallCapPct,
           not_classified_pct: notClassified,
-          sector_allocation: parsed.sectorAllocation,
-          top_holdings: parsed.topHoldings,
+          sector_allocation: portfolio.sectorAllocation,
+          top_holdings: portfolio.topHoldings,
           source: 'amfi',
           synced_at: new Date().toISOString(),
         }, { onConflict: 'scheme_code,portfolio_date,source' });
 
       if (error) {
-        console.error('[sync-amfi] scheme %d upsert error: %s', scheme.scheme_code, error.message);
-        amfiErrors.push(`scheme-${scheme.scheme_code}: ${error.message}`);
+        console.error('[sync-portfolio] scheme %d upsert error: %s', scheme.scheme_code, error.message);
+        errors++;
       } else {
         amfiSynced++;
+        console.log('[sync-portfolio] scheme %d: synced %d equity holdings (%d sectors)',
+          scheme.scheme_code,
+          holdings.equity_holdings.length,
+          Object.keys(portfolio.sectorAllocation ?? {}).length);
       }
+    } catch (err) {
+      console.error('[sync-portfolio] scheme %d: %s', scheme.scheme_code, String(err));
+      errors++;
     }
   }
 
-  // Seed category_rules for any scheme still missing AMFI data
+  // Seed category_rules for any scheme mfdata.in couldn't cover
   const { data: nowHasAmfi } = await supabase
     .from('fund_portfolio_composition')
     .select('scheme_code')
@@ -394,12 +313,12 @@ async function main() {
     .eq('source', 'amfi');
 
   const amfiCodeSet = new Set((nowHasAmfi ?? []).map((r) => r.scheme_code));
-  const needsCategoryRules = schemes.filter((s) => !amfiCodeSet.has(s.scheme_code));
+  const needsFallback = schemes.filter((s) => !amfiCodeSet.has(s.scheme_code));
   let categorySynced = 0;
 
-  if (needsCategoryRules.length > 0) {
+  if (needsFallback.length > 0) {
     const today = now.toISOString().split('T')[0];
-    const categoryRows = needsCategoryRules.map((scheme) => {
+    const categoryRows = needsFallback.map((scheme) => {
       const comp = getCategoryRules(scheme.scheme_category);
       const notClassified = Math.max(0, 100 - comp.large - comp.mid - comp.small);
       return {
@@ -428,27 +347,23 @@ async function main() {
       });
 
     if (catError) {
-      console.error('[sync-amfi] category_rules upsert error:', catError.message);
+      console.error('[sync-portfolio] category_rules upsert error:', catError.message);
     } else {
       categorySynced = categoryRows.length;
-      console.log('[sync-amfi] seeded category_rules for %d schemes', categorySynced);
+      console.log('[sync-portfolio] seeded category_rules for %d schemes', categorySynced);
     }
   }
 
-  console.log('[sync-amfi] done — amfiSynced=%d categorySynced=%d errors=%d',
-    amfiSynced, categorySynced, amfiErrors.length);
+  console.log('[sync-portfolio] done — amfiSynced=%d categorySynced=%d errors=%d',
+    amfiSynced, categorySynced, errors);
 
-  if (amfiErrors.length > 0) {
-    console.log('[sync-amfi] errors:', amfiErrors.join(', '));
-  }
-
-  if (amcList.length > 0 && amfiSynced === 0 && amfiErrors.length === amcList.length) {
-    console.error('[sync-amfi] all AMC fetches failed — AMFI portal may be blocking this IP range');
+  if (staleSchemes.length > 0 && amfiSynced === 0 && errors === staleSchemes.length) {
+    console.error('[sync-portfolio] all schemes failed — mfdata.in may be down');
     process.exit(1);
   }
 }
 
 main().catch((err) => {
-  console.error('[sync-amfi] unhandled error:', err);
+  console.error('[sync-portfolio] unhandled error:', err);
   process.exit(1);
 });
