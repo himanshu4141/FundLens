@@ -128,15 +128,19 @@ async function fetchWithTimeout(url) {
 }
 
 function amfiUrlCandidates(amcId, year, month) {
-  const mm = String(month).padStart(2, '0');
-  const yyyy = String(year);
-  const mmyyyy = `${mm}${yyyy}`;
-  const yyyymm = `${yyyy}${mm}`;
+  // AMFI names portfolio files after the DATA month (previous month-end),
+  // not the current/disclosure month. Try data month first, then current month.
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const mmData = String(prevMonth).padStart(2, '0');
+  const yyyyData = String(prevYear);
+  const mmCurr = String(month).padStart(2, '0');
+  const yyyyCurr = String(year);
   return [
-    `https://www.amfiindia.com/spages/Portfolio${amcId}${mmyyyy}.txt`,
-    `https://www.amfiindia.com/modules/portfolio_download?mf=${amcId}&disc=Portfolio${mmyyyy}`,
-    `https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=${amcId}&tp=1`,
-    `https://www.amfiindia.com/spages/Portfolio${amcId}${yyyymm}.txt`,
+    `https://www.amfiindia.com/spages/Portfolio${amcId}${mmData}${yyyyData}.txt`,
+    `https://www.amfiindia.com/spages/Portfolio${amcId}${mmCurr}${yyyyCurr}.txt`,
+    `https://www.amfiindia.com/modules/portfolio_download?mf=${amcId}&disc=Portfolio${mmData}${yyyyData}`,
+    `https://www.amfiindia.com/modules/portfolio_download?mf=${amcId}&disc=Portfolio${mmCurr}${yyyyCurr}`,
   ];
 }
 
@@ -343,9 +347,6 @@ async function main() {
       continue;
     }
 
-    // Log first 300 chars so we can diagnose format issues
-    console.log('[sync-amfi] AMC %s: first 300 chars: %s',
-      group.amcName, portfolioText.substring(0, 300).replace(/\n/g, '\\n'));
 
     // portfolio_date = last day of previous month (the month the data covers)
     const portfolioDate = new Date(now.getFullYear(), now.getMonth(), 0)
@@ -354,13 +355,7 @@ async function main() {
     for (const scheme of group.schemes) {
       const parsed = parseAmfiPortfolioText(portfolioText, scheme.scheme_code);
       if (!parsed) {
-        // Log a snippet around where the scheme code might appear to diagnose format
-        const codeStr = String(scheme.scheme_code);
-        const idx = portfolioText.indexOf(codeStr);
-        const snippet = idx >= 0
-          ? portfolioText.substring(Math.max(0, idx - 50), idx + 150).replace(/\n/g, '\\n')
-          : `(scheme code ${codeStr} not found in text)`;
-        console.warn('[sync-amfi] scheme %d: parse null. snippet: %s', scheme.scheme_code, snippet);
+        console.warn('[sync-amfi] scheme %d: parse returned null — skipping', scheme.scheme_code);
         continue;
       }
 
