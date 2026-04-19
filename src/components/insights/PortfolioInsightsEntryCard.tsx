@@ -107,12 +107,17 @@ export function PortfolioInsightsEntryCard({
               )}
             </View>
 
-            {/* Source badge */}
-            <Text style={[styles.sourceBadge, { color: colors.textTertiary }]}>
-              {insights.dataSource === 'amfi'
-                ? `AMFI disclosure · ${formatDate(insights.dataAsOf)}`
-                : 'Estimated · Based on fund category'}
-            </Text>
+            {/* Data quality indicator */}
+            {insights.dataSource === 'amfi' ? (
+              <Text style={[styles.sourceBadge, { color: colors.textTertiary }]}>
+                AMFI disclosure · {formatDate(insights.dataAsOf)}
+              </Text>
+            ) : (
+              <View style={styles.estimateChip}>
+                <Ionicons name="information-circle-outline" size={12} color="#2563eb" />
+                <Text style={styles.estimateChipText}>Estimated · Tap for details</Text>
+              </View>
+            )}
           </>
         ) : (
           <View style={styles.emptyState}>
@@ -193,6 +198,21 @@ const styles = StyleSheet.create({
   },
   sourceBadge: {
     ...Typography.caption,
+  },
+  estimateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    alignSelf: 'flex-start',
+    backgroundColor: '#eff6ff',
+    borderRadius: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  estimateChipText: {
+    ...Typography.caption,
+    color: '#2563eb',
+    fontWeight: '500',
   },
   skeleton: {
     gap: Spacing.sm,

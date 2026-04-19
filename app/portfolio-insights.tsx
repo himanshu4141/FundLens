@@ -47,7 +47,7 @@ export default function PortfolioInsightsScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Sync status banner */}
+        {/* Syncing in progress */}
         {isSyncing && (
           <View style={[styles.syncBanner, { backgroundColor: colors.primaryLight }]}>
             <ActivityIndicator size="small" color={colors.primary} />
@@ -57,6 +57,7 @@ export default function PortfolioInsightsScreen() {
           </View>
         )}
 
+        {/* Stale data — not currently syncing */}
         {isStale && !isSyncing && (
           <TouchableOpacity
             style={[styles.staleBanner, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}
@@ -68,6 +69,21 @@ export default function PortfolioInsightsScreen() {
               Data is outdated · Tap to refresh
             </Text>
           </TouchableOpacity>
+        )}
+
+        {/* Estimated data notice — shown when composition comes from category rules, not actual AMFI data */}
+        {insights && insights.dataSource === 'category_rules' && !isSyncing && (
+          <View style={[styles.estimateBanner, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
+            <Ionicons name="information-circle-outline" size={18} color="#2563eb" style={styles.estimateIcon} />
+            <View style={styles.estimateTextBlock}>
+              <Text style={styles.estimateHeading}>Showing estimated data</Text>
+              <Text style={styles.estimateBody}>
+                Asset mix and market cap figures are derived from SEBI's fund category framework,
+                not actual holdings. Real sector and stock data loads automatically each month
+                from AMFI portfolio disclosures.
+              </Text>
+            </View>
+          </View>
         )}
 
         {isLoading || (hasNoData && isSyncing) ? (
@@ -253,6 +269,27 @@ function makeStyles(colors: AppColors) {
       marginBottom: Spacing.md,
     },
     staleText: { ...Typography.bodySmall, color: '#d97706', flex: 1 },
+    estimateBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: Spacing.sm,
+      padding: Spacing.md,
+      borderRadius: 10,
+      borderWidth: 1,
+      marginBottom: Spacing.md,
+    },
+    estimateIcon: { marginTop: 1 },
+    estimateTextBlock: { flex: 1, gap: 4 },
+    estimateHeading: {
+      ...Typography.bodySmall,
+      fontWeight: '700',
+      color: '#1d4ed8',
+    },
+    estimateBody: {
+      ...Typography.bodySmall,
+      color: '#1e40af',
+      lineHeight: 18,
+    },
     footnote: {
       ...Typography.caption,
       marginTop: Spacing.sm,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/context/ThemeContext';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { formatCurrency } from '@/src/utils/formatting';
@@ -85,8 +86,17 @@ export function AssetMixCard({ totalValue, assetMix, source, dataAsOf }: Props) 
         </View>
       ))}
 
-      {/* Source badge */}
-      <Text style={[styles.sourceBadge, { color: colors.textTertiary }]}>{sourceLabel}</Text>
+      {/* Source footer */}
+      {source === 'amfi' ? (
+        <Text style={[styles.sourceBadge, { color: colors.textTertiary }]}>{sourceLabel}</Text>
+      ) : (
+        <View style={styles.estimateFooter}>
+          <Ionicons name="information-circle-outline" size={12} color="#2563eb" />
+          <Text style={styles.estimateFooterText}>
+            Estimated from fund category · actual data loads monthly from AMFI
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -183,5 +193,16 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     marginTop: Spacing.sm,
     textAlign: 'right',
+  },
+  estimateFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.sm,
+  },
+  estimateFooterText: {
+    ...Typography.caption,
+    color: '#2563eb',
+    flex: 1,
   },
 });
