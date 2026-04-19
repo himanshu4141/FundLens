@@ -131,7 +131,7 @@ export function PortfolioInsightsEntryCard({
   );
 }
 
-function StatPill({ label, color, textColor }: { label: string; color: string; textColor: string }) {
+function StatPill({ label, textColor }: { label: string; color: string; textColor: string }) {
   return (
     <Text style={[styles.statPill, { color: textColor }]}>
       {label}

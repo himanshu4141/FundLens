@@ -78,7 +78,7 @@ export default function PortfolioInsightsScreen() {
             <View style={styles.estimateTextBlock}>
               <Text style={styles.estimateHeading}>Showing estimated data</Text>
               <Text style={styles.estimateBody}>
-                Asset mix and market cap figures are derived from SEBI's fund category framework,
+                Asset mix and market cap figures are derived from SEBI&apos;s fund category framework,
                 not actual holdings. Real sector and stock data loads automatically each month
                 from AMFI portfolio disclosures.
               </Text>

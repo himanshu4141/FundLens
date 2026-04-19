@@ -32,7 +32,7 @@ const SECTOR_COLORS = [
   '#6366f1', // Diversified — indigo
 ];
 
-export function SectorCard({ sectors, totalValue }: Props) {
+export function SectorCard({ sectors }: Props) {
   const { colors } = useTheme();
 
   const coloredSectors = sectors.map((s, i) => ({

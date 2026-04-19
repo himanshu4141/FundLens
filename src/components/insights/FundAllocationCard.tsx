@@ -11,7 +11,7 @@ interface Props {
   totalValue: number;
 }
 
-export function FundAllocationCard({ fundAllocation, totalValue }: Props) {
+export function FundAllocationCard({ fundAllocation }: Props) {
   const { colors } = useTheme();
 
   const pieData = fundAllocation.map((f) => ({
@@ -49,7 +49,7 @@ export function FundAllocationCard({ fundAllocation, totalValue }: Props) {
 
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      {fundAllocation.map((f, idx) => (
+      {fundAllocation.map((f) => (
         <View key={f.fundId} style={[styles.tableRow, { borderTopColor: colors.borderLight }]}>
           <View style={[styles.dot, { backgroundColor: f.color }]} />
           <Text style={[styles.fundName, { color: colors.textPrimary }]} numberOfLines={1}>

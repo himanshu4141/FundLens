@@ -264,7 +264,7 @@ export function usePortfolioInsights(fundCards: FundCardData[]) {
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      await supabase.auth.getSession();
       const res = await supabase.functions.invoke('sync-fund-portfolios', {
         body: {},
       });

@@ -111,7 +111,7 @@ export interface PortfolioInsights {
   dataSource: CompositionSource;
   assetMix: AssetMix;
   marketCapMix: MarketCapMix;
-  sectorBreakdown: Array<{ sector: string; weight: number; value: number }> | null;
+  sectorBreakdown: { sector: string; weight: number; value: number }[] | null;
   topHoldings: InsightHolding[] | null;
   fundAllocation: InsightFundAllocation[];
   missingDataFunds: string[];
