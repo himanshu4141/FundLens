@@ -34,14 +34,18 @@ export default function OAuthCallbackScreen() {
   useEffect(() => {
     // ── Web path ──────────────────────────────────────────────────────────────
     if (Platform.OS === 'web') {
-      // Mobile browser acting as OAuth redirect target → hand off to native app
+      // Bridge to native app only when running at the production native-bridge
+      // URL (fund-lens.vercel.app). Preview deployments serve the web app on a
+      // different hostname — mobile visitors there should get a web session, not
+      // an app redirect.
       const ua = window.navigator.userAgent.toLowerCase();
-      if (/iphone|ipad|ipod|android/.test(ua)) {
+      const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
+      if (/iphone|ipad|ipod|android/.test(ua) && isNativeBridgeHost) {
         // Preserve the full query string so the native app receives the code
         window.location.replace('fundlens://auth/callback' + window.location.search);
       }
-      // Desktop web: Supabase detectSessionInUrl auto-exchanges the code.
-      // Show spinner; AuthGate handles navigation once the session appears.
+      // Desktop web, or mobile on a non-bridge host: Supabase detectSessionInUrl
+      // auto-exchanges the code. Show spinner; AuthGate navigates once session appears.
       return;
     }
 

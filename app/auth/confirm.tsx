@@ -25,10 +25,13 @@ export default function ConfirmScreen() {
     const hash = window.location.hash;
     if (!hash || hash.length <= 1) return;
 
-    // Only attempt the scheme handoff from mobile browsers. Desktop web sign-ins
-    // should stay in the browser and let Supabase complete the session normally.
+    // Only bridge to the native app from mobile browsers AND when running at the
+    // production native-bridge host. Preview deployments serve the web app on a
+    // different hostname — their mobile visitors should get a web session, not a
+    // native-app redirect.
     const ua = window.navigator.userAgent.toLowerCase();
-    if (!/iphone|ipad|ipod|android/.test(ua)) return;
+    const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
+    if (!/iphone|ipad|ipod|android/.test(ua) || !isNativeBridgeHost) return;
 
     // Attempt to hand off to native app; browser ignores this if no app is installed.
     window.location.replace(`fundlens://auth/confirm${hash}`);
