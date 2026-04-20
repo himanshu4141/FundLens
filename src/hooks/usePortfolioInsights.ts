@@ -49,14 +49,14 @@ async function fetchCompositions(schemeCodes: number[]): Promise<FundPortfolioCo
   if (!schemeCodes.length) return [];
 
   // Fetch the single best row per scheme_code:
-  // prefer 'amfi' over 'category_rules', prefer more recent portfolio_date.
-  // source DESC puts 'category_rules' < 'amfi' alphabetically — gives us amfi first.
+  // prefer 'amfi' over 'category_rules', then most recent date.
+  // 'amfi' < 'category_rules' alphabetically, so ASC puts amfi first.
   const { data, error } = await supabase
     .from('fund_portfolio_composition')
     .select('scheme_code, portfolio_date, equity_pct, debt_pct, cash_pct, other_pct, large_cap_pct, mid_cap_pct, small_cap_pct, not_classified_pct, sector_allocation, top_holdings, source')
     .in('scheme_code', schemeCodes)
     .order('scheme_code', { ascending: true })
-    .order('source', { ascending: false }) // 'amfi' > 'category_rules' alphabetically — prefer real data
+    .order('source', { ascending: true }) // 'amfi' < 'category_rules' — ASC puts amfi first
     .order('portfolio_date', { ascending: false });
 
   if (error) throw error;
