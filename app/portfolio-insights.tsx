@@ -14,6 +14,7 @@ import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { useAppStore } from '@/src/store/appStore';
 import { AssetMixCard } from '@/src/components/insights/AssetMixCard';
+import { DebtCard } from '@/src/components/insights/DebtCard';
 import { MarketCapCard } from '@/src/components/insights/MarketCapCard';
 import { FundAllocationCard } from '@/src/components/insights/FundAllocationCard';
 import { SectorCard } from '@/src/components/insights/SectorCard';
@@ -73,11 +74,11 @@ export default function PortfolioInsightsScreen() {
 
         {/* Estimated data notice — shown when composition comes from category rules, not actual AMFI data */}
         {insights && insights.dataSource === 'category_rules' && !isSyncing && (
-          <View style={[styles.estimateBanner, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
-            <Ionicons name="information-circle-outline" size={18} color="#2563eb" style={styles.estimateIcon} />
+          <View style={[styles.estimateBanner, { backgroundColor: colors.primaryLight, borderColor: colors.border }]}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.primary} style={styles.estimateIcon} />
             <View style={styles.estimateTextBlock}>
-              <Text style={styles.estimateHeading}>Showing estimated data</Text>
-              <Text style={styles.estimateBody}>
+              <Text style={[styles.estimateHeading, { color: colors.primary }]}>Showing estimated data</Text>
+              <Text style={[styles.estimateBody, { color: colors.primary }]}>
                 Asset mix and market cap figures are derived from SEBI&apos;s fund category framework,
                 not actual holdings. Real sector and stock data loads automatically each month
                 from AMFI portfolio disclosures.
@@ -92,7 +93,7 @@ export default function PortfolioInsightsScreen() {
           <NoDataState colors={colors} isSyncing={isSyncing} onSync={triggerSync} />
         ) : (
           <>
-            {/* Asset Mix — always available */}
+            {/* Asset Mix — overview of equity/debt/cash split */}
             <AssetMixCard
               totalValue={insights.totalValue}
               assetMix={insights.assetMix}
@@ -100,18 +101,24 @@ export default function PortfolioInsightsScreen() {
               dataAsOf={insights.dataAsOf}
             />
 
-            {/* Market Cap Mix — always available */}
-            <MarketCapCard
-              totalValue={insights.totalValue}
-              equityPct={insights.assetMix.equity}
-              marketCapMix={insights.marketCapMix}
-            />
+            {/* Debt & Cash — shown if portfolio has meaningful non-equity exposure */}
+            {(insights.assetMix.debt >= 1 || insights.assetMix.cash >= 5) && (
+              <DebtCard
+                totalValue={insights.totalValue}
+                debtPct={insights.assetMix.debt}
+                cashPct={insights.assetMix.cash}
+                debtFunds={insights.debtFunds}
+              />
+            )}
 
-            {/* Fund Allocation — always available */}
-            <FundAllocationCard
-              fundAllocation={insights.fundAllocation}
-              totalValue={insights.totalValue}
-            />
+            {/* Market Cap Mix — equity composition */}
+            {insights.assetMix.equity > 5 && (
+              <MarketCapCard
+                totalValue={insights.totalValue}
+                equityPct={insights.assetMix.equity}
+                marketCapMix={insights.marketCapMix}
+              />
+            )}
 
             {/* Sector Break-up — requires AMFI data */}
             {insights.sectorBreakdown ? (
@@ -144,6 +151,12 @@ export default function PortfolioInsightsScreen() {
                 onSync={triggerSync}
               />
             )}
+
+            {/* Fund Allocation — how the portfolio splits across funds */}
+            <FundAllocationCard
+              fundAllocation={insights.fundAllocation}
+              totalValue={insights.totalValue}
+            />
 
             {/* Missing data footnote */}
             {insights.missingDataFunds.length > 0 && (
@@ -283,11 +296,9 @@ function makeStyles(colors: AppColors) {
     estimateHeading: {
       ...Typography.bodySmall,
       fontWeight: '700',
-      color: '#1d4ed8',
     },
     estimateBody: {
       ...Typography.bodySmall,
-      color: '#1e40af',
       lineHeight: 18,
     },
     footnote: {

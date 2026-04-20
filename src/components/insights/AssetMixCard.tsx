@@ -29,7 +29,6 @@ const ASSET_COLORS = {
 
 export function AssetMixCard({ totalValue, assetMix, source, dataAsOf }: Props) {
   const { colors } = useTheme();
-
   const rows: AssetRow[] = [
     { label: 'Equity', color: ASSET_COLORS.equity, pct: assetMix.equity, value: (assetMix.equity / 100) * totalValue },
     { label: 'Debt', color: ASSET_COLORS.debt, pct: assetMix.debt, value: (assetMix.debt / 100) * totalValue },
@@ -90,9 +89,9 @@ export function AssetMixCard({ totalValue, assetMix, source, dataAsOf }: Props) 
       {source === 'amfi' ? (
         <Text style={[styles.sourceBadge, { color: colors.textTertiary }]}>{sourceLabel}</Text>
       ) : (
-        <View style={styles.estimateFooter}>
-          <Ionicons name="information-circle-outline" size={12} color="#2563eb" />
-          <Text style={styles.estimateFooterText}>
+        <View style={[styles.estimateFooter, { backgroundColor: colors.primaryLight }]}>
+          <Ionicons name="information-circle-outline" size={12} color={colors.primary} />
+          <Text style={[styles.estimateFooterText, { color: colors.primary }]}>
             Estimated from fund category · actual data loads monthly from AMFI
           </Text>
         </View>
@@ -199,10 +198,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginTop: Spacing.sm,
+    borderRadius: Radii.sm,
+    padding: Spacing.sm,
   },
   estimateFooterText: {
     ...Typography.caption,
-    color: '#2563eb',
     flex: 1,
   },
 });

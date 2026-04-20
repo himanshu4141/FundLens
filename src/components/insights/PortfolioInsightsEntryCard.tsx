@@ -21,6 +21,10 @@ const ASSET_COLORS = {
   other: '#a78bfa',
 };
 
+const CAP_COLORS = {
+  large: '#3b82f6',
+};
+
 export function PortfolioInsightsEntryCard({
   insights,
   isLoading,
@@ -82,29 +86,35 @@ export function PortfolioInsightsEntryCard({
               )}
             </View>
 
-            {/* Key stats row */}
-            <View style={styles.statsRow}>
-              <StatPill
-                label={`${insights.assetMix.equity.toFixed(0)}% Equity`}
-                color={ASSET_COLORS.equity}
-                textColor={colors.textSecondary}
+            {/* Key stats grid */}
+            <View style={styles.statsGrid}>
+              <StatBox
+                label="Equity"
+                value={`${insights.assetMix.equity.toFixed(0)}%`}
+                accentColor={ASSET_COLORS.equity}
+                colors={colors}
               />
-              <Text style={[styles.dot, { color: colors.textTertiary }]}>·</Text>
-              <StatPill
-                label={`${insights.marketCapMix.large.toFixed(0)}% Large Cap`}
-                color="#3b82f6"
-                textColor={colors.textSecondary}
-              />
-              {insights.sectorBreakdown && (
-                <>
-                  <Text style={[styles.dot, { color: colors.textTertiary }]}>·</Text>
-                  <StatPill
-                    label={`${insights.sectorBreakdown.length} Sectors`}
-                    color={colors.primary}
-                    textColor={colors.textSecondary}
-                  />
-                </>
+              {insights.assetMix.debt > 1 ? (
+                <StatBox
+                  label="Debt"
+                  value={`${insights.assetMix.debt.toFixed(0)}%`}
+                  accentColor={ASSET_COLORS.debt}
+                  colors={colors}
+                />
+              ) : (
+                <StatBox
+                  label="Cash"
+                  value={`${insights.assetMix.cash.toFixed(0)}%`}
+                  accentColor={ASSET_COLORS.cash}
+                  colors={colors}
+                />
               )}
+              <StatBox
+                label="Large Cap"
+                value={`${insights.marketCapMix.large.toFixed(0)}%`}
+                accentColor={CAP_COLORS.large}
+                colors={colors}
+              />
             </View>
 
             {/* Data quality indicator */}
@@ -113,9 +123,9 @@ export function PortfolioInsightsEntryCard({
                 AMFI disclosure · {formatDate(insights.dataAsOf)}
               </Text>
             ) : (
-              <View style={styles.estimateChip}>
-                <Ionicons name="information-circle-outline" size={12} color="#2563eb" />
-                <Text style={styles.estimateChipText}>Estimated · Tap for details</Text>
+              <View style={[styles.estimateChip, { backgroundColor: colors.primaryLight }]}>
+                <Ionicons name="information-circle-outline" size={12} color={colors.primary} />
+                <Text style={[styles.estimateChipText, { color: colors.primary }]}>Estimated · Tap for details</Text>
               </View>
             )}
           </>
@@ -131,11 +141,23 @@ export function PortfolioInsightsEntryCard({
   );
 }
 
-function StatPill({ label, textColor }: { label: string; color: string; textColor: string }) {
+function StatBox({
+  label,
+  value,
+  accentColor,
+  colors,
+}: {
+  label: string;
+  value: string;
+  accentColor: string;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
   return (
-    <Text style={[styles.statPill, { color: textColor }]}>
-      {label}
-    </Text>
+    <View style={[styles.statBox, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderLight }]}>
+      <View style={[styles.statAccent, { backgroundColor: accentColor }]} />
+      <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
+    </View>
   );
 }
 
@@ -182,19 +204,33 @@ const styles = StyleSheet.create({
   barSeg: {
     height: '100%',
   },
-  statsRow: {
+  statsGrid: {
     flexDirection: 'row',
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  statBox: {
+    flex: 1,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 6,
+    gap: 2,
   },
-  statPill: {
-    ...Typography.bodySmall,
-    fontWeight: '500',
+  statAccent: {
+    width: 16,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: 2,
   },
-  dot: {
-    ...Typography.bodySmall,
+  statValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  statLabel: {
+    ...Typography.caption,
   },
   sourceBadge: {
     ...Typography.caption,
@@ -204,14 +240,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
     alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
     borderRadius: 4,
     paddingVertical: 2,
     paddingHorizontal: 6,
   },
   estimateChipText: {
     ...Typography.caption,
-    color: '#2563eb',
     fontWeight: '500',
   },
   skeleton: {

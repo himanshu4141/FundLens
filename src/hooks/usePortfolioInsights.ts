@@ -20,6 +20,7 @@ import type {
   MarketCapMix,
   InsightHolding,
   InsightFundAllocation,
+  InsightDebtFund,
   CompositionSource,
 } from '@/src/types/app';
 
@@ -98,6 +99,7 @@ export function computeInsights(
   const compByScheme = new Map(compositions.map((c) => [c.schemeCode, c]));
 
   const missingDataFunds: string[] = [];
+  const debtFunds: InsightDebtFund[] = [];
   let worstDate = new Date();
   let estimatedWeightPct = 0; // % of portfolio value covered by category_rules
 
@@ -131,6 +133,17 @@ export function computeInsights(
     }
 
     if (comp.source === 'category_rules') estimatedWeightPct += weight * 100;
+
+    // Funds with meaningful debt or cash exposure
+    if (comp.debtPct >= 1 || comp.cashPct >= 5) {
+      debtFunds.push({
+        fundId: fund.id,
+        shortName: parseFundName(fund.schemeName).base,
+        debtPct: comp.debtPct,
+        cashPct: comp.cashPct,
+        portfolioPct: weight * 100,
+      });
+    }
 
     // Track oldest data date
     const compDate = new Date(comp.portfolioDate);
@@ -230,6 +243,9 @@ export function computeInsights(
   // Show estimated banner only if >10% of portfolio value lacks real data
   const dataSource: CompositionSource = estimatedWeightPct > 10 ? 'category_rules' : 'amfi';
 
+  // Sort debt funds by portfolio weight descending
+  debtFunds.sort((a, b) => b.portfolioPct - a.portfolioPct);
+
   return {
     totalValue,
     dataAsOf: worstDate.toISOString().split('T')[0],
@@ -239,6 +255,7 @@ export function computeInsights(
     sectorBreakdown,
     topHoldings,
     fundAllocation,
+    debtFunds,
     missingDataFunds,
   };
 }

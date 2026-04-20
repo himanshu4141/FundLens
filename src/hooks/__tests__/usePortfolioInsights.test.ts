@@ -299,4 +299,46 @@ describe('computeInsights', () => {
       expect(fin.value).toBe(40_000);
     });
   });
+
+  describe('debtFunds', () => {
+    it('includes fund with meaningful debt (>=1%) in debtFunds', () => {
+      const fund = makeFundCard({ id: 'hybrid', schemeCode: 100001, schemeName: 'DSP Aggressive Hybrid Fund' });
+      const comp = makeComposition({ debtPct: 17, cashPct: 16, equityPct: 67 });
+      const result = computeInsights([fund], [comp]);
+      expect(result.debtFunds).toHaveLength(1);
+      expect(result.debtFunds[0].debtPct).toBeCloseTo(17, 1);
+      expect(result.debtFunds[0].cashPct).toBeCloseTo(16, 1);
+      expect(result.debtFunds[0].portfolioPct).toBeCloseTo(100, 1);
+    });
+
+    it('includes fund with cash >= 5% even if debt is 0', () => {
+      const fund = makeFundCard();
+      const comp = makeComposition({ debtPct: 0, cashPct: 5, equityPct: 95 });
+      const result = computeInsights([fund], [comp]);
+      expect(result.debtFunds).toHaveLength(1);
+    });
+
+    it('excludes pure equity fund with trivial cash (<5%)', () => {
+      const fund = makeFundCard();
+      const comp = makeComposition({ debtPct: 0, cashPct: 3, equityPct: 97 });
+      const result = computeInsights([fund], [comp]);
+      expect(result.debtFunds).toHaveLength(0);
+    });
+
+    it('sorts debtFunds by portfolio weight descending', () => {
+      const fundA = makeFundCard({ id: 'a', schemeCode: 100001, schemeName: 'Hybrid Fund', currentValue: 60_000 });
+      const fundB = makeFundCard({ id: 'b', schemeCode: 100002, schemeName: 'Debt Fund', currentValue: 40_000 });
+      const compA = makeComposition({ schemeCode: 100001, debtPct: 20, cashPct: 5, equityPct: 75 });
+      const compB = makeComposition({ schemeCode: 100002, debtPct: 90, cashPct: 10, equityPct: 0 });
+      const result = computeInsights([fundA, fundB], [compA, compB]);
+      expect(result.debtFunds[0].portfolioPct).toBeGreaterThan(result.debtFunds[1].portfolioPct);
+    });
+
+    it('returns empty debtFunds for pure equity portfolio', () => {
+      const fund = makeFundCard();
+      const comp = makeComposition({ debtPct: 0, cashPct: 3, equityPct: 97 });
+      const result = computeInsights([fund], [comp]);
+      expect(result.debtFunds).toHaveLength(0);
+    });
+  });
 });

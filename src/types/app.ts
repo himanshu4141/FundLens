@@ -105,6 +105,14 @@ export interface InsightFundAllocation {
   color: string;
 }
 
+export interface InsightDebtFund {
+  fundId: string;
+  shortName: string;
+  debtPct: number;
+  cashPct: number;
+  portfolioPct: number;
+}
+
 export interface PortfolioInsights {
   totalValue: number;
   dataAsOf: string;
@@ -114,5 +122,6 @@ export interface PortfolioInsights {
   sectorBreakdown: { sector: string; weight: number; value: number }[] | null;
   topHoldings: InsightHolding[] | null;
   fundAllocation: InsightFundAllocation[];
+  debtFunds: InsightDebtFund[];
   missingDataFunds: string[];
 }
