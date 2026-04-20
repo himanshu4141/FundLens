@@ -43,14 +43,7 @@ jobs:
       - name: Publish EAS Update
         id: eas-update
         run: |
-          OUTPUT=$(eas update \
-            --branch "pr-${{ github.event.number }}" \
-            --message "PR #${{ github.event.number }}: ${{ github.event.pull_request.title }}" \
-            --non-interactive \
-            --json 2>/dev/null || echo '[]')
-          # Kill any lingering Metro/node processes that prevent the step from exiting
-          pkill -9 -f "metro" 2>/dev/null || true
-          pkill -9 -f "jest-worker" 2>/dev/null || true
+          OUTPUT=$(python3 scripts/eas-update.py)
           UPDATE_URL=$(echo "$OUTPUT" | node -e "
             const updates = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
             const first = Array.isArray(updates) ? updates[0] : null;
@@ -60,6 +53,12 @@ jobs:
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EAS_UPDATE_COMMAND: >-
+            eas update
+            --branch pr-${{ github.event.number }}
+            --message PR #${{ github.event.number }}: ${{ github.event.pull_request.title }}
+            --non-interactive
+            --json
       - name: Comment QR on PR
         uses: actions/github-script@v7
         with:
