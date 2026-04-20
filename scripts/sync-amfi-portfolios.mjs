@@ -73,14 +73,26 @@ const CATEGORY_RULES = {
   'solution oriented - childrens': { equity: 70, debt: 25, cash: 5, other: 0, large: 50, mid: 28, small: 22 },
 };
 
+// Generic single-word categories that AMFI sometimes uses — map to reasonable defaults
+const GENERIC_CATEGORY_MAP = {
+  'equity': { equity: 93, debt: 0,  cash: 7,  other: 0,   large: 38, mid: 33, small: 29 }, // flexi cap proxy
+  'debt':   { equity: 0,  debt: 90, cash: 10, other: 0,   large: 0,  mid: 0,  small: 0  },
+  'hybrid': { equity: 65, debt: 25, cash: 10, other: 0,   large: 48, mid: 28, small: 24 },
+  'other':  { equity: 0,  debt: 0,  cash: 0,  other: 100, large: 0,  mid: 0,  small: 0  },
+};
+
 const FALLBACK_COMPOSITION = { equity: 80, debt: 10, cash: 10, other: 0, large: 50, mid: 30, small: 20 };
 
 function getCategoryRules(schemeCategory) {
   const key = schemeCategory.toLowerCase().trim();
   if (CATEGORY_RULES[key]) return CATEGORY_RULES[key];
-  for (const [pattern, comp] of Object.entries(CATEGORY_RULES)) {
-    if (key.includes(pattern) || pattern.includes(key.split(' ').slice(0, 3).join(' '))) {
-      return comp;
+  if (GENERIC_CATEGORY_MAP[key]) return GENERIC_CATEGORY_MAP[key];
+  // Partial match: only fire when the key has 2+ words to avoid 'equity' matching 'equity savings fund'
+  if (key.split(' ').length >= 2) {
+    for (const [pattern, comp] of Object.entries(CATEGORY_RULES)) {
+      if (key.includes(pattern) || pattern.includes(key.split(' ').slice(0, 3).join(' '))) {
+        return comp;
+      }
     }
   }
   return FALLBACK_COMPOSITION;
@@ -126,12 +138,12 @@ async function getFamilyHoldings(familyId) {
 function buildPortfolioFromHoldings(holdings, schemeCategory) {
   const catRules = getCategoryRules(schemeCategory);
 
-  // equity_pct from API is reliable for equity funds
+  // equity_pct from API is reliable; debt/cash from category_rules as approximation
   const equityPct = typeof holdings.equity_pct === 'number' ? holdings.equity_pct : catRules.equity;
-  // debt/cash from category_rules (API's debt_pct is unreliable for equity funds)
-  const debtPct = catRules.debt;
+  // Cap debt so equity + debt never exceeds 100 (guards against bad category matches)
+  const debtPct = Math.min(catRules.debt, Math.max(0, 100 - equityPct));
   const cashPct = Math.max(0, 100 - equityPct - debtPct);
-  const otherPct = Math.max(0, 100 - equityPct - debtPct - cashPct);
+  const otherPct = 0;
 
   // Build sector allocation from real holdings
   const sectorMap = {};
