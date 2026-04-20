@@ -28,6 +28,7 @@ from typing import Any
 
 GRACE_SECONDS = int(os.environ.get("EAS_UPDATE_GRACE_SECONDS", "15"))
 HARD_TIMEOUT_SECONDS = int(os.environ.get("EAS_UPDATE_TIMEOUT_SECONDS", str(18 * 60)))
+EXPORT_MARKER = "Exported: dist"
 
 
 def terminate_process_group(proc: subprocess.Popen[str]) -> None:
@@ -67,6 +68,47 @@ def parse_success(stdout_text: str) -> bool:
     return False
 
 
+def list_descendants(root_pid: int) -> list[int]:
+    result: set[int] = set()
+    try:
+        output = subprocess.check_output(
+            ["ps", "-eo", "pid=", "-o", "ppid="],
+            text=True,
+        )
+    except Exception:
+        return []
+
+    children_by_parent: dict[int, list[int]] = {}
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        pid, ppid = int(parts[0]), int(parts[1])
+        children_by_parent.setdefault(ppid, []).append(pid)
+
+    stack = list(children_by_parent.get(root_pid, []))
+    while stack:
+        pid = stack.pop()
+        if pid in result:
+            continue
+        result.add(pid)
+        stack.extend(children_by_parent.get(pid, []))
+    return sorted(result)
+
+
+def terminate_descendants(root_pid: int) -> None:
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        pids = list_descendants(root_pid)
+        if not pids:
+            return
+        for pid in pids:
+            try:
+                os.kill(pid, sig)
+            except ProcessLookupError:
+                continue
+        time.sleep(0.5)
+
+
 def main() -> int:
     custom_command = os.environ.get("EAS_UPDATE_COMMAND")
     if custom_command:
@@ -94,6 +136,8 @@ def main() -> int:
         )
 
         success_at: float | None = None
+        export_at: float | None = None
+        descendants_terminated = False
         started_at = time.monotonic()
         stderr_pos = 0
 
@@ -107,6 +151,8 @@ def main() -> int:
                 sys.stderr.write(err_chunk)
                 sys.stderr.flush()
                 stderr_pos = stderr_file.tell()
+                if export_at is None and EXPORT_MARKER in err_chunk:
+                    export_at = time.monotonic()
 
             stdout_file.flush()
             stdout_file.seek(0)
@@ -125,6 +171,19 @@ def main() -> int:
                 return exit_code
 
             now = time.monotonic()
+            if (
+                export_at is not None
+                and not descendants_terminated
+                and success_at is None
+                and now - export_at >= GRACE_SECONDS
+            ):
+                print(
+                    "Expo export reached dist; terminating lingering child processes so EAS can finish.",
+                    file=sys.stderr,
+                )
+                terminate_descendants(proc.pid)
+                descendants_terminated = True
+
             if success_at is not None and now - success_at >= GRACE_SECONDS:
                 print(
                     "EAS update completed; terminating lingering update processes.",
