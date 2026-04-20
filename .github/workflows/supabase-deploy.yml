@@ -1,7 +1,7 @@
 name: Deploy Supabase
 
 # Triggered on pushes to main that touch edge functions or migrations.
-# Requires secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_URL
+# Requires secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF
 
 on:
   workflow_dispatch:  # allow manual runs from GitHub Actions tab
@@ -43,10 +43,15 @@ jobs:
         with:
           version: latest
 
+      # `supabase db push` has no --project-ref flag; link the project first so
+      # the subsequent push uses the Management API (IPv4/HTTPS) rather than a
+      # direct DB connection (now IPv6, unreachable from GitHub Actions runners).
+      - name: Link Supabase project
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
       - name: Push migrations
-        # Uses the Supabase Management API (--project-ref) instead of a direct
-        # DB connection (--db-url). Direct connections now use IPv6 which GitHub
-        # Actions runners don't support; the API endpoint is IPv4/HTTPS.
-        run: supabase db push --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        run: supabase db push --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
