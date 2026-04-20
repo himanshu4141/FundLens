@@ -47,14 +47,29 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      // Edge Function expects the raw PDF bytes, not multipart form data.
-      const fileResponse = await fetch(asset.uri);
-      const pdfBlob = await fileResponse.blob();
+      // fetch() does not support file:// URIs on Android — use XHR which handles
+      // both file:// and content:// URIs correctly on all platforms.
+      const pdfBytes = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', asset.uri);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = () => {
+          // XHR status is 0 for local file:// reads (no HTTP status)
+          if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
+            resolve(xhr.response as ArrayBuffer);
+          } else {
+            reject(new Error(`Failed to read file (status ${xhr.status})`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Could not read the PDF file'));
+        xhr.send();
+      });
 
       const { data, error } = await supabase.functions.invoke('parse-cas-pdf', {
         method: 'POST',
-        body: pdfBlob,
+        body: pdfBytes,
         headers: {
+          'Content-Type': 'application/octet-stream',
           'x-file-name': asset.name ?? 'cas.pdf',
         },
       });

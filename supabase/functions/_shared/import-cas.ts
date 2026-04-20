@@ -28,7 +28,13 @@
  *   SEGREGATION, STAMP_DUTY_TAX, TDS_TAX, STT_TAX, MISC, REVERSAL, UNKNOWN
  */
 
-import { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+// Minimal structural type for the Supabase client — the real client satisfies
+// this via duck typing in Deno; tests pass a plain mock object that matches.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface SupabaseClient {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  from(table: string): any;
+}
 
 // ── CASParser response types ──────────────────────────────────────────────────
 
@@ -92,8 +98,8 @@ export function parseDate(raw: string): string {
 // ── Transaction type normalisation ───────────────────────────────────────────
 // CASParser sends uppercase types; we normalise to our DB enum values.
 
-export function normaliseTxType(raw: string): string {
-  if (!raw) return 'purchase';
+export function normaliseTxType(raw: string): string | null {
+  if (!raw) return null;
   const upper = raw.toUpperCase().trim();
 
   if (upper === 'PURCHASE' || upper === 'PURCHASE_SIP') return 'purchase';
@@ -102,6 +108,20 @@ export function normaliseTxType(raw: string): string {
   if (upper === 'SWITCH_OUT' || upper === 'SWITCH_OUT_MERGER') return 'switch_out';
   if (upper === 'DIVIDEND_REINVEST') return 'dividend_reinvest';
   if (upper === 'DIVIDEND_PAYOUT') return 'dividend';
+  // A reversal undoes a prior purchase (failed payment return) — treat as redemption
+  // so units are subtracted rather than added to the holding.
+  if (upper === 'REVERSAL') return 'redemption';
+
+  // SEGREGATION, STAMP_DUTY_TAX, TDS_TAX, STT_TAX, MISC, UNKNOWN — not meaningful
+  // for portfolio accounting; skip rather than default to 'purchase'.
+  if (
+    upper === 'SEGREGATION' ||
+    upper === 'STAMP_DUTY_TAX' ||
+    upper === 'TDS_TAX' ||
+    upper === 'STT_TAX' ||
+    upper === 'MISC' ||
+    upper === 'UNKNOWN'
+  ) return null;
 
   // Also handle legacy lowercase values (for parse-cas-pdf manual uploads)
   const lower = raw.toLowerCase().trim();
@@ -112,7 +132,8 @@ export function normaliseTxType(raw: string): string {
   if (lower.includes('dividend reinvest')) return 'dividend_reinvest';
   if (lower.includes('dividend')) return 'dividend';
 
-  return 'purchase';
+  // Anything else unrecognised — skip rather than silently import as a purchase.
+  return null;
 }
 
 // ── Core import logic ─────────────────────────────────────────────────────────
@@ -183,6 +204,26 @@ export async function importCASData(
       fundsUpdated++;
       console.log('[import-cas] upserted fund %d "%s"', schemeCode, mf.name);
 
+      // For any REVERSAL transactions, delete the previously mis-imported 'purchase'
+      // row (same fund, date, units, amount) so re-imports fix existing bad data.
+      const reversals = (mf.transactions ?? []).filter(
+        (tx) => (tx.type ?? '').toUpperCase().trim() === 'REVERSAL',
+      );
+      for (const rev of reversals) {
+        const revUnits = Math.abs(rev.units ?? 0);
+        const revAmount = Math.abs(rev.amount ?? 0);
+        if (revUnits > 0) {
+          await supabase
+            .from('transaction')
+            .delete()
+            .eq('fund_id', fundRow.id as string)
+            .eq('transaction_date', parseDate(rev.date ?? ''))
+            .eq('transaction_type', 'purchase')
+            .eq('units', revUnits)
+            .eq('amount', revAmount);
+        }
+      }
+
       const txRows = (mf.transactions ?? [])
         .map((tx) => ({
           user_id: userId,
@@ -195,7 +236,7 @@ export async function importCASData(
           folio_number: folio.folio_number ?? null,
           cas_import_id: importId,
         }))
-        .filter((tx) => tx.units > 0);
+        .filter((tx) => tx.units > 0 && tx.transaction_type !== null);
 
       if (txRows.length > 0) {
         const { error: txErr, count } = await supabase

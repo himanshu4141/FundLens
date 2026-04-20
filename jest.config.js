@@ -6,6 +6,7 @@ const config = {
     '<rootDir>/src/utils/**/*.test.ts',
     '<rootDir>/src/hooks/**/*.test.ts',
     '<rootDir>/src/store/**/*.test.ts',
+    '<rootDir>/supabase/functions/_shared/**/*.test.ts',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
@@ -16,6 +17,7 @@ const config = {
   // Collect coverage from all src files so untested files show as 0%
   collectCoverageFrom: [
     'src/**/*.ts',            // .ts only — .tsx files contain JSX that breaks Node instrumenter
+    'supabase/functions/_shared/import-cas.ts', // edge-function logic with dedicated tests
     '!src/**/*.test.ts',
     '!src/types/**',          // pure type declarations — nothing executable to cover
     '!src/lib/supabase.ts',   // React Native + Supabase bootstrap — not runnable in Node

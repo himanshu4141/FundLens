@@ -44,7 +44,9 @@ jobs:
           version: latest
 
       - name: Push migrations
-        # Uses direct DB URL — no Docker required in CI
-        run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}"
+        # Uses the Supabase Management API (--project-ref) instead of a direct
+        # DB connection (--db-url). Direct connections now use IPv6 which GitHub
+        # Actions runners don't support; the API endpoint is IPv4/HTTPS.
+        run: supabase db push --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
