@@ -92,8 +92,8 @@ export function parseDate(raw: string): string {
 // ── Transaction type normalisation ───────────────────────────────────────────
 // CASParser sends uppercase types; we normalise to our DB enum values.
 
-export function normaliseTxType(raw: string): string {
-  if (!raw) return 'purchase';
+export function normaliseTxType(raw: string): string | null {
+  if (!raw) return null;
   const upper = raw.toUpperCase().trim();
 
   if (upper === 'PURCHASE' || upper === 'PURCHASE_SIP') return 'purchase';
@@ -106,6 +106,17 @@ export function normaliseTxType(raw: string): string {
   // so units are subtracted rather than added to the holding.
   if (upper === 'REVERSAL') return 'redemption';
 
+  // SEGREGATION, STAMP_DUTY_TAX, TDS_TAX, STT_TAX, MISC, UNKNOWN — not meaningful
+  // for portfolio accounting; skip rather than default to 'purchase'.
+  if (
+    upper === 'SEGREGATION' ||
+    upper === 'STAMP_DUTY_TAX' ||
+    upper === 'TDS_TAX' ||
+    upper === 'STT_TAX' ||
+    upper === 'MISC' ||
+    upper === 'UNKNOWN'
+  ) return null;
+
   // Also handle legacy lowercase values (for parse-cas-pdf manual uploads)
   const lower = raw.toLowerCase().trim();
   if (lower === 'purchase' || lower === 'buy' || lower === 'sip') return 'purchase';
@@ -115,7 +126,8 @@ export function normaliseTxType(raw: string): string {
   if (lower.includes('dividend reinvest')) return 'dividend_reinvest';
   if (lower.includes('dividend')) return 'dividend';
 
-  return 'purchase';
+  // Anything else unrecognised — skip rather than silently import as a purchase.
+  return null;
 }
 
 // ── Core import logic ─────────────────────────────────────────────────────────
@@ -218,7 +230,7 @@ export async function importCASData(
           folio_number: folio.folio_number ?? null,
           cas_import_id: importId,
         }))
-        .filter((tx) => tx.units > 0);
+        .filter((tx) => tx.units > 0 && tx.transaction_type !== null);
 
       if (txRows.length > 0) {
         const { error: txErr, count } = await supabase
