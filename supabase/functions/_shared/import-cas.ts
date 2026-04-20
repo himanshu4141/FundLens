@@ -28,7 +28,13 @@
  *   SEGREGATION, STAMP_DUTY_TAX, TDS_TAX, STT_TAX, MISC, REVERSAL, UNKNOWN
  */
 
-import { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+// Minimal structural type for the Supabase client — the real client satisfies
+// this via duck typing in Deno; tests pass a plain mock object that matches.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface SupabaseClient {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  from(table: string): any;
+}
 
 // ── CASParser response types ──────────────────────────────────────────────────
 
