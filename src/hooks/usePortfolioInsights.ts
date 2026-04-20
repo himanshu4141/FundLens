@@ -46,7 +46,7 @@ const STALE_DAYS = 35;
 // DB fetch
 // ---------------------------------------------------------------------------
 
-async function fetchCompositions(schemeCodes: number[]): Promise<FundPortfolioComposition[]> {
+export async function fetchCompositions(schemeCodes: number[]): Promise<FundPortfolioComposition[]> {
   if (!schemeCodes.length) return [];
 
   // Fetch the single best row per scheme_code:

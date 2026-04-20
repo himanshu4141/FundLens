@@ -20,6 +20,7 @@ import {
   indexTo100,
   type TimeWindow,
 } from '@/src/hooks/useFundDetail';
+import { useFundComposition } from '@/src/hooks/useFundComposition';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { computeQuarterlyReturns } from '@/src/utils/quarterlyReturns';
 import { formatXirr } from '@/src/utils/xirr';
@@ -904,13 +905,294 @@ function makeDonutStyles(colors: AppColors) {
 }
 
 // ---------------------------------------------------------------------------
+// Fund Composition Tab
+// ---------------------------------------------------------------------------
+
+const COMP_ASSET_COLORS = {
+  equity: '#ef4444',
+  debt: '#3b82f6',
+  cash: '#f97316',
+  other: '#a78bfa',
+};
+
+const COMP_CAP_COLORS = {
+  large: '#3b82f6',
+  mid: '#f97316',
+  small: '#ef4444',
+  other: '#a78bfa',
+};
+
+function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const cs = useMemo(() => makeCompStyles(colors), [colors]);
+  const { composition, isLoading } = useFundComposition(schemeCode);
+
+  if (isLoading) {
+    return (
+      <View style={[s.tabContent, { alignItems: 'center', paddingTop: 40 }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!composition) {
+    return (
+      <View style={s.tabContent}>
+        <View style={s.noData}>
+          <Ionicons name="pie-chart-outline" size={32} color={colors.textTertiary} />
+          <Text style={s.noDataText}>No composition data available for this fund.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const hasMarketCap = composition.largeCapPct !== null && composition.equityPct > 5;
+  const sectors = composition.sectorAllocation
+    ? Object.entries(composition.sectorAllocation).sort(([, a], [, b]) => b - a).slice(0, 8)
+    : null;
+  const holdings = composition.topHoldings?.slice(0, 10) ?? null;
+
+  return (
+    <View style={s.tabContent}>
+      {/* Asset Mix */}
+      <View style={[s.chartCard, { gap: Spacing.sm }]}>
+        <Text style={cs.cardTitle}>Asset Mix</Text>
+        <View style={cs.stackedBar}>
+          {composition.equityPct > 0.5 && (
+            <View style={[cs.barSeg, { flex: composition.equityPct, backgroundColor: COMP_ASSET_COLORS.equity }]} />
+          )}
+          {composition.debtPct > 0.5 && (
+            <View style={[cs.barSeg, { flex: composition.debtPct, backgroundColor: COMP_ASSET_COLORS.debt }]} />
+          )}
+          {composition.cashPct > 0.5 && (
+            <View style={[cs.barSeg, { flex: composition.cashPct, backgroundColor: COMP_ASSET_COLORS.cash }]} />
+          )}
+          {composition.otherPct > 0.5 && (
+            <View style={[cs.barSeg, { flex: composition.otherPct, backgroundColor: COMP_ASSET_COLORS.other }]} />
+          )}
+        </View>
+        <View style={cs.assetRow}>
+          {composition.equityPct > 0 && (
+            <View style={cs.assetItem}>
+              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.equity }]} />
+              <Text style={cs.assetLabel}>Equity</Text>
+              <Text style={cs.assetValue}>{composition.equityPct.toFixed(1)}%</Text>
+            </View>
+          )}
+          {composition.debtPct > 0 && (
+            <View style={cs.assetItem}>
+              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.debt }]} />
+              <Text style={cs.assetLabel}>Debt</Text>
+              <Text style={cs.assetValue}>{composition.debtPct.toFixed(1)}%</Text>
+            </View>
+          )}
+          {composition.cashPct > 0 && (
+            <View style={cs.assetItem}>
+              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.cash }]} />
+              <Text style={cs.assetLabel}>Cash</Text>
+              <Text style={cs.assetValue}>{composition.cashPct.toFixed(1)}%</Text>
+            </View>
+          )}
+          {composition.otherPct > 0 && (
+            <View style={cs.assetItem}>
+              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.other }]} />
+              <Text style={cs.assetLabel}>Other</Text>
+              <Text style={cs.assetValue}>{composition.otherPct.toFixed(1)}%</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Market Cap Mix */}
+      {hasMarketCap && (
+        <View style={[s.chartCard, { gap: Spacing.sm }]}>
+          <Text style={cs.cardTitle}>Market Cap Mix</Text>
+          <View style={cs.stackedBar}>
+            {(composition.largeCapPct ?? 0) > 0.5 && (
+              <View style={[cs.barSeg, { flex: composition.largeCapPct!, backgroundColor: COMP_CAP_COLORS.large }]} />
+            )}
+            {(composition.midCapPct ?? 0) > 0.5 && (
+              <View style={[cs.barSeg, { flex: composition.midCapPct!, backgroundColor: COMP_CAP_COLORS.mid }]} />
+            )}
+            {(composition.smallCapPct ?? 0) > 0.5 && (
+              <View style={[cs.barSeg, { flex: composition.smallCapPct!, backgroundColor: COMP_CAP_COLORS.small }]} />
+            )}
+            {(composition.notClassifiedPct ?? 0) > 0.5 && (
+              <View style={[cs.barSeg, { flex: composition.notClassifiedPct!, backgroundColor: COMP_CAP_COLORS.other }]} />
+            )}
+          </View>
+          <View style={cs.assetRow}>
+            {(composition.largeCapPct ?? 0) > 0 && (
+              <View style={cs.assetItem}>
+                <View style={[cs.assetDot, { backgroundColor: COMP_CAP_COLORS.large }]} />
+                <Text style={cs.assetLabel}>Large</Text>
+                <Text style={cs.assetValue}>{composition.largeCapPct!.toFixed(1)}%</Text>
+              </View>
+            )}
+            {(composition.midCapPct ?? 0) > 0 && (
+              <View style={cs.assetItem}>
+                <View style={[cs.assetDot, { backgroundColor: COMP_CAP_COLORS.mid }]} />
+                <Text style={cs.assetLabel}>Mid</Text>
+                <Text style={cs.assetValue}>{composition.midCapPct!.toFixed(1)}%</Text>
+              </View>
+            )}
+            {(composition.smallCapPct ?? 0) > 0 && (
+              <View style={cs.assetItem}>
+                <View style={[cs.assetDot, { backgroundColor: COMP_CAP_COLORS.small }]} />
+                <Text style={cs.assetLabel}>Small</Text>
+                <Text style={cs.assetValue}>{composition.smallCapPct!.toFixed(1)}%</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Sector Breakdown */}
+      <View style={[s.chartCard, { gap: Spacing.xs }]}>
+        <Text style={[cs.cardTitle, { marginBottom: Spacing.xs }]}>Sector Breakdown</Text>
+        {sectors && sectors.length > 0 ? (
+          sectors.map(([sector, pct]) => (
+            <View key={sector} style={cs.sectorRow}>
+              <Text style={cs.sectorName} numberOfLines={1}>{sector}</Text>
+              <View style={cs.sectorBarWrap}>
+                <View
+                  style={[cs.sectorBar, {
+                    width: `${Math.min(pct, 30) / 30 * 100}%`,
+                    backgroundColor: colors.primary + '66',
+                  }]}
+                />
+              </View>
+              <Text style={cs.sectorPct}>{pct.toFixed(1)}%</Text>
+            </View>
+          ))
+        ) : (
+          <View style={cs.emptySlot}>
+            <Ionicons name="grid-outline" size={24} color={colors.textTertiary} />
+            <Text style={cs.emptySlotText}>Syncs from AMFI monthly disclosures</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Top Holdings */}
+      <View style={[s.chartCard, { gap: 0, overflow: 'hidden' }]}>
+        <Text style={[cs.cardTitle, { marginBottom: Spacing.xs }]}>Top Holdings</Text>
+        {holdings && holdings.length > 0 ? (
+          holdings.map((h, i) => (
+            <View
+              key={h.isin || h.name}
+              style={[cs.holdingRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.borderLight }]}
+            >
+              <Text style={cs.holdingRank}>{i + 1}</Text>
+              <View style={cs.holdingInfo}>
+                <Text style={cs.holdingName} numberOfLines={1}>{h.name}</Text>
+                <Text style={cs.holdingSector}>{h.sector}</Text>
+              </View>
+              <Text style={cs.holdingPct}>{h.pctOfNav.toFixed(1)}%</Text>
+            </View>
+          ))
+        ) : (
+          <View style={cs.emptySlot}>
+            <Ionicons name="list-outline" size={24} color={colors.textTertiary} />
+            <Text style={cs.emptySlotText}>Syncs from AMFI monthly disclosures</Text>
+          </View>
+        )}
+      </View>
+
+      <Text style={cs.footer}>
+        {composition.source === 'amfi' ? 'AMFI disclosure' : 'Estimated from fund category'} ·{' '}
+        {new Date(composition.portfolioDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+      </Text>
+    </View>
+  );
+}
+
+function makeCompStyles(colors: AppColors) {
+  return StyleSheet.create({
+    cardTitle: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      color: colors.textTertiary,
+    },
+    stackedBar: {
+      flexDirection: 'row',
+      height: 10,
+      borderRadius: Radii.full,
+      overflow: 'hidden',
+    },
+    barSeg: { height: '100%' },
+    assetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+    assetItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    assetDot: { width: 8, height: 8, borderRadius: 4 },
+    assetLabel: { fontSize: 12, color: colors.textTertiary },
+    assetValue: { fontSize: 12, fontWeight: '700' as const, color: colors.textPrimary },
+    sectorRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingVertical: 4,
+    },
+    sectorName: { flex: 1, fontSize: 13, color: colors.textPrimary },
+    sectorBarWrap: {
+      width: 80,
+      height: 6,
+      backgroundColor: colors.borderLight,
+      borderRadius: 3,
+      overflow: 'hidden',
+    },
+    sectorBar: { height: '100%', borderRadius: 3 },
+    sectorPct: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      minWidth: 36,
+      textAlign: 'right',
+      color: colors.textSecondary,
+    },
+    holdingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      gap: Spacing.sm,
+    },
+    holdingRank: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      minWidth: 18,
+      textAlign: 'center',
+      color: colors.textTertiary,
+    },
+    holdingInfo: { flex: 1, gap: 2 },
+    holdingName: { fontSize: 13, fontWeight: '500' as const, color: colors.textPrimary },
+    holdingSector: { fontSize: 11, color: colors.textTertiary },
+    holdingPct: {
+      fontSize: 13,
+      fontWeight: '700' as const,
+      minWidth: 40,
+      textAlign: 'right',
+      color: colors.textPrimary,
+    },
+    emptySlot: { alignItems: 'center', paddingVertical: Spacing.md, gap: 6 },
+    emptySlotText: { fontSize: 12, color: colors.textTertiary, textAlign: 'center' },
+    footer: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      textAlign: 'center',
+      fontStyle: 'italic',
+      paddingBottom: Spacing.sm,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 
 export default function FundDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const [activeTab, setActiveTab] = useState<'performance' | 'nav'>('performance');
+  const [activeTab, setActiveTab] = useState<'performance' | 'nav' | 'composition'>('performance');
   const { data, isLoading, isError } = useFundDetail(id);
 
   return (
@@ -1005,7 +1287,7 @@ export default function FundDetailScreen() {
 
           {/* ── Tab bar ── */}
           <View style={s.tabBar}>
-            {(['performance', 'nav'] as const).map((tab) => (
+            {(['performance', 'nav', 'composition'] as const).map((tab) => (
               <TouchableOpacity
                 key={tab}
                 style={[s.tab, activeTab === tab && s.tabActive]}
@@ -1013,7 +1295,7 @@ export default function FundDetailScreen() {
                 activeOpacity={0.75}
               >
                 <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
-                  {tab === 'performance' ? 'Performance' : 'NAV History'}
+                  {tab === 'performance' ? 'Performance' : tab === 'nav' ? 'NAV History' : 'Composition'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1024,8 +1306,10 @@ export default function FundDetailScreen() {
               navHistory={data.navHistory}
               defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
             />
-          ) : (
+          ) : activeTab === 'nav' ? (
             <NavHistoryTab navHistory={data.navHistory} />
+          ) : (
+            <FundCompositionTab schemeCode={data.schemeCode} />
           )}
 
           <TechnicalDetailsCard

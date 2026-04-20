@@ -16,7 +16,6 @@ import { useAppStore } from '@/src/store/appStore';
 import { AssetMixCard } from '@/src/components/insights/AssetMixCard';
 import { DebtCard } from '@/src/components/insights/DebtCard';
 import { MarketCapCard } from '@/src/components/insights/MarketCapCard';
-import { FundAllocationCard } from '@/src/components/insights/FundAllocationCard';
 import { SectorCard } from '@/src/components/insights/SectorCard';
 import { TopHoldingsCard } from '@/src/components/insights/TopHoldingsCard';
 import { Ionicons } from '@expo/vector-icons';
@@ -151,12 +150,6 @@ export default function PortfolioInsightsScreen() {
                 onSync={triggerSync}
               />
             )}
-
-            {/* Fund Allocation — how the portfolio splits across funds */}
-            <FundAllocationCard
-              fundAllocation={insights.fundAllocation}
-              totalValue={insights.totalValue}
-            />
 
             {/* Missing data footnote */}
             {insights.missingDataFunds.length > 0 && (
