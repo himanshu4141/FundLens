@@ -68,9 +68,20 @@ def parse_success(stdout_text: str) -> bool:
 
 
 def main() -> int:
-    command = shlex.split(
-        os.environ.get("EAS_UPDATE_COMMAND", "eas update --non-interactive --json")
-    )
+    custom_command = os.environ.get("EAS_UPDATE_COMMAND")
+    if custom_command:
+        command = shlex.split(custom_command)
+    else:
+        command = [
+            "eas",
+            "update",
+            "--branch",
+            os.environ.get("EAS_UPDATE_BRANCH", "preview"),
+            "--message",
+            os.environ.get("EAS_UPDATE_MESSAGE", "CI update"),
+            "--non-interactive",
+            "--json",
+        ]
     with tempfile.NamedTemporaryFile(mode="w+", delete=True) as stdout_file, tempfile.NamedTemporaryFile(
         mode="w+", delete=True
     ) as stderr_file:
