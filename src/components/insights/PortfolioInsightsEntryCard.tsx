@@ -175,7 +175,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
     marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   header: {
     flexDirection: 'row',

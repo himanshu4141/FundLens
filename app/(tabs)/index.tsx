@@ -816,7 +816,7 @@ function makeStyles(colors: AppColors) {
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: Spacing.lg,
-      marginTop: Spacing.lg,
+      marginTop: Spacing.sm,
       marginBottom: Spacing.sm,
     },
     fundListTitle: { ...Typography.h3, color: colors.textPrimary },

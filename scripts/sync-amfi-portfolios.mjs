@@ -138,6 +138,22 @@ async function getFamilyHoldings(familyId) {
 function buildPortfolioFromHoldings(holdings, schemeCategory) {
   const catRules = getCategoryRules(schemeCategory);
 
+  // Overseas FoFs hold foreign securities — the mfdata.in holdings data will show the
+  // underlying stocks as equity, which is wrong. Use category_rules directly (other=100).
+  if (catRules.other === 100) {
+    return {
+      equityPct: 0,
+      debtPct: 0,
+      cashPct: 0,
+      otherPct: 100,
+      largeCapPct: 0,
+      midCapPct: 0,
+      smallCapPct: 0,
+      sectorAllocation: null,
+      topHoldings: null,
+    };
+  }
+
   // equity_pct from API is reliable; debt/cash from category_rules as approximation
   const equityPct = typeof holdings.equity_pct === 'number' ? holdings.equity_pct : catRules.equity;
   // Cap debt so equity + debt never exceeds 100 (guards against bad category matches)

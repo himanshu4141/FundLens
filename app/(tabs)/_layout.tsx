@@ -68,6 +68,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           tabBarButton: () => null,
+          tabBarItemStyle: { width: 0, overflow: 'hidden' },
         }}
       />
       {/* Compare deprecated — route kept to avoid broken deep-links during transition */}
@@ -75,6 +76,7 @@ export default function TabLayout() {
         name="compare"
         options={{
           tabBarButton: () => null,
+          tabBarItemStyle: { width: 0, overflow: 'hidden' },
         }}
       />
     </Tabs>

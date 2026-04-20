@@ -85,6 +85,14 @@ const CATEGORY_RULES: Record<string, CategoryComposition> = {
   'solution oriented - childrens': { equity: 70, debt: 25, cash: 5, other: 0, large: 50, mid: 28, small: 22 },
 };
 
+// Generic single-word categories that AMFI sometimes uses — map to reasonable defaults
+const GENERIC_CATEGORY_MAP: Record<string, CategoryComposition> = {
+  'equity': { equity: 93, debt: 0,  cash: 7,  other: 0,   large: 38, mid: 33, small: 29 }, // flexi cap proxy
+  'debt':   { equity: 0,  debt: 90, cash: 10, other: 0,   large: 0,  mid: 0,  small: 0  },
+  'hybrid': { equity: 65, debt: 25, cash: 10, other: 0,   large: 48, mid: 28, small: 24 },
+  'other':  { equity: 0,  debt: 0,  cash: 0,  other: 100, large: 0,  mid: 0,  small: 0  },
+};
+
 const FALLBACK_COMPOSITION: CategoryComposition = {
   equity: 80, debt: 10, cash: 10, other: 0,
   large: 50, mid: 30, small: 20,
@@ -92,12 +100,14 @@ const FALLBACK_COMPOSITION: CategoryComposition = {
 
 function getCategoryRules(schemeCategory: string): CategoryComposition {
   const key = schemeCategory.toLowerCase().trim();
-  // Exact match first
   if (CATEGORY_RULES[key]) return CATEGORY_RULES[key];
-  // Partial match for variants
-  for (const [pattern, comp] of Object.entries(CATEGORY_RULES)) {
-    if (key.includes(pattern) || pattern.includes(key.split(' ').slice(0, 3).join(' '))) {
-      return comp;
+  if (GENERIC_CATEGORY_MAP[key]) return GENERIC_CATEGORY_MAP[key];
+  // Partial match: only fire when the key has 2+ words to avoid 'equity' matching 'equity savings fund'
+  if (key.split(' ').length >= 2) {
+    for (const [pattern, comp] of Object.entries(CATEGORY_RULES)) {
+      if (key.includes(pattern) || pattern.includes(key.split(' ').slice(0, 3).join(' '))) {
+        return comp;
+      }
     }
   }
   return FALLBACK_COMPOSITION;
@@ -402,6 +412,15 @@ Deno.serve(async (req) => {
         .toISOString().split('T')[0];
 
       for (const scheme of group.schemes) {
+        // Overseas FoFs hold foreign securities; parsed AMFI data shows the underlying
+        // stocks as equity. Skip AMFI entirely — category_rules (other=100) is correct.
+        const catRules = getCategoryRules(scheme.scheme_category);
+        if (catRules.other === 100) {
+          console.log('[sync-fund-portfolios] scheme %d: overseas FoF — deferring to category_rules',
+            scheme.scheme_code);
+          continue;
+        }
+
         const parsed = parseAmfiPortfolioText(portfolioText, scheme.scheme_code);
         if (!parsed) {
           console.warn('[sync-fund-portfolios] scheme %d: parse returned null — skipping AMFI row',
