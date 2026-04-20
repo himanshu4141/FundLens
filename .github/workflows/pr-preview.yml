@@ -8,6 +8,7 @@ jobs:
   checks:
     name: Typecheck, Lint & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +25,7 @@ jobs:
     name: EAS Update (PR preview)
     runs-on: ubuntu-latest
     needs: checks
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: write
@@ -46,6 +48,9 @@ jobs:
             --message "PR #${{ github.event.number }}: ${{ github.event.pull_request.title }}" \
             --non-interactive \
             --json 2>/dev/null || echo '[]')
+          # Kill any lingering Metro/node processes that prevent the step from exiting
+          pkill -9 -f "metro" 2>/dev/null || true
+          pkill -9 -f "jest-worker" 2>/dev/null || true
           UPDATE_URL=$(echo "$OUTPUT" | node -e "
             const updates = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
             const first = Array.isArray(updates) ? updates[0] : null;
