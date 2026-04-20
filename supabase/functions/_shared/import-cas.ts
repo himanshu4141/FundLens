@@ -102,6 +102,9 @@ export function normaliseTxType(raw: string): string {
   if (upper === 'SWITCH_OUT' || upper === 'SWITCH_OUT_MERGER') return 'switch_out';
   if (upper === 'DIVIDEND_REINVEST') return 'dividend_reinvest';
   if (upper === 'DIVIDEND_PAYOUT') return 'dividend';
+  // A reversal undoes a prior purchase (failed payment return) — treat as redemption
+  // so units are subtracted rather than added to the holding.
+  if (upper === 'REVERSAL') return 'redemption';
 
   // Also handle legacy lowercase values (for parse-cas-pdf manual uploads)
   const lower = raw.toLowerCase().trim();
@@ -182,6 +185,26 @@ export async function importCASData(
 
       fundsUpdated++;
       console.log('[import-cas] upserted fund %d "%s"', schemeCode, mf.name);
+
+      // For any REVERSAL transactions, delete the previously mis-imported 'purchase'
+      // row (same fund, date, units, amount) so re-imports fix existing bad data.
+      const reversals = (mf.transactions ?? []).filter(
+        (tx) => (tx.type ?? '').toUpperCase().trim() === 'REVERSAL',
+      );
+      for (const rev of reversals) {
+        const revUnits = Math.abs(rev.units ?? 0);
+        const revAmount = Math.abs(rev.amount ?? 0);
+        if (revUnits > 0) {
+          await supabase
+            .from('transaction')
+            .delete()
+            .eq('fund_id', fundRow.id as string)
+            .eq('transaction_date', parseDate(rev.date ?? ''))
+            .eq('transaction_type', 'purchase')
+            .eq('units', revUnits)
+            .eq('amount', revAmount);
+        }
+      }
 
       const txRows = (mf.transactions ?? [])
         .map((tx) => ({
