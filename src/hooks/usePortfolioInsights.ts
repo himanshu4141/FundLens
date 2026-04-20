@@ -99,7 +99,7 @@ export function computeInsights(
 
   const missingDataFunds: string[] = [];
   let worstDate = new Date();
-  let overallSource: CompositionSource = 'amfi';
+  let estimatedWeightPct = 0; // % of portfolio value covered by category_rules
 
   // Fund allocation (no composition data needed)
   const fundAllocation: InsightFundAllocation[] = fundCards
@@ -130,7 +130,7 @@ export function computeInsights(
       continue;
     }
 
-    if (comp.source === 'category_rules') overallSource = 'category_rules';
+    if (comp.source === 'category_rules') estimatedWeightPct += weight * 100;
 
     // Track oldest data date
     const compDate = new Date(comp.portfolioDate);
@@ -159,15 +159,16 @@ export function computeInsights(
       }
     }
 
-    // Holdings aggregation by ISIN
+    // Holdings aggregation — key by ISIN when available, fall back to name
     if (comp.topHoldings) {
       for (const h of comp.topHoldings) {
-        const existing = holdingAccum.get(h.isin);
+        const key = h.isin || h.name;
+        const existing = holdingAccum.get(key);
         const holdingPortfolioWeight = weight * (h.pctOfNav / 100);
         if (existing) {
           existing.weight += holdingPortfolioWeight;
         } else {
-          holdingAccum.set(h.isin, {
+          holdingAccum.set(key, {
             name: h.name,
             sector: h.sector,
             marketCap: h.marketCap,
@@ -226,10 +227,13 @@ export function computeInsights(
   assetMix.cash = Math.round(assetMix.cash * 10) / 10;
   assetMix.other = Math.round(assetMix.other * 10) / 10;
 
+  // Show estimated banner only if >10% of portfolio value lacks real data
+  const dataSource: CompositionSource = estimatedWeightPct > 10 ? 'category_rules' : 'amfi';
+
   return {
     totalValue,
     dataAsOf: worstDate.toISOString().split('T')[0],
-    dataSource: overallSource,
+    dataSource,
     assetMix,
     marketCapMix,
     sectorBreakdown,
