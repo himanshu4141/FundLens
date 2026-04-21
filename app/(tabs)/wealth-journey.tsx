@@ -390,6 +390,7 @@ export default function WealthJourneyScreen() {
     10,
     Math.floor(chartPlotWidth / Math.max(adjustedChartData.length - 1, 1)),
   );
+  const accumulationXAxisLabels = baselineChartData.map((point) => point.label);
 
   const currentSipChips = useMemo<ChoiceChip[]>(
     () => buildSipPresetChips(detectedSip > 0 ? detectedSip : currentSip || 100000),
@@ -413,6 +414,7 @@ export default function WealthJourneyScreen() {
     8,
     Math.floor(chartPlotWidth / Math.max(drawdownChartData.length - 1, 1)),
   );
+  const drawdownXAxisLabels = drawdownChartData.map((point) => point.label);
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -650,6 +652,7 @@ export default function WealthJourneyScreen() {
               spacing={accumulationChartSpacing}
               initialSpacing={0}
               endSpacing={0}
+              xAxisLabelTexts={accumulationXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
               xAxisLabelsHeight={24}
@@ -660,6 +663,44 @@ export default function WealthJourneyScreen() {
               hideRules={false}
               rulesColor={colors.borderLight}
               formatYLabel={(value) => formatAxisValue(Number(value))}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 236,
+                pointerStripWidth: 1,
+                pointerStripColor: colors.textTertiary + '88',
+                pointerColor: colors.primary,
+                radius: 5,
+                pointerLabelWidth: 150,
+                pointerLabelHeight: 54,
+                activatePointersOnLongPress: true,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  const baselinePoint = baselineChartData[pointerIndex];
+                  const adjustedPoint = adjustedChartData[pointerIndex];
+                  const horizonLabel =
+                    pointerIndex === 0
+                      ? 'Now'
+                      : `Year ${baselinePoint?.label?.replace('Y', '') || pointerIndex}`;
+
+                  return (
+                    <View style={styles.pointerLabel}>
+                      <Text style={styles.pointerDate}>{horizonLabel}</Text>
+                      {baselinePoint ? (
+                        <Text style={styles.pointerSeriesText}>
+                          <Text style={{ color: colors.textTertiary }}>● </Text>
+                          Current: {formatCurrency(baselinePoint.value)}
+                        </Text>
+                      ) : null}
+                      {adjustedPoint ? (
+                        <Text style={styles.pointerSeriesText}>
+                          <Text style={{ color: colors.primary }}>● </Text>
+                          Adjusted: {formatCurrency(adjustedPoint.value)}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                },
+              }}
             />
             <View style={styles.chartLegend}>
               <View style={styles.legendItem}>
@@ -772,6 +813,7 @@ export default function WealthJourneyScreen() {
               spacing={drawdownChartSpacing}
               initialSpacing={0}
               endSpacing={0}
+              xAxisLabelTexts={drawdownXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
               xAxisLabelsHeight={24}
@@ -782,6 +824,36 @@ export default function WealthJourneyScreen() {
               hideRules={false}
               rulesColor={colors.borderLight}
               formatYLabel={(value) => formatAxisValue(Number(value))}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 204,
+                pointerStripWidth: 1,
+                pointerStripColor: colors.textTertiary + '88',
+                pointerColor: colors.primary,
+                radius: 5,
+                pointerLabelWidth: 144,
+                pointerLabelHeight: 40,
+                activatePointersOnLongPress: true,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  const point = drawdownChartData[pointerIndex];
+                  if (!point) return null;
+                  const horizonLabel =
+                    pointerIndex === 0
+                      ? 'Start'
+                      : `Year ${point.label?.replace('Y', '') || pointerIndex}`;
+
+                  return (
+                    <View style={styles.pointerLabel}>
+                      <Text style={styles.pointerDate}>{horizonLabel}</Text>
+                      <Text style={styles.pointerSeriesText}>
+                        <Text style={{ color: colors.primary }}>● </Text>
+                        Corpus: {formatCurrency(point.value)}
+                      </Text>
+                    </View>
+                  );
+                },
+              }}
             />
           </View>
         </View>
@@ -1063,6 +1135,30 @@ function makeStyles(colors: AppColors) {
       fontSize: 13,
       fontWeight: '600',
       color: colors.textSecondary,
+    },
+    pointerLabel: {
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: Radii.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+      gap: 2,
+    },
+    pointerDate: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textTertiary,
+    },
+    pointerSeriesText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
     },
     drawdownChartWrap: {
       marginTop: Spacing.sm,
