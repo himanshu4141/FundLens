@@ -18,11 +18,11 @@ export default function TabLayout() {
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
-          // Give the icon + label stack enough vertical room even on devices
-          // with larger font metrics / bottom insets.
-          paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
-          height: 62 + Math.max(insets.bottom, 8),
+          // Give the icon + label stack more headroom on devices with taller
+          // text metrics so labels never clip against the rounded top edge.
+          paddingTop: 10,
+          paddingBottom: Math.max(insets.bottom, 10),
+          height: 72 + Math.max(insets.bottom, 10),
         },
         // Force each visible tab item to fill its fair share of the bar width
         // and center content so icons don't bunch left on wider screens / web
@@ -30,11 +30,13 @@ export default function TabLayout() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          paddingVertical: 4,
+          paddingVertical: 6,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
+          lineHeight: 14,
+          marginTop: 2,
           marginBottom: 0,
         },
       }}
