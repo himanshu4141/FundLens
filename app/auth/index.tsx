@@ -107,7 +107,9 @@ export default function SignInScreen() {
     if (result.type === 'success') {
       const code = parseOAuthCode(result.url);
       if (code) {
-        router.push(`/auth/callback?code=${encodeURIComponent(code)}`);
+        router.push(
+          `/auth/callback?code=${encodeURIComponent(code)}&callbackUrl=${encodeURIComponent(result.url)}`,
+        );
       }
     }
     // type 'cancel' or 'dismiss': user abandoned, stay on sign-in screen

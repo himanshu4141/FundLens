@@ -22,11 +22,12 @@ interface ErrorState {
 
 export default function OAuthCallbackScreen() {
   const router = useRouter();
-  const { code, error: oauthError, error_description, scheme } = useLocalSearchParams<{
+  const { code, error: oauthError, error_description, scheme, callbackUrl } = useLocalSearchParams<{
     code?: string;
     error?: string;
     error_description?: string;
     scheme?: string;
+    callbackUrl?: string;
   }>();
   const targetScheme = typeof scheme === 'string' && scheme.length > 0 ? scheme : getAppScheme();
 
@@ -72,11 +73,14 @@ export default function OAuthCallbackScreen() {
 
     async function exchange() {
       try {
+        const callbackHref =
+          typeof callbackUrl === 'string' && callbackUrl.length > 0
+            ? callbackUrl
+            : `${targetScheme}://auth/callback?code=${code}`;
+
         // Pass the full reconstructed URL; Supabase extracts the code param
         // and retrieves the stored PKCE verifier from AsyncStorage automatically.
-        const { data, error } = await supabase.auth.exchangeCodeForSession(
-          `${targetScheme}://auth/callback?code=${code}`,
-        );
+        const { data, error } = await supabase.auth.exchangeCodeForSession(callbackHref);
 
         if (error) {
           const isDuplicate = error.message.toLowerCase().includes('already');
@@ -99,8 +103,7 @@ export default function OAuthCallbackScreen() {
         }
 
         setState('linked');
-        // AuthGate in _layout.tsx watches onAuthStateChange and will
-        // replace the route to /(tabs) once the session is established.
+        router.replace('/(tabs)');
       } catch {
         setErrorState({
           message: 'An unexpected error occurred. Please try again.',
@@ -111,7 +114,7 @@ export default function OAuthCallbackScreen() {
     }
 
     exchange();
-  }, [code, oauthError, error_description, targetScheme]);
+  }, [callbackUrl, code, oauthError, error_description, router, targetScheme]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
