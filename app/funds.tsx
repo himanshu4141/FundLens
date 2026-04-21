@@ -5,12 +5,12 @@ import { useRouter } from 'expo-router';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { useAppStore } from '@/src/store/appStore';
-import { FundAllocationCard } from '@/src/components/insights/FundAllocationCard';
 import { FundCard } from '@/src/components/FundCard';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { useTheme } from '@/src/context/ThemeContext';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { parseFundName } from '@/src/utils/fundName';
+import type { InsightFundAllocation } from '@/src/types/app';
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
 
@@ -21,6 +21,57 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'benchmarkLead', label: 'Lead vs benchmark' },
   { value: 'alphabetical', label: 'Alphabetical' },
 ];
+
+function AllocationSummaryCard({
+  fundAllocation,
+  fundCount,
+}: {
+  fundAllocation: InsightFundAllocation[];
+  fundCount: number;
+}) {
+  const { colors } = useTheme();
+  const largest = fundAllocation[0];
+  const topThreeShare = fundAllocation.slice(0, 3).reduce((sum, item) => sum + item.pct, 0);
+
+  return (
+    <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={styles.summaryHeader}>
+        <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>Allocation overview</Text>
+        <Text style={[styles.summaryCaption, { color: colors.textTertiary }]}>
+          Color-coded by holding size
+        </Text>
+      </View>
+
+      <View style={styles.allocationBar}>
+        {fundAllocation.slice(0, 12).map((fund) => (
+          <View
+            key={fund.fundId}
+            style={[styles.allocationSegment, { flex: fund.pct, backgroundColor: fund.color }]}
+          />
+        ))}
+      </View>
+
+      <View style={styles.summaryStatsRow}>
+        <View style={styles.summaryStat}>
+          <Text style={[styles.summaryStatLabel, { color: colors.textTertiary }]}>Largest position</Text>
+          <Text style={[styles.summaryStatValue, { color: colors.textPrimary }]} numberOfLines={1}>
+            {largest ? `${largest.shortName} · ${largest.pct.toFixed(1)}%` : '—'}
+          </Text>
+        </View>
+        <View style={styles.summaryStat}>
+          <Text style={[styles.summaryStatLabel, { color: colors.textTertiary }]}>Top 3 share</Text>
+          <Text style={[styles.summaryStatValue, { color: colors.textPrimary }]}>
+            {topThreeShare.toFixed(1)}%
+          </Text>
+        </View>
+        <View style={styles.summaryStat}>
+          <Text style={[styles.summaryStatLabel, { color: colors.textTertiary }]}>Active funds</Text>
+          <Text style={[styles.summaryStatValue, { color: colors.textPrimary }]}>{fundCount}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function FundsScreen() {
   const router = useRouter();
@@ -35,6 +86,13 @@ export default function FundsScreen() {
 
   const { insights } = usePortfolioInsights(fundCards);
   const benchmarkXirr = summary?.marketXirr ?? 0;
+  const allocationPctByFundId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of insights?.fundAllocation ?? []) {
+      map.set(item.fundId, item.pct);
+    }
+    return map;
+  }, [insights?.fundAllocation]);
 
   function sortableNumber(value: number | null | undefined): number {
     return typeof value === 'number' && Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
@@ -78,14 +136,14 @@ export default function FundsScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
           {insights && (
-            <FundAllocationCard
+            <AllocationSummaryCard
               fundAllocation={insights.fundAllocation}
-              totalValue={insights.totalValue}
+              fundCount={fundCards.length}
             />
           )}
 
           <View style={styles.listHeader}>
-            <Text style={[styles.listTitle, { color: colors.textPrimary }]}>All Funds</Text>
+            <Text style={[styles.listTitle, { color: colors.textPrimary }]}>Your Funds</Text>
             <View style={styles.listMeta}>
               <Text style={[styles.listCount, { color: colors.textTertiary }]}>
                 {fundCards.length} fund{fundCards.length !== 1 ? 's' : ''}
@@ -107,6 +165,7 @@ export default function FundsScreen() {
               key={fund.id}
               fund={fund}
               latestNavDate={summary?.latestNavDate ?? null}
+              portfolioPct={allocationPctByFundId.get(fund.id) ?? null}
               onPress={() => router.push(`/fund/${fund.id}`)}
             />
           ))}
@@ -161,10 +220,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  summaryCard: {
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  summaryHeader: {
+    gap: 2,
+    marginBottom: Spacing.md,
+  },
+  summaryTitle: {
+    ...Typography.h3,
+    fontWeight: '700',
+  },
+  summaryCaption: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  allocationBar: {
+    flexDirection: 'row',
+    height: 10,
+    borderRadius: Radii.full,
+    overflow: 'hidden',
+    marginBottom: Spacing.md,
+  },
+  allocationSegment: {
+    height: '100%',
+  },
+  summaryStatsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  summaryStat: {
+    flex: 1,
+    gap: 4,
+  },
+  summaryStatLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  summaryStatValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   listHeader: {
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginTop: Spacing.lg,
     marginBottom: Spacing.md,
   },
   listMeta: {

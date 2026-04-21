@@ -26,10 +26,12 @@ export function FundCard({
   fund,
   latestNavDate,
   onPress,
+  portfolioPct,
 }: {
   fund: FundCardData;
   latestNavDate: string | null;
   onPress: () => void;
+  portfolioPct?: number | null;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -77,6 +79,9 @@ export function FundCard({
             ) : (
               <>
                 <Text style={styles.fundValue}>{formatCurrency(fund.currentValue!)}</Text>
+                {portfolioPct != null && Number.isFinite(portfolioPct) && (
+                  <Text style={styles.portfolioShare}>{portfolioPct.toFixed(1)}% of portfolio</Text>
+                )}
                 <View style={styles.dailyChangePill}>
                   <Text style={[styles.fundDailyChange, { color: isPositiveDay ? colors.positive : colors.negative }]}>
                     {fund.dailyChangePct! >= 0 ? '+' : ''}{fund.dailyChangePct!.toFixed(2)}%{' '}
@@ -173,6 +178,7 @@ function makeStyles(colors: AppColors) {
     fundPlanBadge: { fontSize: 11, color: colors.textTertiary, fontWeight: '500' as const },
     fundValueBlock: { alignItems: 'flex-end', gap: 5, minWidth: 108 },
     fundValue: { fontSize: 17, fontWeight: '800' as const, color: colors.textPrimary, lineHeight: 22 },
+    portfolioShare: { fontSize: 11, fontWeight: '600' as const, color: colors.textTertiary },
     dailyChangePill: {
       backgroundColor: colors.background,
       paddingHorizontal: 6,
