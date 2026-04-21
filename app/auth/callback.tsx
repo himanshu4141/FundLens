@@ -7,10 +7,12 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
 import { getAppScheme, getNativeExchangeCallbackUrl } from '@/src/utils/appScheme';
+import { parseSessionFromUrl } from '@/src/utils/authUtils';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 type CallbackState = 'exchanging' | 'linked' | 'error';
@@ -34,6 +36,7 @@ export default function OAuthCallbackScreen() {
   const [state, setState] = useState<CallbackState>('exchanging');
   const [errorState, setErrorState] = useState<ErrorState | null>(null);
   const [wasAutoLinked, setWasAutoLinked] = useState(false);
+  const incomingUrl = Linking.useURL();
 
   useEffect(() => {
     // ── Web path ──────────────────────────────────────────────────────────────
@@ -69,19 +72,43 @@ export default function OAuthCallbackScreen() {
       return;
     }
 
-    if (!code) {
-      setErrorState({
-        message: 'We could not complete Google sign-in because the authorization code was missing. Please try again.',
-        isDuplicate: false,
-      });
-      setState('error');
-      return;
-    }
-
-    const exchangeCode = code;
-
     async function exchange() {
       try {
+        if (!code) {
+          const sessionUrl =
+            (typeof callbackUrl === 'string' && callbackUrl.length > 0 ? callbackUrl : null) ??
+            incomingUrl;
+          const sessionTokens = sessionUrl ? parseSessionFromUrl(sessionUrl) : null;
+
+          if (sessionTokens) {
+            const { error } = await supabase.auth.setSession({
+              access_token: sessionTokens.accessToken,
+              refresh_token: sessionTokens.refreshToken,
+            });
+
+            if (error) {
+              setErrorState({
+                message: `Sign-in failed: ${error.message}`,
+                isDuplicate: false,
+              });
+              setState('error');
+              return;
+            }
+
+            setState('linked');
+            router.replace('/(tabs)');
+            return;
+          }
+
+          setErrorState({
+            message: 'We could not complete Google sign-in because the authorization code was missing. Please try again.',
+            isDuplicate: false,
+          });
+          setState('error');
+          return;
+        }
+
+        const exchangeCode = code;
         const callbackHref = getNativeExchangeCallbackUrl(exchangeCode, callbackUrl);
 
         // Pass the full reconstructed URL; Supabase extracts the code param
@@ -120,7 +147,7 @@ export default function OAuthCallbackScreen() {
     }
 
     exchange();
-  }, [callbackUrl, code, oauthError, error_description, router, targetScheme]);
+  }, [callbackUrl, code, incomingUrl, oauthError, error_description, router, targetScheme]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { parseOAuthCode } from '../authUtils';
+import { parseOAuthCode, parseSessionFromUrl } from '../authUtils';
 
 // ---------------------------------------------------------------------------
 // parseOAuthCode
@@ -47,5 +47,26 @@ describe('parseOAuthCode', () => {
     it('returns null when the query string has params but none is "code"', () => {
       expect(parseOAuthCode('fundlens://auth/callback?state=abc&scope=openid')).toBeNull();
     });
+  });
+});
+
+describe('parseSessionFromUrl', () => {
+  it('extracts access and refresh tokens from a fragment URL', () => {
+    expect(
+      parseSessionFromUrl(
+        'fundlens://auth/callback#access_token=token123&refresh_token=refresh456&type=bearer',
+      ),
+    ).toEqual({
+      accessToken: 'token123',
+      refreshToken: 'refresh456',
+    });
+  });
+
+  it('returns null when the fragment is missing', () => {
+    expect(parseSessionFromUrl('fundlens://auth/callback?code=abc123')).toBeNull();
+  });
+
+  it('returns null when only one token is present', () => {
+    expect(parseSessionFromUrl('fundlens://auth/callback#access_token=token123')).toBeNull();
   });
 });
