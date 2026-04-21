@@ -48,8 +48,11 @@ export default function OAuthCallbackScreen() {
       const ua = window.navigator.userAgent.toLowerCase();
       const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
       if (/iphone|ipad|ipod|android/.test(ua) && isNativeBridgeHost) {
-        // Preserve the full query string so the native app receives the code
-        window.location.replace(`${targetScheme}://auth/callback` + window.location.search);
+        // Preserve both query params and hash fragments. Supabase OAuth can
+        // return either `?code=...` (PKCE) or `#access_token=...` (implicit).
+        window.location.replace(
+          `${targetScheme}://auth/callback${window.location.search}${window.location.hash}`,
+        );
       }
       // Desktop web, or mobile on a non-bridge host: Supabase detectSessionInUrl
       // auto-exchanges the code. Show spinner; AuthGate navigates once session appears.
