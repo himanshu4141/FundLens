@@ -1,15 +1,4 @@
-import type { ExpoConfig, ConfigContext } from 'expo/config';
-
-type AppVariant = 'production' | 'development' | 'preview-main' | 'preview-pr';
-
-interface VariantConfig {
-  appName: string;
-  scheme: string;
-  iosBundleIdentifier: string;
-  androidPackage: string;
-}
-
-const VARIANTS: Record<AppVariant, VariantConfig> = {
+const VARIANTS = {
   production: {
     appName: 'FundLens',
     scheme: 'fundlens',
@@ -36,12 +25,12 @@ const VARIANTS: Record<AppVariant, VariantConfig> = {
   },
 };
 
-function getVariant(): AppVariant {
-  const raw = (process.env.APP_VARIANT ?? 'production') as AppVariant;
-  return raw in VARIANTS ? raw : 'production';
+function getVariant() {
+  const raw = process.env.APP_VARIANT ?? 'production';
+  return Object.prototype.hasOwnProperty.call(VARIANTS, raw) ? raw : 'production';
 }
 
-export default ({ config }: ConfigContext): ExpoConfig => {
+module.exports = ({ config }) => {
   const variant = getVariant();
   const variantConfig = VARIANTS[variant];
 
@@ -94,5 +83,5 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     },
     owner: 'himanshu4141',
-  } as ExpoConfig;
+  };
 };
