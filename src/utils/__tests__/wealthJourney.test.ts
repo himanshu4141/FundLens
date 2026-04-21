@@ -1,4 +1,5 @@
 import {
+  buildSipPresetChips,
   buildReturnProfile,
   buildWealthJourneyTeaser,
   estimateRecurringMonthlySip,
@@ -70,6 +71,16 @@ describe('buildReturnProfile', () => {
       'Growth',
     ]);
     expect(profile.postRetirementDefault).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe('buildSipPresetChips', () => {
+  it('rounds presets to human-friendly whole amounts', () => {
+    expect(buildSipPresetChips(112725)).toEqual([
+      { label: '₹1.0L', value: 100000 },
+      { label: '₹1.25L', value: 125000 },
+      { label: '₹1.5L', value: 150000 },
+    ]);
   });
 });
 

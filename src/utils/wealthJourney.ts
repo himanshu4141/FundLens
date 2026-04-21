@@ -53,6 +53,10 @@ function getAmountBucket(amount: number): number {
   return Math.round(amount / 100) * 100;
 }
 
+function roundToHumanAmount(value: number, step = 25_000): number {
+  return Math.round(value / step) * step;
+}
+
 function getMonthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
@@ -157,6 +161,17 @@ export function buildReturnProfile(xirr: number | null | undefined): ReturnProfi
   };
 }
 
+export function buildSipPresetChips(baseValue: number): { label: string; value: number }[] {
+  const roundedBase = roundToHumanAmount(Math.max(baseValue, 50_000));
+  const lower = roundToHumanAmount(Math.max(25_000, roundedBase - 25_000));
+  const upper = roundToHumanAmount(roundedBase + 25_000);
+  return [
+    { label: formatSipPresetLabel(lower), value: lower },
+    { label: formatSipPresetLabel(roundedBase), value: roundedBase },
+    { label: formatSipPresetLabel(upper), value: upper },
+  ];
+}
+
 function buildProjectedCorpusText(
   currentCorpus: number,
   monthlySip: number,
@@ -172,6 +187,19 @@ function formatCompactNumber(value: number): string {
   if (value >= 1_00_000) return `${(value / 1_00_000).toFixed(1)}L`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return Math.round(value).toString();
+}
+
+function formatSipPresetLabel(value: number): string {
+  if (value >= 1_00_000) {
+    const lakhs = value / 1_00_000;
+    return `₹${lakhs.toFixed(2).replace(/(\.\d)0$/, '$1')}L`;
+  }
+
+  if (value >= 1_000) {
+    return `₹${Math.round(value / 1_000)}K`;
+  }
+
+  return `₹${Math.round(value)}`;
 }
 
 export function buildWealthJourneyTeaser({

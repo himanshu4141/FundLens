@@ -53,6 +53,7 @@ describe('projectRetirementIncome', () => {
     const projection = projectRetirementIncome(1_20_00_000, 4, 25, 6);
     expect(projection.monthlyIncome).toBeCloseTo(40000, -1);
     expect(projection.riskLabel).toBe('Moderate');
+    expect(projection.trajectory[0]).toEqual({ year: 0, value: 1_20_00_000 });
   });
 
   it('marks aggressive withdrawals when they outrun returns', () => {

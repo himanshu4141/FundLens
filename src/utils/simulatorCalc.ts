@@ -7,6 +7,7 @@ export interface RetirementProjection {
   endCorpus: number;
   depletionYear: number | null;
   riskLabel: 'Conservative' | 'Moderate' | 'Aggressive';
+  trajectory: ProjectionPoint[];
 }
 
 function clampCurrency(value: number): number {
@@ -126,14 +127,17 @@ export function projectRetirementIncome(
 
   let balance = safeCorpus;
   let depletionYear: number | null = null;
+  const trajectory: ProjectionPoint[] = [{ year: 0, value: Math.round(safeCorpus) }];
 
   for (let year = 1; year <= safeRetirementYears; year++) {
     balance = balance * annualReturnFactor - annualWithdrawal;
     if (balance <= 0) {
       balance = 0;
       depletionYear = year;
+      trajectory.push({ year, value: 0 });
       break;
     }
+    trajectory.push({ year, value: Math.round(balance) });
   }
 
   let riskLabel: RetirementProjection['riskLabel'] = 'Moderate';
@@ -150,5 +154,6 @@ export function projectRetirementIncome(
     endCorpus: Math.round(balance),
     depletionYear,
     riskLabel,
+    trajectory,
   };
 }

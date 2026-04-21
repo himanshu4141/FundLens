@@ -19,7 +19,8 @@ export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
 export interface WealthJourneyState {
   hasOpened: boolean;
   hasSavedPlan: boolean;
-  sipOverride: number | null;
+  currentSipOverride: number | null;
+  monthlySipIncrease: number;
   additionalTopUp: number;
   yearsToRetirement: number;
   expectedReturn: number | null;
@@ -32,7 +33,8 @@ export interface WealthJourneyState {
 const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
   hasOpened: false,
   hasSavedPlan: false,
-  sipOverride: null,
+  currentSipOverride: null,
+  monthlySipIncrease: 0,
   additionalTopUp: 0,
   yearsToRetirement: 15,
   expectedReturn: null,

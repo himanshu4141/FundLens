@@ -35,6 +35,7 @@ import {
   toPresentValueEquivalent,
 } from '@/src/utils/simulatorCalc';
 import {
+  buildSipPresetChips,
   buildReturnProfile,
   estimateRecurringMonthlySip,
   type ReturnPreset,
@@ -63,10 +64,6 @@ interface ValueFieldProps {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function formatCompactCurrency(value: number): string {
-  return formatCurrency(value).replace('.00', '').replace('.0K', 'K');
 }
 
 function formatPercent(value: number): string {
@@ -301,8 +298,9 @@ export default function WealthJourneyScreen() {
     wealthJourney.postRetirementReturn,
   ]);
 
-  const currentSip = wealthJourney.sipOverride ?? detectedSip ?? 0;
-  const adjustedSip = currentSip;
+  const currentSip = wealthJourney.currentSipOverride ?? detectedSip ?? 0;
+  const monthlySipIncrease = wealthJourney.monthlySipIncrease;
+  const adjustedSip = currentSip + monthlySipIncrease;
   const additionalTopUp = wealthJourney.additionalTopUp;
   const yearsToRetirement = wealthJourney.yearsToRetirement;
   const expectedReturn =
@@ -352,13 +350,14 @@ export default function WealthJourneyScreen() {
   );
 
   const scenarioChanged =
-    wealthJourney.sipOverride != null ||
+    wealthJourney.currentSipOverride != null ||
+    monthlySipIncrease > 0 ||
     additionalTopUp > 0 ||
     wealthJourney.hasSavedPlan;
 
   const chartSpacing = Math.max(
-    16,
-    Math.floor((CHART_WIDTH - 48) / Math.max(yearsToRetirement, 6)),
+    10,
+    Math.floor((CHART_WIDTH - 132) / Math.max(yearsToRetirement, 6)),
   );
   const baselineChartData = [
     { value: currentCorpus, label: 'Today' },
@@ -385,14 +384,25 @@ export default function WealthJourneyScreen() {
     })),
   ];
 
-  const monthlySipChips = useMemo<ChoiceChip[]>(() => {
-    const base = detectedSip > 0 ? detectedSip : 50000;
-    return [
-      { label: formatCompactCurrency(Math.max(25000, Math.round(base * 0.75))), value: Math.max(25000, Math.round(base * 0.75)) },
-      { label: formatCompactCurrency(base), value: base },
-      { label: formatCompactCurrency(Math.round(base * 1.5)), value: Math.round(base * 1.5) },
-    ];
-  }, [detectedSip]);
+  const currentSipChips = useMemo<ChoiceChip[]>(
+    () => buildSipPresetChips(detectedSip > 0 ? detectedSip : currentSip || 100000),
+    [currentSip, detectedSip],
+  );
+  const increaseChips: ChoiceChip[] = [
+    { label: '₹0', value: 0 },
+    { label: '₹25K', value: 25000 },
+    { label: '₹50K', value: 50000 },
+    { label: '₹1L', value: 100000 },
+  ];
+  const drawdownChartData = retirementProjection.trajectory.map((point) => ({
+    value: point.value,
+    label:
+      point.year === 0
+        ? 'Start'
+        : point.year === retirementDurationYears || point.year % 10 === 0
+          ? `${point.year}Y`
+          : '',
+  }));
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -475,15 +485,27 @@ export default function WealthJourneyScreen() {
             <View style={styles.noteRow}>
               <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
               <Text style={styles.noteText}>
-                {wealthJourney.sipOverride != null
+                {wealthJourney.currentSipOverride != null
                   ? `Detected ${formatCurrency(detectedSip)}/mo from recurring buys across the last 6 months — using your override.`
                   : 'Detected from recurring buys across the last 6 months.'}
               </Text>
             </View>
-            {wealthJourney.sipOverride != null ? (
+            <ValueField
+              label="Current monthly SIP"
+              helperText="Fix the system's estimate here. This does not change your future plan yet."
+              value={currentSip}
+              onChange={(value) =>
+                updateWealthJourney({
+                  currentSipOverride: clamp(Math.round(value), 0, 25_00_000),
+                })
+              }
+              prefix="₹"
+              chips={currentSipChips}
+            />
+            {wealthJourney.currentSipOverride != null ? (
               <TouchableOpacity
                 style={styles.resetButton}
-                onPress={() => updateWealthJourney({ sipOverride: null })}
+                onPress={() => updateWealthJourney({ currentSipOverride: null })}
               >
                 <Text style={styles.resetButtonText}>Reset to detected SIP</Text>
               </TouchableOpacity>
@@ -499,13 +521,27 @@ export default function WealthJourneyScreen() {
             </Text>
           </View>
 
+          <View style={styles.planCompareCard}>
+            <View style={styles.planCompareItem}>
+              <Text style={styles.planCompareLabel}>Current plan</Text>
+              <Text style={styles.planCompareValue}>{formatCurrency(currentSip)}/mo</Text>
+            </View>
+            <View style={styles.planCompareDivider} />
+            <View style={styles.planCompareItem}>
+              <Text style={styles.planCompareLabel}>Adjusted plan</Text>
+              <Text style={styles.planCompareValue}>{formatCurrency(adjustedSip)}/mo</Text>
+            </View>
+          </View>
+
           <ValueField
-            label="Monthly SIP"
-            helperText="Use your real pace or override it if detection is off."
-            value={adjustedSip}
-            onChange={(value) => markSaved({ sipOverride: clamp(Math.round(value), 0, 25_00_000) })}
+            label="Increase monthly SIP by"
+            helperText="This is the extra SIP you want to add going forward."
+            value={monthlySipIncrease}
+            onChange={(value) =>
+              markSaved({ monthlySipIncrease: clamp(Math.round(value), 0, 25_00_000) })
+            }
             prefix="₹"
-            chips={monthlySipChips}
+            chips={increaseChips}
           />
 
           <ValueField
@@ -523,8 +559,8 @@ export default function WealthJourneyScreen() {
           />
 
           <ValueField
-            label="Years to retirement"
-            helperText="This is your accumulation window."
+            label="Saving period"
+            helperText="How long you'll keep investing before withdrawals begin."
             value={yearsToRetirement}
             onChange={(value) => markSaved({ yearsToRetirement: clamp(Math.round(value), 1, 40) })}
             suffix="years"
@@ -563,8 +599,8 @@ export default function WealthJourneyScreen() {
           <Text style={styles.outcomeValue}>{formatCurrency(projectedCorpus)}</Text>
           <Text style={styles.outcomeSubtle}>
             {scenarioChanged
-              ? `${planDelta >= 0 ? '+' : '-'}${formatCurrency(Math.abs(planDelta))} vs current plan over ${yearsToRetirement} years`
-              : `Based on your current corpus and ${formatCurrency(adjustedSip)}/month`}
+              ? `${planDelta >= 0 ? '+' : '-'}${formatCurrency(Math.abs(planDelta))} vs keeping your current plan for ${yearsToRetirement} years`
+              : `Based on your current corpus and ${formatCurrency(currentSip)}/month`}
           </Text>
 
           <View style={styles.noteRow}>
@@ -588,7 +624,7 @@ export default function WealthJourneyScreen() {
             <LineChart
               data={baselineChartData}
               data2={adjustedChartData}
-              width={CHART_WIDTH - 32}
+              width={CHART_WIDTH - 72}
               height={208}
               curved
               isAnimated
@@ -603,7 +639,7 @@ export default function WealthJourneyScreen() {
               noOfSections={4}
               spacing={chartSpacing}
               initialSpacing={0}
-              endSpacing={8}
+              endSpacing={0}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
               xAxisLabelsHeight={18}
@@ -707,6 +743,34 @@ export default function WealthJourneyScreen() {
                 ? `This path leaves ${formatCurrency(retirementProjection.endCorpus)} after ${retirementDurationYears} years.`
                 : `At this pace the corpus runs out around year ${retirementProjection.depletionYear}.`}
             </Text>
+          </View>
+          <View style={styles.drawdownChartWrap}>
+            <Text style={styles.drawdownTitle}>Drawdown path</Text>
+            <LineChart
+              data={drawdownChartData}
+              width={CHART_WIDTH - 72}
+              height={176}
+              curved
+              isAnimated
+              hideDataPoints={retirementDurationYears > 20}
+              color1={colors.primary}
+              dataPointsColor1={colors.primary}
+              thickness1={3}
+              yAxisLabelWidth={56}
+              noOfSections={4}
+              spacing={Math.max(10, Math.floor((CHART_WIDTH - 132) / Math.max(retirementDurationYears, 6)))}
+              initialSpacing={0}
+              endSpacing={0}
+              xAxisLabelTextStyle={styles.chartAxisText}
+              yAxisTextStyle={styles.chartAxisText}
+              xAxisLabelsHeight={18}
+              labelsExtraHeight={34}
+              xAxisColor={colors.borderLight}
+              yAxisColor="transparent"
+              hideRules={false}
+              rulesColor={colors.borderLight}
+              formatYLabel={(value) => formatAxisValue(Number(value))}
+            />
           </View>
         </View>
 
@@ -814,6 +878,37 @@ function makeStyles(colors: AppColors) {
       fontSize: 12,
       fontWeight: '700',
       color: colors.primary,
+    },
+    planCompareCard: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.primaryLight,
+      overflow: 'hidden',
+    },
+    planCompareItem: {
+      flex: 1,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      gap: 4,
+    },
+    planCompareDivider: {
+      width: 1,
+      backgroundColor: colors.border,
+    },
+    planCompareLabel: {
+      ...Typography.bodySmall,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      fontWeight: '700',
+      letterSpacing: 0.4,
+    },
+    planCompareValue: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.textPrimary,
     },
     loadingCard: {
       flexDirection: 'row',
@@ -930,6 +1025,7 @@ function makeStyles(colors: AppColors) {
     },
     chartWrap: {
       marginTop: Spacing.xs,
+      overflow: 'hidden',
     },
     chartAxisText: {
       fontSize: 11,
@@ -955,6 +1051,16 @@ function makeStyles(colors: AppColors) {
       fontSize: 13,
       fontWeight: '600',
       color: colors.textSecondary,
+    },
+    drawdownChartWrap: {
+      marginTop: Spacing.sm,
+      overflow: 'hidden',
+      gap: Spacing.xs,
+    },
+    drawdownTitle: {
+      ...Typography.body,
+      fontWeight: '700',
+      color: colors.textPrimary,
     },
     retirementSummaryRow: {
       flexDirection: 'row',

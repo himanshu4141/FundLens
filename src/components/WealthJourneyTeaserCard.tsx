@@ -57,7 +57,8 @@ export function WealthJourneyTeaserCard({ currentCorpus, xirr }: Props) {
     hasOpened: wealthJourney.hasOpened,
     hasSavedPlan: wealthJourney.hasSavedPlan,
     currentCorpus,
-    monthlySip: wealthJourney.sipOverride ?? detectedSip,
+    monthlySip:
+      (wealthJourney.currentSipOverride ?? detectedSip) + wealthJourney.monthlySipIncrease,
     annualReturn,
     lastUsedHorizonYears: wealthJourney.hasSavedPlan ? wealthJourney.yearsToRetirement : null,
   });
@@ -92,7 +93,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      gap: 10,
+      gap: 8,
     },
     header: {
       flexDirection: 'row',
@@ -100,7 +101,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       alignItems: 'center',
     },
     eyebrow: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '800',
       color: colors.primary,
       textTransform: 'uppercase',
@@ -109,7 +110,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     title: {
       ...Typography.h3,
       color: colors.textPrimary,
-      lineHeight: 30,
+      lineHeight: 24,
     },
     supportingText: {
       ...Typography.bodySmall,
@@ -121,14 +122,16 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
       borderRadius: Radii.full,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     ctaText: {
-      color: '#fff',
-      fontSize: 13,
+      color: colors.primary,
+      fontSize: 12,
       fontWeight: '800',
     },
   });
