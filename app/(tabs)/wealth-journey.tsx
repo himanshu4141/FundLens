@@ -313,8 +313,8 @@ export default function WealthJourneyScreen() {
     wealthJourney.postRetirementReturn ?? returnProfile.postRetirementDefault;
 
   const baselinePoints = useMemo(
-    () => projectWealth(detectedSip, currentCorpus, expectedReturn, yearsToRetirement, 0),
-    [currentCorpus, detectedSip, expectedReturn, yearsToRetirement],
+    () => projectWealth(currentSip, currentCorpus, expectedReturn, yearsToRetirement, 0),
+    [currentCorpus, currentSip, expectedReturn, yearsToRetirement],
   );
 
   const adjustedPoints = useMemo(
