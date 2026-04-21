@@ -58,10 +58,12 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...Typography.h3,
+    fontWeight: '700',
     marginBottom: 2,
   },
   subtitle: {
-    ...Typography.caption,
+    ...Typography.bodySmall,
+    fontWeight: '600',
     marginBottom: Spacing.md,
   },
   divider: {
@@ -71,23 +73,30 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     paddingVertical: Spacing.xs,
+    gap: Spacing.sm,
   },
   colStock: {
     ...Typography.caption,
     flex: 1,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   colValue: {
-    ...Typography.caption,
-    width: 72,
-    textAlign: 'right',
-    textTransform: 'uppercase',
-  },
-  colPct: {
     ...Typography.caption,
     width: 80,
     textAlign: 'right',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+  colPct: {
+    ...Typography.caption,
+    width: 88,
+    textAlign: 'right',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   tableRow: {
     flexDirection: 'row',
@@ -109,18 +118,19 @@ const styles = StyleSheet.create({
   },
   stockName: {
     ...Typography.bodySmall,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
   },
   valueText: {
     ...Typography.bodySmall,
-    width: 72,
+    width: 80,
     textAlign: 'right',
+    fontWeight: '600',
   },
   pctText: {
     ...Typography.bodySmall,
     fontWeight: '700',
-    width: 80,
+    width: 88,
     textAlign: 'right',
   },
 });

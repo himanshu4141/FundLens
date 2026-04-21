@@ -12,7 +12,7 @@ import { supabase } from '@/src/lib/supabase';
 import { ThemeProvider } from '@/src/context/ThemeContext';
 
 // Required for expo-web-browser openAuthSessionAsync to complete on Android.
-// When Chrome Custom Tabs redirects to fundlens://, Android opens the app via
+// When Chrome Custom Tabs redirects to the app's active scheme, Android opens the app via
 // the deep link. This call detects that URL and resolves the pending
 // openAuthSessionAsync promise. Without it, the promise never settles on Android.
 WebBrowser.maybeCompleteAuthSession();
@@ -20,15 +20,15 @@ WebBrowser.maybeCompleteAuthSession();
 /**
  * Parse a magic-link deep-link URL and establish a Supabase session.
  *
- * Supabase magic links land at fundlens://auth/confirm with the tokens in
+ * Supabase magic links land at <scheme>://auth/confirm with the tokens in
  * the URL hash fragment, e.g.:
- *   fundlens://auth/confirm#access_token=xxx&refresh_token=yyy&type=magiclink
+ *   fundlens-main://auth/confirm#access_token=xxx&refresh_token=yyy&type=magiclink
  *
  * On native `detectSessionInUrl` is false so Supabase won't pick these up
  * automatically — we parse and forward them ourselves.
  *
  * NOTE: Google OAuth (PKCE) callbacks do NOT flow through this function.
- * They arrive as fundlens://auth/callback?code=... and are handled entirely
+ * They arrive as <scheme>://auth/callback?code=... and are handled entirely
  * within app/auth/callback.tsx, which calls supabase.auth.exchangeCodeForSession.
  * The openAuthSessionAsync call in auth/index.tsx returns the URL directly,
  * so the Linking listener below never fires for OAuth callbacks.

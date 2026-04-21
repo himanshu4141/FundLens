@@ -17,6 +17,7 @@ import { supabase } from '@/src/lib/supabase';
 import { canShowDevAuthShortcut, getDevAuthCredentials } from '@/src/lib/devAuth';
 import Logo from '@/src/components/Logo';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
+import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
@@ -24,15 +25,15 @@ import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
  * On web, use window.location.origin so the redirect works on any domain
  * (local dev, Vercel preview, production) without hardcoding anything.
  *
- * On native, use the production HTTPS URL instead of fundlens:// directly.
+ * On native, use the production HTTPS URL instead of a custom scheme directly.
  * In-app browsers (Gmail WKWebView, etc.) reliably follow HTTPS redirects but
  * may silently drop custom scheme redirects. The /auth/confirm web page acts
  * as a bridge: it reads the tokens from the URL hash and immediately tries to
- * open fundlens://auth/confirm with the same hash, handing control back to the
+ * open the active app scheme with the same hash, handing control back to the
  * native app. The web session is set as a fallback if the native app can't open.
  */
 function getRedirectUrl(): string {
-  if (Platform.OS !== 'web') return 'https://fund-lens.vercel.app/auth/confirm';
+  if (Platform.OS !== 'web') return getNativeBridgeUrl('/auth/confirm');
   return `${window.location.origin}/auth/confirm`;
 }
 
@@ -82,7 +83,7 @@ export default function SignInScreen() {
 
     const redirectTo = Platform.OS === 'web'
       ? `${window.location.origin}/auth/callback`
-      : 'https://fund-lens.vercel.app/auth/callback';
+      : getNativeBridgeUrl('/auth/callback');
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -100,7 +101,7 @@ export default function SignInScreen() {
       return;
     }
 
-    const result = await WebBrowser.openAuthSessionAsync(data.url, 'fundlens://');
+    const result = await WebBrowser.openAuthSessionAsync(data.url, getNativeAuthOrigin());
     setLoadingMode(null);
 
     if (result.type === 'success') {

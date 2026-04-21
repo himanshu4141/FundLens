@@ -1,14 +1,33 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
       "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "APP_VARIANT": "development"
+      }
+    },
+    "preview-main": {
+      "distribution": "internal",
+      "channel": "main",
+      "env": {
+        "APP_VARIANT": "preview-main"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview-pr": {
+      "distribution": "internal",
+      "channel": "pr-builds",
+      "env": {
+        "APP_VARIANT": "preview-pr"
+      },
       "android": {
         "buildType": "apk"
       }

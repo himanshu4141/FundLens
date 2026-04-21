@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...Typography.h3,
+    fontWeight: '700',
     marginBottom: Spacing.md,
   },
   summaryRow: {
@@ -123,10 +124,11 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...Typography.bodySmall,
+    fontWeight: '600',
   },
   summaryAmount: {
     ...Typography.bodySmall,
-    fontWeight: '500',
+    fontWeight: '600',
     marginTop: 2,
   },
   summaryDivider: {
@@ -146,18 +148,24 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     flex: 1,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   colDebt: {
     ...Typography.caption,
     width: 56,
     textAlign: 'right',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   colCash: {
     ...Typography.caption,
     width: 56,
     textAlign: 'right',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   tableRow: {
     flexDirection: 'row',
@@ -167,7 +175,7 @@ const styles = StyleSheet.create({
   },
   fundName: {
     ...Typography.bodySmall,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
   },
   debtCell: {

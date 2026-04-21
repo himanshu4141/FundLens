@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +27,8 @@ import { navStaleness } from '@/src/utils/navUtils';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
-import Logo from '@/src/components/Logo';
+import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
+import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
@@ -205,9 +205,9 @@ function PortfolioHeader({
 const portfolioHeaderStyles = StyleSheet.create({
   portfolioHeader: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.lg,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   staleBanner: {
     flexDirection: 'row',
@@ -224,13 +224,13 @@ const portfolioHeaderStyles = StyleSheet.create({
   staleBannerTextRed: { color: '#fca5a5' },
   verdictBlock: { marginBottom: Spacing.xs },
   verdictHeadline: { fontSize: 20, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
-  verdictDelta: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  verdictDelta: { fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 3, lineHeight: 18 },
   valueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap', marginTop: Spacing.xs },
   totalValue: { fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: -1 },
   dailyPill: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dailyChange: { fontSize: 14, fontWeight: '600' },
-  portfolioGainLoss: { fontSize: 13, fontWeight: '500', marginTop: 4 },
-  xirrRow: { flexDirection: 'row', marginTop: Spacing.sm, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  dailyChange: { fontSize: 14, fontWeight: '700' },
+  portfolioGainLoss: { fontSize: 13, fontWeight: '600', marginTop: 2 },
+  xirrRow: { flexDirection: 'row', marginTop: Spacing.md, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
   xirrItem: { flex: 1, alignItems: 'center', gap: 3 },
   xirrDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
   xirrLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
@@ -453,76 +453,17 @@ export default function HomeScreen() {
     usePortfolioInsights(fundCards);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Dark header bar — seamlessly joins the gradient below */}
-      <View style={styles.header}>
-        <Logo size={28} showWordmark light />
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            hitSlop={8}
-            onPress={() => setOverflowOpen(true)}
-          >
-            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <SafeAreaView style={styles.container}>
+      <PrimaryShellHeader onPressMenu={() => setOverflowOpen(true)} />
 
-      {/* Overflow menu */}
-      <Modal
+      <AppOverflowMenu
         visible={overflowOpen}
-        transparent
-        animationType="none"
-        onRequestClose={() => setOverflowOpen(false)}
-      >
-        <TouchableOpacity
-          style={styles.overflowBackdrop}
-          activeOpacity={1}
-          onPress={() => setOverflowOpen(false)}
-        >
-          <View style={styles.overflowMenu}>
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => {
-                setOverflowOpen(false);
-                handleSync();
-              }}
-              disabled={syncState === 'syncing'}
-            >
-              {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
-              )}
-              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
-            </TouchableOpacity>
-            <View style={styles.overflowDivider} />
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => {
-                setOverflowOpen(false);
-                router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding');
-              }}
-            >
-              <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.overflowItemText}>Import CAS</Text>
-            </TouchableOpacity>
-            <View style={styles.overflowDivider} />
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => {
-                setOverflowOpen(false);
-                router.push('/(tabs)/settings');
-              }}
-            >
-              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.overflowItemText}>Settings</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        syncState={syncState}
+        onClose={() => setOverflowOpen(false)}
+        onSync={handleSync}
+        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onSettings={() => router.push('/(tabs)/settings')}
+      />
 
       {syncState === 'requested' && (
         <View style={styles.syncBanner}>
@@ -601,54 +542,6 @@ function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
-    // Dark header — matches gradientHeader[0] for seamless join with portfolio gradient
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.lg,
-      paddingTop: Spacing.sm,
-      paddingBottom: 14,
-      backgroundColor: colors.gradientHeader[0],
-    },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    // Overflow menu
-    overflowBackdrop: {
-      flex: 1,
-    },
-    overflowMenu: {
-      position: 'absolute',
-      top: 60,
-      right: 16,
-      backgroundColor: colors.surface,
-      borderRadius: Radii.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      minWidth: 180,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      elevation: 8,
-    },
-    overflowItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm + 2,
-    },
-    overflowItemText: {
-      fontSize: 15,
-      color: colors.textPrimary,
-      fontWeight: '500',
-    },
-    overflowDivider: {
-      height: 1,
-      backgroundColor: colors.border,
-      marginHorizontal: Spacing.sm,
-    },
-
     syncBanner: {
       backgroundColor: colors.primaryLight,
       borderBottomWidth: 1,
@@ -694,13 +587,18 @@ function makeStyles(colors: AppColors) {
       backgroundColor: colors.surface,
       marginHorizontal: Spacing.md,
       marginTop: Spacing.md,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       borderWidth: 1,
       borderColor: colors.border,
       padding: Spacing.md,
     },
-    chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-    chartTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    chartHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.md,
+    },
+    chartTitle: { ...Typography.h3, color: colors.textPrimary },
     windowSelector: { flexDirection: 'row', gap: 6 },
     windowPill: {
       paddingHorizontal: 10,
@@ -714,28 +612,33 @@ function makeStyles(colors: AppColors) {
     windowPillText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
     windowPillTextActive: { color: '#fff' },
     chartSkeleton: { height: 140, backgroundColor: colors.borderLight, borderRadius: Radii.sm },
-    chartLegend: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm, justifyContent: 'center' },
+    chartLegend: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md, justifyContent: 'center' },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
-    chartAxisText: { fontSize: 10, color: colors.textTertiary },
+    legendDot: { width: 9, height: 9, borderRadius: 4.5 },
+    legendText: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
+    chartAxisText: { fontSize: 11, color: colors.textTertiary },
 
     // Gainers / Losers row
-    gainersRow: { flexDirection: 'row', marginHorizontal: Spacing.md, marginTop: Spacing.sm, gap: Spacing.sm },
+    gainersRow: {
+      flexDirection: 'row',
+      marginHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      gap: Spacing.sm,
+    },
     gainerCard: {
       flex: 1,
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       borderWidth: 1,
       borderColor: colors.border,
       borderLeftWidth: 3,
-      padding: Spacing.sm,
-      gap: 3,
+      padding: Spacing.md,
+      gap: 4,
     },
-    gainerLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-    gainerName: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
-    gainerCategory: { fontSize: 11, color: colors.textTertiary },
-    gainerPct: { fontSize: 14, fontWeight: '700', marginTop: 4 },
-    gainerAmt: { fontSize: 11, fontWeight: '500' },
+    gainerLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
+    gainerName: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, lineHeight: 18 },
+    gainerCategory: { fontSize: 12, color: colors.textTertiary, lineHeight: 17, minHeight: 34 },
+    gainerPct: { fontSize: 15, fontWeight: '700', marginTop: 6, lineHeight: 20 },
+    gainerAmt: { fontSize: 13, fontWeight: '600', lineHeight: 18 },
   });
 }

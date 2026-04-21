@@ -14,6 +14,12 @@ Secondary navigation:
 - `Fund Detail`, `Portfolio Insights`, and `Your Funds` are stack routes
 - `Compare` still exists as a hidden legacy route for transition / deep-link safety, but it is no longer part of the intended primary IA
 
+Screen families:
+
+- `Portfolio`, `Leaderboard`, and `Simulator` use the shared primary-shell header: logo on the left, one `...` action sheet on the right
+- `Settings`, `Your Funds`, and CAS import screens use a lighter utility header with one back action and one title
+- `Fund Detail` uses the native stack back behavior and does not hardcode an origin label
+
 ## Screen Map
 
 ### 1. Portfolio
@@ -65,6 +71,7 @@ Includes:
 
 - fund-allocation overview
 - count of all active funds
+- lightweight sorting by current value, invested amount, XIRR, lead vs benchmark, or alphabetical via a bottom sheet
 - one shared `FundCard` per holding
 
 ### 4. Fund Detail
@@ -77,6 +84,8 @@ Header:
 - gain / loss
 - XIRR
 - stale-date labeling when relevant
+- one history-aware back path via the stack header
+- polished composition cards with aligned labels / numeric columns
 
 Tabs:
 

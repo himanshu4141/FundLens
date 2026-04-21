@@ -22,6 +22,8 @@ import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
+import { UtilityHeader } from '@/src/components/UtilityHeader';
+import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
 import type { AppColors } from '@/src/context/ThemeContext';
 
@@ -97,7 +99,7 @@ export default function SettingsScreen() {
 
     const redirectTo = Platform.OS === 'web'
       ? `${window.location.origin}/auth/callback`
-      : 'https://fund-lens.vercel.app/auth/callback';
+      : getNativeBridgeUrl('/auth/callback');
 
     const { data, error } = await supabase.auth.linkIdentity({
       provider: 'google',
@@ -115,7 +117,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    const result = await WebBrowser.openAuthSessionAsync(data.url, 'fundlens://');
+    const result = await WebBrowser.openAuthSessionAsync(data.url, getNativeAuthOrigin());
     setLinkingGoogle(false);
 
     if (result.type === 'success') {
@@ -203,10 +205,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
-      </View>
+      <UtilityHeader title="Settings" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Account ── */}
@@ -459,22 +458,12 @@ function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
-    header: {
-      paddingHorizontal: Spacing.md,
-      paddingTop: Spacing.sm,
-      paddingBottom: 12,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    headerTitle: { ...Typography.h2, color: colors.textPrimary },
-
     sectionHeader: {
       ...Typography.label,
       color: colors.textTertiary,
       textTransform: 'uppercase',
       marginTop: Spacing.lg,
-      marginBottom: Spacing.sm,
+      marginBottom: Spacing.md,
       marginHorizontal: Spacing.md,
     },
     sectionHeaderRow: {
@@ -492,7 +481,7 @@ function makeStyles(colors: AppColors) {
 
     card: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       marginHorizontal: Spacing.md,
       overflow: 'hidden',
       borderWidth: 1,
@@ -516,7 +505,7 @@ function makeStyles(colors: AppColors) {
       justifyContent: 'center',
     },
     accountInfo: { flex: 1, gap: 2 },
-    accountEmail: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    accountEmail: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
     accountMeta: { fontSize: 12, color: colors.textTertiary },
     editIconBtn: { padding: 6 },
 
@@ -534,7 +523,7 @@ function makeStyles(colors: AppColors) {
     },
     rowLeft: { flex: 1, gap: 3 },
     rowLabel: { ...Typography.label, color: colors.textTertiary, textTransform: 'uppercase' },
-    rowValue: { fontSize: 14, fontWeight: '500', color: colors.textPrimary },
+    rowValue: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     rowSubLabel: { ...Typography.bodySmall, color: colors.textTertiary, marginTop: 1 },
 
     actionBtn: {

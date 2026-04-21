@@ -10,14 +10,16 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - Optional local-only dev auth shortcut backed by a seeded demo user
 - **Import portfolio** — enter your CAS registrar email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
 - **Portfolio / Home screen** — total portfolio value + gain/loss, NAV staleness banner, XIRR vs configurable benchmark, portfolio-vs-market chart, top movers, Portfolio Insights entry card, and Your Funds entry card
-- **Fund detail** — holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised); Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
+- **Fund detail** — polished holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised), clearer composition cards/tables, and one clean history-aware back path; Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
 - **Leaderboard** — ranked leaders / laggards view with benchmark-aware scoring and portfolio insight summary
 - **Simulator** — personalised plan modelling based on the current corpus, inferred SIP pace, redemptions / one-offs, and editable future assumptions
 - **Settings** — account info, **Connected Accounts** (shows linked providers; connect Google to an existing magic-link account), inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker and design theme, sign out
 - **Portfolio Insights** — one-tap access from the Portfolio screen to asset mix, market cap distribution, sector exposure, debt/cash mix, top holdings, and fund allocation; two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer); prominent "estimated" banner when showing category-derived data; auto-syncs when data is >35 days old
-- **Your Funds** — dedicated screen listing all holdings with shared fund cards plus portfolio-allocation context
+- **Screen-family navigation** — Portfolio / Leaderboard / Simulator share one shell header with a single `...` action sheet; utility screens use a lighter back-title header; Fund Detail now relies on one clear history-aware back path
+- **Your Funds** — dedicated screen listing all holdings with shared fund cards, portfolio-allocation context, a mobile-friendly sort sheet, and in-memory sorting by current value, invested amount, XIRR, benchmark lead, or alphabetical order
+- **Preview usage metrics** — EAS Insights support is enabled via `expo-insights`, so once the preview apps are rebuilt and installed you can see usage trends for the preview streams in Expo
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
-- Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase deploy + production EAS Update on merge to main, and hardened preview publishing for Vercel / EAS export hangs
+- Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase migration replay validation on PRs, linked-project migration/schema validation before Supabase deploys on merge to main, and hardened preview publishing for Vercel / EAS export hangs
 
 ---
 
@@ -112,13 +114,26 @@ npm run gen:types
 
 ## Android APK (install on your phone)
 
-Build a preview APK via EAS:
+Build the stable preview APK via EAS:
 
 ```bash
-eas build --profile preview --platform android
+eas build --profile preview-main --platform android
+```
+
+Build the rolling PR preview APK via EAS:
+
+```bash
+eas build --profile preview-pr --platform android
 ```
 
 After ~20 minutes, EAS prints a download link. Open it on your phone, download the APK, and install it. You only need to rebuild when native code changes; JS changes deploy instantly via `eas update`.
+
+Recommended device setup during active development:
+
+- Install `preview-main` once as your stable shareable preview app
+- Install `preview-pr` once as your rolling PR review app
+- `main` merges publish OTA updates to the `main` stream for `FundLens Main`
+- PR commits publish OTA updates to the `pr-builds` stream for `FundLens PR`
 
 ---
 
@@ -126,9 +141,9 @@ After ~20 minutes, EAS prints a download link. Open it on your phone, download t
 
 1. Open the app → enter your email → tap "Send secure link →"
 2. Check your inbox → tap the link
-3. The link opens `fundlens://auth/confirm` and signs you in automatically
+3. The link opens your installed FundLens app and signs you in automatically
 
-The deep link scheme `fundlens://` is configured in `app.json` and the Supabase Auth redirect URL allow-list.
+The app scheme varies by installed build (`fundlens`, `fundlens-main`, `fundlens-pr`, etc.) and is configured in [app.config.js](/Users/hyadav/code/personal/FundLens/app.config.js).
 
 ---
 
@@ -149,14 +164,31 @@ Tap "Continue with Google" on the sign-in screen. The app opens an in-app browse
 **2. Supabase Dashboard**
 
 - Go to Auth → Providers → Google → enable and paste the Client ID and Client Secret.
-- Go to Auth → URL Configuration → Redirect URLs → add:
+- Go to Auth → URL Configuration:
+  - set `Site URL` to `https://fund-lens.vercel.app`
+  - add these exact `Redirect URLs`:
 
   | Environment | URL |
   |---|---|
-  | Production | `https://fund-lens.vercel.app/auth/callback` |
-  | Vercel previews | `https://*.vercel.app/auth/callback` |
-  | Native (deep link) | `fundlens://auth/callback` |
-  | Local web dev | `http://localhost:8081/auth/callback` |
+  | Production web bridge | `https://fund-lens.vercel.app/auth/confirm` |
+  | Production web OAuth | `https://fund-lens.vercel.app/auth/callback` |
+  | Vercel preview bridge | `https://fund-lens-*.vercel.app/auth/confirm` |
+  | Vercel preview OAuth | `https://fund-lens-*.vercel.app/auth/callback` |
+  | Local web dev bridge | `http://localhost:8081/auth/confirm` |
+  | Local web dev OAuth | `http://localhost:8081/auth/callback` |
+  | Local Expo web bridge | `http://localhost:19006/auth/confirm` |
+  | Local Expo web OAuth | `http://localhost:19006/auth/callback` |
+  | Native production app bridge | `fundlens://auth/confirm` |
+  | Native production app OAuth | `fundlens://auth/callback` |
+  | Native main preview bridge | `fundlens-main://auth/confirm` |
+  | Native main preview OAuth | `fundlens-main://auth/callback` |
+  | Native PR preview bridge | `fundlens-pr://auth/confirm` |
+  | Native PR preview OAuth | `fundlens-pr://auth/callback` |
+
+Notes:
+- `/auth/confirm` is used by the magic-link/native bridge flow
+- `/auth/callback` is used by Google OAuth
+- we intentionally avoid the broader `https://*.vercel.app/**` wildcard and only allow preview URLs matching this project’s naming pattern
 
 **3. Local web development (`npm run web`)**
 
@@ -166,10 +198,11 @@ No `.env.local` changes are needed — the client reads the Google OAuth configu
 
 **Native local testing**
 
-Google OAuth on native requires a build that has the `fundlens://` scheme registered. Expo Go cannot be used. Options:
+Google OAuth on native requires a build that has the right app scheme registered. Expo Go cannot be used. Options:
 
 - Build a development client: `eas build --profile development --platform android` (or `ios`)
-- Use the PR preview APK published by CI on pull requests
+- Install the stable preview app: `eas build --profile preview-main --platform android`
+- Install the rolling PR preview app: `eas build --profile preview-pr --platform android`
 
 ---
 
@@ -177,10 +210,29 @@ Google OAuth on native requires a build that has the `fundlens://` scheme regist
 
 | Trigger | Workflow | What it does |
 |---|---|---|
-| Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to `pr-{N}` branch, posts QR comment |
-| Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to `production` channel |
+| Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to the shared `pr-builds` stream for the installed `FundLens PR` app, posts update comment |
+| Pull request | `supabase-validate.yml` | Rebuilds the local Supabase DB from migrations and lints the resulting public schema |
+| Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to both the shared `main` preview stream and the existing `production` stream |
 | Merge to main | Vercel (automatic) | `expo export --platform web` → deploys to Vercel |
-| Merge to main | `supabase-deploy.yml` | Deploy edge functions + run migrations (triggers when `supabase/` paths change) |
+| Merge to main | `supabase-deploy.yml` | Validates local replay + linked migration/schema parity, then deploys edge functions and runs migrations (triggers when `supabase/` paths change) |
+
+## Preview Metrics
+
+Expo currently gives you two levels of visibility:
+
+- EAS Update already provides high-level adoption/usage signals from update requests
+- `expo-insights` adds more precise app-launch usage metrics and app-version breakdowns in the Expo dashboard
+
+Current setup:
+
+- `expo-insights` is installed in this project
+- metrics begin flowing after you create and install fresh native builds that include the package
+- view them in Expo Dashboard → Project → Insights
+
+Practical implication:
+
+- rebuild and reinstall `preview-main` and `preview-pr` once after this change
+- after that, the `FundLens Main` preview app is the right stream to monitor for friend/family/focus-group usage
 
 **Required GitHub secrets:**
 - `EXPO_TOKEN` — from expo.dev → Account Settings → Access Tokens

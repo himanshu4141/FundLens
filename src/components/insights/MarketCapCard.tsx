@@ -72,17 +72,17 @@ export function MarketCapCard({ totalValue, equityPct, marketCapMix }: Props) {
 
       <View style={styles.tableHeader}>
         <Text style={[styles.colHeader, { color: colors.textTertiary }]}>Capitalisation</Text>
-        <Text style={[styles.colHeader, { color: colors.textTertiary }]}>Value</Text>
-        <Text style={[styles.colHeader, { color: colors.textTertiary }]}>% of equity</Text>
+        <Text style={[styles.colHeaderValue, { color: colors.textTertiary }]}>Value</Text>
+        <Text style={[styles.colHeaderPct, { color: colors.textTertiary }]}>% of equity</Text>
       </View>
 
       {rows.map((r) => (
         <View key={r.label} style={[styles.tableRow, { borderTopColor: colors.borderLight }]}>
-          <Text style={[styles.rowLabel, { color: colors.textPrimary, flex: 2 }]}>{r.label}</Text>
-          <Text style={[styles.rowValue, { color: colors.textPrimary, flex: 2 }]}>
+          <Text style={[styles.rowLabel, { color: colors.textPrimary, flex: 1 }]}>{r.label}</Text>
+          <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
             {formatCurrency((r.pct / 100) * equityValue)}
           </Text>
-          <Text style={[styles.rowPct, { color: colors.textPrimary, flex: 1 }]}>
+          <Text style={[styles.rowPct, { color: colors.textPrimary }]}>
             {r.pct.toFixed(1)}%
           </Text>
         </View>
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...Typography.h3,
+    fontWeight: '700',
     marginBottom: Spacing.md,
   },
   chartRow: {
@@ -125,10 +126,11 @@ const styles = StyleSheet.create({
   legendLabel: {
     ...Typography.bodySmall,
     flex: 1,
+    fontWeight: '600',
   },
   legendPct: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   divider: {
     height: 1,
@@ -136,29 +138,54 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: Spacing.xs,
+    gap: Spacing.sm,
   },
   colHeader: {
     ...Typography.caption,
     textTransform: 'uppercase',
-    flex: 2,
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    flex: 1,
+  },
+  colHeaderValue: {
+    ...Typography.caption,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    width: 92,
+    textAlign: 'right',
+  },
+  colHeaderPct: {
+    ...Typography.caption,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    width: 78,
+    textAlign: 'right',
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: Spacing.sm + 2,
     borderTopWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.sm,
   },
   rowLabel: {
     ...Typography.body,
+    fontWeight: '600',
   },
   rowValue: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: '700',
+    width: 92,
+    textAlign: 'right',
   },
   rowPct: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: '700',
+    width: 78,
     textAlign: 'right',
   },
 });

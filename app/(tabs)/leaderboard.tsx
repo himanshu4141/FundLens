@@ -5,10 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Modal,
-  ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,7 +17,8 @@ import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
-import Logo from '@/src/components/Logo';
+import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
+import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
@@ -241,70 +239,16 @@ export default function LeaderboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={colors.gradientHeader}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => router.push('/(tabs)')} hitSlop={8}>
-          <Logo size={28} showWordmark light />
-        </TouchableOpacity>
-        <View style={styles.headerActions}>
-          <TouchableOpacity hitSlop={8} onPress={() => setOverflowOpen(true)}>
-            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+      <PrimaryShellHeader onPressLogo={() => router.push('/(tabs)')} onPressMenu={() => setOverflowOpen(true)} />
 
-      {/* Overflow menu */}
-      <Modal
+      <AppOverflowMenu
         visible={overflowOpen}
-        transparent
-        animationType="none"
-        onRequestClose={() => setOverflowOpen(false)}
-      >
-        <TouchableOpacity
-          style={styles.overflowBackdrop}
-          activeOpacity={1}
-          onPress={() => setOverflowOpen(false)}
-        >
-          <View style={styles.overflowMenu}>
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => { setOverflowOpen(false); handleSync(); }}
-              disabled={syncState === 'syncing'}
-            >
-              {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
-              )}
-              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
-            </TouchableOpacity>
-            <View style={styles.overflowDivider} />
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => { setOverflowOpen(false); router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding'); }}
-            >
-              <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.overflowItemText}>Import CAS</Text>
-            </TouchableOpacity>
-            <View style={styles.overflowDivider} />
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => { setOverflowOpen(false); router.push('/(tabs)/settings'); }}
-            >
-              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.overflowItemText}>Settings</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        syncState={syncState}
+        onClose={() => setOverflowOpen(false)}
+        onSync={handleSync}
+        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onSettings={() => router.push('/(tabs)/settings')}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -393,39 +337,6 @@ function makeStyles(colors: AppColors) {
       flex: 1,
       backgroundColor: colors.background,
     },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm + 2,
-    },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    overflowBackdrop: { flex: 1 },
-    overflowMenu: {
-      position: 'absolute',
-      top: 60,
-      right: 16,
-      backgroundColor: colors.surface,
-      borderRadius: Radii.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      minWidth: 180,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      elevation: 8,
-    },
-    overflowItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm + 2,
-    },
-    overflowItemText: { fontSize: 15, color: colors.textPrimary, fontWeight: '500' },
-    overflowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: Spacing.sm },
     scroll: {
       flex: 1,
     },
@@ -439,7 +350,7 @@ function makeStyles(colors: AppColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.xs,
-      marginTop: Spacing.sm,
+      marginTop: Spacing.md,
     },
     benchmarkRowLabel: {
       ...Typography.label,
@@ -475,11 +386,10 @@ function makeStyles(colors: AppColors) {
       overflow: 'hidden',
     },
     alphaTitle: {
-      ...Typography.label,
-      color: colors.textSecondary,
-      marginBottom: Spacing.sm,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
+      ...Typography.h3,
+      color: colors.textPrimary,
+      fontWeight: '700',
+      marginBottom: Spacing.md,
     },
     alphaRow: {
       flexDirection: 'row',
@@ -496,9 +406,10 @@ function makeStyles(colors: AppColors) {
       backgroundColor: colors.border,
     },
     alphaLabel: {
-      ...Typography.caption,
+      ...Typography.bodySmall,
       color: colors.textSecondary,
       marginBottom: 2,
+      fontWeight: '600',
     },
     alphaValue: {
       ...Typography.h3,
@@ -512,31 +423,31 @@ function makeStyles(colors: AppColors) {
       marginTop: Spacing.xs,
     },
     alphaFooterText: {
-      ...Typography.label,
+      ...Typography.bodySmall,
       fontWeight: '600',
     },
     // Fund rank card
     fundCard: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       borderWidth: 1,
       borderColor: colors.border,
       flexDirection: 'row',
       overflow: 'hidden',
-      marginBottom: Spacing.xs,
+      marginBottom: Spacing.sm,
     },
     fundCardAccent: {
       width: 4,
     },
     fundCardBody: {
       flex: 1,
-      padding: Spacing.sm,
+      padding: Spacing.md,
     },
     fundCardTop: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-      marginBottom: 4,
+      marginBottom: 6,
     },
     fundCardInfo: {
       flex: 1,
@@ -545,10 +456,11 @@ function makeStyles(colors: AppColors) {
     fundCardName: {
       ...Typography.body,
       color: colors.textPrimary,
+      fontWeight: '600',
     },
     fundCardCategory: {
-      ...Typography.caption,
-      color: colors.textSecondary,
+      ...Typography.bodySmall,
+      color: colors.textTertiary,
       marginTop: 2,
     },
     fundCardBadge: {
@@ -570,25 +482,25 @@ function makeStyles(colors: AppColors) {
     fundCardValue: {
       ...Typography.body,
       color: colors.textPrimary,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     fundCardXirr: {
-      ...Typography.label,
+      ...Typography.bodySmall,
       fontWeight: '600',
     },
     fundCardVerdict: {
-      ...Typography.caption,
-      fontWeight: '500',
+      ...Typography.bodySmall,
+      fontWeight: '600',
     },
     // Section headers
     section: {
-      gap: Spacing.xs,
+      gap: Spacing.sm,
     },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.xs,
-      marginBottom: 4,
+      marginBottom: Spacing.xs,
     },
     sectionDot: {
       width: 8,
@@ -600,8 +512,9 @@ function makeStyles(colors: AppColors) {
       color: colors.textPrimary,
     },
     sectionCount: {
-      ...Typography.caption,
+      ...Typography.bodySmall,
       color: colors.textSecondary,
+      fontWeight: '600',
     },
     // Loading
     loadingContainer: {
@@ -610,7 +523,7 @@ function makeStyles(colors: AppColors) {
     },
     skeletonCard: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       padding: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,

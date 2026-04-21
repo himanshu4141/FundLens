@@ -1126,15 +1126,15 @@ function makeCompStyles(colors: AppColors) {
     assetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
     assetItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     assetDot: { width: 8, height: 8, borderRadius: 4 },
-    assetLabel: { fontSize: 12, color: colors.textTertiary },
-    assetValue: { fontSize: 12, fontWeight: '700' as const, color: colors.textPrimary },
+    assetLabel: { fontSize: 12, color: colors.textTertiary, fontWeight: '600' as const },
+    assetValue: { fontSize: 13, fontWeight: '700' as const, color: colors.textPrimary },
     sectorRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.sm,
       paddingVertical: 4,
     },
-    sectorName: { flex: 1, fontSize: 13, color: colors.textPrimary },
+    sectorName: { flex: 1, fontSize: 13, color: colors.textPrimary, fontWeight: '600' as const },
     sectorBarWrap: {
       width: 80,
       height: 6,
@@ -1146,7 +1146,7 @@ function makeCompStyles(colors: AppColors) {
     sectorPct: {
       fontSize: 12,
       fontWeight: '600' as const,
-      minWidth: 36,
+      minWidth: 42,
       textAlign: 'right',
       color: colors.textSecondary,
     },
@@ -1164,12 +1164,12 @@ function makeCompStyles(colors: AppColors) {
       color: colors.textTertiary,
     },
     holdingInfo: { flex: 1, gap: 2 },
-    holdingName: { fontSize: 13, fontWeight: '500' as const, color: colors.textPrimary },
-    holdingSector: { fontSize: 11, color: colors.textTertiary },
+    holdingName: { fontSize: 13, fontWeight: '600' as const, color: colors.textPrimary },
+    holdingSector: { fontSize: 11, color: colors.textTertiary, fontWeight: '500' as const },
     holdingPct: {
       fontSize: 13,
       fontWeight: '700' as const,
-      minWidth: 40,
+      minWidth: 48,
       textAlign: 'right',
       color: colors.textPrimary,
     },
@@ -1197,16 +1197,6 @@ export default function FundDetailScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['bottom']}>
-      {/* ── Header ── */}
-      <View style={s.headerBar}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={s.headerTitle} numberOfLines={1}>
-          Portfolio
-        </Text>
-      </View>
-
       {isLoading ? (
         <View style={s.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -1338,26 +1328,6 @@ function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
-    headerBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-      gap: 8,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primaryLight,
-    },
-    headerTitle: { flex: 1, fontSize: 15, fontWeight: '600' as const, color: colors.textPrimary },
-
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     errorText: { ...Typography.body, color: colors.textSecondary },
     backLink: { color: colors.primary, fontSize: 14, fontWeight: '600' as const },
@@ -1366,55 +1336,49 @@ function makeStyles(colors: AppColors) {
     fundHeader: {
       backgroundColor: colors.surface,
       margin: Spacing.md,
-      borderRadius: Radii.md,
-      padding: 18,
-      gap: 8,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.06,
-      shadowRadius: 4,
-      elevation: 2,
+      borderRadius: Radii.lg,
+      padding: Spacing.md,
+      gap: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    fundName: { fontSize: 16, fontWeight: '700' as const, color: colors.textPrimary, lineHeight: 22 },
-    fundCategory: { ...Typography.bodySmall, color: colors.textTertiary, marginBottom: 4 },
+    fundName: { fontSize: 17, fontWeight: '700' as const, color: colors.textPrimary, lineHeight: 24 },
+    fundCategory: { ...Typography.bodySmall, color: colors.textTertiary, marginBottom: 6, fontWeight: '600' as const },
 
-    holdingRow: { flexDirection: 'row', marginTop: 4 },
-    holdingStat: { flex: 1, alignItems: 'center', gap: 3 },
-    holdingValue: { fontSize: 15, fontWeight: '700' as const, color: colors.textPrimary },
+    holdingRow: { flexDirection: 'row', marginTop: 2 },
+    holdingStat: { flex: 1, alignItems: 'center', gap: 4 },
+    holdingValue: { fontSize: 15, fontWeight: '800' as const, color: colors.textPrimary },
     holdingValuePending: { fontSize: 13, fontWeight: '500' as const, color: colors.textTertiary, fontStyle: 'italic' },
     navStaleLabel: { fontSize: 11, color: colors.textTertiary, fontStyle: 'italic' },
 
-    gainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-    gainValue: { fontSize: 14, fontWeight: '600' as const },
+    gainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+    gainValue: { fontSize: 14, fontWeight: '700' as const },
 
-    xirrHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-    xirrHeaderValue: { fontSize: 14, fontWeight: '600' as const },
-    xirrHeaderHint: { fontSize: 11, color: colors.textTertiary },
+    xirrHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, flexWrap: 'wrap' },
+    xirrHeaderValue: { fontSize: 14, fontWeight: '700' as const },
+    xirrHeaderHint: { fontSize: 11, color: colors.textTertiary, fontWeight: '600' as const },
 
     // ── Tab bar ──
     tabBar: {
       flexDirection: 'row',
       marginHorizontal: Spacing.md,
       backgroundColor: colors.borderLight,
-      borderRadius: Radii.sm + 2,
-      padding: 3,
-      marginBottom: 4,
+      borderRadius: Radii.md,
+      padding: 4,
+      marginBottom: Spacing.xs,
     },
     tab: {
       flex: 1,
-      paddingVertical: 8,
+      paddingVertical: 9,
       alignItems: 'center',
       borderRadius: Radii.sm,
     },
     tabActive: {
       backgroundColor: colors.surface,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.08,
-      shadowRadius: 2,
-      elevation: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    tabText: { fontSize: 13, fontWeight: '500' as const, color: colors.textTertiary },
+    tabText: { fontSize: 13, fontWeight: '600' as const, color: colors.textTertiary },
     tabTextActive: { color: colors.textPrimary, fontWeight: '700' as const },
 
     // ── Tab content ──
@@ -1423,16 +1387,12 @@ function makeStyles(colors: AppColors) {
     // XIRR card
     xirrCard: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       padding: Spacing.md,
-      flexDirection: 'row',
       gap: Spacing.md,
       marginTop: Spacing.sm,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.04,
-      shadowRadius: 3,
-      elevation: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     comparisonRow: { flexDirection: 'row', alignItems: 'flex-start' },
     comparisonCol: { flex: 1, gap: 4 },
@@ -1449,25 +1409,22 @@ function makeStyles(colors: AppColors) {
     // Chart
     chartCard: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       padding: Spacing.md,
       gap: 10,
       overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.04,
-      shadowRadius: 3,
-      elevation: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     chartLegendRow: { flexDirection: 'row', gap: 16 },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 10, height: 10, borderRadius: 5 },
-    legendLabel: { fontSize: 12, color: colors.textSecondary },
+    legendLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const },
 
     returnSummary: { gap: 6, marginTop: 4 },
     summaryDateLabel: { fontSize: 11, color: colors.textTertiary, marginBottom: 2 },
     returnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    returnLabel: { fontSize: 13, color: colors.textSecondary },
+    returnLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' as const },
     returnVal: { fontSize: 14, fontWeight: '700' as const },
 
     navStatsRow: { flexDirection: 'row' },

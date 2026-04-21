@@ -10,6 +10,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
+import { getAppScheme } from '@/src/utils/appScheme';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 type CallbackState = 'exchanging' | 'linked' | 'error';
@@ -21,11 +22,13 @@ interface ErrorState {
 
 export default function OAuthCallbackScreen() {
   const router = useRouter();
-  const { code, error: oauthError, error_description } = useLocalSearchParams<{
+  const { code, error: oauthError, error_description, scheme } = useLocalSearchParams<{
     code?: string;
     error?: string;
     error_description?: string;
+    scheme?: string;
   }>();
+  const targetScheme = typeof scheme === 'string' && scheme.length > 0 ? scheme : getAppScheme();
 
   const [state, setState] = useState<CallbackState>('exchanging');
   const [errorState, setErrorState] = useState<ErrorState | null>(null);
@@ -42,7 +45,7 @@ export default function OAuthCallbackScreen() {
       const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
       if (/iphone|ipad|ipod|android/.test(ua) && isNativeBridgeHost) {
         // Preserve the full query string so the native app receives the code
-        window.location.replace('fundlens://auth/callback' + window.location.search);
+        window.location.replace(`${targetScheme}://auth/callback` + window.location.search);
       }
       // Desktop web, or mobile on a non-bridge host: Supabase detectSessionInUrl
       // auto-exchanges the code. Show spinner; AuthGate navigates once session appears.
@@ -72,7 +75,7 @@ export default function OAuthCallbackScreen() {
         // Pass the full reconstructed URL; Supabase extracts the code param
         // and retrieves the stored PKCE verifier from AsyncStorage automatically.
         const { data, error } = await supabase.auth.exchangeCodeForSession(
-          `fundlens://auth/callback?code=${code}`,
+          `${targetScheme}://auth/callback?code=${code}`,
         );
 
         if (error) {
@@ -108,7 +111,7 @@ export default function OAuthCallbackScreen() {
     }
 
     exchange();
-  }, [code, oauthError, error_description]);
+  }, [code, oauthError, error_description, targetScheme]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

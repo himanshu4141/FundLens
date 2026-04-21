@@ -489,13 +489,14 @@ const styles = StyleSheet.create({
   hero: {
     paddingTop: 56,
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.xl + Spacing.sm,
     gap: Spacing.lg,
   },
   heroCopy: { gap: Spacing.sm },
   heroTitle: {
     ...Typography.h1,
     color: Colors.textOnDark,
+    fontWeight: '700',
   },
   heroSubtitle: {
     ...Typography.body,
@@ -529,6 +530,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.h3,
     color: Colors.textPrimary,
+    fontWeight: '700',
   },
 
   // Setup-complete view
@@ -581,7 +583,7 @@ const styles = StyleSheet.create({
   stepNumText: { color: Colors.textOnDark, fontSize: 13, fontWeight: '700' },
   stepTitleWrap: { gap: 2 },
   stepLabel: { ...Typography.label, color: Colors.primary, textTransform: 'uppercase' },
-  stepTitle: { ...Typography.h3, color: Colors.textPrimary },
+  stepTitle: { ...Typography.h3, color: Colors.textPrimary, fontWeight: '700' },
   stepTitleGray: { color: Colors.textTertiary },
   stepBody: { gap: 10 },
   stepDesc: { ...Typography.body, color: Colors.textSecondary },
@@ -645,6 +647,6 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg, padding: Spacing.lg, gap: 6,
     backgroundColor: Colors.surface,
   },
-  altCardTitle: { ...Typography.h3, color: Colors.textPrimary },
+  altCardTitle: { ...Typography.h3, color: Colors.textPrimary, fontWeight: '700' },
   altCardSub: { ...Typography.bodySmall, color: Colors.textSecondary },
 });
