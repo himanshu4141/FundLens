@@ -145,7 +145,7 @@ Expected outcome:
 
 ### Milestone 2 — Rebuild the screen as Wealth Journey
 
-Replace `app/(tabs)/simulator.tsx` with a new interaction model:
+Replace `app/(tabs)/wealth-journey.tsx` with a new interaction model:
 
 - current corpus shown as context, not a tweak-first control
 - chips plus direct input instead of stepper-only controls

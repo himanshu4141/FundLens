@@ -64,7 +64,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="simulator"
+        name="wealth-journey"
         options={{
           title: 'Wealth Journey',
           tabBarIcon: ({ color, size }) => (

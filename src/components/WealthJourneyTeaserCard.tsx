@@ -72,7 +72,7 @@ export function WealthJourneyTeaserCard({ currentCorpus, xirr }: Props) {
       <Text style={styles.supportingText}>{teaser.supportingText}</Text>
       <TouchableOpacity
         style={styles.cta}
-        onPress={() => router.push('/(tabs)/simulator')}
+        onPress={() => router.push('/wealth-journey' as never)}
         activeOpacity={0.85}
       >
         {isLoading ? <ActivityIndicator size="small" color="#fff" /> : null}
