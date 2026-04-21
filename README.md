@@ -9,13 +9,13 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - Magic link authentication (sign in / sign out) and **Google OAuth** — sign in with your Google account as an alternative; connect Google to an existing account from Settings
 - Optional local-only dev auth shortcut backed by a seeded demo user
 - **Import portfolio** — enter your CAS registrar email and request a CAS via CASParser, or upload a CAS PDF directly through the app's Python parser path
-- **Portfolio / Home screen** — total portfolio value + gain/loss, NAV staleness banner, XIRR vs configurable benchmark, portfolio-vs-market chart, top movers, Portfolio Insights entry card, and Your Funds entry card
+- **Portfolio / Home screen** — total portfolio value + gain/loss, NAV staleness banner, XIRR vs configurable benchmark, portfolio-vs-market chart, top movers, Portfolio Insights entry card, Wealth Journey teaser card, and Your Funds entry card
 - **Fund detail** — polished holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised), clearer composition cards/tables, and one clean history-aware back path; Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
 - **Leaderboard** — ranked leaders / laggards view with benchmark-aware scoring and portfolio insight summary
-- **Simulator** — personalised plan modelling based on the current corpus, inferred SIP pace, redemptions / one-offs, and editable future assumptions
+- **Wealth Journey** — personalised long-term planning based on your current corpus, detected SIP pace with manual override, expected-return presets, year-0 top-up, retirement withdrawals, and inflation-adjusted context
 - **Settings** — account info, **Connected Accounts** (shows linked providers; connect Google to an existing magic-link account), inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker and design theme, sign out
 - **Portfolio Insights** — one-tap access from the Portfolio screen to asset mix, market cap distribution, sector exposure, debt/cash mix, top holdings, and fund allocation; two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer); prominent "estimated" banner when showing category-derived data; auto-syncs when data is >35 days old
-- **Screen-family navigation** — Portfolio / Leaderboard / Simulator share one shell header with a single `...` action sheet; utility screens use a lighter back-title header; Fund Detail now relies on one clear history-aware back path
+- **Screen-family navigation** — Portfolio / Leaderboard / Wealth Journey share one shell header with a single `...` action sheet; utility screens use a lighter back-title header; Fund Detail now relies on one clear history-aware back path
 - **Your Funds** — dedicated screen listing all holdings with shared fund cards, portfolio-allocation context, a mobile-friendly sort sheet, and in-memory sorting by current value, invested amount, XIRR, benchmark lead, or alphabetical order
 - **Preview usage metrics** — EAS Insights support is enabled via `expo-insights`, so once the preview apps are rebuilt and installed you can see usage trends for the preview streams in Expo
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
@@ -250,7 +250,7 @@ Practical implication:
 app/               Expo Router screens
   _layout.tsx      Root layout: providers + auth gate
   auth/            Sign in, confirm, and OAuth callback screens
-  (tabs)/          Portfolio, Leaderboard, Simulator (+ hidden Settings / legacy Compare routes)
+  (tabs)/          Portfolio, Leaderboard, Wealth Journey (+ hidden Settings / legacy Compare routes)
   funds.tsx        Dedicated "Your Funds" screen
   fund/[id].tsx    Fund detail
   portfolio-insights.tsx  Portfolio composition detail screen

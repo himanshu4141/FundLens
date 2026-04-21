@@ -6,7 +6,7 @@ Primary tabs:
 
 - `Portfolio`
 - `Leaderboard`
-- `Simulator`
+- `Wealth Journey`
 
 Secondary navigation:
 
@@ -16,7 +16,7 @@ Secondary navigation:
 
 Screen families:
 
-- `Portfolio`, `Leaderboard`, and `Simulator` use the shared primary-shell header: logo on the left, one `...` action sheet on the right
+- `Portfolio`, `Leaderboard`, and `Wealth Journey` use the shared primary-shell header: logo on the left, one `...` action sheet on the right
 - `Settings`, `Your Funds`, and CAS import screens use a lighter utility header with one back action and one title
 - `Fund Detail` uses the native stack back behavior and does not hardcode an origin label
 
@@ -35,6 +35,7 @@ It includes:
 - portfolio-vs-market chart
 - top gainers / losers
 - `Portfolio Insights` entry card
+- `Wealth Journey` teaser card
 - `Your Funds` entry card
 
 The benchmark selector is configurable and reused across the app.
@@ -116,19 +117,22 @@ Includes:
 - ranked holding list
 - insight card explaining ranking mode / benchmark fallback behavior when needed
 
-### 6. Simulator
+### 6. Wealth Journey
 
 Purpose:
 
-- model future outcomes from the user’s actual portfolio rather than from generic defaults
+- help users model future wealth creation and retirement-income scenarios from their
+  actual portfolio rather than from generic defaults
 
 Includes:
 
-- current corpus
-- inferred SIP pace
-- recent one-offs / redemption-aware baseline
-- editable assumptions
-- projection chart comparing current plan vs proposed plan
+- current corpus and current XIRR context
+- detected SIP pace from recent recurring purchases, with manual override + reset
+- editable planning inputs via chips + direct entry
+- accumulation projection from today’s corpus
+- fixed 6% inflation note to translate future nominal values into today-value context
+- retirement-income section with withdrawal rate, retirement duration, and post-retirement return
+- projection chart comparing current plan vs adjusted plan
 
 ### 7. Settings
 

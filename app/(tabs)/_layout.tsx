@@ -66,7 +66,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="simulator"
         options={{
-          title: 'Simulator',
+          title: 'Wealth Journey',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calculator-outline" size={size} color={color} />
           ),
