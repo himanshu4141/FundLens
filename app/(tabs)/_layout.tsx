@@ -18,11 +18,11 @@ export default function TabLayout() {
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
-          // Give the icon + label stack more headroom on devices with taller
-          // text metrics so labels never clip against the rounded top edge.
-          paddingTop: 10,
-          paddingBottom: Math.max(insets.bottom, 10),
-          height: 72 + Math.max(insets.bottom, 10),
+          // Give the icon + label stack enough vertical room on phone-sized
+          // viewports where font metrics tend to clip label descenders.
+          paddingTop: 8,
+          paddingBottom: Math.max(insets.bottom, 14),
+          height: 76 + Math.max(insets.bottom, 14),
         },
         // Force each visible tab item to fill its fair share of the bar width
         // and center content so icons don't bunch left on wider screens / web
@@ -30,14 +30,18 @@ export default function TabLayout() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          paddingVertical: 6,
+          paddingTop: 4,
+          paddingBottom: 6,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: '600',
-          lineHeight: 14,
+          lineHeight: 16,
           marginTop: 2,
-          marginBottom: 0,
+          marginBottom: 2,
         },
       }}
     >
@@ -68,7 +72,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Settings hidden from tab bar — accessible via gear icon in each screen's header */}
+      {/* Settings hidden from tab bar — accessible via the shared overflow menu */}
       <Tabs.Screen
         name="settings"
         options={{
