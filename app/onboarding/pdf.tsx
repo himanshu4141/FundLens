@@ -10,8 +10,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
+import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
@@ -86,16 +88,18 @@ export default function PDFScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
-        <Logo size={44} showWordmark light />
-        <View style={styles.heroCopy}>
-          <Text style={styles.title}>Upload a CAS PDF</Text>
-          <Text style={styles.subtitle}>
-            Use this when you already downloaded your statement and want to import it directly.
-          </Text>
-        </View>
-      </LinearGradient>
+    <SafeAreaView style={styles.container}>
+      <UtilityHeader title="Upload CAS PDF" />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
+          <Logo size={44} showWordmark light />
+          <View style={styles.heroCopy}>
+            <Text style={styles.title}>Upload a CAS PDF</Text>
+            <Text style={styles.subtitle}>
+              Use this when you already downloaded your statement and want to import it directly.
+            </Text>
+          </View>
+        </LinearGradient>
 
       <View style={styles.panel}>
         <Text style={styles.sectionLabel}>Supported PDFs</Text>
@@ -170,10 +174,11 @@ export default function PDFScreen() {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-        <Text style={styles.backLinkText}>Back to import options</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
+          <Text style={styles.backLinkText}>Back to import options</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

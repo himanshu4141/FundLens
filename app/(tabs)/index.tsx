@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +27,8 @@ import { navStaleness } from '@/src/utils/navUtils';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
-import Logo from '@/src/components/Logo';
+import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
+import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
@@ -453,76 +453,17 @@ export default function HomeScreen() {
     usePortfolioInsights(fundCards);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Dark header bar — seamlessly joins the gradient below */}
-      <View style={styles.header}>
-        <Logo size={28} showWordmark light />
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            hitSlop={8}
-            onPress={() => setOverflowOpen(true)}
-          >
-            <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} hitSlop={8}>
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <SafeAreaView style={styles.container}>
+      <PrimaryShellHeader onPressMenu={() => setOverflowOpen(true)} />
 
-      {/* Overflow menu */}
-      <Modal
+      <AppOverflowMenu
         visible={overflowOpen}
-        transparent
-        animationType="none"
-        onRequestClose={() => setOverflowOpen(false)}
-      >
-        <TouchableOpacity
-          style={styles.overflowBackdrop}
-          activeOpacity={1}
-          onPress={() => setOverflowOpen(false)}
-        >
-          <View style={styles.overflowMenu}>
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => {
-                setOverflowOpen(false);
-                handleSync();
-              }}
-              disabled={syncState === 'syncing'}
-            >
-              {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
-              )}
-              <Text style={styles.overflowItemText}>Sync Portfolio</Text>
-            </TouchableOpacity>
-            <View style={styles.overflowDivider} />
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => {
-                setOverflowOpen(false);
-                router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding');
-              }}
-            >
-              <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.overflowItemText}>Import CAS</Text>
-            </TouchableOpacity>
-            <View style={styles.overflowDivider} />
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => {
-                setOverflowOpen(false);
-                router.push('/(tabs)/settings');
-              }}
-            >
-              <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.overflowItemText}>Settings</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        syncState={syncState}
+        onClose={() => setOverflowOpen(false)}
+        onSync={handleSync}
+        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onSettings={() => router.push('/(tabs)/settings')}
+      />
 
       {syncState === 'requested' && (
         <View style={styles.syncBanner}>
@@ -600,54 +541,6 @@ export default function HomeScreen() {
 function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-
-    // Dark header — matches gradientHeader[0] for seamless join with portfolio gradient
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.lg,
-      paddingTop: Spacing.sm,
-      paddingBottom: 14,
-      backgroundColor: colors.gradientHeader[0],
-    },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    // Overflow menu
-    overflowBackdrop: {
-      flex: 1,
-    },
-    overflowMenu: {
-      position: 'absolute',
-      top: 60,
-      right: 16,
-      backgroundColor: colors.surface,
-      borderRadius: Radii.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      minWidth: 180,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      elevation: 8,
-    },
-    overflowItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm + 2,
-    },
-    overflowItemText: {
-      fontSize: 15,
-      color: colors.textPrimary,
-      fontWeight: '500',
-    },
-    overflowDivider: {
-      height: 1,
-      backgroundColor: colors.border,
-      marginHorizontal: Spacing.sm,
-    },
 
     syncBanner: {
       backgroundColor: colors.primaryLight,

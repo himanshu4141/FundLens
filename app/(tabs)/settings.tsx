@@ -22,6 +22,7 @@ import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
+import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { parseOAuthCode } from '@/src/utils/authUtils';
 import type { AppColors } from '@/src/context/ThemeContext';
 
@@ -203,10 +204,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
-      </View>
+      <UtilityHeader title="Settings" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Account ── */}
@@ -458,16 +456,6 @@ export default function SettingsScreen() {
 function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-
-    header: {
-      paddingHorizontal: Spacing.md,
-      paddingTop: Spacing.sm,
-      paddingBottom: 12,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    headerTitle: { ...Typography.h2, color: colors.textPrimary },
 
     sectionHeader: {
       ...Typography.label,

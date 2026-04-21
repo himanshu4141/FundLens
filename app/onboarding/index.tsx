@@ -13,10 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/src/lib/supabase';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
 import Logo from '@/src/components/Logo';
+import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
@@ -286,25 +288,31 @@ export default function OnboardingScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a56db" />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <UtilityHeader title="Import CAS" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1a56db" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   // ── Already set up ──────────────────────────────────────────────────────────
   if (isSetupComplete) {
     return (
-      <SetupComplete
-        inboundEmail={inboundEmail!}
-        kftechEmail={profile!.kfintech_email!}
-        onRefresh={() => handleRequestCAS(profile!.kfintech_email!)}
-        onReset={() => {
-          setPanState('idle');
-          queryClient.setQueryData(['user-profile', session?.user.id], null);
-        }}
-        onGoToPortfolio={() => router.replace('/')}
-      />
+      <SafeAreaView style={styles.container}>
+        <UtilityHeader title="Import CAS" />
+        <SetupComplete
+          inboundEmail={inboundEmail!}
+          kftechEmail={profile!.kfintech_email!}
+          onRefresh={() => handleRequestCAS(profile!.kfintech_email!)}
+          onReset={() => {
+            setPanState('idle');
+            queryClient.setQueryData(['user-profile', session?.user.id], null);
+          }}
+          onGoToPortfolio={() => router.replace('/')}
+        />
+      </SafeAreaView>
     );
   }
 
@@ -314,11 +322,13 @@ export default function OnboardingScreen() {
   const step3Enabled = !!inboundEmail;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <OnboardingHero
-        title="Import your portfolio"
-        subtitle="Set this up once and future refreshes become a single tap. Email forwarding is the fastest path, PDF upload stays available as fallback."
-      />
+    <SafeAreaView style={styles.container}>
+      <UtilityHeader title="Import CAS" />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <OnboardingHero
+          title="Import your portfolio"
+          subtitle="Set this up once and future refreshes become a single tap. Email forwarding is the fastest path, PDF upload stays available as fallback."
+        />
 
       {/* ── Step 1 — PAN ──────────────────────────────────────── */}
       <View style={styles.step}>
@@ -472,12 +482,13 @@ export default function OnboardingScreen() {
       </View>
 
       {/* ── Alternative: PDF upload ────────────────────────────── */}
-      <Text style={styles.altTitle}>Prefer manual upload?</Text>
-      <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
-        <Text style={styles.altCardTitle}>Upload a CAS PDF</Text>
-        <Text style={styles.altCardSub}>Use this if you already downloaded the statement.</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <Text style={styles.altTitle}>Prefer manual upload?</Text>
+        <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
+          <Text style={styles.altCardTitle}>Upload a CAS PDF</Text>
+          <Text style={styles.altCardSub}>Use this if you already downloaded the statement.</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

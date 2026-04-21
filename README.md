@@ -15,7 +15,8 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - **Simulator** — personalised plan modelling based on the current corpus, inferred SIP pace, redemptions / one-offs, and editable future assumptions
 - **Settings** — account info, **Connected Accounts** (shows linked providers; connect Google to an existing magic-link account), inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker and design theme, sign out
 - **Portfolio Insights** — one-tap access from the Portfolio screen to asset mix, market cap distribution, sector exposure, debt/cash mix, top holdings, and fund allocation; two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer); prominent "estimated" banner when showing category-derived data; auto-syncs when data is >35 days old
-- **Your Funds** — dedicated screen listing all holdings with shared fund cards plus portfolio-allocation context
+- **Screen-family navigation** — Portfolio / Leaderboard / Simulator share one shell header with a single `...` action menu; utility screens use a lighter back-title header; Fund Detail now relies on one clear history-aware back path
+- **Your Funds** — dedicated screen listing all holdings with shared fund cards, portfolio-allocation context, and in-memory sorting by current value, invested amount, XIRR, benchmark lead, or alphabetical order
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
 - Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase deploy + production EAS Update on merge to main, and hardened preview publishing for Vercel / EAS export hangs
 

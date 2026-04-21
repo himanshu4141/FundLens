@@ -1197,16 +1197,6 @@ export default function FundDetailScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['bottom']}>
-      {/* ── Header ── */}
-      <View style={s.headerBar}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={s.headerTitle} numberOfLines={1}>
-          Portfolio
-        </Text>
-      </View>
-
       {isLoading ? (
         <View style={s.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -1337,26 +1327,6 @@ export default function FundDetailScreen() {
 function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-
-    headerBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-      gap: 8,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.primaryLight,
-    },
-    headerTitle: { flex: 1, fontSize: 15, fontWeight: '600' as const, color: colors.textPrimary },
 
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     errorText: { ...Typography.body, color: colors.textSecondary },
