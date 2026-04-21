@@ -38,21 +38,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
   },
   backBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: Radii.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    ...Typography.h2,
+    ...Typography.h3,
+    fontWeight: '700',
     flex: 1,
   },
 });

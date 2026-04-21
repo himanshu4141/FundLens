@@ -463,7 +463,7 @@ function makeStyles(colors: AppColors) {
       color: colors.textTertiary,
       textTransform: 'uppercase',
       marginTop: Spacing.lg,
-      marginBottom: Spacing.sm,
+      marginBottom: Spacing.md,
       marginHorizontal: Spacing.md,
     },
     sectionHeaderRow: {
@@ -481,7 +481,7 @@ function makeStyles(colors: AppColors) {
 
     card: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       marginHorizontal: Spacing.md,
       overflow: 'hidden',
       borderWidth: 1,
@@ -505,7 +505,7 @@ function makeStyles(colors: AppColors) {
       justifyContent: 'center',
     },
     accountInfo: { flex: 1, gap: 2 },
-    accountEmail: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    accountEmail: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
     accountMeta: { fontSize: 12, color: colors.textTertiary },
     editIconBtn: { padding: 6 },
 
@@ -523,7 +523,7 @@ function makeStyles(colors: AppColors) {
     },
     rowLeft: { flex: 1, gap: 3 },
     rowLabel: { ...Typography.label, color: colors.textTertiary, textTransform: 'uppercase' },
-    rowValue: { fontSize: 14, fontWeight: '500', color: colors.textPrimary },
+    rowValue: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     rowSubLabel: { ...Typography.bodySmall, color: colors.textTertiary, marginTop: 1 },
 
     actionBtn: {

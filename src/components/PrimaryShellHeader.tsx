@@ -43,15 +43,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
-    paddingBottom: 14,
+    paddingBottom: 12,
   },
   logoTouch: {
     minHeight: 32,
     justifyContent: 'center',
   },
   menuButton: {
-    minWidth: 36,
-    minHeight: 36,
+    minWidth: 38,
+    minHeight: 38,
     borderRadius: Radii.full,
     alignItems: 'center',
     justifyContent: 'center',
