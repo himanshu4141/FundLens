@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { useAppStore } from '@/src/store/appStore';
@@ -78,13 +80,15 @@ function CompactFundRow({
   latestNavDate,
   portfolioPct,
   expanded,
-  onPress,
+  onToggleExpand,
+  onOpenFund,
 }: {
   fund: FundCardData;
   latestNavDate: string | null;
   portfolioPct: number | null;
   expanded: boolean;
-  onPress: () => void;
+  onToggleExpand: () => void;
+  onOpenFund: () => void;
 }) {
   const { colors } = useTheme();
   const accentColor = categoryColor(colors, fund.schemeCategory);
@@ -96,30 +100,39 @@ function CompactFundRow({
   const stale = navStaleness(latestNavDate);
 
   return (
-    <TouchableOpacity
-      style={[styles.compactCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-      activeOpacity={0.85}
-      onPress={onPress}
-    >
+    <View style={[styles.compactCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={[styles.compactAccent, { backgroundColor: accentColor }]} />
       <View style={styles.compactInner}>
         <View style={styles.compactTopRow}>
-          <View style={styles.compactNameBlock}>
-            <Text style={[styles.compactName, { color: colors.textPrimary }]} numberOfLines={1}>
-              {fundBaseName}
-            </Text>
-            <Text style={[styles.compactMeta, { color: accentColor + 'cc' }]} numberOfLines={1}>
-              {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
-            </Text>
-          </View>
-          <View style={styles.compactValueBlock}>
-            <Text style={[styles.compactValue, { color: colors.textPrimary }]}>
-              {fund.currentValue != null ? formatCurrency(fund.currentValue) : '—'}
-            </Text>
-            <Text style={[styles.compactShare, { color: colors.textTertiary }]}>
-              {portfolioPct != null ? `${portfolioPct.toFixed(1)}% pf` : '—'}
-            </Text>
-          </View>
+          <TouchableOpacity style={styles.compactSummaryTap} activeOpacity={0.8} onPress={onOpenFund}>
+            <View style={styles.compactNameBlock}>
+              <Text style={[styles.compactName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {fundBaseName}
+              </Text>
+              <Text style={[styles.compactMeta, { color: accentColor + 'cc' }]} numberOfLines={1}>
+                {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
+              </Text>
+            </View>
+            <View style={styles.compactValueBlock}>
+              <Text style={[styles.compactValue, { color: colors.textPrimary }]}>
+                {fund.currentValue != null ? formatCurrency(fund.currentValue) : '—'}
+              </Text>
+              <Text style={[styles.compactShare, { color: colors.textTertiary }]}>
+                {portfolioPct != null ? `${portfolioPct.toFixed(1)}% pf` : '—'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.expandButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+            activeOpacity={0.8}
+            onPress={onToggleExpand}
+          >
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
 
         {expanded && (
@@ -187,11 +200,12 @@ function CompactFundRow({
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
 export default function FundsScreen() {
+  const router = useRouter();
   const { colors } = useTheme();
   const { defaultBenchmarkSymbol } = useAppStore();
   const [sortBy, setSortBy] = useState<SortOption>('currentValue');
@@ -285,9 +299,10 @@ export default function FundsScreen() {
               latestNavDate={summary?.latestNavDate ?? null}
               portfolioPct={allocationPctByFundId.get(fund.id) ?? null}
               expanded={expandedFundId === fund.id}
-              onPress={() => {
+              onToggleExpand={() => {
                 setExpandedFundId((current) => (current === fund.id ? null : fund.id));
               }}
+              onOpenFund={() => router.push(`/fund/${fund.id}`)}
             />
           ))}
 
@@ -491,6 +506,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     alignItems: 'center',
   },
+  compactSummaryTap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   compactNameBlock: {
     flex: 1,
     gap: 3,
@@ -514,6 +535,14 @@ const styles = StyleSheet.create({
   compactShare: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  expandButton: {
+    width: 34,
+    height: 34,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   expandPanel: {
     borderTopWidth: 1,
