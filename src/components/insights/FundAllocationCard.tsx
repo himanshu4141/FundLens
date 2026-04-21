@@ -76,6 +76,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...Typography.h3,
+    fontWeight: '700',
     marginBottom: Spacing.md,
   },
   chartRow: {
@@ -102,6 +103,7 @@ const styles = StyleSheet.create({
   legendLabel: {
     ...Typography.bodySmall,
     flex: 1,
+    fontWeight: '600',
   },
   legendPct: {
     ...Typography.bodySmall,
@@ -127,12 +129,13 @@ const styles = StyleSheet.create({
   fundName: {
     ...Typography.bodySmall,
     flex: 1,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   fundValue: {
     ...Typography.bodySmall,
     minWidth: 60,
     textAlign: 'right',
+    fontWeight: '600',
   },
   fundPct: {
     ...Typography.bodySmall,

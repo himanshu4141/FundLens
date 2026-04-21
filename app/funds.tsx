@@ -9,7 +9,7 @@ import { FundAllocationCard } from '@/src/components/insights/FundAllocationCard
 import { FundCard } from '@/src/components/FundCard';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { useTheme } from '@/src/context/ThemeContext';
-import { Spacing, Radii } from '@/src/constants/theme';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { parseFundName } from '@/src/utils/fundName';
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
@@ -149,10 +149,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listHeader: {
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
   },
   listMeta: {
     flexDirection: 'row',
@@ -161,20 +161,21 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   listTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+    ...Typography.h3,
+    fontWeight: '700',
   },
   listCount: {
     fontSize: 13,
+    fontWeight: '600',
   },
   sortButton: {
     borderWidth: 1,
     borderRadius: Radii.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 7,
   },
   sortButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   modalBackdrop: {
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     right: Spacing.lg,
     minWidth: 220,
     borderWidth: 1,
-    borderRadius: Radii.md,
+    borderRadius: Radii.lg,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -201,7 +202,7 @@ const styles = StyleSheet.create({
   },
   sortOptionText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   sortSelected: {
     fontSize: 12,

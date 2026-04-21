@@ -658,6 +658,7 @@ function makeStyles(colors: AppColors) {
     title: {
       ...Typography.h2,
       color: colors.textPrimary,
+      fontWeight: '700',
     },
     subtitle: {
       ...Typography.body,
@@ -667,7 +668,7 @@ function makeStyles(colors: AppColors) {
     // ── Portfolio context card ─────────────────────────────────────────────
     contextCard: {
       backgroundColor: colors.primaryLight,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       padding: Spacing.md,
       marginBottom: Spacing.md,
       borderWidth: 1,
@@ -697,9 +698,10 @@ function makeStyles(colors: AppColors) {
       color: colors.textPrimary,
     },
     contextStatLabel: {
-      ...Typography.caption,
+      ...Typography.bodySmall,
       color: colors.textTertiary,
       marginTop: 2,
+      fontWeight: '600' as const,
     },
     loadingCard: {
       flexDirection: 'row',
@@ -714,14 +716,15 @@ function makeStyles(colors: AppColors) {
     // ── Card ──────────────────────────────────────────────────────────────
     card: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       padding: Spacing.md,
       marginBottom: Spacing.md,
     },
     sectionTitle: {
       ...Typography.h3,
       color: colors.textPrimary,
-      marginBottom: Spacing.sm,
+      fontWeight: '700' as const,
+      marginBottom: Spacing.md,
     },
     milestonesGrid: {
       flexDirection: 'row',
@@ -733,7 +736,7 @@ function makeStyles(colors: AppColors) {
       flex: 1,
       minWidth: 100,
       backgroundColor: colors.primaryLight,
-      borderRadius: Radii.sm,
+      borderRadius: Radii.md,
       padding: Spacing.sm,
       alignItems: 'center',
     },
@@ -744,13 +747,14 @@ function makeStyles(colors: AppColors) {
     },
     milestoneValue: {
       ...Typography.bodySmall,
-      fontWeight: '600' as const,
+      fontWeight: '700' as const,
       color: colors.textPrimary,
     },
     chartNote: {
-      ...Typography.caption,
+      ...Typography.bodySmall,
       color: colors.textTertiary,
       marginBottom: Spacing.xs,
+      fontWeight: '600' as const,
     },
     legend: {
       flexDirection: 'row',
@@ -769,12 +773,13 @@ function makeStyles(colors: AppColors) {
       borderRadius: 5,
     },
     legendLabel: {
-      ...Typography.caption,
+      ...Typography.bodySmall,
       color: colors.textSecondary,
+      fontWeight: '600' as const,
     },
     insightCard: {
       backgroundColor: colors.primaryLight,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       padding: Spacing.md,
       flexDirection: 'row',
       alignItems: 'flex-start',

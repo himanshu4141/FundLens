@@ -350,7 +350,7 @@ function makeStyles(colors: AppColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.xs,
-      marginTop: Spacing.sm,
+      marginTop: Spacing.md,
     },
     benchmarkRowLabel: {
       ...Typography.label,
@@ -386,11 +386,10 @@ function makeStyles(colors: AppColors) {
       overflow: 'hidden',
     },
     alphaTitle: {
-      ...Typography.label,
-      color: colors.textSecondary,
-      marginBottom: Spacing.sm,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
+      ...Typography.h3,
+      color: colors.textPrimary,
+      fontWeight: '700',
+      marginBottom: Spacing.md,
     },
     alphaRow: {
       flexDirection: 'row',
@@ -407,9 +406,10 @@ function makeStyles(colors: AppColors) {
       backgroundColor: colors.border,
     },
     alphaLabel: {
-      ...Typography.caption,
+      ...Typography.bodySmall,
       color: colors.textSecondary,
       marginBottom: 2,
+      fontWeight: '600',
     },
     alphaValue: {
       ...Typography.h3,
@@ -423,31 +423,31 @@ function makeStyles(colors: AppColors) {
       marginTop: Spacing.xs,
     },
     alphaFooterText: {
-      ...Typography.label,
+      ...Typography.bodySmall,
       fontWeight: '600',
     },
     // Fund rank card
     fundCard: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       borderWidth: 1,
       borderColor: colors.border,
       flexDirection: 'row',
       overflow: 'hidden',
-      marginBottom: Spacing.xs,
+      marginBottom: Spacing.sm,
     },
     fundCardAccent: {
       width: 4,
     },
     fundCardBody: {
       flex: 1,
-      padding: Spacing.sm,
+      padding: Spacing.md,
     },
     fundCardTop: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-      marginBottom: 4,
+      marginBottom: 6,
     },
     fundCardInfo: {
       flex: 1,
@@ -456,10 +456,11 @@ function makeStyles(colors: AppColors) {
     fundCardName: {
       ...Typography.body,
       color: colors.textPrimary,
+      fontWeight: '600',
     },
     fundCardCategory: {
-      ...Typography.caption,
-      color: colors.textSecondary,
+      ...Typography.bodySmall,
+      color: colors.textTertiary,
       marginTop: 2,
     },
     fundCardBadge: {
@@ -481,25 +482,25 @@ function makeStyles(colors: AppColors) {
     fundCardValue: {
       ...Typography.body,
       color: colors.textPrimary,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     fundCardXirr: {
-      ...Typography.label,
+      ...Typography.bodySmall,
       fontWeight: '600',
     },
     fundCardVerdict: {
-      ...Typography.caption,
-      fontWeight: '500',
+      ...Typography.bodySmall,
+      fontWeight: '600',
     },
     // Section headers
     section: {
-      gap: Spacing.xs,
+      gap: Spacing.sm,
     },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.xs,
-      marginBottom: 4,
+      marginBottom: Spacing.xs,
     },
     sectionDot: {
       width: 8,
@@ -511,8 +512,9 @@ function makeStyles(colors: AppColors) {
       color: colors.textPrimary,
     },
     sectionCount: {
-      ...Typography.caption,
+      ...Typography.bodySmall,
       color: colors.textSecondary,
+      fontWeight: '600',
     },
     // Loading
     loadingContainer: {
@@ -521,7 +523,7 @@ function makeStyles(colors: AppColors) {
     },
     skeletonCard: {
       backgroundColor: colors.surface,
-      borderRadius: Radii.md,
+      borderRadius: Radii.lg,
       padding: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
