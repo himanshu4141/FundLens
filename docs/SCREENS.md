@@ -1,61 +1,147 @@
 # FundLens — Screens & Navigation
 
-## Screen Map
-
-### 1. Home
-- Portfolio total value + unrealised gain/loss (amount + %)
-- You vs Market: portfolio XIRR vs a configurable benchmark (default Nifty 50); benchmark selector row lets the user switch between Nifty 50, Nifty 100, BSE Sensex, BSE 100, BSE 500, Nifty Bank, Nifty IT
-- NAV staleness banner when data is ≥2 days old
-- Scroll down → Fund Cards (see below)
-
-### 2. Fund Cards (inline on Home, scrollable)
-One card per fund in the portfolio. Each card shows:
-- Parsed short fund name (e.g. "HDFC Flexi Cap Fund") with "Direct · Growth" or "Regular · IDCW" badge below the category label
-- Current value + today's change; label reads "as of [date]" when NAV is stale instead of "today"
-
-Tapping a card → Fund Detail screen
-
-### 3. Fund Detail
-Header card: current value (with "as of [date]" when stale), invested, units, gain/loss, XIRR (SIP-adjusted, annualised)
-
-Two tabs:
-
-**Performance tab**
-- Period-consistent comparison card: Your Fund (window) % vs Benchmark (window) %, verdict row "↑ Outperforming by X.X% vs {index}" or "↓ Underperforming by X.X%"
-- Scrollable benchmark selector pills — user can override the comparison index for this fund (Nifty 50, Nifty 100, BSE Sensex, BSE 100, BSE 500, Nifty Bank, Nifty IT)
-- Dual area chart (fund NAV + benchmark indexed to 100 at start of period); crosshair on hover/touch shows exact values
-- Return summary below chart syncs to crosshair position; resets to end-of-period when crosshair is released
-- Explainer: "Both series rebased to 100 at start of period · higher = outperforming"
-
-**NAV History tab**
-- Historical NAV chart with Y-axis labels
-- Date range selector (1M, 3M, 6M, 1Y, 3Y, All)
-- NAV stats showing current and start-of-window NAV at 4 decimal places (AMFI precision)
-
-### 4. Compare
-- Select 2+ funds from your portfolio
-- Side-by-side comparison of returns, benchmark performance, XIRR
-
-### 5. Onboarding (first launch)
-- **Primary flow**: Email forwarding — app shows user their dedicated CASParser.in forwarding address. User forwards their CAMS CAS email to it. App auto-imports all funds and full transaction history via webhook.
-- **Fallback**: Manual CAS PDF download from camsonline.com → upload in-app → parsed automatically.
-
-> MFcentral QR flow removed — email sync and PDF upload cover all practical cases with lower friction. See docs/plans/03-onboarding.md for the decision record.
-
-> See docs/TECH-DISCOVERY.md for full CAS import details and the reasoning behind each option.
-
-### 6. Settings / Manage Funds
-- View and manage tracked funds (add / remove)
-- Refresh transactions — forward latest CAMS email to dedicated address (primary), or re-run PDF upload
-- **Preferences** — default benchmark selector (persists via Zustand; resets on app restart)
-- Data section — dynamic NAV badge (Live / Stale / Outdated) with last-sync date; CAS registrar email address for import
-
 ## Navigation Structure
 
-    Home (portfolio summary + fund cards)
-      └── Fund Detail (performance + NAV history)
+Primary tabs:
 
-    Compare (tab or bottom nav item)
+- `Portfolio`
+- `Leaderboard`
+- `Simulator`
 
-    Settings (accessible from Home header)
-      └── Onboarding flow (reusable for first launch and fund management)
+Secondary navigation:
+
+- `Settings` is hidden from the tab bar and opened from the shared header/menu
+- `Fund Detail`, `Portfolio Insights`, and `Your Funds` are stack routes
+- `Compare` still exists as a hidden legacy route for transition / deep-link safety, but it is no longer part of the intended primary IA
+
+## Screen Map
+
+### 1. Portfolio
+
+The Portfolio tab is the main landing screen.
+
+It includes:
+
+- total portfolio value
+- unrealised gain / loss
+- portfolio XIRR vs the selected benchmark
+- weekend-aware NAV staleness messaging
+- portfolio-vs-market chart
+- top gainers / losers
+- `Portfolio Insights` entry card
+- `Your Funds` entry card
+
+The benchmark selector is configurable and reused across the app.
+
+### 2. Portfolio Insights
+
+Accessible from the Portfolio screen.
+
+Shows portfolio-level composition derived from `fund_portfolio_composition`:
+
+- asset mix
+- debt / cash summary when relevant
+- market-cap mix
+- sector breakdown when disclosure data exists
+- top holdings when disclosure data exists
+
+Behavior:
+
+- category-rule fallback means the screen can render immediately
+- AMFI-backed data progressively upgrades the experience
+- stale / missing composition can trigger a sync path
+- the UI clearly marks estimated data vs disclosure-backed data
+
+### 3. Your Funds
+
+Accessible from the Portfolio screen.
+
+Purpose:
+
+- show the full holdings list in one dedicated place
+- keep the home screen focused on summary and insights
+
+Includes:
+
+- fund-allocation overview
+- count of all active funds
+- one shared `FundCard` per holding
+
+### 4. Fund Detail
+
+Header:
+
+- current value
+- invested amount
+- units
+- gain / loss
+- XIRR
+- stale-date labeling when relevant
+
+Tabs:
+
+`Performance`
+- fund vs benchmark return summary
+- benchmark selector pills
+- interactive line chart with crosshair
+- growth-consistency / composition-related enhancements from later milestones
+
+`NAV History`
+- historical NAV chart
+- period filters
+- current and start-of-window NAV values at AMFI precision
+
+Where available, fund composition data also surfaces here.
+
+### 5. Leaderboard
+
+Purpose:
+
+- rank portfolio holdings into leaders / laggards
+- compare holdings against a selected benchmark
+
+Includes:
+
+- leaders / laggards counts
+- benchmark selector
+- ranked holding list
+- insight card explaining ranking mode / benchmark fallback behavior when needed
+
+### 6. Simulator
+
+Purpose:
+
+- model future outcomes from the user’s actual portfolio rather than from generic defaults
+
+Includes:
+
+- current corpus
+- inferred SIP pace
+- recent one-offs / redemption-aware baseline
+- editable assumptions
+- projection chart comparing current plan vs proposed plan
+
+### 7. Settings
+
+Accessible from the shared header/menu, not as a visible bottom tab.
+
+Includes:
+
+- account details
+- connected accounts / Google linking
+- benchmark preference
+- design theme preference
+- sync controls
+- import tools / CAS address / PAN management
+- sign out
+
+### 8. Onboarding / Import CAS
+
+Reusable both for first-run onboarding and later portfolio management.
+
+Main import paths:
+
+- dedicated CAS forwarding address
+- direct PDF upload flow
+
+Related account-maintenance screens also live in this flow, including PAN / import-address management.
