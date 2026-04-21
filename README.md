@@ -143,7 +143,7 @@ Recommended device setup during active development:
 2. Check your inbox → tap the link
 3. The link opens your installed FundLens app and signs you in automatically
 
-The app scheme varies by installed build (`fundlens`, `fundlens-main`, `fundlens-pr`, etc.) and is configured in [app.config.ts](/Users/hyadav/code/personal/FundLens/app.config.ts).
+The app scheme varies by installed build (`fundlens`, `fundlens-main`, `fundlens-pr`, etc.) and is configured in [app.config.js](/Users/hyadav/code/personal/FundLens/app.config.js).
 
 ---
 
@@ -164,16 +164,31 @@ Tap "Continue with Google" on the sign-in screen. The app opens an in-app browse
 **2. Supabase Dashboard**
 
 - Go to Auth → Providers → Google → enable and paste the Client ID and Client Secret.
-- Go to Auth → URL Configuration → Redirect URLs → add:
+- Go to Auth → URL Configuration:
+  - set `Site URL` to `https://fund-lens.vercel.app`
+  - add these exact `Redirect URLs`:
 
   | Environment | URL |
   |---|---|
-  | Production | `https://fund-lens.vercel.app/auth/callback` |
-  | Vercel previews | `https://*.vercel.app/auth/callback` |
-  | Native main preview app | `fundlens-main://auth/callback` |
-  | Native PR preview app | `fundlens-pr://auth/callback` |
-  | Native production app | `fundlens://auth/callback` |
-  | Local web dev | `http://localhost:8081/auth/callback` |
+  | Production web bridge | `https://fund-lens.vercel.app/auth/confirm` |
+  | Production web OAuth | `https://fund-lens.vercel.app/auth/callback` |
+  | Vercel preview bridge | `https://fund-lens-*.vercel.app/auth/confirm` |
+  | Vercel preview OAuth | `https://fund-lens-*.vercel.app/auth/callback` |
+  | Local web dev bridge | `http://localhost:8081/auth/confirm` |
+  | Local web dev OAuth | `http://localhost:8081/auth/callback` |
+  | Local Expo web bridge | `http://localhost:19006/auth/confirm` |
+  | Local Expo web OAuth | `http://localhost:19006/auth/callback` |
+  | Native production app bridge | `fundlens://auth/confirm` |
+  | Native production app OAuth | `fundlens://auth/callback` |
+  | Native main preview bridge | `fundlens-main://auth/confirm` |
+  | Native main preview OAuth | `fundlens-main://auth/callback` |
+  | Native PR preview bridge | `fundlens-pr://auth/confirm` |
+  | Native PR preview OAuth | `fundlens-pr://auth/callback` |
+
+Notes:
+- `/auth/confirm` is used by the magic-link/native bridge flow
+- `/auth/callback` is used by Google OAuth
+- we intentionally avoid the broader `https://*.vercel.app/**` wildcard and only allow preview URLs matching this project’s naming pattern
 
 **3. Local web development (`npm run web`)**
 
