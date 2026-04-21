@@ -114,11 +114,14 @@ def main() -> int:
     if custom_command:
         command = shlex.split(custom_command)
     else:
+        update_channel = os.environ.get("EAS_UPDATE_CHANNEL")
+        update_target_flag = "--channel" if update_channel else "--branch"
+        update_target_value = update_channel or os.environ.get("EAS_UPDATE_BRANCH", "preview")
         command = [
             "eas",
             "update",
-            "--branch",
-            os.environ.get("EAS_UPDATE_BRANCH", "preview"),
+            update_target_flag,
+            update_target_value,
             "--message",
             os.environ.get("EAS_UPDATE_MESSAGE", "CI update"),
             "--non-interactive",

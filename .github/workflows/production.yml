@@ -37,15 +37,13 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Publish EAS Update to main preview stream
-        run: |
-          eas update \
-            --branch main \
-            --message "Main preview: ${{ github.sha }}" \
-            --non-interactive
+        run: python3 scripts/eas-update.py
         env:
           APP_VARIANT: preview-main
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EAS_UPDATE_CHANNEL: main
+          EAS_UPDATE_MESSAGE: Main preview: ${{ github.sha }}
 
   eas-update-production:
     name: EAS Update (production)
@@ -63,12 +61,10 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Publish EAS Update to production
-        run: |
-          eas update \
-            --branch production \
-            --message "Deploy: ${{ github.sha }}" \
-            --non-interactive
+        run: python3 scripts/eas-update.py
         env:
           APP_VARIANT: production
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EAS_UPDATE_CHANNEL: production
+          EAS_UPDATE_MESSAGE: Deploy: ${{ github.sha }}
