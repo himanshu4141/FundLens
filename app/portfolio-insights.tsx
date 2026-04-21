@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,15 +29,15 @@ export default function PortfolioInsightsScreen() {
 
   const { insights, isLoading, isStale, isSyncing, triggerSync, hasNoData } =
     usePortfolioInsights(fundCards);
+  const didAutoTrigger = useRef(false);
 
   // Auto-trigger sync on first visit if no data or stale
   useEffect(() => {
-    if ((hasNoData || isStale) && !isSyncing) {
+    if (!didAutoTrigger.current && (hasNoData || isStale) && !isSyncing) {
+      didAutoTrigger.current = true;
       triggerSync();
     }
-  // Only on mount — don't re-trigger on every render
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasNoData]);
+  }, [hasNoData, isStale, isSyncing, triggerSync]);
 
   const styles = makeStyles(colors);
 
