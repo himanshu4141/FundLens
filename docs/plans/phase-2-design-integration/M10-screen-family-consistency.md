@@ -286,6 +286,18 @@ The plan deliberately left persistence as an open implementation choice. The shi
 1. it avoids growing global state for a lightweight list affordance
 2. it keeps the behavior easy to reason about
 3. it can still be promoted to persisted state later if real usage shows it is worth remembering
+
+### Branch-level implementation also absorbed preview-stream simplification
+
+This branch later picked up Expo preview-stream work that was not part of the original UX scope, but the user explicitly requested that the existing branch plan carry the branch narrative forward instead of creating a second ExecPlan.
+
+That follow-on work changed:
+
+1. OTA publishing from per-PR branches to a shared `pr-builds` stream
+2. merge-to-main OTA publishing from `production` to a shared `main` preview stream
+3. Expo app config so `FundLens Main` and `FundLens PR` can be installed side by side with distinct package identifiers and deep-link schemes
+
+This divergence is operational rather than product-UX driven, but it now lives on the same branch and should be tracked here for historical accuracy.
 - `app/(tabs)/settings.tsx`
 - `app/funds.tsx`
 - possibly `app/_layout.tsx` or stack options if detail-header behavior is centralised there

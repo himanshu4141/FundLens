@@ -18,7 +18,7 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - **Screen-family navigation** — Portfolio / Leaderboard / Simulator share one shell header with a single `...` action menu; utility screens use a lighter back-title header; Fund Detail now relies on one clear history-aware back path
 - **Your Funds** — dedicated screen listing all holdings with shared fund cards, portfolio-allocation context, and in-memory sorting by current value, invested amount, XIRR, benchmark lead, or alphabetical order
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
-- Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase deploy + production EAS Update on merge to main, and hardened preview publishing for Vercel / EAS export hangs
+- Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase migration replay validation on PRs, linked-project migration/schema validation before Supabase deploys on merge to main, and hardened preview publishing for Vercel / EAS export hangs
 
 ---
 
@@ -113,10 +113,16 @@ npm run gen:types
 
 ## Android APK (install on your phone)
 
-Build a preview APK via EAS:
+Build the stable preview APK via EAS:
 
 ```bash
-eas build --profile preview --platform android
+eas build --profile preview-main --platform android
+```
+
+Build the rolling PR preview APK via EAS:
+
+```bash
+eas build --profile preview-pr --platform android
 ```
 
 After ~20 minutes, EAS prints a download link. Open it on your phone, download the APK, and install it. You only need to rebuild when native code changes; JS changes deploy instantly via `eas update`.
@@ -127,9 +133,9 @@ After ~20 minutes, EAS prints a download link. Open it on your phone, download t
 
 1. Open the app → enter your email → tap "Send secure link →"
 2. Check your inbox → tap the link
-3. The link opens `fundlens://auth/confirm` and signs you in automatically
+3. The link opens your installed FundLens app and signs you in automatically
 
-The deep link scheme `fundlens://` is configured in `app.json` and the Supabase Auth redirect URL allow-list.
+The app scheme varies by installed build (`fundlens`, `fundlens-main`, `fundlens-pr`, etc.) and is configured in [app.config.ts](/Users/hyadav/code/personal/FundLens/app.config.ts).
 
 ---
 
@@ -156,7 +162,9 @@ Tap "Continue with Google" on the sign-in screen. The app opens an in-app browse
   |---|---|
   | Production | `https://fund-lens.vercel.app/auth/callback` |
   | Vercel previews | `https://*.vercel.app/auth/callback` |
-  | Native (deep link) | `fundlens://auth/callback` |
+  | Native main preview app | `fundlens-main://auth/callback` |
+  | Native PR preview app | `fundlens-pr://auth/callback` |
+  | Native production app | `fundlens://auth/callback` |
   | Local web dev | `http://localhost:8081/auth/callback` |
 
 **3. Local web development (`npm run web`)**
@@ -167,10 +175,11 @@ No `.env.local` changes are needed — the client reads the Google OAuth configu
 
 **Native local testing**
 
-Google OAuth on native requires a build that has the `fundlens://` scheme registered. Expo Go cannot be used. Options:
+Google OAuth on native requires a build that has the right app scheme registered. Expo Go cannot be used. Options:
 
 - Build a development client: `eas build --profile development --platform android` (or `ios`)
-- Use the PR preview APK published by CI on pull requests
+- Install the stable preview app: `eas build --profile preview-main --platform android`
+- Install the rolling PR preview app: `eas build --profile preview-pr --platform android`
 
 ---
 
@@ -178,10 +187,11 @@ Google OAuth on native requires a build that has the `fundlens://` scheme regist
 
 | Trigger | Workflow | What it does |
 |---|---|---|
-| Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to `pr-{N}` branch, posts QR comment |
-| Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to `production` channel |
+| Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to the shared `pr-builds` stream for the installed `FundLens PR` app, posts update comment |
+| Pull request | `supabase-validate.yml` | Rebuilds the local Supabase DB from migrations and lints the resulting public schema |
+| Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to the shared `main` preview stream for the installed `FundLens Main` app |
 | Merge to main | Vercel (automatic) | `expo export --platform web` → deploys to Vercel |
-| Merge to main | `supabase-deploy.yml` | Deploy edge functions + run migrations (triggers when `supabase/` paths change) |
+| Merge to main | `supabase-deploy.yml` | Validates local replay + linked migration/schema parity, then deploys edge functions and runs migrations (triggers when `supabase/` paths change) |
 
 **Required GitHub secrets:**
 - `EXPO_TOKEN` — from expo.dev → Account Settings → Access Tokens

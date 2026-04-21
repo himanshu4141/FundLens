@@ -23,6 +23,7 @@ import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
+import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
 import type { AppColors } from '@/src/context/ThemeContext';
 
@@ -98,7 +99,7 @@ export default function SettingsScreen() {
 
     const redirectTo = Platform.OS === 'web'
       ? `${window.location.origin}/auth/callback`
-      : 'https://fund-lens.vercel.app/auth/callback';
+      : getNativeBridgeUrl('/auth/callback');
 
     const { data, error } = await supabase.auth.linkIdentity({
       provider: 'google',
@@ -116,7 +117,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    const result = await WebBrowser.openAuthSessionAsync(data.url, 'fundlens://');
+    const result = await WebBrowser.openAuthSessionAsync(data.url, getNativeAuthOrigin());
     setLinkingGoogle(false);
 
     if (result.type === 'success') {

@@ -1,21 +1,24 @@
 import { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Logo from '@/src/components/Logo';
+import { getAppScheme } from '@/src/utils/appScheme';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 export default function ConfirmScreen() {
   const router = useRouter();
+  const { scheme } = useLocalSearchParams<{ scheme?: string }>();
+  const targetScheme = typeof scheme === 'string' && scheme.length > 0 ? scheme : getAppScheme();
 
   /**
    * Web-only: bridge magic-link tokens back into the native app.
    *
    * When a native user clicks the magic link, the email client opens
-   * https://fund-lens.vercel.app/auth/confirm#access_token=...
-   * in its browser. We immediately redirect to fundlens://auth/confirm with
+   * https://fund-lens.vercel.app/auth/confirm?scheme=fundlens-pr#access_token=...
+   * in its browser. We immediately redirect to the active app scheme with
    * the same hash so the native app can pick up the session via Linking.
    *
-   * If no native app is installed (web user on desktop), the fundlens://
+   * If no native app is installed (web user on desktop), the scheme redirect
    * attempt silently fails and the Supabase client's detectSessionInUrl
    * handles the web session from the hash instead — AuthGate then navigates
    * to /(tabs) normally.
@@ -34,8 +37,8 @@ export default function ConfirmScreen() {
     if (!/iphone|ipad|ipod|android/.test(ua) || !isNativeBridgeHost) return;
 
     // Attempt to hand off to native app; browser ignores this if no app is installed.
-    window.location.replace(`fundlens://auth/confirm${hash}`);
-  }, []);
+    window.location.replace(`${targetScheme}://auth/confirm${hash}`);
+  }, [targetScheme]);
 
   async function handleResend() {
     // We don't have the email on this screen — route back to sign-in to re-enter it.
