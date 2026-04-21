@@ -10,6 +10,7 @@ import { queryClient } from '@/src/lib/queryClient';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import { ThemeProvider } from '@/src/context/ThemeContext';
+import { parseSessionFromUrl } from '@/src/utils/authUtils';
 
 // Required for expo-web-browser openAuthSessionAsync to complete on Android.
 // When Chrome Custom Tabs redirects to the app's active scheme, Android opens the app via
@@ -34,13 +35,12 @@ WebBrowser.maybeCompleteAuthSession();
  * so the Linking listener below never fires for OAuth callbacks.
  */
 function handleAuthDeepLink(url: string) {
-  const fragment = url.split('#')[1];
-  if (!fragment) return;
-  const params = new URLSearchParams(fragment);
-  const accessToken = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  if (accessToken && refreshToken) {
-    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+  const sessionTokens = parseSessionFromUrl(url);
+  if (sessionTokens) {
+    supabase.auth.setSession({
+      access_token: sessionTokens.accessToken,
+      refresh_token: sessionTokens.refreshToken,
+    });
   }
 }
 

@@ -42,6 +42,8 @@ jobs:
 
       - name: Verify migration version parity
         run: python3 scripts/check_supabase_migration_parity.py
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Verify linked schema parity
         shell: bash

@@ -21,3 +21,11 @@ export function getNativeBridgeUrl(path: '/auth/confirm' | '/auth/callback'): st
   const scheme = encodeURIComponent(getAppScheme());
   return `https://fund-lens.vercel.app${path}?scheme=${scheme}`;
 }
+
+export function getNativeExchangeCallbackUrl(code: string, callbackUrl?: string): string {
+  if (typeof callbackUrl === 'string' && callbackUrl.length > 0) {
+    return callbackUrl;
+  }
+
+  return `${getNativeBridgeUrl('/auth/callback')}&code=${encodeURIComponent(code)}`;
+}

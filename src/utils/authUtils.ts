@@ -14,3 +14,24 @@ export function parseOAuthCode(url: string): string | null {
   const queryString = url.slice(queryStart + 1).split('#')[0];
   return new URLSearchParams(queryString).get('code');
 }
+
+export function parseSessionFromUrl(url: string): {
+  accessToken: string;
+  refreshToken: string;
+} | null {
+  const fragment = url.split('#')[1];
+  if (!fragment) return null;
+
+  const params = new URLSearchParams(fragment);
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (!accessToken || !refreshToken) {
+    return null;
+  }
+
+  return {
+    accessToken,
+    refreshToken,
+  };
+}

@@ -54,7 +54,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           APP_VARIANT: preview-pr
-          EAS_UPDATE_BRANCH: pr-builds
+          EAS_UPDATE_CHANNEL: pr-builds
           EAS_UPDATE_MESSAGE: PR #${{ github.event.number }}: ${{ github.event.pull_request.title }}
       - name: Comment QR on PR
         uses: actions/github-script@v7

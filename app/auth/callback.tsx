@@ -7,10 +7,12 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
-import { getAppScheme } from '@/src/utils/appScheme';
+import { getAppScheme, getNativeExchangeCallbackUrl } from '@/src/utils/appScheme';
+import { parseSessionFromUrl } from '@/src/utils/authUtils';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 type CallbackState = 'exchanging' | 'linked' | 'error';
@@ -22,17 +24,19 @@ interface ErrorState {
 
 export default function OAuthCallbackScreen() {
   const router = useRouter();
-  const { code, error: oauthError, error_description, scheme } = useLocalSearchParams<{
+  const { code, error: oauthError, error_description, scheme, callbackUrl } = useLocalSearchParams<{
     code?: string;
     error?: string;
     error_description?: string;
     scheme?: string;
+    callbackUrl?: string;
   }>();
   const targetScheme = typeof scheme === 'string' && scheme.length > 0 ? scheme : getAppScheme();
 
   const [state, setState] = useState<CallbackState>('exchanging');
   const [errorState, setErrorState] = useState<ErrorState | null>(null);
   const [wasAutoLinked, setWasAutoLinked] = useState(false);
+  const incomingUrl = Linking.useURL();
 
   useEffect(() => {
     // ── Web path ──────────────────────────────────────────────────────────────
@@ -44,8 +48,11 @@ export default function OAuthCallbackScreen() {
       const ua = window.navigator.userAgent.toLowerCase();
       const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
       if (/iphone|ipad|ipod|android/.test(ua) && isNativeBridgeHost) {
-        // Preserve the full query string so the native app receives the code
-        window.location.replace(`${targetScheme}://auth/callback` + window.location.search);
+        // Preserve both query params and hash fragments. Supabase OAuth can
+        // return either `?code=...` (PKCE) or `#access_token=...` (implicit).
+        window.location.replace(
+          `${targetScheme}://auth/callback${window.location.search}${window.location.hash}`,
+        );
       }
       // Desktop web, or mobile on a non-bridge host: Supabase detectSessionInUrl
       // auto-exchanges the code. Show spinner; AuthGate navigates once session appears.
@@ -68,15 +75,48 @@ export default function OAuthCallbackScreen() {
       return;
     }
 
-    if (!code) return;
-
     async function exchange() {
       try {
+        if (!code) {
+          const sessionUrl =
+            (typeof callbackUrl === 'string' && callbackUrl.length > 0 ? callbackUrl : null) ??
+            incomingUrl;
+          const sessionTokens = sessionUrl ? parseSessionFromUrl(sessionUrl) : null;
+
+          if (sessionTokens) {
+            const { error } = await supabase.auth.setSession({
+              access_token: sessionTokens.accessToken,
+              refresh_token: sessionTokens.refreshToken,
+            });
+
+            if (error) {
+              setErrorState({
+                message: `Sign-in failed: ${error.message}`,
+                isDuplicate: false,
+              });
+              setState('error');
+              return;
+            }
+
+            setState('linked');
+            router.replace('/(tabs)');
+            return;
+          }
+
+          setErrorState({
+            message: 'We could not complete Google sign-in because the authorization code was missing. Please try again.',
+            isDuplicate: false,
+          });
+          setState('error');
+          return;
+        }
+
+        const exchangeCode = code;
+        const callbackHref = getNativeExchangeCallbackUrl(exchangeCode, callbackUrl);
+
         // Pass the full reconstructed URL; Supabase extracts the code param
         // and retrieves the stored PKCE verifier from AsyncStorage automatically.
-        const { data, error } = await supabase.auth.exchangeCodeForSession(
-          `${targetScheme}://auth/callback?code=${code}`,
-        );
+        const { data, error } = await supabase.auth.exchangeCodeForSession(callbackHref);
 
         if (error) {
           const isDuplicate = error.message.toLowerCase().includes('already');
@@ -99,8 +139,7 @@ export default function OAuthCallbackScreen() {
         }
 
         setState('linked');
-        // AuthGate in _layout.tsx watches onAuthStateChange and will
-        // replace the route to /(tabs) once the session is established.
+        router.replace('/(tabs)');
       } catch {
         setErrorState({
           message: 'An unexpected error occurred. Please try again.',
@@ -111,7 +150,7 @@ export default function OAuthCallbackScreen() {
     }
 
     exchange();
-  }, [code, oauthError, error_description, targetScheme]);
+  }, [callbackUrl, code, incomingUrl, oauthError, error_description, router, targetScheme]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

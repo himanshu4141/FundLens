@@ -1,5 +1,10 @@
 import Constants from 'expo-constants';
-import { getAppScheme, getNativeAuthOrigin, getNativeBridgeUrl } from '../appScheme';
+import {
+  getAppScheme,
+  getNativeAuthOrigin,
+  getNativeBridgeUrl,
+  getNativeExchangeCallbackUrl,
+} from '../appScheme';
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -80,5 +85,24 @@ describe('appScheme helpers', () => {
     expect(getNativeBridgeUrl('/auth/callback')).toBe(
       'https://fund-lens.vercel.app/auth/callback?scheme=fundlens%20pr',
     );
+  });
+
+  it('builds an HTTPS callback exchange URL when a native callback URL is missing', () => {
+    constants.expoConfig = {
+      extra: { appScheme: 'fundlens-pr' },
+    };
+
+    expect(getNativeExchangeCallbackUrl('abc+123')).toBe(
+      'https://fund-lens.vercel.app/auth/callback?scheme=fundlens-pr&code=abc%2B123',
+    );
+  });
+
+  it('prefers the provided callback URL when one is available', () => {
+    expect(
+      getNativeExchangeCallbackUrl(
+        'ignored',
+        'fundlens-pr://auth/callback?code=abc123&state=xyz',
+      ),
+    ).toBe('fundlens-pr://auth/callback?code=abc123&state=xyz');
   });
 });
