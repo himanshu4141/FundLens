@@ -123,9 +123,9 @@ export default function SettingsScreen() {
     if (result.type === 'success') {
       const code = parseOAuthCode(result.url);
       if (code) {
-        const { error: ex } = await supabase.auth.exchangeCodeForSession(result.url);
-        if (ex) setLinkError(ex.message);
-        // onAuthStateChange fires → useSession refreshes → identities updated → UI re-renders
+        router.push(
+          `/auth/callback?code=${encodeURIComponent(code)}&callbackUrl=${encodeURIComponent(result.url)}`,
+        );
       }
     }
   }

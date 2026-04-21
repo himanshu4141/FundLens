@@ -10,7 +10,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
-import { getAppScheme } from '@/src/utils/appScheme';
+import { getAppScheme, getNativeExchangeCallbackUrl } from '@/src/utils/appScheme';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 
 type CallbackState = 'exchanging' | 'linked' | 'error';
@@ -69,14 +69,20 @@ export default function OAuthCallbackScreen() {
       return;
     }
 
-    if (!code) return;
+    if (!code) {
+      setErrorState({
+        message: 'We could not complete Google sign-in because the authorization code was missing. Please try again.',
+        isDuplicate: false,
+      });
+      setState('error');
+      return;
+    }
+
+    const exchangeCode = code;
 
     async function exchange() {
       try {
-        const callbackHref =
-          typeof callbackUrl === 'string' && callbackUrl.length > 0
-            ? callbackUrl
-            : `${targetScheme}://auth/callback?code=${code}`;
+        const callbackHref = getNativeExchangeCallbackUrl(exchangeCode, callbackUrl);
 
         // Pass the full reconstructed URL; Supabase extracts the code param
         // and retrieves the stored PKCE verifier from AsyncStorage automatically.
