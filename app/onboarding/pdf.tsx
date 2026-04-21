@@ -22,6 +22,10 @@ export default function PDFScreen() {
   const [result, setResult] = useState<{ funds: number; transactions: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  function goBackToImportOptions() {
+    router.replace('/onboarding');
+  }
+
   async function handlePickAndUpload() {
     setState('picking');
     setErrorMsg(null);
@@ -135,7 +139,7 @@ export default function PDFScreen() {
             {result.funds} fund{result.funds !== 1 ? 's' : ''} ·{' '}
             {result.transactions} transaction{result.transactions !== 1 ? 's' : ''} imported
           </Text>
-          <TouchableOpacity style={styles.doneBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.doneBtn} onPress={goBackToImportOptions}>
             <Text style={styles.doneBtnText}>Back to import setup</Text>
           </TouchableOpacity>
         </View>
@@ -170,7 +174,7 @@ export default function PDFScreen() {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backLink} onPress={goBackToImportOptions}>
         <Text style={styles.backLinkText}>Back to import options</Text>
       </TouchableOpacity>
     </ScrollView>

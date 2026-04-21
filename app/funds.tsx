@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
@@ -36,24 +36,32 @@ export default function FundsScreen() {
   const { insights } = usePortfolioInsights(fundCards);
   const benchmarkXirr = summary?.marketXirr ?? 0;
 
+  function sortableNumber(value: number | null | undefined): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+  }
+
   const sortedFundCards = useMemo(() => {
     const funds = [...fundCards];
+    const benchmarkBase = Number.isFinite(benchmarkXirr) ? benchmarkXirr : 0;
+    const benchmarkLeadValue = (fundXirr: number): number => {
+      if (!Number.isFinite(fundXirr)) return Number.NEGATIVE_INFINITY;
+      return fundXirr - benchmarkBase;
+    };
+
     switch (sortBy) {
       case 'invested':
-        return funds.sort((a, b) => b.investedAmount - a.investedAmount);
+        return funds.sort((a, b) => sortableNumber(b.investedAmount) - sortableNumber(a.investedAmount));
       case 'xirr':
-        return funds.sort((a, b) => b.returnXirr - a.returnXirr);
+        return funds.sort((a, b) => sortableNumber(b.returnXirr) - sortableNumber(a.returnXirr));
       case 'benchmarkLead':
-        return funds.sort(
-          (a, b) => (b.returnXirr - benchmarkXirr) - (a.returnXirr - benchmarkXirr),
-        );
+        return funds.sort((a, b) => benchmarkLeadValue(b.returnXirr) - benchmarkLeadValue(a.returnXirr));
       case 'alphabetical':
         return funds.sort((a, b) =>
           parseFundName(a.schemeName).base.localeCompare(parseFundName(b.schemeName).base),
         );
       case 'currentValue':
       default:
-        return funds.sort((a, b) => (b.currentValue ?? -1) - (a.currentValue ?? -1));
+        return funds.sort((a, b) => sortableNumber(b.currentValue) - sortableNumber(a.currentValue));
     }
   }, [benchmarkXirr, fundCards, sortBy]);
 
@@ -110,11 +118,16 @@ export default function FundsScreen() {
       <Modal
         visible={sortMenuOpen}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setSortMenuOpen(false)}
       >
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setSortMenuOpen(false)}>
-          <View style={[styles.sortMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setSortMenuOpen(false)}>
+          <Pressable
+            style={[styles.sortSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.sortSheetTitle, { color: colors.textPrimary }]}>Sort funds by</Text>
             {SORT_OPTIONS.map((option, index) => (
               <TouchableOpacity
                 key={option.value}
@@ -134,8 +147,8 @@ export default function FundsScreen() {
                 )}
               </TouchableOpacity>
             ))}
-          </View>
-        </TouchableOpacity>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -180,20 +193,34 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+    justifyContent: 'flex-end',
   },
-  sortMenu: {
-    position: 'absolute',
-    top: 132,
-    right: Spacing.lg,
-    minWidth: 220,
+  sortSheet: {
     borderWidth: 1,
-    borderRadius: Radii.lg,
+    borderTopLeftRadius: Radii.xl,
+    borderTopRightRadius: Radii.xl,
     overflow: 'hidden',
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 8,
+  },
+  sheetHandle: {
+    width: 44,
+    height: 4,
+    borderRadius: 999,
+    alignSelf: 'center',
+    marginBottom: Spacing.sm,
+  },
+  sortSheetTitle: {
+    ...Typography.h3,
+    fontWeight: '700',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   sortOption: {
     paddingHorizontal: Spacing.md,
