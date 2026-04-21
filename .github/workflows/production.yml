@@ -43,7 +43,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           EAS_UPDATE_CHANNEL: main
-          EAS_UPDATE_MESSAGE: Main preview: ${{ github.sha }}
+          EAS_UPDATE_MESSAGE: "Main preview: ${{ github.sha }}"
 
   eas-update-production:
     name: EAS Update (production)
@@ -67,4 +67,4 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           EAS_UPDATE_CHANNEL: production
-          EAS_UPDATE_MESSAGE: Deploy: ${{ github.sha }}
+          EAS_UPDATE_MESSAGE: "Deploy: ${{ github.sha }}"
