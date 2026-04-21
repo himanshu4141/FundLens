@@ -195,6 +195,7 @@ function CompactFundRow({
   const unrealizedPct =
     unrealizedGain != null && fund.investedAmount > 0 ? (unrealizedGain / fund.investedAmount) * 100 : null;
   const unrealizedPositive = unrealizedGain != null ? unrealizedGain >= 0 : true;
+  const hasRedemptions = fund.redeemedUnits > 0;
   const stale = navStaleness(latestNavDate);
 
   return (
@@ -283,6 +284,29 @@ function CompactFundRow({
                 </Text>
               </View>
             </View>
+
+            {hasRedemptions && (
+              <View style={styles.expandMetricsRow}>
+                <View style={styles.expandMetric}>
+                  <Text style={[styles.expandLabel, { color: colors.textTertiary }]}>Redeemed</Text>
+                  <Text style={[styles.expandValue, { color: colors.textPrimary }]}>
+                    {formatCurrency(fund.realizedAmount)}
+                  </Text>
+                </View>
+                <View style={styles.expandMetric}>
+                  <Text style={[styles.expandLabel, { color: colors.textTertiary }]}>Booked P&amp;L</Text>
+                  <Text
+                    style={[
+                      styles.expandValue,
+                      { color: fund.realizedGain >= 0 ? colors.positive : colors.negative },
+                    ]}
+                  >
+                    {fund.realizedGain >= 0 ? '+' : ''}
+                    {formatCurrency(Math.abs(fund.realizedGain))}
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {fund.navHistory30d.length >= 2 && (
               <View style={styles.expandSparklineRow}>
