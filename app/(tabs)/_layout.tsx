@@ -18,9 +18,11 @@ export default function TabLayout() {
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
-          // Ensure the bar clears the home indicator / gesture nav bar on all devices
-          paddingBottom: insets.bottom,
-          height: 49 + insets.bottom,
+          // Give the icon + label stack enough vertical room even on devices
+          // with larger font metrics / bottom insets.
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 62 + Math.max(insets.bottom, 8),
         },
         // Force each visible tab item to fill its fair share of the bar width
         // and center content so icons don't bunch left on wider screens / web
@@ -28,11 +30,12 @@ export default function TabLayout() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
+          paddingVertical: 4,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          marginBottom: 2,
+          marginBottom: 0,
         },
       }}
     >
