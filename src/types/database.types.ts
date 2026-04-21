@@ -152,6 +152,60 @@ export type Database = {
         }
         Relationships: []
       }
+      fund_portfolio_composition: {
+        Row: {
+          id: string
+          scheme_code: number
+          portfolio_date: string
+          equity_pct: number
+          debt_pct: number
+          cash_pct: number
+          other_pct: number
+          large_cap_pct: number | null
+          mid_cap_pct: number | null
+          small_cap_pct: number | null
+          not_classified_pct: number | null
+          sector_allocation: Json | null
+          top_holdings: Json | null
+          source: string
+          synced_at: string
+        }
+        Insert: {
+          id?: string
+          scheme_code: number
+          portfolio_date: string
+          equity_pct?: number
+          debt_pct?: number
+          cash_pct?: number
+          other_pct?: number
+          large_cap_pct?: number | null
+          mid_cap_pct?: number | null
+          small_cap_pct?: number | null
+          not_classified_pct?: number | null
+          sector_allocation?: Json | null
+          top_holdings?: Json | null
+          source?: string
+          synced_at?: string
+        }
+        Update: {
+          id?: string
+          scheme_code?: number
+          portfolio_date?: string
+          equity_pct?: number
+          debt_pct?: number
+          cash_pct?: number
+          other_pct?: number
+          large_cap_pct?: number | null
+          mid_cap_pct?: number | null
+          small_cap_pct?: number | null
+          not_classified_pct?: number | null
+          sector_allocation?: Json | null
+          top_holdings?: Json | null
+          source?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
       index_history: {
         Row: {
           close_value: number

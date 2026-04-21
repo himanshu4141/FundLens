@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,6 +10,12 @@ import { queryClient } from '@/src/lib/queryClient';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import { ThemeProvider } from '@/src/context/ThemeContext';
+
+// Required for expo-web-browser openAuthSessionAsync to complete on Android.
+// When Chrome Custom Tabs redirects to fundlens://, Android opens the app via
+// the deep link. This call detects that URL and resolves the pending
+// openAuthSessionAsync promise. Without it, the promise never settles on Android.
+WebBrowser.maybeCompleteAuthSession();
 
 /**
  * Parse a magic-link deep-link URL and establish a Supabase session.
@@ -82,6 +89,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="fund/[id]" options={{ headerShown: true, title: '' }} />
+            <Stack.Screen name="portfolio-insights" options={{ headerShown: true, title: 'Portfolio Insights' }} />
             <Stack.Screen name="onboarding" />
           </Stack>
         </AuthGate>

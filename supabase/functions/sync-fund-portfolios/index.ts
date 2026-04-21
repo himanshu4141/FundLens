@@ -1,0 +1,439 @@
+/**
+ * sync-fund-portfolios — builds portfolio composition data for all active funds.
+ *
+ * Two-layer strategy:
+ *   Layer 1 (category_rules): Instant approximation derived from SEBI's fund
+ *     categorisation framework — works with zero external calls, always succeeds.
+ *   Layer 2 (amfi): Richer monthly holdings data sourced via mfdata.in, exposing
+ *     real sector allocation and individual stock holdings.
+ *
+ * Resilience design:
+ *   - Per-scheme errors are isolated — one failed lookup never blocks others.
+ *   - AbortController (10 s) per HTTP fetch prevents hanging.
+ *   - Idempotent upserts — safe to re-run at any time.
+ *   - category_rules always seeded last — Insights screen is never empty even if
+ *     all richer-data fetches fail.
+ *
+ * Trigger: HTTP POST (on-demand from app) or monthly cron / workflow.
+ * Deploy with --no-verify-jwt so the app can invoke without user JWT.
+ */
+
+import { createServiceClient } from '../_shared/supabase-client.ts';
+import { CORS, json } from '../_shared/cors.ts';
+
+const FETCH_TIMEOUT_MS = 10_000;
+const REQUEST_DELAY_MS = 300; // stay well within mfdata.in rate limits
+const MFDATA_BASE = 'https://mfdata.in/api/v1';
+
+// ---------------------------------------------------------------------------
+// SEBI category → approximate composition (regulatory minimum exposures)
+// ---------------------------------------------------------------------------
+
+interface CategoryComposition {
+  equity: number;
+  debt: number;
+  cash: number;
+  other: number;
+  large: number;  // % of equity
+  mid: number;
+  small: number;
+}
+
+const CATEGORY_RULES: Record<string, CategoryComposition> = {
+  'large cap fund':            { equity: 95, debt: 0,  cash: 5,  other: 0, large: 80, mid: 12, small: 8  },
+  'mid cap fund':              { equity: 95, debt: 0,  cash: 5,  other: 0, large: 8,  mid: 75, small: 17 },
+  'small cap fund':            { equity: 90, debt: 0,  cash: 10, other: 0, large: 5,  mid: 12, small: 83 },
+  'multi cap fund':            { equity: 95, debt: 0,  cash: 5,  other: 0, large: 30, mid: 35, small: 35 },
+  'flexi cap fund':            { equity: 93, debt: 0,  cash: 7,  other: 0, large: 38, mid: 33, small: 29 },
+  'large & mid cap fund':      { equity: 95, debt: 0,  cash: 5,  other: 0, large: 50, mid: 40, small: 10 },
+  'elss':                      { equity: 95, debt: 0,  cash: 5,  other: 0, large: 42, mid: 30, small: 28 },
+  'value fund':                { equity: 93, debt: 0,  cash: 7,  other: 0, large: 65, mid: 22, small: 13 },
+  'contra fund':               { equity: 93, debt: 0,  cash: 7,  other: 0, large: 60, mid: 25, small: 15 },
+  'focused fund':              { equity: 92, debt: 0,  cash: 8,  other: 0, large: 55, mid: 25, small: 20 },
+  'sectoral/thematic':         { equity: 95, debt: 0,  cash: 5,  other: 0, large: 50, mid: 30, small: 20 },
+  'dividend yield fund':       { equity: 92, debt: 0,  cash: 8,  other: 0, large: 55, mid: 28, small: 17 },
+  'aggressive hybrid fund':    { equity: 78, debt: 17, cash: 5,  other: 0, large: 48, mid: 28, small: 24 },
+  'balanced hybrid fund':      { equity: 50, debt: 45, cash: 5,  other: 0, large: 55, mid: 28, small: 17 },
+  'conservative hybrid fund':  { equity: 20, debt: 73, cash: 7,  other: 0, large: 60, mid: 25, small: 15 },
+  'balanced advantage fund':   { equity: 55, debt: 35, cash: 10, other: 0, large: 55, mid: 28, small: 17 },
+  'dynamic asset allocation':  { equity: 55, debt: 35, cash: 10, other: 0, large: 55, mid: 28, small: 17 },
+  'multi asset allocation':    { equity: 50, debt: 30, cash: 10, other: 10, large: 50, mid: 28, small: 22 },
+  'equity savings fund':       { equity: 35, debt: 45, cash: 20, other: 0, large: 60, mid: 25, small: 15 },
+  'arbitrage fund':            { equity: 65, debt: 30, cash: 5,  other: 0, large: 75, mid: 20, small: 5  },
+  // Debt categories
+  'overnight fund':            { equity: 0,  debt: 5,  cash: 95, other: 0, large: 0,  mid: 0,  small: 0  },
+  'liquid fund':               { equity: 0,  debt: 20, cash: 80, other: 0, large: 0,  mid: 0,  small: 0  },
+  'ultra short duration fund': { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'low duration fund':         { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'money market fund':         { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'short duration fund':       { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'medium duration fund':      { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'medium to long duration':   { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'long duration fund':        { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'dynamic bond fund':         { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'corporate bond fund':       { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'credit risk fund':          { equity: 0,  debt: 90, cash: 10, other: 0, large: 0,  mid: 0,  small: 0  },
+  'banking and psu fund':      { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'gilt fund':                 { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  'floater fund':              { equity: 0,  debt: 92, cash: 8,  other: 0, large: 0,  mid: 0,  small: 0  },
+  // FoF / passive
+  'index funds':               { equity: 95, debt: 0,  cash: 5,  other: 0, large: 90, mid: 8,  small: 2  },
+  'other etfs':                { equity: 95, debt: 0,  cash: 5,  other: 0, large: 90, mid: 8,  small: 2  },
+  'fund of funds investing overseas': { equity: 0, debt: 0, cash: 0, other: 100, large: 0, mid: 0, small: 0 },
+  'fund of funds domestic':    { equity: 50, debt: 30, cash: 5,  other: 15, large: 45, mid: 25, small: 20 },
+  'solution oriented - retirement': { equity: 80, debt: 15, cash: 5, other: 0, large: 50, mid: 28, small: 22 },
+  'solution oriented - childrens': { equity: 70, debt: 25, cash: 5, other: 0, large: 50, mid: 28, small: 22 },
+};
+
+// Generic single-word categories that AMFI sometimes uses — map to reasonable defaults
+const GENERIC_CATEGORY_MAP: Record<string, CategoryComposition> = {
+  'equity': { equity: 93, debt: 0,  cash: 7,  other: 0,   large: 38, mid: 33, small: 29 }, // flexi cap proxy
+  'debt':   { equity: 0,  debt: 90, cash: 10, other: 0,   large: 0,  mid: 0,  small: 0  },
+  'hybrid': { equity: 65, debt: 25, cash: 10, other: 0,   large: 48, mid: 28, small: 24 },
+  'other':  { equity: 0,  debt: 0,  cash: 0,  other: 100, large: 0,  mid: 0,  small: 0  },
+};
+
+const FALLBACK_COMPOSITION: CategoryComposition = {
+  equity: 80, debt: 10, cash: 10, other: 0,
+  large: 50, mid: 30, small: 20,
+};
+
+function getCategoryRules(schemeCategory: string): CategoryComposition {
+  const key = schemeCategory.toLowerCase().trim();
+  if (CATEGORY_RULES[key]) return CATEGORY_RULES[key];
+  if (GENERIC_CATEGORY_MAP[key]) return GENERIC_CATEGORY_MAP[key];
+  // Partial match: only fire when the key has 2+ words to avoid 'equity' matching 'equity savings fund'
+  if (key.split(' ').length >= 2) {
+    for (const [pattern, comp] of Object.entries(CATEGORY_RULES)) {
+      if (key.includes(pattern) || pattern.includes(key.split(' ').slice(0, 3).join(' '))) {
+        return comp;
+      }
+    }
+  }
+  return FALLBACK_COMPOSITION;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchJson(url: string): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json', 'User-Agent': 'FundLens/1.0' },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+interface MfdataSchemeInfo {
+  family_id?: number;
+}
+
+interface MfdataEquityHolding {
+  stock_name?: string;
+  isin?: string | null;
+  sector?: string | null;
+  weight_pct?: number;
+}
+
+interface MfdataHoldings {
+  equity_pct?: number;
+  equity_holdings?: MfdataEquityHolding[];
+}
+
+async function getSchemeInfo(schemeCode: number): Promise<MfdataSchemeInfo | null> {
+  const data = await fetchJson(`${MFDATA_BASE}/schemes/${schemeCode}`) as { data?: MfdataSchemeInfo };
+  return data?.data ?? null;
+}
+
+async function getFamilyHoldings(familyId: number): Promise<MfdataHoldings | null> {
+  const data = await fetchJson(`${MFDATA_BASE}/families/${familyId}/holdings`) as { data?: MfdataHoldings };
+  return data?.data ?? null;
+}
+
+interface EnrichedPortfolio {
+  equityPct: number;
+  debtPct: number;
+  cashPct: number;
+  otherPct: number;
+  largeCapPct: number;
+  midCapPct: number;
+  smallCapPct: number;
+  sectorAllocation: Record<string, number> | null;
+  topHoldings: Array<{
+    name: string;
+    isin: string;
+    sector: string;
+    marketCap: string;
+    pctOfNav: number;
+  }> | null;
+}
+
+function buildPortfolioFromHoldings(
+  holdings: MfdataHoldings,
+  schemeCategory: string,
+): EnrichedPortfolio {
+  const catRules = getCategoryRules(schemeCategory);
+
+  // Overseas FoFs hold foreign securities — the provider returns the
+  // underlying stocks as equity. Category rules are more truthful here.
+  if (catRules.other === 100) {
+    return {
+      equityPct: 0,
+      debtPct: 0,
+      cashPct: 0,
+      otherPct: 100,
+      largeCapPct: 0,
+      midCapPct: 0,
+      smallCapPct: 0,
+      sectorAllocation: null,
+      topHoldings: null,
+    };
+  }
+
+  const equityPct = typeof holdings.equity_pct === 'number' ? holdings.equity_pct : catRules.equity;
+  const debtPct = Math.min(catRules.debt, Math.max(0, 100 - equityPct));
+  const cashPct = Math.max(0, 100 - equityPct - debtPct);
+  const otherPct = 0;
+
+  const sectorMap: Record<string, number> = {};
+  const equityHoldings = holdings.equity_holdings ?? [];
+  for (const h of equityHoldings) {
+    if (h.sector && typeof h.weight_pct === 'number') {
+      sectorMap[h.sector] = (sectorMap[h.sector] ?? 0) + h.weight_pct;
+    }
+  }
+
+  const sectorAllocation: Record<string, number> = {};
+  for (const [sector, weight] of Object.entries(sectorMap).sort(([, a], [, b]) => b - a)) {
+    sectorAllocation[sector] = Math.round(weight * 100) / 100;
+  }
+
+  const topHoldings = equityHoldings
+    .filter((holding) => holding.stock_name && typeof holding.weight_pct === 'number')
+    .sort((a, b) => (b.weight_pct ?? 0) - (a.weight_pct ?? 0))
+    .slice(0, 50)
+    .map((holding) => ({
+      name: holding.stock_name!,
+      isin: holding.isin ?? '',
+      sector: holding.sector ?? 'Other',
+      marketCap: 'Other',
+      pctOfNav: holding.weight_pct!,
+    }));
+
+  return {
+    equityPct: Math.round(equityPct * 100) / 100,
+    debtPct: Math.round(debtPct * 100) / 100,
+    cashPct: Math.round(cashPct * 100) / 100,
+    otherPct: Math.round(otherPct * 100) / 100,
+    largeCapPct: catRules.large,
+    midCapPct: catRules.mid,
+    smallCapPct: catRules.small,
+    sectorAllocation: Object.keys(sectorAllocation).length > 0 ? sectorAllocation : null,
+    topHoldings: topHoldings.length > 0 ? topHoldings : null,
+  };
+}
+
+interface SchemeRow {
+  id: string;
+  scheme_code: number;
+  scheme_category: string;
+}
+
+// ---------------------------------------------------------------------------
+// Main handler
+// ---------------------------------------------------------------------------
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+
+  console.log('[sync-fund-portfolios] invoked method=%s', req.method);
+
+  const supabase = createServiceClient();
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Load all active funds across all users (global data — not per-user)
+  const { data: funds, error: fundsError } = await supabase
+    .from('fund')
+    .select('id, scheme_code, scheme_category')
+    .eq('is_active', true);
+
+  if (fundsError) {
+    console.error('[sync-fund-portfolios] failed to load funds:', fundsError.message);
+    return json({ success: false, error: fundsError.message }, { status: 500 });
+  }
+
+  if (!funds?.length) {
+    return json({ success: true, message: 'No active funds', categorySynced: 0, amfiSynced: 0 });
+  }
+
+  // Deduplicate by scheme_code (multiple users can hold the same fund)
+  const schemeMap = new Map<number, SchemeRow>();
+  for (const f of funds as SchemeRow[]) {
+    if (!schemeMap.has(f.scheme_code)) schemeMap.set(f.scheme_code, f);
+  }
+  const schemes = [...schemeMap.values()];
+  console.log('[sync-fund-portfolios] %d distinct schemes to process', schemes.length);
+
+  // Check which schemes already have fresh AMFI data this month
+  const schemeCodes = schemes.map((s) => s.scheme_code);
+  const { data: existing } = await supabase
+    .from('fund_portfolio_composition')
+    .select('scheme_code, source, portfolio_date')
+    .in('scheme_code', schemeCodes)
+    .gte('portfolio_date', currentMonthStart.toISOString().split('T')[0])
+    .eq('source', 'amfi');
+
+  const freshAmfiCodes = new Set((existing ?? []).map((r: { scheme_code: number }) => r.scheme_code));
+  const staleSchemes = schemes.filter((s) => !freshAmfiCodes.has(s.scheme_code));
+  console.log('[sync-fund-portfolios] %d schemes need richer-data refresh', staleSchemes.length);
+
+  let amfiSynced = 0;
+  const amfiErrors: string[] = [];
+
+  const amfiResults = await Promise.allSettled(
+    staleSchemes.map(async (scheme, idx) => {
+      if (idx > 0) await delay(REQUEST_DELAY_MS);
+
+      let synced = 0;
+      const portfolioDate = new Date(now.getFullYear(), now.getMonth(), 0) // last day of previous month
+        .toISOString().split('T')[0];
+
+      try {
+        const schemeInfo = await getSchemeInfo(scheme.scheme_code);
+        if (!schemeInfo?.family_id) {
+          console.warn('[sync-fund-portfolios] scheme %d: no family_id from mfdata.in', scheme.scheme_code);
+          return { schemeCode: scheme.scheme_code, synced: 0, error: 'no_family_id' };
+        }
+
+        await delay(REQUEST_DELAY_MS);
+
+        const holdings = await getFamilyHoldings(schemeInfo.family_id);
+        if (!holdings || !holdings.equity_holdings?.length) {
+          console.warn(
+            '[sync-fund-portfolios] scheme %d (family %d): no holdings data',
+            scheme.scheme_code,
+            schemeInfo.family_id,
+          );
+          return { schemeCode: scheme.scheme_code, synced: 0, error: 'no_holdings' };
+        }
+
+        const portfolio = buildPortfolioFromHoldings(holdings, scheme.scheme_category);
+        const notClassified = Math.max(0, 100 - portfolio.largeCapPct - portfolio.midCapPct - portfolio.smallCapPct);
+
+        const { error } = await supabase
+          .from('fund_portfolio_composition')
+          .upsert({
+            scheme_code: scheme.scheme_code,
+            portfolio_date: portfolioDate,
+            equity_pct: portfolio.equityPct,
+            debt_pct: portfolio.debtPct,
+            cash_pct: portfolio.cashPct,
+            other_pct: portfolio.otherPct,
+            large_cap_pct: portfolio.largeCapPct,
+            mid_cap_pct: portfolio.midCapPct,
+            small_cap_pct: portfolio.smallCapPct,
+            not_classified_pct: notClassified,
+            sector_allocation: portfolio.sectorAllocation,
+            top_holdings: portfolio.topHoldings,
+            source: 'amfi',
+            synced_at: new Date().toISOString(),
+          }, { onConflict: 'scheme_code,portfolio_date,source' });
+
+        if (error) {
+          console.error('[sync-fund-portfolios] scheme %d upsert error: %s', scheme.scheme_code, error.message);
+          return { schemeCode: scheme.scheme_code, synced: 0, error: error.message };
+        }
+
+        synced++;
+        amfiSynced++;
+        return { schemeCode: scheme.scheme_code, synced, error: null };
+      } catch (err) {
+        console.error('[sync-fund-portfolios] scheme %d: %s', scheme.scheme_code, String(err));
+        return { schemeCode: scheme.scheme_code, synced: 0, error: String(err) };
+      }
+    }),
+  );
+
+  for (const result of amfiResults) {
+    if (result.status === 'rejected') {
+      amfiErrors.push(String(result.reason));
+    } else if (result.value.error) {
+      amfiErrors.push(`${result.value.schemeCode}: ${result.value.error}`);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Layer 1: seed category_rules for any scheme still missing composition data
+  // ---------------------------------------------------------------------------
+  const today = now.toISOString().split('T')[0];
+  let categorySynced = 0;
+
+  // Re-check which schemes now have AMFI data (just synced or already had it)
+  const { data: nowHasAmfi } = await supabase
+    .from('fund_portfolio_composition')
+    .select('scheme_code')
+    .in('scheme_code', schemeCodes)
+    .gte('portfolio_date', currentMonthStart.toISOString().split('T')[0])
+    .eq('source', 'amfi');
+
+  const amfiCodeSet = new Set((nowHasAmfi ?? []).map((r: { scheme_code: number }) => r.scheme_code));
+  const needsCategoryRules = schemes.filter((s) => !amfiCodeSet.has(s.scheme_code));
+
+  if (needsCategoryRules.length > 0) {
+    const categoryRows = needsCategoryRules.map((scheme) => {
+      const comp = getCategoryRules(scheme.scheme_category);
+      const notClassified = Math.max(0, 100 - comp.large - comp.mid - comp.small);
+      return {
+        scheme_code: scheme.scheme_code,
+        portfolio_date: today,
+        equity_pct: comp.equity,
+        debt_pct: comp.debt,
+        cash_pct: comp.cash,
+        other_pct: comp.other,
+        large_cap_pct: comp.large,
+        mid_cap_pct: comp.mid,
+        small_cap_pct: comp.small,
+        not_classified_pct: notClassified,
+        sector_allocation: null,
+        top_holdings: null,
+        source: 'category_rules',
+        synced_at: new Date().toISOString(),
+      };
+    });
+
+    const { error: catError } = await supabase
+      .from('fund_portfolio_composition')
+      .upsert(categoryRows, {
+        onConflict: 'scheme_code,portfolio_date,source',
+        ignoreDuplicates: true, // never overwrite existing category_rules with stale approximation
+      });
+
+    if (catError) {
+      console.error('[sync-fund-portfolios] category_rules upsert error:', catError.message);
+    } else {
+      categorySynced = categoryRows.length;
+      console.log('[sync-fund-portfolios] seeded category_rules for %d schemes', categorySynced);
+    }
+  }
+
+  console.log('[sync-fund-portfolios] done — amfiSynced=%d categorySynced=%d errors=%d',
+    amfiSynced, categorySynced, amfiErrors.length);
+
+  return json({
+    success: true,
+    schemesProcessed: schemes.length,
+    amfiSynced,
+    categorySynced,
+    freshSkipped: freshAmfiCodes.size,
+    errors: amfiErrors,
+  });
+});

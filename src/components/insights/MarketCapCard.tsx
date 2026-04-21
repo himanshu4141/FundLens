@@ -1,0 +1,164 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { PieChart } from 'react-native-gifted-charts';
+import { useTheme } from '@/src/context/ThemeContext';
+import { Spacing, Radii, Typography } from '@/src/constants/theme';
+import { formatCurrency } from '@/src/utils/formatting';
+import type { MarketCapMix } from '@/src/types/app';
+
+interface Props {
+  totalValue: number;
+  equityPct: number;
+  marketCapMix: MarketCapMix;
+}
+
+const CAP_COLORS = {
+  large: '#3b82f6',
+  mid: '#14b8a6',
+  small: '#22c55e',
+  notClassified: '#cbd5e1',
+};
+
+export function MarketCapCard({ totalValue, equityPct, marketCapMix }: Props) {
+  const { colors } = useTheme();
+  const equityValue = (equityPct / 100) * totalValue;
+
+  const rows = [
+    { label: 'Large Cap', color: CAP_COLORS.large, pct: marketCapMix.large },
+    { label: 'Mid Cap', color: CAP_COLORS.mid, pct: marketCapMix.mid },
+    { label: 'Small Cap', color: CAP_COLORS.small, pct: marketCapMix.small },
+  ];
+  if (marketCapMix.notClassified > 0.5) {
+    rows.push({ label: 'Not Classified', color: CAP_COLORS.notClassified, pct: marketCapMix.notClassified });
+  }
+
+  const pieData = rows
+    .filter((r) => r.pct > 0)
+    .map((r) => ({ value: r.pct, color: r.color }));
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Market Cap Mix</Text>
+
+      <View style={styles.chartRow}>
+        {/* Donut */}
+        <PieChart
+          data={pieData}
+          donut
+          radius={52}
+          innerRadius={34}
+          strokeWidth={0}
+          focusOnPress={false}
+        />
+
+        {/* Legend */}
+        <View style={styles.legend}>
+          {rows.map((r) => (
+            <View key={r.label} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: r.color }]} />
+              <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>
+                {r.label}
+              </Text>
+              <Text style={[styles.legendPct, { color: colors.textPrimary }]}>
+                {r.pct.toFixed(1)}%
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Table */}
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+      <View style={styles.tableHeader}>
+        <Text style={[styles.colHeader, { color: colors.textTertiary }]}>Capitalisation</Text>
+        <Text style={[styles.colHeader, { color: colors.textTertiary }]}>Value</Text>
+        <Text style={[styles.colHeader, { color: colors.textTertiary }]}>% of equity</Text>
+      </View>
+
+      {rows.map((r) => (
+        <View key={r.label} style={[styles.tableRow, { borderTopColor: colors.borderLight }]}>
+          <Text style={[styles.rowLabel, { color: colors.textPrimary, flex: 2 }]}>{r.label}</Text>
+          <Text style={[styles.rowValue, { color: colors.textPrimary, flex: 2 }]}>
+            {formatCurrency((r.pct / 100) * equityValue)}
+          </Text>
+          <Text style={[styles.rowPct, { color: colors.textPrimary, flex: 1 }]}>
+            {r.pct.toFixed(1)}%
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  cardTitle: {
+    ...Typography.h3,
+    marginBottom: Spacing.md,
+  },
+  chartRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  legend: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLabel: {
+    ...Typography.bodySmall,
+    flex: 1,
+  },
+  legendPct: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    marginBottom: Spacing.sm,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    marginBottom: Spacing.xs,
+  },
+  colHeader: {
+    ...Typography.caption,
+    textTransform: 'uppercase',
+    flex: 2,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm + 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  rowLabel: {
+    ...Typography.body,
+  },
+  rowValue: {
+    ...Typography.body,
+    fontWeight: '600',
+  },
+  rowPct: {
+    ...Typography.body,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+});
