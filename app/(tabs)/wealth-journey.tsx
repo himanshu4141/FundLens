@@ -366,6 +366,8 @@ export default function WealthJourneyScreen() {
     additionalTopUp > 0 ||
     wealthJourney.hasSavedPlan;
 
+  const chartWidth = CHART_WIDTH - 88;
+  const chartPlotWidth = CHART_WIDTH - 164;
   const accumulationLabelForYear = useMemo(
     () => buildYearLabels(yearsToRetirement, 'Now'),
     [yearsToRetirement],
@@ -384,6 +386,10 @@ export default function WealthJourneyScreen() {
       label: accumulationLabelForYear(point.year),
     })),
   ];
+  const accumulationChartSpacing = Math.max(
+    10,
+    Math.floor(chartPlotWidth / Math.max(adjustedChartData.length - 1, 1)),
+  );
 
   const currentSipChips = useMemo<ChoiceChip[]>(
     () => buildSipPresetChips(detectedSip > 0 ? detectedSip : currentSip || 100000),
@@ -403,6 +409,10 @@ export default function WealthJourneyScreen() {
     value: point.value,
     label: drawdownLabelForYear(point.year),
   }));
+  const drawdownChartSpacing = Math.max(
+    8,
+    Math.floor(chartPlotWidth / Math.max(drawdownChartData.length - 1, 1)),
+  );
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -450,7 +460,7 @@ export default function WealthJourneyScreen() {
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Wealth Journey</Text>
           <Text style={styles.subtitle}>
-            See how small changes to your plan affect your future corpus and retirement
+            See how small changes to your plan affect your future corpus and withdrawal
             income.
           </Text>
         </View>
@@ -624,8 +634,7 @@ export default function WealthJourneyScreen() {
             <LineChart
               data={baselineChartData}
               data2={adjustedChartData}
-              width={CHART_WIDTH - 72}
-              adjustToWidth
+              width={chartWidth}
               height={208}
               curved
               isAnimated
@@ -638,7 +647,7 @@ export default function WealthJourneyScreen() {
               thickness2={3}
               yAxisLabelWidth={56}
               noOfSections={4}
-              spacing={0}
+              spacing={accumulationChartSpacing}
               initialSpacing={0}
               endSpacing={0}
               xAxisLabelTextStyle={styles.chartAxisText}
@@ -667,9 +676,9 @@ export default function WealthJourneyScreen() {
 
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Retirement income</Text>
+            <Text style={styles.sectionTitle}>Withdrawal income</Text>
             <Text style={styles.sectionCaption}>
-              Turn your projected corpus into a simple drawdown scenario.
+              Turn your projected corpus into a simple withdrawal scenario.
             </Text>
           </View>
 
@@ -679,8 +688,8 @@ export default function WealthJourneyScreen() {
           </Text>
 
           <ValueField
-            label="Retirement duration"
-            helperText="How long should your withdrawals last?"
+            label="Withdrawal duration"
+            helperText="How long should withdrawals last?"
             value={retirementDurationYears}
             onChange={(value) =>
               markSaved({ retirementDurationYears: clamp(Math.round(value), 5, 40) })
@@ -695,7 +704,7 @@ export default function WealthJourneyScreen() {
 
           <ValueField
             label="Withdrawal rate"
-            helperText="Annual withdrawal as a percentage of retirement corpus."
+            helperText="Annual withdrawal as a percentage of the starting corpus."
             value={withdrawalRate}
             onChange={(value) =>
               markSaved({ withdrawalRate: clamp(Number(value.toFixed(1)), 2, 8) })
@@ -709,8 +718,8 @@ export default function WealthJourneyScreen() {
           />
 
           <ValueField
-            label="Post-retirement return"
-            helperText="Use a more conservative rate after retirement."
+            label="Post-withdrawal return"
+            helperText="Use a more conservative rate during withdrawals."
             value={postRetirementReturn}
             onChange={(value) =>
               markSaved({ postRetirementReturn: clamp(Number(value.toFixed(1)), 3, 12) })
@@ -725,7 +734,7 @@ export default function WealthJourneyScreen() {
 
           <View style={styles.retirementSummaryRow}>
             <View style={styles.retirementSummaryItem}>
-              <Text style={styles.retirementSummaryLabel}>Retirement corpus</Text>
+              <Text style={styles.retirementSummaryLabel}>Corpus at start</Text>
               <Text style={styles.retirementSummaryValue}>
                 {formatCurrency(retirementProjection.retirementCorpus)}
               </Text>
@@ -750,8 +759,7 @@ export default function WealthJourneyScreen() {
             <Text style={styles.drawdownTitle}>Drawdown path</Text>
             <LineChart
               data={drawdownChartData}
-              width={CHART_WIDTH - 72}
-              adjustToWidth
+              width={chartWidth}
               height={176}
               curved
               isAnimated
@@ -761,7 +769,7 @@ export default function WealthJourneyScreen() {
               thickness1={3}
               yAxisLabelWidth={56}
               noOfSections={4}
-              spacing={0}
+              spacing={drawdownChartSpacing}
               initialSpacing={0}
               endSpacing={0}
               xAxisLabelTextStyle={styles.chartAxisText}
