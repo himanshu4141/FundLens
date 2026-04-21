@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...Typography.h3,
+    fontWeight: '700',
     marginBottom: Spacing.md,
   },
   chartRow: {
@@ -132,8 +133,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   legendText: {
-    fontSize: 11,
-    fontWeight: '400',
+    fontSize: 12,
+    fontWeight: '500',
     flex: 1,
   },
   divider: {
@@ -148,25 +149,33 @@ const styles = StyleSheet.create({
   },
   colNum: {
     ...Typography.caption,
-    width: 20,
+    width: 24,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   colSector: {
     ...Typography.caption,
     flex: 1,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   colWeight: {
-    ...Typography.caption,
-    width: 52,
-    textAlign: 'right',
-    textTransform: 'uppercase',
-  },
-  colExposure: {
     ...Typography.caption,
     width: 64,
     textAlign: 'right',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+  colExposure: {
+    ...Typography.caption,
+    width: 84,
+    textAlign: 'right',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   tableRow: {
     flexDirection: 'row',
@@ -177,7 +186,8 @@ const styles = StyleSheet.create({
   },
   rowNum: {
     ...Typography.bodySmall,
-    width: 20,
+    width: 24,
+    fontWeight: '600',
   },
   sectorBadge: {
     flex: 1,
@@ -192,19 +202,19 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
   },
   rowWeight: {
     ...Typography.bodySmall,
     fontWeight: '700',
-    width: 52,
+    width: 64,
     textAlign: 'right',
   },
   rowExposure: {
-    ...Typography.bodySmall,
-    fontWeight: '600',
-    width: 64,
+    ...Typography.body,
+    fontWeight: '700',
+    width: 84,
     textAlign: 'right',
   },
 });

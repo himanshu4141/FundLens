@@ -152,11 +152,13 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    fontWeight: '600',
   },
   colHeaderRight: {
     ...Typography.caption,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    fontWeight: '600',
   },
   tableRow: {
     flexDirection: 'row',
@@ -178,15 +180,15 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     ...Typography.body,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   rowAmount: {
     ...Typography.body,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   rowPct: {
     ...Typography.body,
-    fontWeight: '400',
+    fontWeight: '500',
   },
   sourceBadge: {
     ...Typography.caption,
