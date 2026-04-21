@@ -270,6 +270,16 @@ The original plan called out a shared primary header, but in practice the repeat
 
 This keeps the shell structurally consistent and removes the redundant gear icon everywhere those screens appear.
 
+### Shared overflow actions ultimately shipped as a bottom sheet
+
+The original implementation still used a floating popover for the shared `...` actions. After mobile testing, that proved less consistent and less comfortable than the new sort interaction on `Your Funds`.
+
+The shipped version therefore uses the same bottom-sheet interaction pattern for app-level actions on primary screens because:
+
+1. it is easier to reach and scan on phones
+2. it avoids awkward overlap with content and header chrome
+3. it makes the app feel like one coherent mobile system rather than two different menu metaphors
+
 ### Utility-header rollout included import flows
 
 The original plan left the import flows slightly softer in scope. During implementation it was clearer to apply the utility-header pattern not just to `Settings` and `Your Funds`, but also to:
@@ -286,6 +296,18 @@ The plan deliberately left persistence as an open implementation choice. The shi
 1. it avoids growing global state for a lightweight list affordance
 2. it keeps the behavior easy to reason about
 3. it can still be promoted to persisted state later if real usage shows it is worth remembering
+
+### The branch expanded into a broader polish/fix pass around the same screen family work
+
+Once the shared header / utility-header model landed, real-device testing surfaced a cluster of adjacent issues that were better fixed as part of the same branch instead of spun into a separate cleanup PR.
+
+The branch therefore also absorbed:
+
+1. a broader polish pass on Fund Detail card hierarchy, tab chrome, and composition-table alignment
+2. polish on shared `FundCard` layout and metric alignment
+3. a mobile-friendly bottom-sheet sort UI for `Your Funds`
+4. a navigation fix so CAS PDF upload returns to import setup instead of dropping the user onto Portfolio
+5. Expo / EAS configuration cleanup required to keep preview build and update flows healthy
 
 ### Branch-level implementation also absorbed preview-stream simplification
 

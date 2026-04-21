@@ -16,7 +16,7 @@ Secondary navigation:
 
 Screen families:
 
-- `Portfolio`, `Leaderboard`, and `Simulator` use the shared primary-shell header: logo on the left, one `...` menu on the right
+- `Portfolio`, `Leaderboard`, and `Simulator` use the shared primary-shell header: logo on the left, one `...` action sheet on the right
 - `Settings`, `Your Funds`, and CAS import screens use a lighter utility header with one back action and one title
 - `Fund Detail` uses the native stack back behavior and does not hardcode an origin label
 
@@ -71,7 +71,7 @@ Includes:
 
 - fund-allocation overview
 - count of all active funds
-- lightweight sorting by current value, invested amount, XIRR, lead vs benchmark, or alphabetical
+- lightweight sorting by current value, invested amount, XIRR, lead vs benchmark, or alphabetical via a bottom sheet
 - one shared `FundCard` per holding
 
 ### 4. Fund Detail
@@ -85,6 +85,7 @@ Header:
 - XIRR
 - stale-date labeling when relevant
 - one history-aware back path via the stack header
+- polished composition cards with aligned labels / numeric columns
 
 Tabs:
 
