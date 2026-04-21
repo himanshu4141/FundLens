@@ -21,10 +21,6 @@ const ASSET_COLORS = {
   other: '#a78bfa',
 };
 
-const CAP_COLORS = {
-  large: '#3b82f6',
-};
-
 export function PortfolioInsightsEntryCard({
   insights,
   isLoading,
@@ -38,6 +34,19 @@ export function PortfolioInsightsEntryCard({
   const handlePress = () => {
     router.push('/portfolio-insights');
   };
+
+  const assetSummary =
+    insights == null
+      ? []
+      : [
+          { label: 'Equity', value: insights.assetMix.equity, color: ASSET_COLORS.equity },
+          { label: 'Debt', value: insights.assetMix.debt, color: ASSET_COLORS.debt },
+          { label: 'Cash', value: insights.assetMix.cash, color: ASSET_COLORS.cash },
+          { label: 'Other', value: insights.assetMix.other, color: ASSET_COLORS.other },
+        ]
+          .filter((item) => item.value > 0.5)
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 3);
 
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -88,33 +97,15 @@ export function PortfolioInsightsEntryCard({
 
             {/* Key stats grid */}
             <View style={styles.statsGrid}>
-              <StatBox
-                label="Equity"
-                value={`${insights.assetMix.equity.toFixed(0)}%`}
-                accentColor={ASSET_COLORS.equity}
-                colors={colors}
-              />
-              {insights.assetMix.debt > 1 ? (
+              {assetSummary.map((item) => (
                 <StatBox
-                  label="Debt"
-                  value={`${insights.assetMix.debt.toFixed(0)}%`}
-                  accentColor={ASSET_COLORS.debt}
+                  key={item.label}
+                  label={item.label}
+                  value={`${item.value.toFixed(0)}%`}
+                  accentColor={item.color}
                   colors={colors}
                 />
-              ) : (
-                <StatBox
-                  label="Cash"
-                  value={`${insights.assetMix.cash.toFixed(0)}%`}
-                  accentColor={ASSET_COLORS.cash}
-                  colors={colors}
-                />
-              )}
-              <StatBox
-                label="Large Cap"
-                value={`${insights.marketCapMix.large.toFixed(0)}%`}
-                accentColor={CAP_COLORS.large}
-                colors={colors}
-              />
+              ))}
             </View>
 
             {/* Data quality indicator */}
