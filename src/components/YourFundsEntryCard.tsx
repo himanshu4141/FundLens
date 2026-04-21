@@ -79,17 +79,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
     marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   title: {
     ...Typography.h3,
+    fontWeight: '700',
   },
   headerRight: {
     flexDirection: 'row',
@@ -98,20 +98,20 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   allocationBar: {
     flexDirection: 'row',
     height: 8,
     borderRadius: Radii.full,
     overflow: 'hidden',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   barSeg: {
     height: '100%',
   },
   fundList: {
-    gap: 6,
+    gap: 8,
   },
   fundRow: {
     flexDirection: 'row',
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   fundName: {
     flex: 1,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   fundPct: {
     fontSize: 12,
@@ -136,13 +136,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   fundValue: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     minWidth: 72,
     textAlign: 'right',
   },
   moreText: {
-    fontSize: 12,
-    marginTop: 2,
+    ...Typography.bodySmall,
+    marginTop: 4,
   },
 });

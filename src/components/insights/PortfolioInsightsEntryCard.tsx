@@ -175,17 +175,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
     marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   title: {
     ...Typography.h3,
+    fontWeight: '700',
   },
   headerRight: {
     flexDirection: 'row',
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: Radii.full,
     overflow: 'hidden',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   barSeg: {
     height: '100%',
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     gap: Spacing.xs,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   statBox: {
     flex: 1,
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
   statAccent: {
     width: 16,
@@ -226,15 +226,17 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   statLabel: {
-    ...Typography.caption,
+    ...Typography.bodySmall,
+    fontWeight: '600',
   },
   sourceBadge: {
-    ...Typography.caption,
+    ...Typography.bodySmall,
+    fontWeight: '600',
   },
   estimateChip: {
     flexDirection: 'row',
@@ -246,8 +248,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   estimateChipText: {
-    ...Typography.caption,
-    fontWeight: '500',
+    ...Typography.bodySmall,
+    fontWeight: '600',
   },
   skeleton: {
     gap: Spacing.sm,
