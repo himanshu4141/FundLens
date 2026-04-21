@@ -28,26 +28,92 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'alphabetical', label: 'Alphabetical' },
 ];
 
+function classifyFundCategory(category: string | null): string {
+  if (!category) return 'Other';
+  const value = category.toLowerCase();
+
+  if (value.includes('hybrid')) return 'Hybrid';
+  if (
+    value.includes('debt') ||
+    value.includes('liquid') ||
+    value.includes('ultra short') ||
+    value.includes('short duration') ||
+    value.includes('money market') ||
+    value.includes('overnight')
+  ) {
+    return 'Debt';
+  }
+  if (
+    value.includes('fund of funds') ||
+    value.includes('fof') ||
+    value.includes('overseas') ||
+    value.includes('international')
+  ) {
+    return 'Fund of Funds';
+  }
+  if (value.includes('index') || value.includes('etf')) return 'Index';
+  if (
+    value.includes('equity') ||
+    value.includes('cap') ||
+    value.includes('elss') ||
+    value.includes('focused') ||
+    value.includes('value') ||
+    value.includes('contra')
+  ) {
+    return 'Equity';
+  }
+
+  return category;
+}
+
 function AllocationSummaryCard({
   fundAllocation,
   fundCount,
+  fundCards,
 }: {
   fundAllocation: InsightFundAllocation[];
   fundCount: number;
+  fundCards: FundCardData[];
 }) {
   const { colors } = useTheme();
   const largest = fundAllocation[0];
   const topThreeShare = fundAllocation.slice(0, 3).reduce((sum, item) => sum + item.pct, 0);
+  const categoryMix = useMemo(() => {
+    const totalValue = fundCards.reduce((sum, fund) => sum + (fund.currentValue ?? 0), 0);
+    if (totalValue <= 0) return [];
+
+    const map = new Map<string, { value: number; color: string }>();
+    for (const fund of fundCards) {
+      const value = fund.currentValue ?? 0;
+      if (value <= 0) continue;
+      const label = classifyFundCategory(fund.schemeCategory);
+      const existing = map.get(label);
+      const color = categoryColor(colors, fund.schemeCategory);
+      if (existing) {
+        existing.value += value;
+      } else {
+        map.set(label, { value, color });
+      }
+    }
+
+    return [...map.entries()]
+      .map(([label, item]) => ({
+        label,
+        pct: (item.value / totalValue) * 100,
+        color: item.color,
+      }))
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, 4);
+  }, [colors, fundCards]);
 
   return (
     <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.summaryHeader}>
         <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>Allocation overview</Text>
-        <Text style={[styles.summaryCaption, { color: colors.textTertiary }]}>Color-coded by holding size</Text>
       </View>
 
       <View style={styles.allocationBar}>
-        {fundAllocation.slice(0, 12).map((fund) => (
+        {fundAllocation.map((fund) => (
           <View
             key={fund.fundId}
             style={[styles.allocationSegment, { flex: fund.pct, backgroundColor: fund.color }]}
@@ -56,10 +122,13 @@ function AllocationSummaryCard({
       </View>
 
       <View style={styles.summaryStatsRow}>
-        <View style={styles.summaryStat}>
+        <View style={[styles.summaryStat, styles.summaryStatPrimary]}>
           <Text style={[styles.summaryStatLabel, { color: colors.textTertiary }]}>Largest position</Text>
-          <Text style={[styles.summaryStatValue, { color: colors.textPrimary }]} numberOfLines={1}>
-            {largest ? `${largest.shortName} · ${largest.pct.toFixed(1)}%` : '—'}
+          <Text style={[styles.summaryStatValue, styles.summaryStatValueWide, { color: colors.textPrimary }]}>
+            {largest ? largest.shortName : '—'}
+          </Text>
+          <Text style={[styles.summaryStatSubValue, { color: colors.textSecondary }]}>
+            {largest ? `${largest.pct.toFixed(1)}% of portfolio` : ''}
           </Text>
         </View>
         <View style={styles.summaryStat}>
@@ -71,6 +140,35 @@ function AllocationSummaryCard({
           <Text style={[styles.summaryStatValue, { color: colors.textPrimary }]}>{fundCount}</Text>
         </View>
       </View>
+
+      {categoryMix.length > 0 && (
+        <View style={[styles.categorySection, { borderTopColor: colors.borderLight }]}>
+          <Text style={[styles.categorySectionTitle, { color: colors.textTertiary }]}>Category mix</Text>
+          <View style={styles.categoryRows}>
+            {categoryMix.map((category) => (
+              <View key={category.label} style={styles.categoryRow}>
+                <View style={styles.categoryLabelWrap}>
+                  <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                  <Text style={[styles.categoryLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {category.label}
+                  </Text>
+                </View>
+                <View style={[styles.categoryTrack, { backgroundColor: colors.background }]}>
+                  <View
+                    style={[
+                      styles.categoryFill,
+                      { backgroundColor: category.color, width: `${Math.max(category.pct, 6)}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.categoryPct, { color: colors.textPrimary }]}>
+                  {category.pct.toFixed(1)}%
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -271,6 +369,7 @@ export default function FundsScreen() {
             <AllocationSummaryCard
               fundAllocation={insights.fundAllocation}
               fundCount={fundCards.length}
+              fundCards={fundCards}
             />
           )}
 
@@ -364,20 +463,15 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   summaryHeader: {
-    gap: 2,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm + 2,
   },
   summaryTitle: {
     ...Typography.h3,
     fontWeight: '700',
   },
-  summaryCaption: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   allocationBar: {
     flexDirection: 'row',
-    height: 10,
+    height: 12,
     borderRadius: Radii.full,
     overflow: 'hidden',
     marginBottom: Spacing.md,
@@ -388,10 +482,14 @@ const styles = StyleSheet.create({
   summaryStatsRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
+    alignItems: 'flex-start',
   },
   summaryStat: {
     flex: 1,
     gap: 4,
+  },
+  summaryStatPrimary: {
+    flex: 1.7,
   },
   summaryStatLabel: {
     fontSize: 11,
@@ -400,6 +498,64 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   summaryStatValue: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  summaryStatValueWide: {
+    lineHeight: 20,
+  },
+  summaryStatSubValue: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  categorySection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    gap: Spacing.sm,
+  },
+  categorySectionTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  categoryRows: {
+    gap: 8,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  categoryLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    width: 120,
+  },
+  categoryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  categoryLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  categoryTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  categoryFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  categoryPct: {
+    width: 48,
+    textAlign: 'right',
     fontSize: 13,
     fontWeight: '700',
   },
