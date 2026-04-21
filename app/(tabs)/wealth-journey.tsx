@@ -77,6 +77,17 @@ function formatAxisValue(value: number): string {
   return `${Math.round(value)}`;
 }
 
+function buildYearLabels(horizonYears: number, startLabel: string) {
+  const interval = Math.max(5, Math.ceil(horizonYears / 4 / 5) * 5);
+
+  return (year: number) => {
+    if (year === 0) return startLabel;
+    if (year === horizonYears) return `${year}Y`;
+    if (year % interval === 0) return `${year}Y`;
+    return '';
+  };
+}
+
 function ValueField({
   label,
   helperText,
@@ -355,32 +366,22 @@ export default function WealthJourneyScreen() {
     additionalTopUp > 0 ||
     wealthJourney.hasSavedPlan;
 
-  const chartSpacing = Math.max(
-    10,
-    Math.floor((CHART_WIDTH - 132) / Math.max(yearsToRetirement, 6)),
+  const accumulationLabelForYear = useMemo(
+    () => buildYearLabels(yearsToRetirement, 'Now'),
+    [yearsToRetirement],
   );
   const baselineChartData = [
-    { value: currentCorpus, label: 'Today' },
+    { value: currentCorpus, label: accumulationLabelForYear(0) },
     ...baselinePoints.map((point) => ({
       value: point.value,
-      label:
-        point.year === 5 ||
-        point.year === 10 ||
-        point.year === yearsToRetirement
-          ? `${point.year}Y`
-          : '',
+      label: accumulationLabelForYear(point.year),
     })),
   ];
   const adjustedChartData = [
-    { value: currentCorpus, label: 'Today' },
+    { value: currentCorpus, label: accumulationLabelForYear(0) },
     ...adjustedPoints.map((point) => ({
       value: point.value,
-      label:
-        point.year === 5 ||
-        point.year === 10 ||
-        point.year === yearsToRetirement
-          ? `${point.year}Y`
-          : '',
+      label: accumulationLabelForYear(point.year),
     })),
   ];
 
@@ -394,14 +395,13 @@ export default function WealthJourneyScreen() {
     { label: '₹50K', value: 50000 },
     { label: '₹1L', value: 100000 },
   ];
+  const drawdownLabelForYear = useMemo(
+    () => buildYearLabels(retirementDurationYears, 'Start'),
+    [retirementDurationYears],
+  );
   const drawdownChartData = retirementProjection.trajectory.map((point) => ({
     value: point.value,
-    label:
-      point.year === 0
-        ? 'Start'
-        : point.year === retirementDurationYears || point.year % 10 === 0
-          ? `${point.year}Y`
-          : '',
+    label: drawdownLabelForYear(point.year),
   }));
 
   async function handleSync() {
@@ -625,6 +625,7 @@ export default function WealthJourneyScreen() {
               data={baselineChartData}
               data2={adjustedChartData}
               width={CHART_WIDTH - 72}
+              adjustToWidth
               height={208}
               curved
               isAnimated
@@ -637,13 +638,14 @@ export default function WealthJourneyScreen() {
               thickness2={3}
               yAxisLabelWidth={56}
               noOfSections={4}
-              spacing={chartSpacing}
+              spacing={0}
               initialSpacing={0}
               endSpacing={0}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={18}
-              labelsExtraHeight={40}
+              xAxisLabelsHeight={24}
+              labelsExtraHeight={46}
+              xAxisLabelsVerticalShift={8}
               xAxisColor={colors.borderLight}
               yAxisColor="transparent"
               hideRules={false}
@@ -749,6 +751,7 @@ export default function WealthJourneyScreen() {
             <LineChart
               data={drawdownChartData}
               width={CHART_WIDTH - 72}
+              adjustToWidth
               height={176}
               curved
               isAnimated
@@ -758,13 +761,14 @@ export default function WealthJourneyScreen() {
               thickness1={3}
               yAxisLabelWidth={56}
               noOfSections={4}
-              spacing={Math.max(10, Math.floor((CHART_WIDTH - 132) / Math.max(retirementDurationYears, 6)))}
+              spacing={0}
               initialSpacing={0}
               endSpacing={0}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={18}
-              labelsExtraHeight={34}
+              xAxisLabelsHeight={24}
+              labelsExtraHeight={40}
+              xAxisLabelsVerticalShift={8}
               xAxisColor={colors.borderLight}
               yAxisColor="transparent"
               hideRules={false}
