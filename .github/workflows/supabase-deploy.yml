@@ -26,6 +26,9 @@ jobs:
       - name: Patch config.toml (strip schedule keys for CLI compat)
         run: sed -i 's/^schedule = .*$/# schedule = (managed via pg_cron migration)/' supabase/config.toml
 
+      - name: Start local Supabase stack
+        run: supabase start
+
       - name: Reset local Supabase database from migrations
         run: supabase db reset
 
