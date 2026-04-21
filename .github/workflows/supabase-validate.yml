@@ -1,0 +1,32 @@
+name: Validate Supabase
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/supabase-validate.yml'
+      - '.github/workflows/supabase-deploy.yml'
+      - 'scripts/check_supabase_migration_parity.py'
+
+jobs:
+  replay-migrations:
+    name: Replay Supabase Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Patch config.toml (strip schedule keys for CLI compat)
+        run: sed -i 's/^schedule = .*$/# schedule = (managed via pg_cron migration)/' supabase/config.toml
+
+      - name: Reset local Supabase database from migrations
+        run: supabase db reset
+
+      - name: Lint local database schema
+        run: supabase db lint --local --fail-on error --schema public

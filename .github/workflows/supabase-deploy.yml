@@ -13,9 +13,52 @@ on:
       - 'supabase/migrations/**'
 
 jobs:
+  validate-migrations:
+    name: Validate Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Patch config.toml (strip schedule keys for CLI compat)
+        run: sed -i 's/^schedule = .*$/# schedule = (managed via pg_cron migration)/' supabase/config.toml
+
+      - name: Reset local Supabase database from migrations
+        run: supabase db reset
+
+      - name: Lint local database schema
+        run: supabase db lint --local --fail-on error --schema public
+
+      - name: Link Supabase project
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Verify migration version parity
+        run: python3 scripts/check_supabase_migration_parity.py
+
+      - name: Verify linked schema parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db diff --linked --schema public > /tmp/supabase-diff.log 2>&1 || {
+            cat /tmp/supabase-diff.log
+            exit 1
+          }
+
+          if grep -Eiq '^(create|alter|drop|comment|grant|revoke|set|select|insert|update|delete|do|begin|commit)\b' /tmp/supabase-diff.log; then
+            echo "Supabase schema drift detected:"
+            cat /tmp/supabase-diff.log
+            exit 1
+          fi
+
   deploy-functions:
     name: Deploy Edge Functions
     runs-on: ubuntu-latest
+    needs: validate-migrations
     steps:
       - uses: actions/checkout@v4
 
@@ -36,12 +79,16 @@ jobs:
   run-migrations:
     name: Run Database Migrations
     runs-on: ubuntu-latest
+    needs: validate-migrations
     steps:
       - uses: actions/checkout@v4
 
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+
+      - name: Patch config.toml (strip schedule keys for CLI compat)
+        run: sed -i 's/^schedule = .*$/# schedule = (managed via pg_cron migration)/' supabase/config.toml
 
       # `supabase db push` has no --project-ref flag; link the project first so
       # the subsequent push uses the Management API (IPv4/HTTPS) rather than a
