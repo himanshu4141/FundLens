@@ -298,6 +298,25 @@ That follow-on work changed:
 3. Expo app config so `FundLens Main` and `FundLens PR` can be installed side by side with distinct package identifiers and deep-link schemes
 
 This divergence is operational rather than product-UX driven, but it now lives on the same branch and should be tracked here for historical accuracy.
+
+### Production OTA path was preserved rather than replaced
+
+Review feedback correctly pointed out that the existing production OTA workflow should not be silently repurposed. The final branch implementation therefore keeps the pre-existing production update path and adds the new `main` preview OTA alongside it.
+
+That means `push -> main` now does both:
+
+1. publish to the shareable `main` preview stream
+2. preserve the existing `production` OTA publish path
+
+### Preview usage metrics were enabled for the shareable preview app
+
+To support friend / family / focus-group testing, the branch also enabled Expo Insights by installing `expo-insights`.
+
+This was chosen because:
+
+1. Expo’s current docs say EAS Insights is in preview and free to use
+2. installing the native module gives more precise launch metrics than update-request aggregation alone
+3. it fits the new `preview-main` / `preview-pr` split without requiring an external analytics vendor
 - `app/(tabs)/settings.tsx`
 - `app/funds.tsx`
 - possibly `app/_layout.tsx` or stack options if detail-header behavior is centralised there

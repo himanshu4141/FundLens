@@ -17,6 +17,7 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - **Portfolio Insights** — one-tap access from the Portfolio screen to asset mix, market cap distribution, sector exposure, debt/cash mix, top holdings, and fund allocation; two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer); prominent "estimated" banner when showing category-derived data; auto-syncs when data is >35 days old
 - **Screen-family navigation** — Portfolio / Leaderboard / Simulator share one shell header with a single `...` action menu; utility screens use a lighter back-title header; Fund Detail now relies on one clear history-aware back path
 - **Your Funds** — dedicated screen listing all holdings with shared fund cards, portfolio-allocation context, and in-memory sorting by current value, invested amount, XIRR, benchmark lead, or alphabetical order
+- **Preview usage metrics** — EAS Insights support is enabled via `expo-insights`, so once the preview apps are rebuilt and installed you can see usage trends for the preview streams in Expo
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
 - Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase migration replay validation on PRs, linked-project migration/schema validation before Supabase deploys on merge to main, and hardened preview publishing for Vercel / EAS export hangs
 
@@ -127,6 +128,13 @@ eas build --profile preview-pr --platform android
 
 After ~20 minutes, EAS prints a download link. Open it on your phone, download the APK, and install it. You only need to rebuild when native code changes; JS changes deploy instantly via `eas update`.
 
+Recommended device setup during active development:
+
+- Install `preview-main` once as your stable shareable preview app
+- Install `preview-pr` once as your rolling PR review app
+- `main` merges publish OTA updates to the `main` stream for `FundLens Main`
+- PR commits publish OTA updates to the `pr-builds` stream for `FundLens PR`
+
 ---
 
 ## Auth: Magic Link
@@ -189,9 +197,27 @@ Google OAuth on native requires a build that has the right app scheme registered
 |---|---|---|
 | Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to the shared `pr-builds` stream for the installed `FundLens PR` app, posts update comment |
 | Pull request | `supabase-validate.yml` | Rebuilds the local Supabase DB from migrations and lints the resulting public schema |
-| Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to the shared `main` preview stream for the installed `FundLens Main` app |
+| Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to both the shared `main` preview stream and the existing `production` stream |
 | Merge to main | Vercel (automatic) | `expo export --platform web` → deploys to Vercel |
 | Merge to main | `supabase-deploy.yml` | Validates local replay + linked migration/schema parity, then deploys edge functions and runs migrations (triggers when `supabase/` paths change) |
+
+## Preview Metrics
+
+Expo currently gives you two levels of visibility:
+
+- EAS Update already provides high-level adoption/usage signals from update requests
+- `expo-insights` adds more precise app-launch usage metrics and app-version breakdowns in the Expo dashboard
+
+Current setup:
+
+- `expo-insights` is installed in this project
+- metrics begin flowing after you create and install fresh native builds that include the package
+- view them in Expo Dashboard → Project → Insights
+
+Practical implication:
+
+- rebuild and reinstall `preview-main` and `preview-pr` once after this change
+- after that, the `FundLens Main` preview app is the right stream to monitor for friend/family/focus-group usage
 
 **Required GitHub secrets:**
 - `EXPO_TOKEN` — from expo.dev → Account Settings → Access Tokens
