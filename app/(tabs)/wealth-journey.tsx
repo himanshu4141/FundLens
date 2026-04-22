@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,8 +42,6 @@ import {
   type ReturnPreset,
 } from '@/src/utils/wealthJourney';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 2;
 const FIXED_INFLATION_RATE = 6;
 const MOBILE_CHART_BREAKPOINT = 430;
 
@@ -236,6 +234,7 @@ function ReturnPresetField({
 
 export default function WealthJourneyScreen() {
   const router = useRouter();
+  const { width: viewportWidth } = useWindowDimensions();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { session } = useSession();
@@ -394,8 +393,10 @@ export default function WealthJourneyScreen() {
     additionalTopUp > 0 ||
     wealthJourney.hasSavedPlan;
 
-  const isCompactChart = SCREEN_WIDTH <= MOBILE_CHART_BREAKPOINT;
-  const chartWidth = CHART_WIDTH - (isCompactChart ? 96 : 88);
+  const screenWidth = Math.max(320, viewportWidth || 360);
+  const chartOuterWidth = screenWidth - Spacing.md * 2;
+  const isCompactChart = screenWidth <= MOBILE_CHART_BREAKPOINT;
+  const chartWidth = chartOuterWidth - (isCompactChart ? 96 : 88);
   const chartPlotWidth = chartWidth - 72;
   const accumulationYears = useMemo(
     () => buildCheckpointYears(yearsToRetirement, isCompactChart),
@@ -664,6 +665,10 @@ export default function WealthJourneyScreen() {
               data={baselineChartData}
               data2={adjustedChartData}
               width={chartWidth}
+              parentWidth={chartWidth}
+              adjustToWidth={isCompactChart}
+              disableScroll={isCompactChart}
+              bounces={false}
               height={208}
               curved
               isAnimated
@@ -677,8 +682,8 @@ export default function WealthJourneyScreen() {
               yAxisLabelWidth={56}
               noOfSections={4}
               spacing={accumulationChartSpacing}
-              initialSpacing={0}
-              endSpacing={0}
+              initialSpacing={isCompactChart ? 8 : 0}
+              endSpacing={isCompactChart ? 8 : 0}
               xAxisLabelTexts={accumulationXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
@@ -825,6 +830,10 @@ export default function WealthJourneyScreen() {
             <LineChart
               data={drawdownChartData}
               width={chartWidth}
+              parentWidth={chartWidth}
+              adjustToWidth={isCompactChart}
+              disableScroll={isCompactChart}
+              bounces={false}
               height={176}
               curved
               isAnimated
@@ -835,8 +844,8 @@ export default function WealthJourneyScreen() {
               yAxisLabelWidth={56}
               noOfSections={4}
               spacing={drawdownChartSpacing}
-              initialSpacing={0}
-              endSpacing={0}
+              initialSpacing={isCompactChart ? 8 : 0}
+              endSpacing={isCompactChart ? 8 : 0}
               xAxisLabelTexts={drawdownXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
