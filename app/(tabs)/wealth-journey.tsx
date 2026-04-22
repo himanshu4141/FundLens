@@ -45,6 +45,7 @@ import {
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.md * 2;
 const FIXED_INFLATION_RATE = 6;
+const MOBILE_CHART_BREAKPOINT = 430;
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
@@ -78,20 +79,24 @@ function formatAxisValue(value: number): string {
   return `${Math.round(value)}`;
 }
 
-function buildYearLabels(horizonYears: number, startLabel: string) {
-  const interval = Math.max(5, Math.ceil(horizonYears / 4 / 5) * 5);
+function buildCheckpointYears(horizonYears: number, compact: boolean) {
+  if (!compact) {
+    return Array.from({ length: horizonYears + 1 }, (_, idx) => idx);
+  }
 
-  return (year: number) => {
-    if (year === 0) return startLabel;
-    if (year === horizonYears) return `${year}Y`;
-    if (year % interval === 0) return `${year}Y`;
-    return '';
-  };
+  const checkpoints = new Set<number>([0, horizonYears]);
+  const interval = horizonYears <= 12 ? 3 : 5;
+
+  for (let year = interval; year < horizonYears; year += interval) {
+    checkpoints.add(year);
+  }
+
+  return [...checkpoints].sort((a, b) => a - b);
 }
 
-function formatPointerYear(label: string | undefined, fallback: string) {
-  if (!label) return fallback;
-  return label;
+function formatCheckpointLabel(year: number, startLabel: string) {
+  if (year === 0) return startLabel;
+  return `${year}Y`;
 }
 
 function ValueField({
@@ -389,51 +394,32 @@ export default function WealthJourneyScreen() {
     additionalTopUp > 0 ||
     wealthJourney.hasSavedPlan;
 
-  const chartWidth = CHART_WIDTH - 88;
-  const chartPlotWidth = CHART_WIDTH - 164;
-  const accumulationLabelForYear = useMemo(
-    () => buildYearLabels(yearsToRetirement, 'Now'),
-    [yearsToRetirement],
+  const isCompactChart = SCREEN_WIDTH <= MOBILE_CHART_BREAKPOINT;
+  const chartWidth = CHART_WIDTH - (isCompactChart ? 96 : 88);
+  const chartPlotWidth = chartWidth - 72;
+  const accumulationYears = useMemo(
+    () => buildCheckpointYears(yearsToRetirement, isCompactChart),
+    [yearsToRetirement, isCompactChart],
   );
-  const renderAxisLabel = (label: string) => (
-    <View style={styles.chartAxisLabelWrap}>
-      <Text style={styles.chartAxisText}>{label}</Text>
-    </View>
-  );
-  const baselineChartData = [
-    {
-      value: currentCorpus,
-      label: accumulationLabelForYear(0),
-      labelComponent: () => renderAxisLabel(accumulationLabelForYear(0)),
-    },
-    ...baselinePoints.map((point) => ({
-      value: point.value,
-      label: accumulationLabelForYear(point.year),
-      labelComponent:
-        accumulationLabelForYear(point.year) !== ''
-          ? () => renderAxisLabel(accumulationLabelForYear(point.year))
-          : undefined,
-    })),
-  ];
-  const adjustedChartData = [
-    {
-      value: currentCorpus,
-      label: accumulationLabelForYear(0),
-      labelComponent: () => renderAxisLabel(accumulationLabelForYear(0)),
-    },
-    ...adjustedPoints.map((point) => ({
-      value: point.value,
-      label: accumulationLabelForYear(point.year),
-      labelComponent:
-        accumulationLabelForYear(point.year) !== ''
-          ? () => renderAxisLabel(accumulationLabelForYear(point.year))
-          : undefined,
-    })),
-  ];
+  const baselineChartData = accumulationYears.map((year) => ({
+    value:
+      year === 0
+        ? currentCorpus
+        : baselinePoints.find((point) => point.year === year)?.value ?? currentCorpus,
+    label: formatCheckpointLabel(year, 'Now'),
+  }));
+  const adjustedChartData = accumulationYears.map((year) => ({
+    value:
+      year === 0
+        ? currentCorpus
+        : adjustedPoints.find((point) => point.year === year)?.value ?? currentCorpus,
+    label: formatCheckpointLabel(year, 'Now'),
+  }));
   const accumulationChartSpacing = Math.max(
-    10,
+    isCompactChart ? 30 : 18,
     Math.floor(chartPlotWidth / Math.max(adjustedChartData.length - 1, 1)),
   );
+  const accumulationXAxisLabels = baselineChartData.map((point) => point.label);
 
   const currentSipChips = useMemo<ChoiceChip[]>(
     () => buildSipPresetChips(detectedSip > 0 ? detectedSip : currentSip || 100000),
@@ -443,22 +429,19 @@ export default function WealthJourneyScreen() {
     () => buildSipTargetChips(currentSip || 100000),
     [currentSip],
   );
-  const drawdownLabelForYear = useMemo(
-    () => buildYearLabels(retirementDurationYears, 'Start'),
-    [retirementDurationYears],
+  const drawdownYears = useMemo(
+    () => buildCheckpointYears(retirementDurationYears, isCompactChart),
+    [retirementDurationYears, isCompactChart],
   );
-  const drawdownChartData = retirementProjection.trajectory.map((point) => ({
-    value: point.value,
-    label: drawdownLabelForYear(point.year),
-    labelComponent:
-      drawdownLabelForYear(point.year) !== ''
-        ? () => renderAxisLabel(drawdownLabelForYear(point.year))
-        : undefined,
+  const drawdownChartData = drawdownYears.map((year) => ({
+    value: retirementProjection.trajectory.find((point) => point.year === year)?.value ?? 0,
+    label: formatCheckpointLabel(year, 'Start'),
   }));
   const drawdownChartSpacing = Math.max(
-    8,
+    isCompactChart ? 30 : 18,
     Math.floor(chartPlotWidth / Math.max(drawdownChartData.length - 1, 1)),
   );
+  const drawdownXAxisLabels = drawdownChartData.map((point) => point.label);
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -696,11 +679,12 @@ export default function WealthJourneyScreen() {
               spacing={accumulationChartSpacing}
               initialSpacing={0}
               endSpacing={0}
+              xAxisLabelTexts={accumulationXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={28}
-              labelsExtraHeight={46}
-              xAxisLabelsVerticalShift={8}
+              xAxisLabelsHeight={isCompactChart ? 20 : 24}
+              labelsExtraHeight={isCompactChart ? 34 : 40}
+              xAxisLabelsVerticalShift={isCompactChart ? 4 : 8}
               xAxisColor={colors.borderLight}
               yAxisColor="transparent"
               hideRules={false}
@@ -720,10 +704,7 @@ export default function WealthJourneyScreen() {
                 pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
                   const baselinePoint = baselineChartData[pointerIndex];
                   const adjustedPoint = adjustedChartData[pointerIndex];
-                  const horizonLabel = formatPointerYear(
-                    baselinePoint?.label,
-                    pointerIndex === 0 ? 'Now' : `Year ${pointerIndex}`,
-                  );
+                  const horizonLabel = baselinePoint?.label ?? `Year ${pointerIndex}`;
 
                   return (
                     <View style={styles.pointerLabel}>
@@ -856,11 +837,12 @@ export default function WealthJourneyScreen() {
               spacing={drawdownChartSpacing}
               initialSpacing={0}
               endSpacing={0}
+              xAxisLabelTexts={drawdownXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={28}
-              labelsExtraHeight={40}
-              xAxisLabelsVerticalShift={8}
+              xAxisLabelsHeight={isCompactChart ? 20 : 24}
+              labelsExtraHeight={isCompactChart ? 34 : 40}
+              xAxisLabelsVerticalShift={isCompactChart ? 4 : 8}
               xAxisColor={colors.borderLight}
               yAxisColor="transparent"
               hideRules={false}
@@ -880,10 +862,7 @@ export default function WealthJourneyScreen() {
                 pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
                   const point = drawdownChartData[pointerIndex];
                   if (!point) return null;
-                  const horizonLabel = formatPointerYear(
-                    point.label,
-                    pointerIndex === 0 ? 'Start' : `Year ${pointerIndex}`,
-                  );
+                  const horizonLabel = point.label ?? `Year ${pointerIndex}`;
 
                   return (
                     <View style={styles.pointerLabel}>
@@ -1156,11 +1135,6 @@ function makeStyles(colors: AppColors) {
     chartAxisText: {
       fontSize: 11,
       color: colors.textTertiary,
-    },
-    chartAxisLabelWrap: {
-      width: 46,
-      alignItems: 'center',
-      marginLeft: -10,
     },
     chartLegend: {
       flexDirection: 'row',
