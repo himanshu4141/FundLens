@@ -172,6 +172,23 @@ export function buildSipPresetChips(baseValue: number): { label: string; value: 
   ];
 }
 
+export function buildSipTargetChips(currentSip: number): { label: string; value: number }[] {
+  const roundedBase = roundToHumanAmount(Math.max(currentSip, 25_000));
+  const values = Array.from(
+    new Set([
+      0,
+      Math.max(0, roundedBase - 25_000),
+      roundedBase,
+      roundedBase + 25_000,
+    ]),
+  );
+
+  return values.map((value) => ({
+    label: value === 0 ? 'Stop' : formatSipPresetLabel(value),
+    value,
+  }));
+}
+
 function buildProjectedCorpusText(
   currentCorpus: number,
   monthlySip: number,

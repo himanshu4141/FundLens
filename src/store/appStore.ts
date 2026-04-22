@@ -20,6 +20,7 @@ export interface WealthJourneyState {
   hasOpened: boolean;
   hasSavedPlan: boolean;
   currentSipOverride: number | null;
+  futureSipTarget: number | null;
   monthlySipIncrease: number;
   additionalTopUp: number;
   yearsToRetirement: number;
@@ -34,6 +35,7 @@ const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
   hasOpened: false,
   hasSavedPlan: false,
   currentSipOverride: null,
+  futureSipTarget: null,
   monthlySipIncrease: 0,
   additionalTopUp: 0,
   yearsToRetirement: 15,

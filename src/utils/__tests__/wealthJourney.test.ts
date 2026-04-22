@@ -1,5 +1,6 @@
 import {
   buildSipPresetChips,
+  buildSipTargetChips,
   buildReturnProfile,
   buildWealthJourneyTeaser,
   estimateRecurringMonthlySip,
@@ -80,6 +81,17 @@ describe('buildSipPresetChips', () => {
       { label: '₹1.0L', value: 100000 },
       { label: '₹1.25L', value: 125000 },
       { label: '₹1.5L', value: 150000 },
+    ]);
+  });
+});
+
+describe('buildSipTargetChips', () => {
+  it('offers stop, lower, keep, and higher targets', () => {
+    expect(buildSipTargetChips(100000)).toEqual([
+      { label: 'Stop', value: 0 },
+      { label: '₹75K', value: 75000 },
+      { label: '₹1.0L', value: 100000 },
+      { label: '₹1.25L', value: 125000 },
     ]);
   });
 });

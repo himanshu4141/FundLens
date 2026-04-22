@@ -36,6 +36,7 @@ import {
 } from '@/src/utils/simulatorCalc';
 import {
   buildSipPresetChips,
+  buildSipTargetChips,
   buildReturnProfile,
   estimateRecurringMonthlySip,
   type ReturnPreset,
@@ -86,6 +87,11 @@ function buildYearLabels(horizonYears: number, startLabel: string) {
     if (year % interval === 0) return `${year}Y`;
     return '';
   };
+}
+
+function formatPointerYear(label: string | undefined, fallback: string) {
+  if (!label) return fallback;
+  return label;
 }
 
 function ValueField({
@@ -311,7 +317,10 @@ export default function WealthJourneyScreen() {
 
   const currentSip = wealthJourney.currentSipOverride ?? detectedSip ?? 0;
   const monthlySipIncrease = wealthJourney.monthlySipIncrease;
-  const adjustedSip = currentSip + monthlySipIncrease;
+  const futureSipTarget =
+    wealthJourney.futureSipTarget ??
+    clamp(currentSip + monthlySipIncrease, 0, 25_00_000);
+  const adjustedSip = futureSipTarget;
   const additionalTopUp = wealthJourney.additionalTopUp;
   const yearsToRetirement = wealthJourney.yearsToRetirement;
   const expectedReturn =
@@ -322,6 +331,20 @@ export default function WealthJourneyScreen() {
   const withdrawalRate = wealthJourney.withdrawalRate;
   const postRetirementReturn =
     wealthJourney.postRetirementReturn ?? returnProfile.postRetirementDefault;
+
+  useEffect(() => {
+    if (wealthJourney.futureSipTarget == null && wealthJourney.monthlySipIncrease !== 0) {
+      updateWealthJourney({
+        futureSipTarget: clamp(currentSip + wealthJourney.monthlySipIncrease, 0, 25_00_000),
+        monthlySipIncrease: 0,
+      });
+    }
+  }, [
+    currentSip,
+    updateWealthJourney,
+    wealthJourney.futureSipTarget,
+    wealthJourney.monthlySipIncrease,
+  ]);
 
   const baselinePoints = useMemo(
     () => projectWealth(currentSip, currentCorpus, expectedReturn, yearsToRetirement, 0),
@@ -362,7 +385,7 @@ export default function WealthJourneyScreen() {
 
   const scenarioChanged =
     wealthJourney.currentSipOverride != null ||
-    monthlySipIncrease > 0 ||
+    adjustedSip !== currentSip ||
     additionalTopUp > 0 ||
     wealthJourney.hasSavedPlan;
 
@@ -372,36 +395,54 @@ export default function WealthJourneyScreen() {
     () => buildYearLabels(yearsToRetirement, 'Now'),
     [yearsToRetirement],
   );
+  const renderAxisLabel = (label: string) => (
+    <View style={styles.chartAxisLabelWrap}>
+      <Text style={styles.chartAxisText}>{label}</Text>
+    </View>
+  );
   const baselineChartData = [
-    { value: currentCorpus, label: accumulationLabelForYear(0) },
+    {
+      value: currentCorpus,
+      label: accumulationLabelForYear(0),
+      labelComponent: () => renderAxisLabel(accumulationLabelForYear(0)),
+    },
     ...baselinePoints.map((point) => ({
       value: point.value,
       label: accumulationLabelForYear(point.year),
+      labelComponent:
+        accumulationLabelForYear(point.year) !== ''
+          ? () => renderAxisLabel(accumulationLabelForYear(point.year))
+          : undefined,
     })),
   ];
   const adjustedChartData = [
-    { value: currentCorpus, label: accumulationLabelForYear(0) },
+    {
+      value: currentCorpus,
+      label: accumulationLabelForYear(0),
+      labelComponent: () => renderAxisLabel(accumulationLabelForYear(0)),
+    },
     ...adjustedPoints.map((point) => ({
       value: point.value,
       label: accumulationLabelForYear(point.year),
+      labelComponent:
+        accumulationLabelForYear(point.year) !== ''
+          ? () => renderAxisLabel(accumulationLabelForYear(point.year))
+          : undefined,
     })),
   ];
   const accumulationChartSpacing = Math.max(
     10,
     Math.floor(chartPlotWidth / Math.max(adjustedChartData.length - 1, 1)),
   );
-  const accumulationXAxisLabels = baselineChartData.map((point) => point.label);
 
   const currentSipChips = useMemo<ChoiceChip[]>(
     () => buildSipPresetChips(detectedSip > 0 ? detectedSip : currentSip || 100000),
     [currentSip, detectedSip],
   );
-  const increaseChips: ChoiceChip[] = [
-    { label: '₹0', value: 0 },
-    { label: '₹25K', value: 25000 },
-    { label: '₹50K', value: 50000 },
-    { label: '₹1L', value: 100000 },
-  ];
+  const futureSipChips = useMemo<ChoiceChip[]>(
+    () => buildSipTargetChips(currentSip || 100000),
+    [currentSip],
+  );
   const drawdownLabelForYear = useMemo(
     () => buildYearLabels(retirementDurationYears, 'Start'),
     [retirementDurationYears],
@@ -409,12 +450,15 @@ export default function WealthJourneyScreen() {
   const drawdownChartData = retirementProjection.trajectory.map((point) => ({
     value: point.value,
     label: drawdownLabelForYear(point.year),
+    labelComponent:
+      drawdownLabelForYear(point.year) !== ''
+        ? () => renderAxisLabel(drawdownLabelForYear(point.year))
+        : undefined,
   }));
   const drawdownChartSpacing = Math.max(
     8,
     Math.floor(chartPlotWidth / Math.max(drawdownChartData.length - 1, 1)),
   );
-  const drawdownXAxisLabels = drawdownChartData.map((point) => point.label);
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -540,20 +584,20 @@ export default function WealthJourneyScreen() {
             </View>
             <View style={styles.planCompareDivider} />
             <View style={styles.planCompareItem}>
-              <Text style={styles.planCompareLabel}>Adjusted plan</Text>
+              <Text style={styles.planCompareLabel}>Going forward</Text>
               <Text style={styles.planCompareValue}>{formatCurrency(adjustedSip)}/mo</Text>
             </View>
           </View>
 
           <ValueField
-            label="Increase monthly SIP by"
-            helperText="This is the extra SIP you want to add going forward."
-            value={monthlySipIncrease}
+            label="Monthly SIP going forward"
+            helperText="Set the SIP you want from now on. This can be lower, higher, or zero."
+            value={adjustedSip}
             onChange={(value) =>
-              markSaved({ monthlySipIncrease: clamp(Math.round(value), 0, 25_00_000) })
+              markSaved({ futureSipTarget: clamp(Math.round(value), 0, 25_00_000) })
             }
             prefix="₹"
-            chips={increaseChips}
+            chips={futureSipChips}
           />
 
           <ValueField
@@ -652,10 +696,9 @@ export default function WealthJourneyScreen() {
               spacing={accumulationChartSpacing}
               initialSpacing={0}
               endSpacing={0}
-              xAxisLabelTexts={accumulationXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={24}
+              xAxisLabelsHeight={28}
               labelsExtraHeight={46}
               xAxisLabelsVerticalShift={8}
               xAxisColor={colors.borderLight}
@@ -677,10 +720,10 @@ export default function WealthJourneyScreen() {
                 pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
                   const baselinePoint = baselineChartData[pointerIndex];
                   const adjustedPoint = adjustedChartData[pointerIndex];
-                  const horizonLabel =
-                    pointerIndex === 0
-                      ? 'Now'
-                      : `Year ${baselinePoint?.label?.replace('Y', '') || pointerIndex}`;
+                  const horizonLabel = formatPointerYear(
+                    baselinePoint?.label,
+                    pointerIndex === 0 ? 'Now' : `Year ${pointerIndex}`,
+                  );
 
                   return (
                     <View style={styles.pointerLabel}>
@@ -813,10 +856,9 @@ export default function WealthJourneyScreen() {
               spacing={drawdownChartSpacing}
               initialSpacing={0}
               endSpacing={0}
-              xAxisLabelTexts={drawdownXAxisLabels}
               xAxisLabelTextStyle={styles.chartAxisText}
               yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={24}
+              xAxisLabelsHeight={28}
               labelsExtraHeight={40}
               xAxisLabelsVerticalShift={8}
               xAxisColor={colors.borderLight}
@@ -838,10 +880,10 @@ export default function WealthJourneyScreen() {
                 pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
                   const point = drawdownChartData[pointerIndex];
                   if (!point) return null;
-                  const horizonLabel =
-                    pointerIndex === 0
-                      ? 'Start'
-                      : `Year ${point.label?.replace('Y', '') || pointerIndex}`;
+                  const horizonLabel = formatPointerYear(
+                    point.label,
+                    pointerIndex === 0 ? 'Start' : `Year ${pointerIndex}`,
+                  );
 
                   return (
                     <View style={styles.pointerLabel}>
@@ -1114,6 +1156,11 @@ function makeStyles(colors: AppColors) {
     chartAxisText: {
       fontSize: 11,
       color: colors.textTertiary,
+    },
+    chartAxisLabelWrap: {
+      width: 46,
+      alignItems: 'center',
+      marginLeft: -10,
     },
     chartLegend: {
       flexDirection: 'row',

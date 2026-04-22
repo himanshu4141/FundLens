@@ -58,6 +58,7 @@ export function WealthJourneyTeaserCard({ currentCorpus, xirr }: Props) {
     hasSavedPlan: wealthJourney.hasSavedPlan,
     currentCorpus,
     monthlySip:
+      wealthJourney.futureSipTarget ??
       (wealthJourney.currentSipOverride ?? detectedSip) + wealthJourney.monthlySipIncrease,
     annualReturn,
     lastUsedHorizonYears: wealthJourney.hasSavedPlan ? wealthJourney.yearsToRetirement : null,
