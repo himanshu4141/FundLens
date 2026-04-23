@@ -170,7 +170,23 @@ Deno.serve(async (req) => {
     );
   }
 
-  console.log('[parse-cas-pdf] parser returned %d folios', (parsed?.mutual_funds ?? []).length);
+  const parsedFolios = parsed?.mutual_funds ?? [];
+  console.log('[parse-cas-pdf] parser returned %d folios', parsedFolios.length);
+
+  if (parsedFolios.length === 0) {
+    const msg = 'No mutual fund data found in this CAS PDF';
+    await supabase
+      .from('cas_import')
+      .update({ import_status: 'failed', error_message: msg })
+      .eq('id', importId);
+
+    return json(
+      {
+        error: 'We could not find any mutual fund entries in this PDF. Please upload a detailed CAS statement.',
+      },
+      { status: 422 },
+    );
+  }
 
   const { fundsUpdated, transactionsAdded, errors } = await importCASData(
     supabase, user.id, importId, parsed,
