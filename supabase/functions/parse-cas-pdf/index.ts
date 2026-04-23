@@ -18,6 +18,13 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
 function resolveParserUrl(req: Request): string {
+  // Prefer explicit env configuration when available. This keeps parser routing
+  // stable across mobile/web/preview clients and avoids accidental calls to a
+  // preview host that may not have parser secrets configured.
+  if (LOCAL_CAS_PARSER_URL) {
+    return LOCAL_CAS_PARSER_URL;
+  }
+
   const origin = req.headers.get('origin');
   if (origin && /^https?:\/\//.test(origin)) {
     return new URL('/api/parse-cas-pdf', origin).toString();
@@ -33,7 +40,7 @@ function resolveParserUrl(req: Request): string {
     }
   }
 
-  return LOCAL_CAS_PARSER_URL;
+  return '';
 }
 
 Deno.serve(async (req) => {
