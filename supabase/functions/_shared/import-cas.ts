@@ -179,16 +179,30 @@ export async function importCASData(
       const schemeCategory = mf.type ?? 'Flexi Cap Fund';
       const bm = benchmarkMap.get(schemeCategory) ?? benchmarkMap.get('Flexi Cap Fund');
 
-      const { data: fundRow, error: fundErr } = await supabase
-        .from('fund')
+      const { error: schemeErr } = await supabase
+        .from('scheme_master')
         .upsert(
           {
-            user_id: userId,
             scheme_code: schemeCode,
             scheme_name: mf.name ?? 'Unknown Fund',
             scheme_category: schemeCategory,
             benchmark_index: bm?.index ?? null,
             benchmark_index_symbol: bm?.symbol ?? null,
+          },
+          { onConflict: 'scheme_code' },
+        );
+
+      if (schemeErr) {
+        errors.push(`Scheme upsert failed for AMFI ${schemeCode}: ${schemeErr.message}`);
+        continue;
+      }
+
+      const { data: fundRow, error: fundErr } = await supabase
+        .from('user_fund')
+        .upsert(
+          {
+            user_id: userId,
+            scheme_code: schemeCode,
             is_active: true,
           },
           { onConflict: 'user_id,scheme_code' },

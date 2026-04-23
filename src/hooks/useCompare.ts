@@ -31,6 +31,24 @@ export interface CompareData {
   commonNavSeries: { date: string; funds: Record<string, number> }[]; // indexed to 100
 }
 
+interface CompareFundRow {
+  id: string;
+  scheme_code: number;
+  scheme_name: string;
+  scheme_category: string | null;
+}
+
+function isCompareFundRow(
+  row: {
+    id: string | null;
+    scheme_code: number | null;
+    scheme_name: string | null;
+    scheme_category: string | null;
+  } | null | undefined,
+): row is CompareFundRow {
+  return !!row && !!row.id && row.scheme_code != null && !!row.scheme_name;
+}
+
 export async function fetchCompareData(fundIds: string[]): Promise<CompareData> {
   if (fundIds.length === 0) return { funds: [], commonNavSeries: [] };
 
@@ -42,7 +60,8 @@ export async function fetchCompareData(fundIds: string[]): Promise<CompareData> 
 
   if (fundsError) throw fundsError;
 
-  const schemeCodes = (fundsData ?? []).map((f) => f.scheme_code);
+  const validFunds = (fundsData ?? []).filter(isCompareFundRow);
+  const schemeCodes = validFunds.map((f) => f.scheme_code);
 
   // Load NAV histories for all schemes in one query
   const { data: navRows, error: navError } = await supabase
@@ -81,7 +100,7 @@ export async function fetchCompareData(fundIds: string[]): Promise<CompareData> 
   // Build per-fund data
   const compareFunds: CompareFundData[] = [];
 
-  for (const fund of fundsData ?? []) {
+  for (const fund of validFunds) {
     const navHistory = navByScheme.get(fund.scheme_code) ?? [];
     const txs = txByFund.get(fund.id) ?? [];
 

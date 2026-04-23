@@ -24,6 +24,22 @@ export interface PerformanceTimelineData {
   entries: TimelineEntry[];
 }
 
+interface TimelineFundRow {
+  id: string;
+  scheme_code: number;
+  scheme_name: string;
+}
+
+function isTimelineFundRow(
+  row: {
+    id: string | null;
+    scheme_code: number | null;
+    scheme_name: string | null;
+  } | null | undefined,
+): row is TimelineFundRow {
+  return !!row && !!row.id && row.scheme_code != null && !!row.scheme_name;
+}
+
 export async function fetchPerformanceTimeline(
   fundItems: { id: string; name: string }[],
   indexItems: { symbol: string; name: string }[],
@@ -39,7 +55,8 @@ export async function fetchPerformanceTimeline(
 
     if (fundsError) throw fundsError;
 
-    const schemeCodes = (funds ?? []).map((f) => f.scheme_code);
+    const validFunds = (funds ?? []).filter(isTimelineFundRow);
+    const schemeCodes = validFunds.map((f) => f.scheme_code);
 
     if (schemeCodes.length > 0) {
       const { data: navRows, error: navError } = await supabase
@@ -63,7 +80,7 @@ export async function fetchPerformanceTimeline(
 
       // Add entries in the order requested by fundItems
       for (const fundItem of fundItems) {
-        const fund = (funds ?? []).find((f) => f.id === fundItem.id);
+        const fund = validFunds.find((f) => f.id === fundItem.id);
         if (!fund) continue;
         entries.push({
           type: 'fund',
