@@ -19,9 +19,24 @@ import {
  *                     .eq() on a single delete chain (one entry per reversal).
  *  - `upsertedRows` — the rows array passed to the transaction .upsert() call.
  */
-function buildMockSupabase({ fundId = 'fund-id-1' }: { fundId?: string } = {}) {
+function buildMockSupabase({
+  fundId = 'fund-id-1',
+  benchmarkRows = [],
+  schemeMasterError = null,
+  txUpsertError = null,
+}: {
+  fundId?: string;
+  benchmarkRows?: Array<{
+    scheme_category: string;
+    benchmark_index: string;
+    benchmark_index_symbol: string;
+  }>;
+  schemeMasterError?: { message: string } | null;
+  txUpsertError?: { message: string } | null;
+} = {}) {
   const deleteCalls: Array<Array<[string, unknown]>> = [];
   let upsertedRows: Record<string, unknown>[] = [];
+  let upsertedSchemeRow: Record<string, unknown> | null = null;
 
   function makeDeleteChain(): Record<string, unknown> {
     const eqLog: Array<[string, unknown]> = [];
@@ -41,15 +56,18 @@ function buildMockSupabase({ fundId = 'fund-id-1' }: { fundId?: string } = {}) {
 
   const txUpsertMock = jest.fn((rows: Record<string, unknown>[]) => {
     upsertedRows = rows;
-    return { error: null, count: rows.length };
+    return { error: txUpsertError, count: txUpsertError ? null : rows.length };
   });
 
   const singleMock = jest.fn(() => ({ data: { id: fundId }, error: null }));
   const userFundSelectMock = jest.fn(() => ({ single: singleMock }));
   const userFundUpsertMock = jest.fn(() => ({ select: userFundSelectMock }));
-  const schemeMasterUpsertMock = jest.fn(() => ({ error: null }));
+  const schemeMasterUpsertMock = jest.fn((row: Record<string, unknown>) => {
+    upsertedSchemeRow = row;
+    return { error: schemeMasterError };
+  });
 
-  const benchmarkSelectMock = jest.fn(() => ({ data: [] }));
+  const benchmarkSelectMock = jest.fn(() => ({ data: benchmarkRows }));
 
   const fromMock = jest.fn((table: string) => {
     if (table === 'benchmark_mapping') return { select: benchmarkSelectMock };
@@ -66,6 +84,7 @@ function buildMockSupabase({ fundId = 'fund-id-1' }: { fundId?: string } = {}) {
     deleteCalls,
     txUpsertMock,
     getUpsertedRows: () => upsertedRows,
+    getUpsertedSchemeRow: () => upsertedSchemeRow,
   };
 }
 
@@ -221,6 +240,10 @@ describe('parseDate()', () => {
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
   });
+
+  it('passes through an unrecognised raw date unchanged', () => {
+    expect(parseDate('15/01/2024')).toBe('15/01/2024');
+  });
 });
 
 // ===========================================================================
@@ -247,6 +270,32 @@ describe('importCASData()', () => {
     expect(rows[0].units).toBe(100);
     expect(rows[0].amount).toBe(10000);
     expect(rows[0].transaction_date).toBe('2024-01-10');
+  });
+
+  it('uses benchmark mapping when the scheme category is present', async () => {
+    const { supabase, getUpsertedSchemeRow } = buildMockSupabase({
+      benchmarkRows: [
+        {
+          scheme_category: 'Equity',
+          benchmark_index: 'Nifty 100',
+          benchmark_index_symbol: '^NIFTY100',
+        },
+      ],
+    });
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    expect(getUpsertedSchemeRow()).toMatchObject({
+      scheme_code: 119551,
+      scheme_name: 'DSP Small Cap Fund - Regular Plan - Growth',
+      scheme_category: 'Equity',
+      benchmark_index: 'Nifty 100',
+      benchmark_index_symbol: '^NIFTY100',
+    });
   });
 
   it('applies Math.abs to negative units and amounts from the CAS', async () => {
@@ -433,6 +482,40 @@ describe('importCASData()', () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatch(/Fund upsert failed/);
     expect(result.fundsUpdated).toBe(0);
+  });
+
+  it('records an error when the shared scheme upsert fails and skips fund creation', async () => {
+    const { supabase, fromMock } = buildMockSupabase({
+      schemeMasterError: { message: 'scheme write failed' },
+    });
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+    ]);
+
+    const result = await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/Scheme upsert failed/);
+    expect(result.fundsUpdated).toBe(0);
+    expect(fromMock).not.toHaveBeenCalledWith('user_fund');
+  });
+
+  it('records an error when transaction upsert fails after fund creation', async () => {
+    const { supabase } = buildMockSupabase({
+      txUpsertError: { message: 'transaction write failed' },
+    });
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+    ]);
+
+    const result = await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/Transaction upsert failed/);
+    expect(result.fundsUpdated).toBe(1);
+    expect(result.transactionsAdded).toBe(0);
   });
 
   it('returns correct counts for funds and transactions', async () => {
