@@ -51,23 +51,46 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      // fetch() does not support file:// URIs on Android — use XHR which handles
-      // both file:// and content:// URIs correctly on all platforms.
-      const pdfBytes = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', asset.uri);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = () => {
-          // XHR status is 0 for local file:// reads (no HTTP status)
-          if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
-            resolve(xhr.response as ArrayBuffer);
-          } else {
-            reject(new Error(`Failed to read file (status ${xhr.status})`));
-          }
-        };
-        xhr.onerror = () => reject(new Error('Could not read the PDF file'));
-        xhr.send();
-      });
+      const readViaXHR = async () =>
+        new Promise<ArrayBuffer>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', asset.uri);
+          xhr.responseType = 'arraybuffer';
+          xhr.onload = () => {
+            // XHR status is 0 for local file:// reads (no HTTP status)
+            if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
+              resolve(xhr.response as ArrayBuffer);
+            } else {
+              reject(new Error(`Failed to read file (status ${xhr.status})`));
+            }
+          };
+          xhr.onerror = () => reject(new Error('XHR read failed'));
+          xhr.send();
+        });
+
+      const readViaFetch = async () => {
+        const res = await fetch(asset.uri);
+        if (!res.ok) {
+          throw new Error(`Fetch read failed (status ${res.status})`);
+        }
+        return res.arrayBuffer();
+      };
+
+      const pdfBytes = await (async () => {
+        if (asset.file && typeof asset.file.arrayBuffer === 'function') {
+          return asset.file.arrayBuffer();
+        }
+
+        try {
+          return await readViaXHR();
+        } catch {
+          return readViaFetch();
+        }
+      })();
+
+      if (pdfBytes.byteLength === 0) {
+        throw new Error('Selected PDF file is empty');
+      }
 
       const { data, error } = await supabase.functions.invoke('parse-cas-pdf', {
         method: 'POST',
@@ -83,7 +106,10 @@ export default function PDFScreen() {
       setResult({ funds: data.funds, transactions: data.transactions });
       setState('success');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const raw = err instanceof Error ? err.message : 'Unknown error';
+      const msg = /read/i.test(raw)
+        ? 'Could not read the PDF file. Please re-download it and try again.'
+        : raw;
       setErrorMsg(msg);
       setState('error');
     }
