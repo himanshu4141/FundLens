@@ -443,6 +443,7 @@ export default function WealthJourneyScreen() {
     Math.floor(chartPlotWidth / Math.max(drawdownChartData.length - 1, 1)),
   );
   const drawdownXAxisLabels = drawdownChartData.map((point) => point.label);
+  const hideChartDataPoints = true;
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -672,7 +673,7 @@ export default function WealthJourneyScreen() {
               height={208}
               curved
               isAnimated
-              hideDataPoints={yearsToRetirement > 18}
+              hideDataPoints={hideChartDataPoints}
               color1={colors.textTertiary}
               color2={colors.primary}
               dataPointsColor1={colors.textTertiary}
@@ -837,7 +838,7 @@ export default function WealthJourneyScreen() {
               height={176}
               curved
               isAnimated
-              hideDataPoints={retirementDurationYears > 20}
+              hideDataPoints={hideChartDataPoints}
               color1={colors.primary}
               dataPointsColor1={colors.primary}
               thickness1={3}
