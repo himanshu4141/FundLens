@@ -44,6 +44,38 @@ export interface FundDetailData {
   fundMetaSyncedAt: string | null;
 }
 
+interface FundDetailRow {
+  id: string;
+  scheme_code: number;
+  scheme_name: string;
+  scheme_category: string | null;
+  benchmark_index: string | null;
+  benchmark_index_symbol: string | null;
+  isin: string | null;
+  expense_ratio: number | null;
+  aum_cr: number | null;
+  min_sip_amount: number | null;
+  fund_meta_synced_at: string | null;
+}
+
+function isFundDetailRow(
+  row: {
+    id: string | null;
+    scheme_code: number | null;
+    scheme_name: string | null;
+    scheme_category: string | null;
+    benchmark_index: string | null;
+    benchmark_index_symbol: string | null;
+    isin: string | null;
+    expense_ratio: number | null;
+    aum_cr: number | null;
+    min_sip_amount: number | null;
+    fund_meta_synced_at: string | null;
+  } | null | undefined,
+): row is FundDetailRow {
+  return !!row && !!row.id && row.scheme_code != null && !!row.scheme_name;
+}
+
 export async function fetchFundDetail(fundId: string): Promise<FundDetailData | null> {
   // Load fund metadata
   const { data: fund, error: fundError } = await supabase
@@ -52,7 +84,7 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
     .eq('id', fundId)
     .single();
 
-  if (fundError || !fund) return null;
+  if (fundError || !isFundDetailRow(fund)) return null;
 
   // Load transactions for this fund
   const { data: txs, error: txError } = await supabase

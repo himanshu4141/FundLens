@@ -53,6 +53,26 @@ export interface PortfolioSummary {
   latestNavDate: string | null; // ISO date of most-recent NAV across all holdings
 }
 
+interface PortfolioFundRow {
+  id: string;
+  scheme_code: number;
+  scheme_name: string;
+  scheme_category: string | null;
+  benchmark_index_symbol: string | null;
+}
+
+function isPortfolioFundRow(
+  row: {
+    id: string | null;
+    scheme_code: number | null;
+    scheme_name: string | null;
+    scheme_category: string | null;
+    benchmark_index_symbol: string | null;
+  } | null | undefined,
+): row is PortfolioFundRow {
+  return !!row && !!row.id && row.scheme_code != null && !!row.scheme_name;
+}
+
 export async function fetchPortfolioData(userId: string, benchmarkSymbol: string) {
   // Load active funds
   const { data: funds, error: fundsError } = await supabase
@@ -63,6 +83,9 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
 
   if (fundsError) throw fundsError;
   if (!funds?.length) return { fundCards: [], summary: null };
+
+  const validFunds = funds.filter(isPortfolioFundRow);
+  if (!validFunds.length) return { fundCards: [], summary: null };
 
   // Load all transactions for this user (for XIRR)
   const { data: allTxs, error: txError } = await supabase
@@ -81,7 +104,7 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
     txByFund.set(tx.fund_id, existing);
   }
 
-  const schemeCodes = funds.map((f) => f.scheme_code);
+  const schemeCodes = validFunds.map((f) => f.scheme_code);
 
   // Load full NAV history for each scheme, most-recent first.
   // No date cutoff — we always want the closest available NAV to today, regardless of
@@ -152,7 +175,7 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
 
   const allCashflows: Cashflow[] = [];
 
-  for (const fund of funds) {
+  for (const fund of validFunds) {
     const navInfo = navByScheme.get(fund.scheme_code);
     const txs = txByFund.get(fund.id) ?? [];
 

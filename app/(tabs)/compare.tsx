@@ -63,6 +63,16 @@ interface FundSearchResult {
   scheme_category: string | null;
 }
 
+function isFundSearchResult(
+  row: {
+    id: string | null;
+    scheme_name: string | null;
+    scheme_category: string | null;
+  } | null | undefined,
+): row is FundSearchResult {
+  return !!row && !!row.id && !!row.scheme_name;
+}
+
 interface SearchItem {
   id: string;
   name: string;
@@ -98,7 +108,7 @@ function AddItemModal({
         .eq('is_active', true)
         .order('scheme_name', { ascending: true })
         .limit(100);
-      setAllFunds(data ?? []);
+      setAllFunds((data ?? []).filter(isFundSearchResult));
     } finally {
       setLoading(false);
     }

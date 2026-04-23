@@ -45,14 +45,16 @@ function buildMockSupabase({ fundId = 'fund-id-1' }: { fundId?: string } = {}) {
   });
 
   const singleMock = jest.fn(() => ({ data: { id: fundId }, error: null }));
-  const fundSelectMock = jest.fn(() => ({ single: singleMock }));
-  const fundUpsertMock = jest.fn(() => ({ select: fundSelectMock }));
+  const userFundSelectMock = jest.fn(() => ({ single: singleMock }));
+  const userFundUpsertMock = jest.fn(() => ({ select: userFundSelectMock }));
+  const schemeMasterUpsertMock = jest.fn(() => ({ error: null }));
 
   const benchmarkSelectMock = jest.fn(() => ({ data: [] }));
 
   const fromMock = jest.fn((table: string) => {
     if (table === 'benchmark_mapping') return { select: benchmarkSelectMock };
-    if (table === 'fund') return { upsert: fundUpsertMock };
+    if (table === 'scheme_master') return { upsert: schemeMasterUpsertMock };
+    if (table === 'user_fund') return { upsert: userFundUpsertMock };
     if (table === 'transaction') return { delete: deleteMock, upsert: txUpsertMock };
     return {};
   });
@@ -397,17 +399,20 @@ describe('importCASData()', () => {
     const result = await importCASData(supabase, 'user-1', 'import-1', parsed);
 
     // Nothing was upserted — fund was skipped
-    expect(fromMock).not.toHaveBeenCalledWith('fund');
+    expect(fromMock).not.toHaveBeenCalledWith('user_fund');
     expect(result.fundsUpdated).toBe(0);
   });
 
   it('records an error when the fund upsert fails and continues to next scheme', async () => {
     const { supabase } = buildMockSupabase();
 
-    // Override the fund upsert to fail
+    // Override the user-fund upsert to fail
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       if (table === 'benchmark_mapping') return { select: jest.fn(() => ({ data: [] })) };
-      if (table === 'fund') {
+      if (table === 'scheme_master') {
+        return { upsert: jest.fn(() => ({ error: null })) };
+      }
+      if (table === 'user_fund') {
         return {
           upsert: jest.fn(() => ({
             select: jest.fn(() => ({
