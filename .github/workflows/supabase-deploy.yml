@@ -47,6 +47,8 @@ jobs:
 
       - name: Verify linked schema parity
         shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           supabase db diff --linked --schema public > /tmp/supabase-diff.log 2>&1 || {
