@@ -2,6 +2,10 @@
  * FundLens logo mark — a lens/circle enclosing an upward-trending sparkline.
  * Rendered with react-native-svg so it is crisp at any screen density.
  *
+ * V3 "Clear Lens" treatment: on a light background the icon renders as a solid
+ * filled circle (matching the brand guide app-icon style). On a dark background
+ * (`light` prop) all variants use white elements.
+ *
  * Usage:
  *   <Logo size={48} />                   // icon only
  *   <Logo size={48} showWordmark />       // icon + "FundLens" wordmark beside it
@@ -32,50 +36,70 @@ export default function Logo({
   const textColor = light ? '#ffffff' : colors.textPrimary;
   const accentColor = light ? 'rgba(255,255,255,0.45)' : colors.primaryLight;
 
-  const isClearLens = variant === 'v3';
+  // V3 "Clear Lens": on a light background render a filled solid circle (brand guide app icon
+  // style) with white inner elements. This is visually distinct from V1/V2's ring treatment.
+  const isClearLens = variant === 'v3' && !light;
 
   return (
     <View style={[styles.row, showWordmark && styles.withWordmark]}>
       <Svg width={size} height={size} viewBox="0 0 40 40">
-        {/* Outer lens circle — filled ring */}
-        <Circle cx="20" cy="20" r="18" fill={accentColor} />
-        <Circle cx="20" cy="20" r="18" fill="none" stroke={iconColor} strokeWidth="2.5" />
-
-        {isClearLens && (
-          /* Inner lens ring — "Clear Lens" brand depth element */
-          <Circle
-            cx="20"
-            cy="20"
-            r="11"
-            fill="none"
-            stroke={iconColor}
-            strokeWidth="1"
-            strokeOpacity="0.3"
-            strokeDasharray="3 2"
-          />
+        {isClearLens ? (
+          /* ── V3: solid filled circle with white inner sparkline ── */
+          <G>
+            {/* Solid primary-coloured disc */}
+            <Circle cx="20" cy="20" r="19" fill={iconColor} />
+            {/* Subtle inner lens ring */}
+            <Circle
+              cx="20"
+              cy="20"
+              r="13"
+              fill="none"
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth="1"
+            />
+            {/* Baseline */}
+            <Path
+              d="M8 26 L32 26"
+              stroke="rgba(255,255,255,0.5)"
+              strokeWidth="1.2"
+            />
+            {/* Trend line */}
+            <Path
+              d="M8 23 L14 20 L20 22 L26 15 L32 12"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {/* Peak dot */}
+            <Circle cx="32" cy="12" r="2.5" fill="#ffffff" />
+          </G>
+        ) : (
+          /* ── V1 / V2 (and V3 on dark bg): ring + coloured sparkline ── */
+          <G>
+            <Circle cx="20" cy="20" r="18" fill={accentColor} />
+            <Circle cx="20" cy="20" r="18" fill="none" stroke={iconColor} strokeWidth="2.5" />
+            {/* Baseline */}
+            <Path
+              d="M8 26 L32 26"
+              stroke={iconColor}
+              strokeWidth="1.2"
+              strokeOpacity="0.35"
+            />
+            {/* Trend line */}
+            <Path
+              d="M8 23 L14 20 L20 22 L26 15 L32 12"
+              fill="none"
+              stroke={iconColor}
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {/* Peak dot */}
+            <Circle cx="32" cy="12" r="2.5" fill={iconColor} />
+          </G>
         )}
-
-        {/* Inner sparkline — upward-trending chart path */}
-        <G>
-          {/* Baseline */}
-          <Path
-            d="M8 26 L32 26"
-            stroke={iconColor}
-            strokeWidth="1.2"
-            strokeOpacity="0.35"
-          />
-          {/* Trend line */}
-          <Path
-            d="M8 23 L14 20 L20 22 L26 15 L32 12"
-            fill="none"
-            stroke={iconColor}
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* Dot at the peak */}
-          <Circle cx="32" cy="12" r="2.5" fill={iconColor} />
-        </G>
       </Svg>
 
       {showWordmark && (

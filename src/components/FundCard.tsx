@@ -7,7 +7,7 @@ import { navStaleness } from '@/src/utils/navUtils';
 import { Sparkline } from '@/src/components/Sparkline';
 import { Spacing, Radii } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
-import type { AppColors } from '@/src/context/ThemeContext';
+import type { AppColors, DesignVariant } from '@/src/context/ThemeContext';
 import type { FundCardData } from '@/src/hooks/usePortfolio';
 
 export function categoryColor(colors: AppColors, category: string | null): string {
@@ -31,8 +31,8 @@ export function FundCard({
   latestNavDate: string | null;
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, variant } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, variant), [colors, variant]);
   const isPositiveDay = fund.dailyChangeAmount != null ? fund.dailyChangeAmount >= 0 : true;
   const accentColor = categoryColor(colors, fund.schemeCategory);
   const hasRedemptions = fund.redeemedUnits > 0;
@@ -151,7 +151,8 @@ export function FundCard({
   );
 }
 
-function makeStyles(colors: AppColors) {
+function makeStyles(colors: AppColors, variant: DesignVariant) {
+  const isClearLens = variant === 'v3';
   return StyleSheet.create({
     fundCard: {
       backgroundColor: colors.surface,
@@ -174,7 +175,8 @@ function makeStyles(colors: AppColors) {
     fundValueBlock: { alignItems: 'flex-end', gap: 5, minWidth: 108 },
     fundValue: { fontSize: 17, fontWeight: '800' as const, color: colors.textPrimary, lineHeight: 22 },
     dailyChangePill: {
-      backgroundColor: colors.background,
+      // V3: warm cream pill instead of cold background
+      backgroundColor: isClearLens ? colors.surfaceAlt : colors.background,
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: 6,
@@ -193,8 +195,14 @@ function makeStyles(colors: AppColors) {
     fundCardBottom: {
       flexDirection: 'row',
       paddingTop: 12,
+      paddingBottom: isClearLens ? 10 : 0,
+      paddingHorizontal: isClearLens ? Spacing.sm : 0,
+      // V3: warm cream background for the stats footer — the signature parchment feel
+      backgroundColor: isClearLens ? colors.surfaceAlt : undefined,
+      marginHorizontal: isClearLens ? -Spacing.md : 0,
+      marginBottom: isClearLens ? -Spacing.md : 0,
       borderTopWidth: 1,
-      borderTopColor: colors.borderLight,
+      borderTopColor: isClearLens ? colors.border : colors.borderLight,
       alignItems: 'center',
     },
     fundMeta: { flex: 1, alignItems: 'center', gap: 4 },

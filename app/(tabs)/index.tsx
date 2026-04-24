@@ -43,6 +43,7 @@ function BenchmarkSelector({
   selected: string;
   onChange: (symbol: string) => void;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={benchmarkStyles.benchmarkRow}>
       <Text style={benchmarkStyles.benchmarkRowLabel}>vs</Text>
@@ -55,7 +56,7 @@ function BenchmarkSelector({
           <Text
             style={[
               benchmarkStyles.benchmarkPillText,
-              selected === opt.symbol && benchmarkStyles.benchmarkPillTextActive,
+              selected === opt.symbol && { color: colors.primaryDark },
             ]}
           >
             {opt.label}
@@ -93,7 +94,6 @@ const benchmarkStyles = StyleSheet.create({
   },
   benchmarkPillActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
   benchmarkPillText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
-  benchmarkPillTextActive: { color: '#0a2e25' },
 });
 
 

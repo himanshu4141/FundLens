@@ -94,7 +94,7 @@ function AlphaInsightCard({
           <Text style={styles.alphaValue}>{formatXirr(marketXirr)}</Text>
         </View>
       </View>
-      <View style={[styles.alphaFooter, { backgroundColor: isAhead ? '#dcfce7' : '#fee2e2' }]}>
+      <View style={[styles.alphaFooter, { backgroundColor: isAhead ? colors.primaryLight : '#fee2e2' }]}>
         <Text style={[styles.alphaFooterText, { color: alphaColor }]}>
           {alphaSign}{alphaPp.toFixed(1)} pp{' '}
           {isAhead ? 'ahead of the market annually' : 'behind the market annually'}

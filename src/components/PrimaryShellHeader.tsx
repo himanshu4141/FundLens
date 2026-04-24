@@ -1,4 +1,5 @@
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/src/components/Logo';
 import { useTheme } from '@/src/context/ThemeContext';
@@ -13,7 +14,12 @@ export function PrimaryShellHeader({ onPressLogo, onPressMenu }: PrimaryShellHea
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.header, { backgroundColor: colors.gradientHeader[0] }]}>
+    <LinearGradient
+      colors={colors.gradientHeader}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.header}
+    >
       <TouchableOpacity
         onPress={onPressLogo}
         hitSlop={8}
@@ -32,7 +38,7 @@ export function PrimaryShellHeader({ onPressLogo, onPressMenu }: PrimaryShellHea
       >
         <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.9)" />
       </TouchableOpacity>
-    </View>
+    </LinearGradient>
   );
 }
 

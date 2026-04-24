@@ -26,7 +26,7 @@ export const ColorsV3 = {
 
   // Surfaces
   background: '#FAF8F3',  // Warm off-white — signature V3 warmth
-  surface: '#FFFFFF',      // Card / panel bg
+  surface: '#FFFEF9',      // Card / panel bg — very slightly warm (vs V1/V2 cold white)
   surfaceAlt: '#F5EDD8',  // Warm cream/parchment — accent surfaces, highlighted cards
 
   // Borders
