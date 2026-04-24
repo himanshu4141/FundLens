@@ -655,7 +655,7 @@ function makeTechStyles(colors: AppColors) {
 function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const { colors } = useTheme();
   const gs = useMemo(() => makeGrowthStyles(colors), [colors]);
-  const bars = computeQuarterlyReturns(navHistory, '#16a34a', '#dc2626');
+  const bars = computeQuarterlyReturns(navHistory, colors.positive, colors.negative);
   if (bars.length < 2) return null;
 
   const vals = bars.map((b) => Math.abs(b.value));

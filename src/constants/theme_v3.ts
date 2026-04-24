@@ -1,14 +1,17 @@
 /**
  * FundLens V3 design tokens — "Clear Lens" palette.
  *
- * Palette: forest teal primary + warm cream surfaces.
  * Brand concept: Clarity over noise. Clarity in every decision.
  * Tagline: Clarity. Comparison. Confidence.
  *
- * Distinguishing traits vs V1/V2:
- *  - Warm cream/parchment surfaces (not cold white) — surfaceAlt, background
- *  - Deep forest teal primary with dark charcoal headers
- *  - Emerald accent (distinct from brand primary) for gains/positive
+ * The defining visual identity of V3 is WARMTH — a parchment/cream world
+ * that immediately reads as different from V1's cold teal or V2's cold navy.
+ *
+ *   background  = warm parchment (#F5EDD8) — the full page canvas
+ *   surface     = warm white (#FFFCF5)     — cards lifting off the parchment
+ *   surfaceAlt  = deep cream (#EDD9B5)     — stats sections, emphasis
+ *   primary     = deep forest teal (#016150)
+ *   header      = charcoal #1A2B28 → forest #016150 (visually distinct from V1 green-on-green)
  *
  * Shape is identical to Colors in theme.ts for safe type interop.
  */
@@ -17,29 +20,29 @@ export const ColorsV3 = {
   // Brand
   primary: '#016150',      // Forest teal — clarity, growth, nature
   primaryDark: '#014A3C',  // Darker forest — pressed states, gradient start
-  primaryLight: '#E6F3EF', // Light teal tint — banners, highlights
+  primaryLight: '#D4EDE5', // Teal tint on parchment — banners, highlights
 
   // Semantic
-  positive: '#3DAA8A', // Emerald — gains, beats benchmark (distinct from brand primary)
-  negative: '#C0392B', // Red — losses, lags benchmark
-  warning: '#D97706',  // Amber — caution states
+  positive: '#2D8A6E', // Emerald — gains (tuned for legibility on warm cream bg)
+  negative: '#B83030', // Deep red — losses (warmer red vs cold V1 #dc2626)
+  warning: '#C07020',  // Warm amber — caution (tuned for warm palette)
 
-  // Surfaces
-  background: '#FAF8F3',  // Warm off-white — signature V3 warmth
-  surface: '#FFFEF9',      // Card / panel bg — very slightly warm (vs V1/V2 cold white)
-  surfaceAlt: '#F5EDD8',  // Warm cream/parchment — accent surfaces, highlighted cards
+  // Surfaces — the defining V3 differentiator
+  background: '#F5EDD8',  // Warm parchment — THE signature V3 background
+  surface: '#FFFCF5',     // Warm white — cards float above parchment
+  surfaceAlt: '#EDD9B5',  // Deep cream — stats footers, emphasis sections
 
-  // Borders
-  border: '#DDE8E3',      // Teal-tinted border
-  borderLight: '#EDF4F1', // Light teal border
+  // Borders — warm-tinted to harmonise with parchment
+  border: '#D9C9A8',      // Warm sand border
+  borderLight: '#EAD9BA', // Light warm border
 
-  // Text
-  textPrimary: '#1A2B28',   // Dark charcoal-teal — headings, important values
-  textSecondary: '#4A6560', // Muted teal-gray — body text, descriptions
-  textTertiary: '#8CA8A0',  // Light teal-gray — labels, placeholders, meta
+  // Text — warm-tinted darks for legibility on parchment
+  textPrimary: '#1A2B28',   // Dark charcoal-teal
+  textSecondary: '#4A6050', // Muted warm-teal — body text
+  textTertiary: '#8A7A60',  // Warm khaki — labels, placeholders
   textOnDark: '#FFFFFF',
 
-  // Gradients (start/end for LinearGradient)
+  // Gradients — charcoal to forest teal (high-contrast; V1 is green-on-green)
   gradientHero: ['#1A2B28', '#016150'] as [string, string],
-  gradientHeader: ['#1A2B28', '#016150'] as [string, string], // dark charcoal → forest teal
+  gradientHeader: ['#1A2B28', '#016150'] as [string, string],
 };

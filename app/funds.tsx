@@ -10,6 +10,7 @@ import { categoryColor } from '@/src/components/FundCard';
 import { Sparkline } from '@/src/components/Sparkline';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { useTheme } from '@/src/context/ThemeContext';
+import type { DesignVariant } from '@/src/context/ThemeContext';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { parseFundName } from '@/src/utils/fundName';
 import { formatCurrency } from '@/src/utils/formatting';
@@ -75,7 +76,8 @@ function AllocationSummaryCard({
   fundCount: number;
   fundCards: FundCardData[];
 }) {
-  const { colors } = useTheme();
+  const { colors, variant } = useTheme();
+  const isClearLens = variant === 'v3';
   const largest = fundAllocation[0];
   const topThreeShare = fundAllocation.slice(0, 3).reduce((sum, item) => sum + item.pct, 0);
   const categoryMix = useMemo(() => {
@@ -107,7 +109,7 @@ function AllocationSummaryCard({
   }, [colors, fundCards]);
 
   return (
-    <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.summaryCard, { backgroundColor: isClearLens ? colors.surfaceAlt : colors.surface, borderColor: colors.border }]}>
       <View style={styles.summaryHeader}>
         <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>Allocation overview</Text>
       </View>
@@ -153,7 +155,7 @@ function AllocationSummaryCard({
                     {category.label}
                   </Text>
                 </View>
-                <View style={[styles.categoryTrack, { backgroundColor: colors.background }]}>
+                <View style={[styles.categoryTrack, { backgroundColor: isClearLens ? colors.surfaceAlt : colors.background }]}>
                   <View
                     style={[
                       styles.categoryFill,
@@ -188,7 +190,8 @@ function CompactFundRow({
   onToggleExpand: () => void;
   onOpenFund: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, variant } = useTheme();
+  const isClearLens = variant === 'v3';
   const accentColor = categoryColor(colors, fund.schemeCategory);
   const { base: fundBaseName, planBadge } = parseFundName(fund.schemeName);
   const unrealizedGain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
@@ -235,7 +238,14 @@ function CompactFundRow({
         </View>
 
         {expanded && (
-          <View style={[styles.expandPanel, { borderTopColor: colors.borderLight }]}>
+          <View style={[styles.expandPanel, {
+            borderTopColor: colors.border,
+            backgroundColor: isClearLens ? colors.surfaceAlt : undefined,
+            marginHorizontal: isClearLens ? -Spacing.md : 0,
+            marginBottom: isClearLens ? -Spacing.md : 0,
+            paddingHorizontal: isClearLens ? Spacing.md : 0,
+            paddingBottom: isClearLens ? Spacing.md : 0,
+          }]}>
             <View style={styles.expandMetricsRow}>
               <View style={styles.expandMetric}>
                 <Text style={[styles.expandLabel, { color: colors.textTertiary }]}>Today</Text>
