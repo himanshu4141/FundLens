@@ -64,3 +64,10 @@ export const Typography = {
   label: { fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.5 },
   caption: { fontSize: 10, fontWeight: '500' as const, letterSpacing: 0.4 },
 };
+
+export const FontFamily = {
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+};

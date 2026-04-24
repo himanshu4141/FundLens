@@ -420,16 +420,21 @@ export default function SettingsScreen() {
         {/* ── Design Theme ── */}
         <SectionHeader title="Design Theme" />
         <View style={styles.card}>
-          {(['v1', 'v2'] as const).map((v, idx) => (
+          {([
+            { v: 'v1', label: 'Classic', tagline: 'The original FundLens experience' },
+            { v: 'v2', label: 'Editorial', tagline: 'Dark, focused, editorial' },
+            { v: 'v3', label: 'Clear Lens', tagline: 'Clarity. Comparison. Confidence.' },
+          ] as const).map(({ v, label, tagline }, idx) => (
             <TouchableOpacity
               key={v}
               style={[styles.row, idx > 0 && styles.borderTop]}
               onPress={() => setDesignVariant(v)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.rowValue, { flex: 1 }]}>
-                {v === 'v1' ? 'Classic' : 'Editorial'}
-              </Text>
+              <View style={styles.rowLeft}>
+                <Text style={[styles.rowValue]}>{label}</Text>
+                <Text style={styles.rowSubLabel}>{tagline}</Text>
+              </View>
               <Ionicons
                 name={designVariant === v ? 'radio-button-on' : 'radio-button-off'}
                 size={20}

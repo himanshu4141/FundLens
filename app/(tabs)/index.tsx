@@ -381,6 +381,439 @@ function GainersLosersRow({ fundCards }: { fundCards: FundCardData[] }) {
   );
 }
 
+// ─── V3 "Clear Lens" Portfolio Hero ──────────────────────────────────────────
+
+type V3ChartWindow = '1Y' | '3Y';
+
+function V3PortfolioHero({
+  totalValue,
+  totalInvested,
+  dailyChangeAmount,
+  dailyChangePct,
+  xirr: xirrRate,
+  marketXirr,
+  benchmarkSymbol,
+  latestNavDate,
+  onBenchmarkChange,
+  funds,
+  userId,
+}: {
+  totalValue: number;
+  totalInvested: number;
+  dailyChangeAmount: number;
+  dailyChangePct: number;
+  xirr: number;
+  marketXirr: number;
+  benchmarkSymbol: string;
+  latestNavDate: string | null;
+  onBenchmarkChange: (symbol: string) => void;
+  funds: FundRef[];
+  userId: string | undefined;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeV3HeroStyles(colors), [colors]);
+  const [benchmarkExpanded, setBenchmarkExpanded] = useState(true);
+  const [showReturnDetail, setShowReturnDetail] = useState(false);
+  const [chartWindow, setChartWindow] = useState<V3ChartWindow>('1Y');
+
+  const { portfolioPoints, benchmarkPoints, isLoading: chartLoading } = usePortfolioTimeline(
+    funds,
+    userId,
+    benchmarkSymbol,
+    chartWindow,
+  );
+
+  const isPositiveDay = dailyChangeAmount >= 0;
+  const gain = totalValue - totalInvested;
+  const gainPositive = gain >= 0;
+  const isAhead =
+    isFinite(xirrRate) && isFinite(marketXirr) ? xirrRate >= marketXirr : null;
+  const delta = isAhead !== null ? Math.abs((xirrRate - marketXirr) * 100) : 0;
+  const benchmarkLabel =
+    BENCHMARK_OPTIONS.find((b) => b.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
+  const staleness = navStaleness(latestNavDate);
+
+  const returnGrade = (x: number) =>
+    x >= 0.15 ? 'Great' : x >= 0.10 ? 'Good' : x >= 0.07 ? 'Average' : 'Below Avg';
+
+  const areaData = portfolioPoints.map((p) => ({ value: p.value }));
+  const lineData2 = benchmarkPoints.map((p) => ({ value: p.value }));
+
+  const allVals = [...portfolioPoints, ...benchmarkPoints].map((p) => p.value);
+  const yMax = allVals.length > 0 ? Math.max(...allVals) : 120;
+  const yMin = allVals.length > 0 ? Math.min(...allVals) : 90;
+  const yPad = ((yMax - yMin) || yMax * 0.1 || 1) * 0.15;
+  const chartMax = Math.ceil((yMax + yPad) / 5) * 5;
+  const chartMin = Math.floor((yMin - yPad) / 5) * 5;
+  const chartInnerWidth = CHART_WIDTH - Spacing.md * 2 - 32;
+
+  return (
+    <View style={styles.hero}>
+      {staleness.stale && (
+        <View style={styles.staleBanner}>
+          <Ionicons
+            name="warning-outline"
+            size={13}
+            color={staleness.veryStale ? colors.negative : colors.warning}
+          />
+          <Text style={styles.staleBannerText}>
+            Portfolio based on {staleness.label} NAV — sync may be paused
+          </Text>
+        </View>
+      )}
+
+      {/* Card 1: Portfolio Overview */}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Portfolio Overview</Text>
+        <Text style={styles.totalValue}>{formatCurrency(totalValue)}</Text>
+        <View style={styles.dailyRow}>
+          <Ionicons
+            name={isPositiveDay ? 'trending-up' : 'trending-down'}
+            size={14}
+            color={isPositiveDay ? colors.positive : colors.negative}
+          />
+          <Text style={[styles.dailyChange, { color: isPositiveDay ? colors.positive : colors.negative }]}>
+            {formatChange(dailyChangeAmount, dailyChangePct)}{' '}
+            {staleness.stale ? staleness.label : 'today'}
+          </Text>
+        </View>
+        <View style={styles.metricsRow}>
+          <View style={styles.metric}>
+            <Text style={styles.metricLabel}>Invested</Text>
+            <Text style={styles.metricValue}>{formatCurrency(totalInvested)}</Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metric}>
+            <Text style={styles.metricLabel}>Total Return</Text>
+            <Text style={[styles.metricValue, { color: gainPositive ? colors.positive : colors.negative }]}>
+              {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))}
+            </Text>
+          </View>
+        </View>
+        {!chartLoading && areaData.length >= 2 && (
+          <View style={styles.areaChartWrap}>
+            <LineChart
+              areaChart
+              data={areaData}
+              color={colors.primary}
+              startFillColor={colors.primaryLight}
+              endFillColor={colors.background}
+              startOpacity={0.35}
+              endOpacity={0}
+              hideDataPoints
+              curved
+              hideRules
+              yAxisColor="transparent"
+              xAxisColor="transparent"
+              width={chartInnerWidth}
+              height={80}
+              initialSpacing={0}
+              endSpacing={0}
+              maxValue={chartMax - chartMin}
+              yAxisOffset={chartMin}
+              yAxisLabelWidth={0}
+              spacing={Math.max(4, chartInnerWidth / Math.max(areaData.length - 1, 1))}
+            />
+          </View>
+        )}
+        {isAhead !== null && (
+          <View style={[
+            styles.cardFooterStrip,
+            { backgroundColor: isAhead ? colors.primaryLight : '#FEE2E2' },
+          ]}>
+            <Ionicons
+              name={isAhead ? 'medal-outline' : 'trending-down-outline'}
+              size={14}
+              color={isAhead ? colors.primaryDark : colors.negative}
+            />
+            <Text style={[styles.cardFooterText, { color: isAhead ? colors.primaryDark : colors.negative }]}>
+              {isAhead
+                ? `You're ${delta.toFixed(1)}% ahead of ${benchmarkLabel}`
+                : `${delta.toFixed(1)}% behind ${benchmarkLabel}`}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Card 2: vs Benchmark (collapsible) */}
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <Text style={[styles.cardLabel, { flex: 0 }]}>vs Benchmark</Text>
+          <View style={styles.benchmarkPillsRow}>
+            {BENCHMARK_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.symbol}
+                style={[
+                  styles.benchmarkPill,
+                  benchmarkSymbol === opt.symbol && styles.benchmarkPillActive,
+                ]}
+                onPress={() => onBenchmarkChange(opt.symbol)}
+              >
+                <Text style={[
+                  styles.benchmarkPillText,
+                  benchmarkSymbol === opt.symbol && styles.benchmarkPillTextActive,
+                ]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity
+            onPress={() => setBenchmarkExpanded(!benchmarkExpanded)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={benchmarkExpanded ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.textTertiary}
+            />
+          </TouchableOpacity>
+        </View>
+        {benchmarkExpanded && isAhead !== null && (
+          <View style={styles.benchmarkDetail}>
+            <View style={styles.benchmarkDeltaRow}>
+              <Text style={[styles.benchmarkDelta, { color: isAhead ? colors.positive : colors.negative }]}>
+                {isAhead ? '+' : '-'}{delta.toFixed(1)}%
+              </Text>
+              <Text style={[styles.benchmarkVerdict, { color: isAhead ? colors.positive : colors.negative }]}>
+                {isAhead ? 'Outperformed' : 'Underperformed'}
+              </Text>
+            </View>
+            <Text style={styles.benchmarkSub}>vs {benchmarkLabel} · XIRR based</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Card 3: Return (SIP-aware) with ℹ️ toggle */}
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <Text style={styles.cardLabel}>Return (SIP-aware)</Text>
+          <TouchableOpacity
+            onPress={() => setShowReturnDetail(!showReturnDetail)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={showReturnDetail ? 'information-circle' : 'information-circle-outline'}
+              size={18}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.xirrRow}>
+          {isFinite(xirrRate) ? (
+            <>
+              <Text style={styles.xirrBig}>{formatXirr(xirrRate)}</Text>
+              <View style={styles.gradeBadge}>
+                <Text style={styles.gradeText}>{returnGrade(xirrRate)}</Text>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.xirrBig}>—</Text>
+          )}
+        </View>
+        <Text style={styles.xirrSub}>XIRR · annualised, SIP-adjusted</Text>
+        {showReturnDetail && (
+          <View style={styles.returnDetailRow}>
+            <View style={styles.returnDetailItem}>
+              <Text style={styles.metricLabel}>Your XIRR</Text>
+              <Text style={[styles.metricValue, { color: xirrRate >= 0 ? colors.positive : colors.negative }]}>
+                {formatXirr(xirrRate)}
+              </Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.returnDetailItem}>
+              <Text style={styles.metricLabel}>{benchmarkLabel}</Text>
+              <Text style={[styles.metricValue, { color: isFinite(marketXirr) && marketXirr >= 0 ? colors.positive : colors.negative }]}>
+                {formatXirr(marketXirr)}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* Card 4: Fund vs Benchmark line chart */}
+      {!chartLoading && areaData.length >= 2 && (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Fund vs Benchmark</Text>
+          <View style={styles.chartLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+              <Text style={styles.legendText}>Your Portfolio · {formatXirr(xirrRate)}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#94A3B8' }]} />
+              <Text style={styles.legendText}>{benchmarkLabel} · {formatXirr(marketXirr)}</Text>
+            </View>
+          </View>
+          <LineChart
+            data={areaData}
+            data2={lineData2.length > 0 ? lineData2 : undefined}
+            color1={colors.primary}
+            color2="#94A3B8"
+            thickness1={3}
+            thickness2={2}
+            curved
+            hideDataPoints
+            hideRules
+            yAxisColor="transparent"
+            xAxisColor="transparent"
+            width={chartInnerWidth}
+            height={130}
+            initialSpacing={0}
+            endSpacing={0}
+            maxValue={chartMax - chartMin}
+            yAxisOffset={chartMin}
+            yAxisLabelWidth={0}
+            spacing={Math.max(4, chartInnerWidth / Math.max(areaData.length - 1, 1))}
+          />
+          <View style={styles.timeSelector}>
+            {(['1Y', '3Y'] as V3ChartWindow[]).map((w) => (
+              <TouchableOpacity
+                key={w}
+                style={[styles.timePill, chartWindow === w && styles.timePillActive]}
+                onPress={() => setChartWindow(w)}
+              >
+                <Text style={[styles.timePillText, chartWindow === w && styles.timePillTextActive]}>
+                  {w}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function makeV3HeroStyles(colors: AppColors) {
+  return StyleSheet.create({
+    hero: { gap: 12, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
+    staleBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: colors.surfaceAlt,
+      borderRadius: Radii.sm,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    staleBannerText: { fontSize: 12, color: colors.textSecondary, flex: 1 },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: Radii.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      paddingTop: Spacing.md,
+      paddingHorizontal: Spacing.md,
+      paddingBottom: Spacing.md,
+      gap: 10,
+    },
+    cardLabel: {
+      fontSize: 11,
+      fontWeight: '600' as const,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    totalValue: {
+      fontSize: 32,
+      fontWeight: '800' as const,
+      color: colors.textPrimary,
+      letterSpacing: -1,
+    },
+    dailyRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    dailyChange: { fontSize: 14, fontWeight: '700' as const },
+    metricsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingTop: 10,
+    },
+    metric: { flex: 1, alignItems: 'center', gap: 3 },
+    metricLabel: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      fontWeight: '600' as const,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    metricValue: { fontSize: 14, fontWeight: '700' as const, color: colors.textPrimary },
+    metricDivider: { width: 1, height: 32, backgroundColor: colors.borderLight },
+    areaChartWrap: { marginHorizontal: -Spacing.md, marginBottom: -4 },
+    cardFooterStrip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginHorizontal: -Spacing.md,
+      marginBottom: -Spacing.md,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 10,
+    },
+    cardFooterText: { fontSize: 13, fontWeight: '600' as const },
+    cardRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    benchmarkPillsRow: { flex: 1, flexDirection: 'row', gap: 5, flexWrap: 'wrap' },
+    benchmarkPill: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 10,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    benchmarkPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    benchmarkPillText: { fontSize: 11, fontWeight: '600' as const, color: colors.textTertiary },
+    benchmarkPillTextActive: { color: '#fff' },
+    benchmarkDetail: {
+      gap: 4,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingTop: 10,
+    },
+    benchmarkDeltaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+    benchmarkDelta: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5 },
+    benchmarkVerdict: { fontSize: 14, fontWeight: '700' as const },
+    benchmarkSub: { fontSize: 12, color: colors.textTertiary },
+    xirrRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    xirrBig: { fontSize: 28, fontWeight: '800' as const, color: colors.textPrimary, letterSpacing: -0.5 },
+    xirrSub: { fontSize: 12, color: colors.textTertiary },
+    gradeBadge: {
+      backgroundColor: colors.primaryLight,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    gradeText: { fontSize: 12, fontWeight: '700' as const, color: colors.primaryDark },
+    returnDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingTop: 10,
+    },
+    returnDetailItem: { flex: 1, alignItems: 'center', gap: 3 },
+    chartLegend: { flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    legendDot: { width: 8, height: 8, borderRadius: 4 },
+    legendText: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const },
+    timeSelector: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingTop: 10,
+    },
+    timePill: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 16 },
+    timePillActive: { backgroundColor: colors.textPrimary },
+    timePillText: { fontSize: 12, fontWeight: '600' as const, color: colors.textTertiary },
+    timePillTextActive: { color: '#fff' },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function EmptyState({ onImport }: { onImport: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -408,7 +841,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
-  const { colors } = useTheme();
+  const { colors, variant } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
@@ -498,23 +931,40 @@ export default function HomeScreen() {
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
         >
-          <PortfolioHeader
-            totalValue={summary.totalValue}
-            totalInvested={summary.totalInvested}
-            dailyChangeAmount={summary.dailyChangeAmount}
-            dailyChangePct={summary.dailyChangePct}
-            xirr={summary.xirr}
-            marketXirr={summary.marketXirr}
-            benchmarkSymbol={defaultBenchmarkSymbol}
-            latestNavDate={summary.latestNavDate ?? null}
-            onBenchmarkChange={setDefaultBenchmarkSymbol}
-          />
-
-          <PortfolioChartSection
-            funds={fundRefs}
-            userId={userId}
-            benchmarkSymbol={defaultBenchmarkSymbol}
-          />
+          {variant === 'v3' ? (
+            <V3PortfolioHero
+              totalValue={summary.totalValue}
+              totalInvested={summary.totalInvested}
+              dailyChangeAmount={summary.dailyChangeAmount}
+              dailyChangePct={summary.dailyChangePct}
+              xirr={summary.xirr}
+              marketXirr={summary.marketXirr}
+              benchmarkSymbol={defaultBenchmarkSymbol}
+              latestNavDate={summary.latestNavDate ?? null}
+              onBenchmarkChange={setDefaultBenchmarkSymbol}
+              funds={fundRefs}
+              userId={userId}
+            />
+          ) : (
+            <>
+              <PortfolioHeader
+                totalValue={summary.totalValue}
+                totalInvested={summary.totalInvested}
+                dailyChangeAmount={summary.dailyChangeAmount}
+                dailyChangePct={summary.dailyChangePct}
+                xirr={summary.xirr}
+                marketXirr={summary.marketXirr}
+                benchmarkSymbol={defaultBenchmarkSymbol}
+                latestNavDate={summary.latestNavDate ?? null}
+                onBenchmarkChange={setDefaultBenchmarkSymbol}
+              />
+              <PortfolioChartSection
+                funds={fundRefs}
+                userId={userId}
+                benchmarkSymbol={defaultBenchmarkSymbol}
+              />
+            </>
+          )}
 
           <GainersLosersRow fundCards={fundCards} />
 

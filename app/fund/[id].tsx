@@ -95,7 +95,8 @@ function PerformanceTab({
   navHistory: { date: string; value: number }[];
   defaultBenchmarkSymbol: string | null;
 }) {
-  const { colors } = useTheme();
+  const { colors, variant } = useTheme();
+  const benchmarkLineColor = variant === 'v3' ? '#94A3B8' : '#f59e0b';
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
@@ -287,7 +288,7 @@ function PerformanceTab({
             </View>
             {hasBenchmarkData && (
               <View style={s.legendItem}>
-                <View style={[s.legendDot, { backgroundColor: '#f59e0b' }]} />
+                <View style={[s.legendDot, { backgroundColor: benchmarkLineColor }]} />
                 <Text style={s.legendLabel}>{selectedLabel}</Text>
               </View>
             )}
@@ -303,7 +304,7 @@ function PerformanceTab({
               endSpacing={32}
               hideDataPoints
               color1={colors.primary}
-              color2="#f59e0b"
+              color2={benchmarkLineColor}
               thickness1={3}
               thickness2={2.5}
               curved
@@ -358,7 +359,7 @@ function PerformanceTab({
                       )}
                       {benchVal !== undefined && (
                         <Text style={s.pointerSeriesText}>
-                          <Text style={{ color: '#f59e0b' }}>● </Text>
+                          <Text style={{ color: benchmarkLineColor }}>● </Text>
                           {selectedLabel}: {benchVal.toFixed(1)}
                         </Text>
                       )}

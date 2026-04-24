@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { Colors } from '@/src/constants/theme';
 import { ColorsV2 } from '@/src/constants/theme_v2';
+import { ColorsV3 } from '@/src/constants/theme_v3';
 import { useAppStore, type DesignVariant } from '@/src/store/appStore';
 
 export type AppColors = typeof Colors;
@@ -18,7 +19,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const variant = useAppStore((s) => s.designVariant);
-  const colors = variant === 'v2' ? ColorsV2 : Colors;
+  const colors = variant === 'v3' ? ColorsV3 : variant === 'v2' ? ColorsV2 : Colors;
   return (
     <ThemeContext.Provider value={{ colors, variant }}>
       {children}
