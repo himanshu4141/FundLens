@@ -27,10 +27,12 @@ export default function Logo({
   light = false,
   color,
 }: LogoProps) {
-  const { colors } = useTheme();
+  const { colors, variant } = useTheme();
   const iconColor = color ?? (light ? '#ffffff' : colors.primary);
   const textColor = light ? '#ffffff' : colors.textPrimary;
   const accentColor = light ? 'rgba(255,255,255,0.45)' : colors.primaryLight;
+
+  const isClearLens = variant === 'v3';
 
   return (
     <View style={[styles.row, showWordmark && styles.withWordmark]}>
@@ -38,6 +40,20 @@ export default function Logo({
         {/* Outer lens circle — filled ring */}
         <Circle cx="20" cy="20" r="18" fill={accentColor} />
         <Circle cx="20" cy="20" r="18" fill="none" stroke={iconColor} strokeWidth="2.5" />
+
+        {isClearLens && (
+          /* Inner lens ring — "Clear Lens" brand depth element */
+          <Circle
+            cx="20"
+            cy="20"
+            r="11"
+            fill="none"
+            stroke={iconColor}
+            strokeWidth="1"
+            strokeOpacity="0.3"
+            strokeDasharray="3 2"
+          />
+        )}
 
         {/* Inner sparkline — upward-trending chart path */}
         <G>

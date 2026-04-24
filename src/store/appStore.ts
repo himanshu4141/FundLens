@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type DesignVariant = 'v1' | 'v2';
+export type DesignVariant = 'v1' | 'v2' | 'v3';
 
 export interface BenchmarkOption {
   symbol: string;

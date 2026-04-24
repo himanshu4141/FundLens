@@ -420,16 +420,23 @@ export default function SettingsScreen() {
         {/* ── Design Theme ── */}
         <SectionHeader title="Design Theme" />
         <View style={styles.card}>
-          {(['v1', 'v2'] as const).map((v, idx) => (
+          {(['v1', 'v2', 'v3'] as const).map((v, idx) => (
             <TouchableOpacity
               key={v}
               style={[styles.row, idx > 0 && styles.borderTop]}
               onPress={() => setDesignVariant(v)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.rowValue, { flex: 1 }]}>
-                {v === 'v1' ? 'Classic' : 'Editorial'}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowValue}>
+                  {v === 'v1' ? 'Classic' : v === 'v2' ? 'Editorial' : 'Clear Lens'}
+                </Text>
+                {v === 'v3' && (
+                  <Text style={[styles.themeTagline, { color: colors.textTertiary }]}>
+                    Clarity. Comparison. Confidence.
+                  </Text>
+                )}
+              </View>
               <Ionicons
                 name={designVariant === v ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
@@ -525,6 +532,7 @@ function makeStyles(colors: AppColors) {
     rowLabel: { ...Typography.label, color: colors.textTertiary, textTransform: 'uppercase' },
     rowValue: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     rowSubLabel: { ...Typography.bodySmall, color: colors.textTertiary, marginTop: 1 },
+    themeTagline: { fontSize: 11, fontWeight: '400', marginTop: 2 },
 
     actionBtn: {
       flexDirection: 'row',
