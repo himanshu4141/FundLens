@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type DesignVariant = 'v1' | 'v2';
+export type AppDesignMode = 'classic' | 'clearLens';
 export type WealthJourneyReturnPreset = 'cautious' | 'balanced' | 'growth' | 'custom';
 
 export interface BenchmarkOption {
@@ -49,11 +49,30 @@ const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
 interface AppStore {
   defaultBenchmarkSymbol: string;
   setDefaultBenchmarkSymbol: (symbol: string) => void;
-  designVariant: DesignVariant;
-  setDesignVariant: (variant: DesignVariant) => void;
+  appDesignMode: AppDesignMode;
+  setAppDesignMode: (mode: AppDesignMode) => void;
   wealthJourney: WealthJourneyState;
   updateWealthJourney: (patch: Partial<WealthJourneyState>) => void;
   resetWealthJourney: () => void;
+}
+
+type PersistedAppStore = Partial<AppStore> & {
+  designVariant?: 'v1' | 'v2';
+};
+
+export function migratePersistedAppState(persistedState: unknown): Partial<AppStore> {
+  if (!persistedState || typeof persistedState !== 'object') {
+    return { appDesignMode: 'classic' };
+  }
+
+  const state = persistedState as PersistedAppStore;
+  const appDesignMode: AppDesignMode =
+    state.appDesignMode === 'clearLens' ? 'clearLens' : 'classic';
+
+  return {
+    defaultBenchmarkSymbol: state.defaultBenchmarkSymbol ?? '^NSEI',
+    appDesignMode,
+  };
 }
 
 export const useAppStore = create<AppStore>()(
@@ -61,8 +80,8 @@ export const useAppStore = create<AppStore>()(
     (set) => ({
       defaultBenchmarkSymbol: '^NSEI',
       setDefaultBenchmarkSymbol: (symbol) => set({ defaultBenchmarkSymbol: symbol }),
-      designVariant: 'v1' as DesignVariant,
-      setDesignVariant: (variant) => set({ designVariant: variant }),
+      appDesignMode: 'classic' as AppDesignMode,
+      setAppDesignMode: (mode) => set({ appDesignMode: mode }),
       wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
       updateWealthJourney: (patch) =>
         set((state) => ({
@@ -73,6 +92,13 @@ export const useAppStore = create<AppStore>()(
     {
       name: 'fundlens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 2,
+      migrate: migratePersistedAppState,
+      partialize: (state) => ({
+        defaultBenchmarkSymbol: state.defaultBenchmarkSymbol,
+        appDesignMode: state.appDesignMode,
+        wealthJourney: state.wealthJourney,
+      }),
     },
   ),
 );
