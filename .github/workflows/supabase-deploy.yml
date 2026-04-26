@@ -64,8 +64,6 @@ jobs:
             cat /tmp/supabase-diff.log
             exit 1
           fi
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
   deploy-functions:
     name: Deploy Edge Functions
