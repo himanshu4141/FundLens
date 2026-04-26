@@ -384,3 +384,10 @@ Expected automated result:
 - [x] Add tests
 - [x] Run automated validation
 - [x] Launch app and validate with demo account
+
+
+## Amendments
+
+1. Portfolio investment journey chart was expanded after demo-account visual review. The Clear Lens portfolio now uses a custom SVG chart instead of the generic gifted line chart so the long-history view can keep x/y labels, legend, crosshair, and tooltip fully contained inside the card.
+2. The chart supports `1Y`, `3Y`, `5Y`, `10Y`, `15Y`, and `All` ranges. Long ranges use currency-level y-axis ticks so early investments remain readable instead of being flattened by a large linear scale.
+3. Investment-vs-benchmark data fetching now pages transaction, NAV, and index history; uses the latest available NAV or benchmark value on or before each chart date; and preserves all historical cashflows needed to simulate benchmark worth across long journeys.

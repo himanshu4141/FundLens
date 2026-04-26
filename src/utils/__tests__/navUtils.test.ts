@@ -179,6 +179,16 @@ describe('filterToWindow()', () => {
     });
   });
 
+  test('5Y window returns all available points when history starts inside 5 years', () => {
+    const result = filterToWindow(series, '5Y');
+    expect(result).toEqual(series);
+  });
+
+  test('10Y and 15Y windows keep long available history', () => {
+    expect(filterToWindow(series, '10Y')).toEqual(series);
+    expect(filterToWindow(series, '15Y')).toEqual(series);
+  });
+
   test('falls back to full history when no points fit the window', () => {
     const old: NavPoint[] = [{ date: '2010-01-01', value: 50 }];
     // 1M window on data from 2010 → no points → fallback to full history

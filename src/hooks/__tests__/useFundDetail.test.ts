@@ -46,7 +46,7 @@ describe("window = 'All'", () => {
 // ─── Empty input ──────────────────────────────────────────────────────────────
 
 describe('empty input', () => {
-  const windows: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
+  const windows: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', '5Y', '10Y', '15Y', 'All'];
   test.each(windows)('returns [] for window %s', (w) => {
     expect(filterToWindow([], w)).toEqual([]);
   });

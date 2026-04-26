@@ -28,6 +28,8 @@ interface RawTxRow {
 }
 interface RawIdxRow { index_date: string; close_value: number }
 
+const PAGE_SIZE = 1000;
+
 function isInvestment(type: string): boolean {
   return type === 'purchase' || type === 'switch_in' || type === 'dividend_reinvest';
 }
@@ -64,13 +66,35 @@ function getBenchmarkUnitsAt(history: { date: string; units: number }[], targetD
   return Math.max(0, getLatestAt(history, targetDate)?.units ?? 0);
 }
 
-function samplePoints(points: InvestmentVsBenchmarkPoint[], maxPoints = 32): InvestmentVsBenchmarkPoint[] {
+function samplePoints(points: InvestmentVsBenchmarkPoint[], maxPoints = 90): InvestmentVsBenchmarkPoint[] {
   if (points.length <= maxPoints) return points;
   const step = Math.ceil(points.length / maxPoints);
   const sampled = points.filter((_, index) => index % step === 0);
   const last = points[points.length - 1];
   if (sampled[sampled.length - 1]?.date !== last.date) sampled.push(last);
   return sampled;
+}
+
+function getWindowStartDate(window: TimeWindow): string | null {
+  if (window === 'All') return null;
+
+  const today = new Date();
+  const cutoff = new Date(today);
+  switch (window) {
+    case '1M': cutoff.setMonth(today.getMonth() - 1); break;
+    case '3M': cutoff.setMonth(today.getMonth() - 3); break;
+    case '6M': cutoff.setMonth(today.getMonth() - 6); break;
+    case '1Y': cutoff.setFullYear(today.getFullYear() - 1); break;
+    case '3Y': cutoff.setFullYear(today.getFullYear() - 3); break;
+    case '5Y': cutoff.setFullYear(today.getFullYear() - 5); break;
+    case '10Y': cutoff.setFullYear(today.getFullYear() - 10); break;
+    case '15Y': cutoff.setFullYear(today.getFullYear() - 15); break;
+  }
+  return cutoff.toISOString().split('T')[0];
+}
+
+function laterDate(a: string, b: string): string {
+  return a > b ? a : b;
 }
 
 export function computeInvestmentVsBenchmarkTimeline(
@@ -85,14 +109,20 @@ export function computeInvestmentVsBenchmarkTimeline(
   }
 
   const fundIds = new Set(funds.map((fund) => fund.id));
-  const schemeByFund = new Map(funds.map((fund) => [fund.id, fund.schemeCode]));
 
-  const navByScheme = new Map<number, Map<string, number>>();
+  const navHistoryByScheme = new Map<number, NavPoint[]>();
   const allDates = new Set<string>();
   for (const row of navRows) {
-    if (!navByScheme.has(row.scheme_code)) navByScheme.set(row.scheme_code, new Map());
-    navByScheme.get(row.scheme_code)!.set(row.nav_date, row.nav);
+    const existing = navHistoryByScheme.get(row.scheme_code) ?? [];
+    existing.push({ date: row.nav_date, value: row.nav });
+    navHistoryByScheme.set(row.scheme_code, existing);
     allDates.add(row.nav_date);
+  }
+  for (const [schemeCode, history] of navHistoryByScheme) {
+    navHistoryByScheme.set(
+      schemeCode,
+      history.sort((a, b) => a.date.localeCompare(b.date)),
+    );
   }
 
   const benchmarkHistory: NavPoint[] = [...idxRows]
@@ -156,8 +186,6 @@ export function computeInvestmentVsBenchmarkTimeline(
     investedHistory.push({ date, investedValue: totalInvested });
     benchmarkUnitHistory.push({ date, units: benchmarkUnits });
     allDates.add(date);
-    const schemeCode = schemeByFund.get(tx.fund_id);
-    if (schemeCode !== undefined && navByScheme.get(schemeCode)?.has(date)) allDates.add(date);
   }
 
   const rawPoints: InvestmentVsBenchmarkPoint[] = [];
@@ -168,9 +196,9 @@ export function computeInvestmentVsBenchmarkTimeline(
     for (const fund of funds) {
       const units = getUnitsAt(unitHistory.get(fund.id) ?? [], date);
       if (units <= 0) continue;
-      const nav = navByScheme.get(fund.schemeCode)?.get(date);
-      if (nav === undefined) continue;
-      portfolioValue += units * nav;
+      const navPoint = getLatestAt(navHistoryByScheme.get(fund.schemeCode) ?? [], date);
+      if (!navPoint) continue;
+      portfolioValue += units * navPoint.value;
       hasPortfolioValue = true;
     }
 
@@ -217,38 +245,79 @@ export async function fetchInvestmentVsBenchmarkTimeline(
   const fundIds = funds.map((fund) => fund.id);
   const schemeCodes = funds.map((fund) => fund.schemeCode);
 
-  const [navResult, txResult, idxResult] = await Promise.all([
-    supabase
-      .from('nav_history')
-      .select('scheme_code, nav_date, nav')
-      .in('scheme_code', schemeCodes)
-      .order('nav_date', { ascending: false })
-      .limit(10000),
-    supabase
+  const txRows = await fetchAllTransactions(userId, fundIds);
+  const firstTxDate = txRows[0]?.transaction_date;
+  if (!firstTxDate) return { points: [], xAxisLabels: [] };
+
+  const windowStart = getWindowStartDate(window);
+  const navStartDate = windowStart ? laterDate(firstTxDate, windowStart) : firstTxDate;
+
+  const [navRows, idxRows] = await Promise.all([
+    fetchAllNavRows(schemeCodes, navStartDate),
+    fetchAllIndexRows(benchmarkSymbol, firstTxDate),
+  ]);
+
+  return computeInvestmentVsBenchmarkTimeline(
+    navRows,
+    txRows,
+    idxRows,
+    funds,
+    window,
+  );
+}
+
+async function fetchAllTransactions(userId: string, fundIds: string[]): Promise<RawTxRow[]> {
+  const rows: RawTxRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
       .from('transaction')
       .select('fund_id, transaction_date, transaction_type, units, amount')
       .eq('user_id', userId)
       .in('fund_id', fundIds)
-      .order('transaction_date', { ascending: true }),
-    supabase
+      .order('transaction_date', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+    rows.push(...((data ?? []) as RawTxRow[]));
+    if ((data ?? []).length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchAllNavRows(schemeCodes: number[], startDate: string): Promise<RawNavRow[]> {
+  const rows: RawNavRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('nav_history')
+      .select('scheme_code, nav_date, nav')
+      .in('scheme_code', schemeCodes)
+      .gte('nav_date', startDate)
+      .order('nav_date', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+    rows.push(...((data ?? []) as RawNavRow[]));
+    if ((data ?? []).length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchAllIndexRows(benchmarkSymbol: string, startDate: string): Promise<RawIdxRow[]> {
+  const rows: RawIdxRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
       .from('index_history')
       .select('index_date, close_value')
       .eq('index_symbol', benchmarkSymbol)
-      .order('index_date', { ascending: false })
-      .limit(10000),
-  ]);
+      .gte('index_date', startDate)
+      .order('index_date', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (navResult.error) throw navResult.error;
-  if (txResult.error) throw txResult.error;
-  if (idxResult.error) throw idxResult.error;
-
-  return computeInvestmentVsBenchmarkTimeline(
-    (navResult.data ?? []) as RawNavRow[],
-    (txResult.data ?? []) as RawTxRow[],
-    (idxResult.data ?? []) as RawIdxRow[],
-    funds,
-    window,
-  );
+    if (error) throw error;
+    rows.push(...((data ?? []) as RawIdxRow[]));
+    if ((data ?? []).length < PAGE_SIZE) break;
+  }
+  return rows;
 }
 
 export function useInvestmentVsBenchmarkTimeline(

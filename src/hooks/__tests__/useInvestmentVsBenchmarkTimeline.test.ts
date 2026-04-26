@@ -81,6 +81,27 @@ describe('computeInvestmentVsBenchmarkTimeline', () => {
     expect(result.points[0].benchmarkValue).toBe(1100);
   });
 
+  it('uses the latest available NAV when the chart date does not match a NAV date exactly', () => {
+    const navRows = [
+      { scheme_code: 100, nav_date: '2025-01-01', nav: 10 },
+      { scheme_code: 100, nav_date: '2025-01-05', nav: 12 },
+    ];
+    const txRows = [
+      { fund_id: 'fund-1', transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      { fund_id: 'fund-1', transaction_date: '2025-01-03', transaction_type: 'purchase', units: 50, amount: 500 },
+    ];
+    const idxRows = [
+      { index_date: '2025-01-01', close_value: 100 },
+      { index_date: '2025-01-03', close_value: 110 },
+      { index_date: '2025-01-05', close_value: 120 },
+    ];
+
+    const result = computeInvestmentVsBenchmarkTimeline(navRows, txRows, idxRows, [FUND], 'All');
+
+    expect(result.points.map((point) => point.date)).toContain('2025-01-03');
+    expect(result.points.find((point) => point.date === '2025-01-03')?.portfolioValue).toBe(1500);
+  });
+
   it('returns empty output when required series are missing', () => {
     expect(computeInvestmentVsBenchmarkTimeline([], [], [], [FUND], 'All')).toEqual({
       points: [],
