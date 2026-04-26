@@ -10,7 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart, BarChart, PieChart } from 'react-native-gifted-charts';
 import { useQuery } from '@tanstack/react-query';
@@ -27,6 +27,20 @@ import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import {
+  ClearLensCard,
+  ClearLensHeader,
+  ClearLensScreen,
+  ClearLensSegmentedControl,
+} from '@/src/components/clearLens/ClearLensPrimitives';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
 import type { AppColors } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
@@ -96,7 +110,9 @@ function PerformanceTab({
   defaultBenchmarkSymbol: string | null;
 }) {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const benchmarkColor = isClearLens ? ClearLensColors.slate : '#f59e0b';
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
@@ -235,7 +251,10 @@ function PerformanceTab({
               <View style={s.comparisonCol}>
                 <Text style={s.statLabel}>{selectedLabel} ({window})</Text>
                 <Text
-                  style={[s.xirrValue, { color: benchmarkReturn >= 0 ? colors.positive : colors.negative }]}
+                  style={[
+                    s.xirrValue,
+                    { color: isClearLens ? benchmarkColor : benchmarkReturn >= 0 ? colors.positive : colors.negative },
+                  ]}
                   adjustsFontSizeToFit
                   minimumFontScale={0.75}
                   numberOfLines={1}
@@ -287,7 +306,7 @@ function PerformanceTab({
             </View>
             {hasBenchmarkData && (
               <View style={s.legendItem}>
-                <View style={[s.legendDot, { backgroundColor: '#f59e0b' }]} />
+                <View style={[s.legendDot, { backgroundColor: benchmarkColor }]} />
                 <Text style={s.legendLabel}>{selectedLabel}</Text>
               </View>
             )}
@@ -303,7 +322,7 @@ function PerformanceTab({
               endSpacing={32}
               hideDataPoints
               color1={colors.primary}
-              color2="#f59e0b"
+              color2={benchmarkColor}
               thickness1={3}
               thickness2={2.5}
               curved
@@ -358,7 +377,7 @@ function PerformanceTab({
                       )}
                       {benchVal !== undefined && (
                         <Text style={s.pointerSeriesText}>
-                          <Text style={{ color: '#f59e0b' }}>● </Text>
+                          <Text style={{ color: benchmarkColor }}>● </Text>
                           {selectedLabel}: {benchVal.toFixed(1)}
                         </Text>
                       )}
@@ -394,7 +413,12 @@ function PerformanceTab({
             {hasBenchmarkData && summaryBenchReturn !== null && (
               <View style={s.returnRow}>
                 <Text style={s.returnLabel}>{selectedLabel}</Text>
-                <Text style={[s.returnVal, { color: summaryBenchReturn >= 0 ? colors.positive : colors.negative }]}>
+                <Text
+                  style={[
+                    s.returnVal,
+                    { color: isClearLens ? benchmarkColor : summaryBenchReturn >= 0 ? colors.positive : colors.negative },
+                  ]}
+                >
                   {summaryBenchReturn >= 0 ? '+' : ''}{summaryBenchReturn.toFixed(2)}%
                 </Text>
               </View>
@@ -913,17 +937,17 @@ function makeDonutStyles(colors: AppColors) {
 // ---------------------------------------------------------------------------
 
 const COMP_ASSET_COLORS = {
-  equity: '#ef4444',
-  debt: '#3b82f6',
-  cash: '#f97316',
-  other: '#a78bfa',
+  equity: ClearLensColors.emerald,
+  debt: ClearLensColors.navy,
+  cash: ClearLensColors.mint,
+  other: ClearLensColors.lightGrey,
 };
 
 const COMP_CAP_COLORS = {
-  large: '#3b82f6',
-  mid: '#f97316',
-  small: '#ef4444',
-  other: '#a78bfa',
+  large: ClearLensColors.navy,
+  mid: ClearLensColors.emerald,
+  small: ClearLensColors.slate,
+  other: ClearLensColors.lightGrey,
 };
 
 function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
@@ -1191,7 +1215,7 @@ function makeCompStyles(colors: AppColors) {
 
 // ---------------------------------------------------------------------------
 
-export default function FundDetailScreen() {
+function ClassicFundDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
@@ -1328,6 +1352,260 @@ export default function FundDetailScreen() {
     </SafeAreaView>
   );
 }
+
+type ClearLensFundTab = 'performance' | 'nav' | 'composition';
+
+function ClearLensFundDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<ClearLensFundTab>('performance');
+  const { data, isLoading, isError } = useFundDetail(id);
+
+  if (isLoading) {
+    return (
+      <ClearLensScreen>
+        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+        <View style={clearDetailStyles.centered}>
+          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+        </View>
+      </ClearLensScreen>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <ClearLensScreen>
+        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+        <View style={clearDetailStyles.centered}>
+          <Ionicons name="alert-circle-outline" size={40} color={ClearLensColors.textTertiary} />
+          <Text style={clearDetailStyles.errorText}>Couldn&apos;t load fund data</Text>
+        </View>
+      </ClearLensScreen>
+    );
+  }
+
+  const latestNavDate = data.navHistory[data.navHistory.length - 1]?.date ?? null;
+  const todayIso = new Date().toISOString().split('T')[0];
+  const navIsStale = latestNavDate !== null && latestNavDate !== todayIso;
+  const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
+  const gainPct = gain !== null && data.investedAmount > 0 ? (gain / data.investedAmount) * 100 : null;
+
+  return (
+    <ClearLensScreen>
+      <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+      <ScrollView contentContainerStyle={clearDetailStyles.scroll} showsVerticalScrollIndicator={false}>
+        <ClearLensCard style={clearDetailStyles.heroCard}>
+          <View style={clearDetailStyles.heroTitleRow}>
+            <View style={clearDetailStyles.heroTitleBlock}>
+              <Text style={clearDetailStyles.fundName}>{data.schemeName}</Text>
+              <Text style={clearDetailStyles.category}>{data.schemeCategory || 'Fund'}</Text>
+            </View>
+            <TouchableOpacity style={clearDetailStyles.infoButton} activeOpacity={0.75}>
+              <Ionicons name="information" size={18} color={ClearLensColors.navy} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={clearDetailStyles.statsRow}>
+            <View style={clearDetailStyles.statCell}>
+              <Text style={clearDetailStyles.statLabel}>Current value</Text>
+              <Text style={clearDetailStyles.statValue}>
+                {data.currentValue !== null ? formatCurrency(data.currentValue) : 'NAV pending'}
+              </Text>
+              {navIsStale && latestNavDate && (
+                <Text style={clearDetailStyles.statHint}>as of {formatNavDate(latestNavDate)}</Text>
+              )}
+            </View>
+            <View style={clearDetailStyles.statCell}>
+              <Text style={clearDetailStyles.statLabel}>Invested</Text>
+              <Text style={clearDetailStyles.statValue}>{formatCurrency(data.investedAmount)}</Text>
+            </View>
+            <View style={clearDetailStyles.statCell}>
+              <Text style={clearDetailStyles.statLabel}>Units</Text>
+              <Text style={clearDetailStyles.statValue}>{data.currentUnits.toFixed(3)}</Text>
+            </View>
+          </View>
+
+          {gain !== null && gainPct !== null && (
+            <View style={clearDetailStyles.gainRow}>
+              <Text style={clearDetailStyles.statLabel}>Gain / Loss</Text>
+              <Text style={[clearDetailStyles.gainValue, { color: gain >= 0 ? ClearLensColors.emerald : ClearLensColors.slate }]}>
+                {gain >= 0 ? '+' : '-'}{formatCurrency(Math.abs(gain))} ({gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%)
+              </Text>
+            </View>
+          )}
+
+          {Number.isFinite(data.fundXirr) && (
+            <View style={clearDetailStyles.xirrRow}>
+              <Text style={clearDetailStyles.statLabel}>XIRR</Text>
+              <Text style={[clearDetailStyles.xirrValue, { color: data.fundXirr >= 0 ? ClearLensColors.emerald : ClearLensColors.slate }]}>
+                {formatXirr(data.fundXirr)}
+              </Text>
+              <Text style={clearDetailStyles.xirrHint}>· SIP-aware, annualised</Text>
+            </View>
+          )}
+        </ClearLensCard>
+
+        <ClearLensSegmentedControl
+          selected={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: 'performance', label: 'Performance' },
+            { value: 'nav', label: 'NAV History' },
+            { value: 'composition', label: 'Composition' },
+          ]}
+        />
+
+        {activeTab === 'performance' && (
+          <>
+            <PerformanceTab
+              navHistory={data.navHistory}
+              defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
+            />
+            <TechnicalDetailsCard
+              expenseRatio={data.expenseRatio}
+              aumCr={data.aumCr}
+              minSipAmount={data.minSipAmount}
+              fundMetaSyncedAt={data.fundMetaSyncedAt}
+              schemeCode={data.schemeCode}
+            />
+            <GrowthConsistencyChart navHistory={data.navHistory} />
+            <PortfolioHealthDonut fundId={data.id} currentValue={data.currentValue} />
+          </>
+        )}
+
+        {activeTab === 'nav' && (
+          <>
+            <NavHistoryTab navHistory={data.navHistory} />
+            <ClearLensCard style={clearDetailStyles.noteCard}>
+              <Text style={clearDetailStyles.noteText}>
+                NAV history shows how the fund price moved over time.
+              </Text>
+            </ClearLensCard>
+            <TechnicalDetailsCard
+              expenseRatio={data.expenseRatio}
+              aumCr={data.aumCr}
+              minSipAmount={data.minSipAmount}
+              fundMetaSyncedAt={data.fundMetaSyncedAt}
+              schemeCode={data.schemeCode}
+            />
+          </>
+        )}
+
+        {activeTab === 'composition' && (
+          <FundCompositionTab schemeCode={data.schemeCode} />
+        )}
+      </ScrollView>
+    </ClearLensScreen>
+  );
+}
+
+export default function FundDetailScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: !isClearLens, title: '' }} />
+      {isClearLens ? <ClearLensFundDetailScreen /> : <ClassicFundDetailScreen />}
+    </>
+  );
+}
+
+const clearDetailStyles = StyleSheet.create({
+  scroll: {
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingBottom: ClearLensSpacing.xxl,
+    gap: ClearLensSpacing.md,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.md,
+  },
+  errorText: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textSecondary,
+  },
+  heroCard: {
+    gap: ClearLensSpacing.md,
+  },
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.sm,
+  },
+  heroTitleBlock: {
+    flex: 1,
+    gap: 5,
+  },
+  fundName: {
+    ...ClearLensTypography.h2,
+    color: ClearLensColors.navy,
+  },
+  category: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  infoButton: {
+    width: 38,
+    height: 38,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  statCell: {
+    flex: 1,
+    gap: 4,
+  },
+  statLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  statValue: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.navy,
+  },
+  statHint: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    fontStyle: 'italic',
+  },
+  gainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    flexWrap: 'wrap',
+  },
+  gainValue: {
+    ...ClearLensTypography.h3,
+  },
+  xirrRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.xs,
+    flexWrap: 'wrap',
+  },
+  xirrValue: {
+    ...ClearLensTypography.h3,
+  },
+  xirrHint: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+  },
+  noteCard: {
+    marginHorizontal: ClearLensSpacing.md,
+  },
+  noteText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textSecondary,
+  },
+});
 
 function makeStyles(colors: AppColors) {
   return StyleSheet.create({

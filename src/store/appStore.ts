@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type DesignVariant = 'v1' | 'v2';
 export type WealthJourneyReturnPreset = 'cautious' | 'balanced' | 'growth' | 'custom';
+export type AppDesignMode = 'classic' | 'clearLens';
 
 export interface BenchmarkOption {
   symbol: string;
@@ -49,11 +49,37 @@ const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
 interface AppStore {
   defaultBenchmarkSymbol: string;
   setDefaultBenchmarkSymbol: (symbol: string) => void;
-  designVariant: DesignVariant;
-  setDesignVariant: (variant: DesignVariant) => void;
+  appDesignMode: AppDesignMode;
+  setAppDesignMode: (mode: AppDesignMode) => void;
   wealthJourney: WealthJourneyState;
   updateWealthJourney: (patch: Partial<WealthJourneyState>) => void;
   resetWealthJourney: () => void;
+}
+
+type PersistedAppStore = Partial<AppStore> & {
+  designVariant?: 'v1' | 'v2';
+};
+
+export function migratePersistedAppState(persistedState: unknown): Partial<AppStore> {
+  if (!persistedState || typeof persistedState !== 'object') {
+    return {
+      appDesignMode: 'clearLens',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
+    };
+  }
+
+  const state = persistedState as PersistedAppStore;
+  const appDesignMode: AppDesignMode =
+    state.appDesignMode === 'classic' ? 'classic' : 'clearLens';
+
+  return {
+    defaultBenchmarkSymbol: state.defaultBenchmarkSymbol ?? '^NSEI',
+    appDesignMode,
+    wealthJourney: {
+      ...DEFAULT_WEALTH_JOURNEY_STATE,
+      ...(state.wealthJourney ?? {}),
+    },
+  };
 }
 
 export const useAppStore = create<AppStore>()(
@@ -61,8 +87,8 @@ export const useAppStore = create<AppStore>()(
     (set) => ({
       defaultBenchmarkSymbol: '^NSEI',
       setDefaultBenchmarkSymbol: (symbol) => set({ defaultBenchmarkSymbol: symbol }),
-      designVariant: 'v1' as DesignVariant,
-      setDesignVariant: (variant) => set({ designVariant: variant }),
+      appDesignMode: 'clearLens' as AppDesignMode,
+      setAppDesignMode: (mode) => set({ appDesignMode: mode }),
       wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
       updateWealthJourney: (patch) =>
         set((state) => ({
@@ -73,6 +99,13 @@ export const useAppStore = create<AppStore>()(
     {
       name: 'fundlens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 3,
+      migrate: migratePersistedAppState,
+      partialize: (state) => ({
+        defaultBenchmarkSymbol: state.defaultBenchmarkSymbol,
+        appDesignMode: state.appDesignMode,
+        wealthJourney: state.wealthJourney,
+      }),
     },
   ),
 );

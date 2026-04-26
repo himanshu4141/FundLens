@@ -4,7 +4,9 @@
 
 ## Active plans
 
-None — all plans are archived. Create a new ExecPlan for the next feature.
+| Plan | Branch | What it covers |
+|---|---|---|
+| `phase-3-clear-lens-design-mode/M1-clear-lens-design-mode.md` | `codex/clear-lens-design-mode` | Clear Lens default design mode; tokens and logo; redesigned Portfolio, Insights, Your Funds, Fund Detail, Leaderboard, Wealth Journey, and supporting screens |
 
 ---
 

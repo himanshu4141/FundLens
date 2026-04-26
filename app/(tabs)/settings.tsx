@@ -83,7 +83,7 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol, designVariant, setDesignVariant } = useAppStore();
+  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol, appDesignMode, setAppDesignMode } = useAppStore();
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
 
   // ── Connected accounts ────────────────────────────────────────────────────
@@ -422,23 +422,26 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* ── Design Theme ── */}
-        <SectionHeader title="Design Theme" />
+        {/* ── App Design ── */}
+        <SectionHeader title="App Design" />
         <View style={styles.card}>
-          {(['v1', 'v2'] as const).map((v, idx) => (
+          {([
+            { value: 'classic' as const, label: 'Current design' },
+            { value: 'clearLens' as const, label: 'New Clear Lens design' },
+          ]).map((option, idx) => (
             <TouchableOpacity
-              key={v}
+              key={option.value}
               style={[styles.row, idx > 0 && styles.borderTop]}
-              onPress={() => setDesignVariant(v)}
+              onPress={() => setAppDesignMode(option.value)}
               activeOpacity={0.7}
             >
               <Text style={[styles.rowValue, { flex: 1 }]}>
-                {v === 'v1' ? 'Classic' : 'Editorial'}
+                {option.label}
               </Text>
               <Ionicons
-                name={designVariant === v ? 'radio-button-on' : 'radio-button-off'}
+                name={appDesignMode === option.value ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={designVariant === v ? colors.primary : colors.textTertiary}
+                color={appDesignMode === option.value ? colors.primary : colors.textTertiary}
               />
             </TouchableOpacity>
           ))}

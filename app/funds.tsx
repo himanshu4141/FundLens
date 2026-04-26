@@ -10,6 +10,8 @@ import { categoryColor } from '@/src/components/FundCard';
 import { Sparkline } from '@/src/components/Sparkline';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { ClearLensFundsScreen } from '@/src/components/clearLens/screens/ClearLensFundsScreen';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { parseFundName } from '@/src/utils/fundName';
 import { formatCurrency } from '@/src/utils/formatting';
@@ -326,7 +328,7 @@ function CompactFundRow({
   );
 }
 
-export default function FundsScreen() {
+function ClassicFundsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { defaultBenchmarkSymbol } = useAppStore();
@@ -470,6 +472,11 @@ export default function FundsScreen() {
       </Modal>
     </SafeAreaView>
   );
+}
+
+export default function FundsScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return isClearLens ? <ClearLensFundsScreen /> : <ClassicFundsScreen />;
 }
 
 const styles = StyleSheet.create({
