@@ -71,6 +71,9 @@ function formatChartDate(dateStr: string, window: TimeWindow): string {
     case '6M': return `${mon} '${yr2}`;                // "Sep '24"
     case '1Y': return `${mon} '${yr2}`;                // "Mar '25"
     case '3Y':
+    case '5Y':
+    case '10Y':
+    case '15Y':
     case 'All': return `${mon} '${yr2}`;               // "Jan '22"
   }
 }

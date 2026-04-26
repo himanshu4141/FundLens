@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -8,11 +8,12 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  type GestureResponderEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { LineChart } from 'react-native-gifted-charts';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import {
   ClearLensCard,
@@ -22,8 +23,12 @@ import {
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
-import { useInvestmentVsBenchmarkTimeline } from '@/src/hooks/useInvestmentVsBenchmarkTimeline';
+import {
+  useInvestmentVsBenchmarkTimeline,
+  type InvestmentVsBenchmarkPoint,
+} from '@/src/hooks/useInvestmentVsBenchmarkTimeline';
 import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
+import type { TimeWindow } from '@/src/utils/navUtils';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
@@ -41,6 +46,14 @@ import {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - ClearLensSpacing.md * 2 - ClearLensSpacing.md * 2;
+const JOURNEY_Y_AXIS_WIDTH = 54;
+const JOURNEY_CHART_HEIGHT = 216;
+const JOURNEY_X_AXIS_HEIGHT = 28;
+const JOURNEY_CHART_TOP_PADDING = 10;
+const JOURNEY_CHART_RIGHT_PADDING = 6;
+const JOURNEY_TOOLTIP_WIDTH = 226;
+const JOURNEY_TOOLTIP_HEIGHT = 112;
+const JOURNEY_WINDOWS: TimeWindow[] = ['1Y', '3Y', '5Y', '10Y', '15Y', 'All'];
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
@@ -173,6 +186,200 @@ function BenchmarkComparisonCard({
   );
 }
 
+function formatAxisCurrency(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  if (value >= 10000000) return `₹${trimNumber(value / 10000000)}Cr`;
+  if (value >= 100000) return `₹${trimNumber(value / 100000)}L`;
+  if (value >= 1000) return `₹${trimNumber(value / 1000)}K`;
+  return `₹${Math.round(value)}`;
+}
+
+function trimNumber(value: number): string {
+  return value >= 10 ? value.toFixed(0) : value.toFixed(1).replace(/\.0$/, '');
+}
+
+function formatTooltipCurrency(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return `₹${Math.round(value).toLocaleString('en-IN')}`;
+}
+
+function formatJourneyDate(date: string, window: TimeWindow): string {
+  const [year, month, day] = date.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthLabel = months[Number(month) - 1] ?? month;
+
+  if (window === '1M' || window === '3M') return `${Number(day)} ${monthLabel}`;
+  if (window === '1Y') return `${monthLabel} '${year.slice(2)}`;
+  if (window === '3Y') return `${monthLabel} '${year.slice(2)}`;
+  return year;
+}
+
+function formatJourneyTooltipDate(date: string): string {
+  const [year, month, day] = date.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthLabel = months[Number(month) - 1] ?? month;
+  return `${day}-${monthLabel}-${year}`;
+}
+
+function buildJourneyXAxisLabels(points: InvestmentVsBenchmarkPoint[], window: TimeWindow): string[] {
+  if (points.length === 0) return [];
+
+  const labelCount = window === '1Y' || window === '3Y' ? 4 : 5;
+  const labels = new Array<string>(points.length).fill('');
+  if (points.length <= labelCount) {
+    return points.map((point) => formatJourneyDate(point.date, window));
+  }
+
+  const step = (points.length - 1) / (labelCount - 1);
+  let previousLabel = '';
+  for (let index = 0; index < labelCount; index += 1) {
+    const pointIndex = Math.min(Math.round(index * step), points.length - 1);
+    const label = formatJourneyDate(points[pointIndex].date, window);
+    if (label !== previousLabel || index === labelCount - 1) {
+      labels[pointIndex] = label;
+      previousLabel = label;
+    }
+  }
+  return labels;
+}
+
+function getNiceChartBounds(values: number[]): { yMin: number; yMax: number; range: number } {
+  const finiteValues = values.filter(Number.isFinite);
+  if (finiteValues.length === 0) return { yMin: 0, yMax: 1, range: 1 };
+
+  const min = Math.min(...finiteValues);
+  const max = Math.max(...finiteValues);
+  const rawRange = Math.max(max - min, max * 0.08, 1);
+  const roughStep = rawRange / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalized = roughStep / magnitude;
+  const step = normalized <= 1 ? magnitude : normalized <= 2 ? magnitude * 2 : normalized <= 5 ? magnitude * 5 : magnitude * 10;
+  const paddedMin = min - step * 0.75;
+  const paddedMax = max + step * 0.75;
+  const yMin = Math.max(0, Math.floor(paddedMin / step) * step);
+  const yMax = Math.max(step, Math.ceil(paddedMax / step) * step);
+
+  return { yMin, yMax, range: Math.max(yMax - yMin, step) };
+}
+
+function rangeLabel(window: TimeWindow): string {
+  return window === 'All' ? 'Since start' : window;
+}
+
+function rangePillLabel(window: TimeWindow): string {
+  return window === 'All' ? 'All' : window;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getCurrencyLevelTicks(minValue: number, maxValue: number, maxTicks = 7): number[] {
+  const safeMin = Math.max(1, minValue);
+  const safeMax = Math.max(safeMin * 1.01, maxValue);
+  const ticks: number[] = [];
+  const startPower = Math.floor(Math.log10(safeMin)) - 1;
+  const endPower = Math.ceil(Math.log10(safeMax)) + 1;
+
+  for (let power = startPower; power <= endPower; power += 1) {
+    const base = 10 ** power;
+    for (const factor of [1, 2, 4]) {
+      const tick = factor * base;
+      if (tick >= safeMin * 0.8 && tick <= safeMax * 1.25) {
+        ticks.push(tick);
+      }
+    }
+  }
+
+  const uniqueTicks = [...new Set(ticks)].sort((a, b) => a - b);
+  if (uniqueTicks.length <= maxTicks) return uniqueTicks;
+
+  const limited: number[] = [];
+  const step = (uniqueTicks.length - 1) / (maxTicks - 1);
+  for (let index = 0; index < maxTicks; index += 1) {
+    const tick = uniqueTicks[Math.round(index * step)];
+    if (tick !== undefined && !limited.includes(tick)) limited.push(tick);
+  }
+  return limited;
+}
+
+function getJourneyScale(values: number[]) {
+  const finiteValues = values.filter((value) => Number.isFinite(value) && value > 0);
+  if (finiteValues.length === 0) {
+    return {
+      mode: 'linear' as const,
+      min: 0,
+      max: 1,
+      ticks: [0, 0.25, 0.5, 0.75, 1],
+    };
+  }
+
+  const minValue = Math.min(...finiteValues);
+  const maxValue = Math.max(...finiteValues);
+  const shouldUseLogScale = maxValue / Math.max(minValue, 1) >= 8;
+
+  if (shouldUseLogScale) {
+    const ticks = getCurrencyLevelTicks(minValue, maxValue);
+    const min = ticks[0] ?? minValue;
+    const max = ticks[ticks.length - 1] ?? maxValue;
+    return {
+      mode: 'log' as const,
+      min,
+      max: Math.max(max, min * 1.01),
+      ticks,
+    };
+  }
+
+  const { yMin, yMax } = getNiceChartBounds(finiteValues);
+  const step = (yMax - yMin) / 4;
+  return {
+    mode: 'linear' as const,
+    min: yMin,
+    max: yMax,
+    ticks: Array.from({ length: 5 }, (_, index) => yMin + step * index),
+  };
+}
+
+function getScaledY(
+  value: number,
+  scale: ReturnType<typeof getJourneyScale>,
+  plotHeight: number,
+): number {
+  if (scale.mode === 'log') {
+    const minLog = Math.log10(Math.max(scale.min, 1));
+    const maxLog = Math.log10(Math.max(scale.max, scale.min + 1));
+    const valueLog = Math.log10(clamp(value, scale.min, scale.max));
+    const ratio = (maxLog - valueLog) / Math.max(maxLog - minLog, 0.0001);
+    return JOURNEY_CHART_TOP_PADDING + ratio * plotHeight;
+  }
+
+  const ratio = (scale.max - clamp(value, scale.min, scale.max)) / Math.max(scale.max - scale.min, 1);
+  return JOURNEY_CHART_TOP_PADDING + ratio * plotHeight;
+}
+
+function getChartX(index: number, pointCount: number, plotWidth: number): number {
+  if (pointCount <= 1) return JOURNEY_Y_AXIS_WIDTH;
+  return JOURNEY_Y_AXIS_WIDTH + (index / (pointCount - 1)) * plotWidth;
+}
+
+function buildJourneyPath(
+  points: InvestmentVsBenchmarkPoint[],
+  valueForPoint: (point: InvestmentVsBenchmarkPoint) => number,
+  scale: ReturnType<typeof getJourneyScale>,
+  plotWidth: number,
+): string {
+  return points
+    .map((point, index) => {
+      const command = index === 0 ? 'M' : 'L';
+      return `${command}${getChartX(index, points.length, plotWidth).toFixed(2)} ${getScaledY(
+        valueForPoint(point),
+        scale,
+        JOURNEY_CHART_HEIGHT,
+      ).toFixed(2)}`;
+    })
+    .join(' ');
+}
+
 function InvestmentVsBenchmarkChart({
   funds,
   userId,
@@ -182,78 +389,289 @@ function InvestmentVsBenchmarkChart({
   userId: string | undefined;
   benchmarkSymbol: string;
 }) {
-  const { points, xAxisLabels, isLoading } = useInvestmentVsBenchmarkTimeline(
+  const [window, setWindow] = useState<TimeWindow>('All');
+  const [chartInnerWidth, setChartInnerWidth] = useState(CHART_WIDTH);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const { points, isLoading, error } = useInvestmentVsBenchmarkTimeline(
     funds,
     userId,
     benchmarkSymbol,
-    '1Y',
+    window,
   );
   const benchmarkLabel = BENCHMARK_OPTIONS.find((option) => option.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
+  const xAxisLabels = useMemo(() => buildJourneyXAxisLabels(points, window), [points, window]);
+
+  useEffect(() => {
+    setActiveIndex(null);
+  }, [benchmarkSymbol, window]);
 
   if (!isLoading && points.length < 2) return null;
 
-  const investedData = points.map((point) => ({ value: point.investedValue / 100000 }));
-  const portfolioData = points.map((point) => ({ value: point.portfolioValue / 100000 }));
-  const benchmarkData = points.map((point) => ({ value: point.benchmarkValue / 100000 }));
-  const values = [...investedData, ...portfolioData, ...benchmarkData].map((point) => point.value);
-  const maxValue = Math.max(...values, 1);
-  const minValue = Math.min(...values, 0);
-  const yPad = Math.max((maxValue - minValue) * 0.14, 1);
-  const yMax = Math.ceil(maxValue + yPad);
-  const yMin = Math.max(0, Math.floor(minValue - yPad));
-  const spacing = points.length > 1 ? (CHART_WIDTH - 44) / (points.length - 1) : 24;
+  const chartWidth = Math.max(260, chartInnerWidth);
+  const plotWidth = Math.max(180, chartWidth - JOURNEY_Y_AXIS_WIDTH - JOURNEY_CHART_RIGHT_PADDING);
+  const svgHeight = JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT;
+  const frameHeight = svgHeight + JOURNEY_X_AXIS_HEIGHT;
+  const values = points.flatMap((point) => [
+    point.investedValue,
+    point.portfolioValue,
+    point.benchmarkValue,
+  ]);
+  const journeyScale = getJourneyScale(values);
+  const portfolioPath = buildJourneyPath(points, (point) => point.portfolioValue, journeyScale, plotWidth);
+  const benchmarkPath = buildJourneyPath(points, (point) => point.benchmarkValue, journeyScale, plotWidth);
+  const investedPath = buildJourneyPath(points, (point) => point.investedValue, journeyScale, plotWidth);
+  const activeIndexForRender = activeIndex !== null && points.length > 0
+    ? Math.round(clamp(activeIndex, 0, points.length - 1))
+    : null;
+  const activePoint = activeIndexForRender !== null ? points[activeIndexForRender] : null;
+  const snapshotPoint = activePoint ?? points[points.length - 1];
+  const activeX = activeIndexForRender !== null ? getChartX(activeIndexForRender, points.length, plotWidth) : 0;
+  const activePortfolioY = activePoint
+    ? getScaledY(activePoint.portfolioValue, journeyScale, JOURNEY_CHART_HEIGHT)
+    : JOURNEY_CHART_TOP_PADDING;
+  const tooltipLeft = clamp(
+    activeX > chartWidth / 2 ? activeX - JOURNEY_TOOLTIP_WIDTH - 10 : activeX + 10,
+    4,
+    chartWidth - JOURNEY_TOOLTIP_WIDTH - 4,
+  );
+  const tooltipTop = clamp(
+    activePortfolioY - JOURNEY_TOOLTIP_HEIGHT / 2,
+    4,
+    frameHeight - JOURNEY_TOOLTIP_HEIGHT - JOURNEY_X_AXIS_HEIGHT,
+  );
+
+  function updateActivePoint(event: GestureResponderEvent) {
+    if (points.length < 2) return;
+    const localX = event.nativeEvent.locationX;
+    const ratio = clamp((localX - JOURNEY_Y_AXIS_WIDTH) / plotWidth, 0, 1);
+    setActiveIndex(Math.round(ratio * (points.length - 1)));
+  }
 
   return (
-    <ClearLensCard style={styles.sectionCard}>
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Investment value over time</Text>
-        <Text style={styles.sectionMeta}>1Y</Text>
+    <ClearLensCard style={styles.journeyCard}>
+      <View style={styles.journeyHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Investment journey</Text>
+          <Text style={styles.journeySubtitle}>
+            Amount invested, current worth, and benchmark worth
+          </Text>
+        </View>
+        <Text style={styles.sectionMeta}>{rangeLabel(window)}</Text>
       </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rangePillRow}>
+        {JOURNEY_WINDOWS.map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.rangePill, window === option && styles.rangePillActive]}
+            onPress={() => setWindow(option)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.rangePillText, window === option && styles.rangePillTextActive]}>
+              {rangePillLabel(option)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
       {isLoading ? (
         <View style={styles.chartLoading}>
           <ActivityIndicator size="small" color={ClearLensColors.emerald} />
         </View>
+      ) : error ? (
+        <View style={styles.chartLoading}>
+          <Text style={styles.errorText}>Could not load investment journey.</Text>
+        </View>
       ) : (
         <>
-          <LineChart
-            data={portfolioData}
-            data2={benchmarkData}
-            data3={investedData}
-            width={CHART_WIDTH}
-            height={172}
-            spacing={spacing}
-            initialSpacing={0}
-            endSpacing={28}
-            hideDataPoints
-            hideDataPoints2
-            hideDataPoints3
-            color1={ClearLensColors.emerald}
-            color2={ClearLensColors.slate}
-            color3={ClearLensColors.lightGrey}
-            thickness1={3}
-            thickness2={2.4}
-            thickness3={2.2}
-            curved
-            yAxisLabelWidth={42}
-            maxValue={yMax - yMin}
-            yAxisOffset={yMin}
-            noOfSections={4}
-            xAxisLabelTexts={xAxisLabels}
-            xAxisLabelTextStyle={styles.chartAxis}
-            yAxisTextStyle={styles.chartAxis}
-            formatYLabel={(value) => `₹${Math.round(Number(value) + yMin)}L`}
-            xAxisColor={ClearLensColors.borderLight}
-            yAxisColor="transparent"
-            rulesColor={ClearLensColors.borderLight}
-          />
-          <View style={styles.legendWrap}>
-            <Legend color={ClearLensColors.emerald} label="Your portfolio" />
-            <Legend color={ClearLensColors.slate} label={benchmarkLabel} />
-            <Legend color={ClearLensColors.lightGrey} label="Invested" />
+          <View
+            style={styles.journeyChartFrame}
+            onLayout={(event) => setChartInnerWidth(event.nativeEvent.layout.width)}
+          >
+            <Svg
+              width={chartWidth}
+              height={svgHeight}
+              style={styles.journeySvg}
+            >
+              {journeyScale.ticks.map((tick) => {
+                const y = getScaledY(tick, journeyScale, JOURNEY_CHART_HEIGHT);
+                return (
+                  <Line
+                    key={`rule-${tick}`}
+                    x1={JOURNEY_Y_AXIS_WIDTH}
+                    x2={JOURNEY_Y_AXIS_WIDTH + plotWidth}
+                    y1={y}
+                    y2={y}
+                    stroke={ClearLensColors.borderLight}
+                    strokeWidth={1}
+                  />
+                );
+              })}
+              <Line
+                x1={JOURNEY_Y_AXIS_WIDTH}
+                x2={JOURNEY_Y_AXIS_WIDTH + plotWidth}
+                y1={JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT}
+                y2={JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT}
+                stroke={ClearLensColors.border}
+                strokeWidth={1}
+              />
+              <Path
+                d={investedPath}
+                stroke={ClearLensColors.navy}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                opacity={0.72}
+              />
+              <Path
+                d={benchmarkPath}
+                stroke={ClearLensColors.slate}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                opacity={0.86}
+              />
+              <Path
+                d={portfolioPath}
+                stroke={ClearLensColors.emerald}
+                strokeWidth={3.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+              {activePoint && (
+                <>
+                  <Line
+                    x1={activeX}
+                    x2={activeX}
+                    y1={JOURNEY_CHART_TOP_PADDING}
+                    y2={JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT}
+                    stroke={ClearLensColors.slate}
+                    strokeWidth={1}
+                    opacity={0.42}
+                  />
+                  <Circle
+                    cx={activeX}
+                    cy={getScaledY(activePoint.investedValue, journeyScale, JOURNEY_CHART_HEIGHT)}
+                    r={4.5}
+                    fill={ClearLensColors.navy}
+                    stroke={ClearLensColors.surface}
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={activeX}
+                    cy={getScaledY(activePoint.benchmarkValue, journeyScale, JOURNEY_CHART_HEIGHT)}
+                    r={4.5}
+                    fill={ClearLensColors.slate}
+                    stroke={ClearLensColors.surface}
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={activeX}
+                    cy={activePortfolioY}
+                    r={5}
+                    fill={ClearLensColors.emerald}
+                    stroke={ClearLensColors.surface}
+                    strokeWidth={2}
+                  />
+                </>
+              )}
+            </Svg>
+
+            {journeyScale.ticks.map((tick) => (
+              <Text
+                key={`axis-${tick}`}
+                style={[
+                  styles.yAxisLabel,
+                  { top: getScaledY(tick, journeyScale, JOURNEY_CHART_HEIGHT) - 8 },
+                ]}
+              >
+                {formatAxisCurrency(tick)}
+              </Text>
+            ))}
+
+            {xAxisLabels.map((label, index) => {
+              if (!label) return null;
+              const x = getChartX(index, points.length, plotWidth);
+              return (
+                <Text
+                  key={`${label}-${index}`}
+                  style={[
+                    styles.xAxisLabel,
+                    {
+                      left: clamp(x - 27, JOURNEY_Y_AXIS_WIDTH, chartWidth - 54),
+                      top: JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT + 6,
+                    },
+                  ]}
+                >
+                  {label}
+                </Text>
+              );
+            })}
+
+            {activePoint && (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.pointerLabel,
+                  {
+                    left: tooltipLeft,
+                    top: tooltipTop,
+                  },
+                ]}
+              >
+                <Text style={styles.pointerDate}>{formatJourneyTooltipDate(activePoint.date)}</Text>
+                <PointerRow color={ClearLensColors.navy} label="Invested" value={activePoint.investedValue} />
+                <PointerRow color={ClearLensColors.emerald} label="Portfolio" value={activePoint.portfolioValue} />
+                <PointerRow color={ClearLensColors.slate} label={benchmarkLabel} value={activePoint.benchmarkValue} />
+              </View>
+            )}
+
+            <View
+              style={styles.chartTouchLayer}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={updateActivePoint}
+              onResponderMove={updateActivePoint}
+            />
           </View>
+          <View style={styles.legendWrap}>
+            <Legend color={ClearLensColors.navy} label="Amount invested" />
+            <Legend color={ClearLensColors.emerald} label="Worth of investment" />
+            <Legend color={ClearLensColors.slate} label={`Worth in ${benchmarkLabel}`} />
+          </View>
+          {snapshotPoint && (
+            <View style={styles.journeySnapshot}>
+              <Text style={styles.snapshotDate}>{formatJourneyTooltipDate(snapshotPoint.date)}</Text>
+              <View style={styles.snapshotGrid}>
+                <SnapshotMetric label="Invested" value={snapshotPoint.investedValue} color={ClearLensColors.navy} />
+                <SnapshotMetric label="Portfolio" value={snapshotPoint.portfolioValue} color={ClearLensColors.emerald} />
+                <SnapshotMetric label={benchmarkLabel} value={snapshotPoint.benchmarkValue} color={ClearLensColors.slate} />
+              </View>
+            </View>
+          )}
         </>
       )}
     </ClearLensCard>
+  );
+}
+
+function PointerRow({ color, label, value }: { color: string; label: string; value: number }) {
+  return (
+    <View style={styles.pointerRow}>
+      <Text style={[styles.pointerSeries, { color }]}>●</Text>
+      <Text style={styles.pointerText}>{label}</Text>
+      <Text style={styles.pointerValue}>{formatTooltipCurrency(value)}</Text>
+    </View>
+  );
+}
+
+function SnapshotMetric({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <View style={styles.snapshotMetric}>
+      <Text style={styles.snapshotLabel}>{label}</Text>
+      <Text style={[styles.snapshotValue, { color }]}>{formatCurrency(value)}</Text>
+    </View>
   );
 }
 
@@ -664,10 +1082,147 @@ const styles = StyleSheet.create({
   pillRow: {
     gap: ClearLensSpacing.sm,
   },
+  journeyCard: {
+    gap: ClearLensSpacing.md,
+    overflow: 'hidden',
+  },
+  journeyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.sm,
+  },
+  journeySubtitle: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    marginTop: 2,
+  },
+  rangePillRow: {
+    gap: 6,
+    paddingRight: ClearLensSpacing.xs,
+  },
+  rangePill: {
+    minHeight: 36,
+    minWidth: 44,
+    paddingHorizontal: 12,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  rangePillActive: {
+    backgroundColor: ClearLensColors.navy,
+  },
+  rangePillText: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.textTertiary,
+  },
+  rangePillTextActive: {
+    color: ClearLensColors.textOnDark,
+  },
   chartLoading: {
     height: 172,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  journeyChartFrame: {
+    height: JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT + JOURNEY_X_AXIS_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  journeySvg: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  yAxisLabel: {
+    ...ClearLensTypography.caption,
+    position: 'absolute',
+    left: 0,
+    width: JOURNEY_Y_AXIS_WIDTH - 7,
+    textAlign: 'right',
+    color: ClearLensColors.textTertiary,
+    fontSize: 10,
+  },
+  xAxisLabel: {
+    ...ClearLensTypography.caption,
+    position: 'absolute',
+    width: 54,
+    textAlign: 'center',
+    color: ClearLensColors.textTertiary,
+    fontSize: 10,
+  },
+  chartTouchLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  pointerLabel: {
+    position: 'absolute',
+    width: JOURNEY_TOOLTIP_WIDTH,
+    minHeight: JOURNEY_TOOLTIP_HEIGHT,
+    padding: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    gap: 4,
+    ...ClearLensShadow,
+    shadowOpacity: 0.09,
+    elevation: 4,
+  },
+  pointerDate: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.semiBold,
+    marginBottom: 2,
+  },
+  pointerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pointerSeries: {
+    width: 10,
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  pointerText: {
+    ...ClearLensTypography.caption,
+    flex: 1,
+    color: ClearLensColors.textSecondary,
+  },
+  pointerValue: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  journeySnapshot: {
+    padding: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    gap: ClearLensSpacing.sm,
+  },
+  snapshotDate: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  snapshotGrid: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  snapshotMetric: {
+    flex: 1,
+    minWidth: 0,
+  },
+  snapshotLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+    fontSize: 9,
+  },
+  snapshotValue: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.bold,
   },
   chartAxis: {
     ...ClearLensTypography.caption,
