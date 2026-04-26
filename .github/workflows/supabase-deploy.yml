@@ -9,6 +9,9 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/supabase-deploy.yml'
+      - '.github/workflows/supabase-validate.yml'
+      - 'scripts/check_supabase_migration_parity.py'
       - 'supabase/functions/**'
       - 'supabase/migrations/**'
 
@@ -61,6 +64,8 @@ jobs:
             cat /tmp/supabase-diff.log
             exit 1
           fi
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
   deploy-functions:
     name: Deploy Edge Functions
