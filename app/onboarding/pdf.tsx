@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,10 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
-import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
+import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { Radii, Spacing, Typography } from '@/src/constants/theme';
+import { useTheme, type AppColors } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
 type UploadResult = { funds: number; transactions: number };
@@ -124,6 +127,9 @@ async function uploadNativePdf(
 
 export default function PDFScreen() {
   const router = useRouter();
+  const { colors: Colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
+  const styles = useMemo(() => makeStyles(Colors, isClearLens), [Colors, isClearLens]);
   const [state, setState] = useState<UploadState>('idle');
   const [result, setResult] = useState<{ funds: number; transactions: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -182,15 +188,27 @@ export default function PDFScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
-        <Logo size={44} showWordmark light />
-        <View style={styles.heroCopy}>
-          <Text style={styles.title}>Upload a CAS PDF</Text>
-          <Text style={styles.subtitle}>
-            Use this when you already downloaded your statement and want to import it directly.
-          </Text>
+      {isClearLens ? (
+        <View style={[styles.hero, styles.heroClearLens]}>
+          <FundLensLogo size={44} showWordmark showTagline />
+          <View style={styles.heroCopy}>
+            <Text style={styles.title}>Upload a CAS PDF</Text>
+            <Text style={styles.subtitle}>
+              Use this when you already downloaded your statement and want to import it directly.
+            </Text>
+          </View>
         </View>
-      </LinearGradient>
+      ) : (
+        <LinearGradient colors={Colors.gradientHeader} style={styles.hero}>
+          <Logo size={44} showWordmark light />
+          <View style={styles.heroCopy}>
+            <Text style={styles.title}>Upload a CAS PDF</Text>
+            <Text style={styles.subtitle}>
+              Use this when you already downloaded your statement and want to import it directly.
+            </Text>
+          </View>
+        </LinearGradient>
+      )}
 
       <View style={styles.panel}>
         <Text style={styles.sectionLabel}>Supported PDFs</Text>
@@ -272,7 +290,8 @@ export default function PDFScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(Colors: AppColors, isClearLens: boolean) {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { paddingBottom: Spacing.xxl, gap: Spacing.md },
   hero: {
@@ -281,9 +300,18 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl + Spacing.sm,
     gap: Spacing.lg,
   },
+  heroClearLens: {
+    margin: Spacing.lg,
+    marginBottom: 0,
+    paddingTop: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radii.xl,
+  },
   heroCopy: { gap: Spacing.sm },
-  title: { ...Typography.h1, color: Colors.textOnDark, fontWeight: '700' },
-  subtitle: { ...Typography.body, color: 'rgba(255,255,255,0.8)' },
+  title: { ...Typography.h1, color: isClearLens ? Colors.textPrimary : Colors.textOnDark, fontWeight: '700' },
+  subtitle: { ...Typography.body, color: isClearLens ? Colors.textSecondary : 'rgba(255,255,255,0.8)' },
 
   panel: {
     marginHorizontal: Spacing.lg,
@@ -344,4 +372,5 @@ const styles = StyleSheet.create({
 
   backLink: { alignItems: 'center', paddingVertical: 4 },
   backLinkText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
-});
+  });
+}

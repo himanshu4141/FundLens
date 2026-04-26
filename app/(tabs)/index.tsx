@@ -30,8 +30,10 @@ import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
+import { ClearLensPortfolioScreen } from '@/src/components/clearLens/screens/ClearLensPortfolioScreen';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import type { AppColors } from '@/src/context/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -405,7 +407,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
-export default function HomeScreen() {
+function ClassicHomeScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -542,6 +544,11 @@ export default function HomeScreen() {
       )}
     </SafeAreaView>
   );
+}
+
+export default function HomeScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return isClearLens ? <ClearLensPortfolioScreen /> : <ClassicHomeScreen />;
 }
 
 function makeStyles(colors: AppColors) {

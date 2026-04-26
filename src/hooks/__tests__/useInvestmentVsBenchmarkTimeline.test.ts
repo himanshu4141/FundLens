@@ -1,0 +1,90 @@
+import { computeInvestmentVsBenchmarkTimeline } from '../useInvestmentVsBenchmarkTimeline';
+
+jest.mock('@tanstack/react-query', () => ({ useQuery: jest.fn() }));
+jest.mock('@/src/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
+jest.mock('@/src/hooks/usePerformanceTimeline', () => ({
+  buildXAxisLabels: (dates: string[]) => dates.map((date) => date.slice(5)),
+}));
+
+const FUND = { id: 'fund-1', schemeCode: 100 };
+
+describe('computeInvestmentVsBenchmarkTimeline', () => {
+  it('returns actual portfolio, invested value, and benchmark value series', () => {
+    const navRows = [
+      { scheme_code: 100, nav_date: '2025-01-01', nav: 10 },
+      { scheme_code: 100, nav_date: '2025-02-01', nav: 12 },
+      { scheme_code: 100, nav_date: '2025-03-01', nav: 15 },
+    ];
+    const txRows = [
+      { fund_id: 'fund-1', transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      { fund_id: 'fund-1', transaction_date: '2025-02-01', transaction_type: 'purchase', units: 50, amount: 600 },
+    ];
+    const idxRows = [
+      { index_date: '2025-01-01', close_value: 100 },
+      { index_date: '2025-02-01', close_value: 120 },
+      { index_date: '2025-03-01', close_value: 150 },
+    ];
+
+    const result = computeInvestmentVsBenchmarkTimeline(navRows, txRows, idxRows, [FUND], 'All');
+
+    expect(result.points).toHaveLength(3);
+    expect(result.points[0]).toMatchObject({
+      date: '2025-01-01',
+      investedValue: 1000,
+      portfolioValue: 1000,
+      benchmarkValue: 1000,
+    });
+    expect(result.points[2].investedValue).toBe(1600);
+    expect(result.points[2].portfolioValue).toBe(2250);
+    expect(result.points[2].benchmarkValue).toBeCloseTo(2250);
+  });
+
+  it('reduces invested value after redemptions using cost-basis semantics', () => {
+    const navRows = [
+      { scheme_code: 100, nav_date: '2025-01-01', nav: 10 },
+      { scheme_code: 100, nav_date: '2025-02-01', nav: 10 },
+      { scheme_code: 100, nav_date: '2025-03-01', nav: 10 },
+    ];
+    const txRows = [
+      { fund_id: 'fund-1', transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      { fund_id: 'fund-1', transaction_date: '2025-02-01', transaction_type: 'redemption', units: 40, amount: 400 },
+    ];
+    const idxRows = [
+      { index_date: '2025-01-01', close_value: 100 },
+      { index_date: '2025-02-01', close_value: 100 },
+      { index_date: '2025-03-01', close_value: 100 },
+    ];
+
+    const result = computeInvestmentVsBenchmarkTimeline(navRows, txRows, idxRows, [FUND], 'All');
+    const last = result.points[result.points.length - 1];
+
+    expect(last.investedValue).toBe(600);
+    expect(last.portfolioValue).toBe(600);
+    expect(last.benchmarkValue).toBe(600);
+  });
+
+  it('uses the latest available benchmark value when a transaction falls on a missing benchmark date', () => {
+    const navRows = [
+      { scheme_code: 100, nav_date: '2025-01-01', nav: 10 },
+      { scheme_code: 100, nav_date: '2025-01-02', nav: 11 },
+    ];
+    const txRows = [
+      { fund_id: 'fund-1', transaction_date: '2025-01-02', transaction_type: 'purchase', units: 100, amount: 1100 },
+    ];
+    const idxRows = [
+      { index_date: '2025-01-01', close_value: 100 },
+      { index_date: '2025-01-03', close_value: 120 },
+    ];
+
+    const result = computeInvestmentVsBenchmarkTimeline(navRows, txRows, idxRows, [FUND], 'All');
+
+    expect(result.points[0].benchmarkValue).toBe(1100);
+  });
+
+  it('returns empty output when required series are missing', () => {
+    expect(computeInvestmentVsBenchmarkTimeline([], [], [], [FUND], 'All')).toEqual({
+      points: [],
+      xAxisLabels: [],
+    });
+  });
+});

@@ -2,19 +2,26 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { ClearLensColors, ClearLensFonts } from '@/src/constants/clearLensTheme';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
   const insets = useSafeAreaInsets();
+  const activeTint = isClearLens ? ClearLensColors.emerald : colors.primary;
+  const inactiveTint = isClearLens ? ClearLensColors.textTertiary : colors.textTertiary;
+  const borderTopColor = isClearLens ? ClearLensColors.borderLight : colors.borderLight;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarActiveTintColor: activeTint,
+        tabBarInactiveTintColor: inactiveTint,
         headerShown: false,
         tabBarStyle: {
-          borderTopColor: colors.borderLight,
+          backgroundColor: isClearLens ? ClearLensColors.surface : undefined,
+          borderTopColor,
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
@@ -39,6 +46,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
+          fontFamily: isClearLens ? ClearLensFonts.semiBold : undefined,
           lineHeight: 16,
           marginTop: 2,
           marginBottom: 2,

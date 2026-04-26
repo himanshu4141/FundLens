@@ -8,11 +8,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
 import { useTheme } from '@/src/context/ThemeContext';
 import { Spacing, Typography } from '@/src/constants/theme';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { useAppStore } from '@/src/store/appStore';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { ClearLensPortfolioInsightsScreen } from '@/src/components/clearLens/screens/ClearLensPortfolioInsightsScreen';
 import { AssetMixCard } from '@/src/components/insights/AssetMixCard';
 import { DebtCard } from '@/src/components/insights/DebtCard';
 import { MarketCapCard } from '@/src/components/insights/MarketCapCard';
@@ -20,7 +23,7 @@ import { SectorCard } from '@/src/components/insights/SectorCard';
 import { TopHoldingsCard } from '@/src/components/insights/TopHoldingsCard';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function PortfolioInsightsScreen() {
+function ClassicPortfolioInsightsScreen() {
   const { colors } = useTheme();
   const { defaultBenchmarkSymbol } = useAppStore();
 
@@ -162,6 +165,16 @@ export default function PortfolioInsightsScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function PortfolioInsightsScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: !isClearLens, title: 'Portfolio Insights' }} />
+      {isClearLens ? <ClearLensPortfolioInsightsScreen /> : <ClassicPortfolioInsightsScreen />}
+    </>
   );
 }
 
