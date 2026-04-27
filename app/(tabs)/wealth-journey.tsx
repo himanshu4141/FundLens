@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,17 +37,21 @@ import {
   toPresentValueEquivalent,
 } from '@/src/utils/simulatorCalc';
 import {
+  buildReturnProfile,
   buildSipPresetChips,
   buildSipTargetChips,
-  buildReturnProfile,
   estimateRecurringMonthlySip,
   type ReturnPreset,
 } from '@/src/utils/wealthJourney';
 
 const FIXED_INFLATION_RATE = 6;
-const MOBILE_CHART_BREAKPOINT = 430;
+const MAX_SIP = 25_00_000;
+const MAX_TOP_UP = 10_00_00_000;
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
+type ScreenMode = 'summary' | 'adjust';
+type ResultsView = 'growth' | 'withdrawal';
+type SipEditorMode = 'review' | 'manual' | null;
 
 interface ChoiceChip {
   label: string;
@@ -60,6 +66,18 @@ interface ValueFieldProps {
   prefix?: string;
   suffix?: string;
   chips: ChoiceChip[];
+}
+
+interface JourneyLineChartProps {
+  data: { value: number; label: string }[];
+  data2?: { value: number; label: string }[];
+  colors: AppColors;
+  chartWidth: number;
+  compact: boolean;
+  labels: string[];
+  pointerHeight: number;
+  primaryLabel: string;
+  secondaryLabel?: string;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -77,24 +95,29 @@ function formatAxisValue(value: number): string {
   return `${Math.round(value)}`;
 }
 
-function buildCheckpointYears(horizonYears: number, compact: boolean) {
-  if (!compact) {
+function buildVisibleYears(horizonYears: number): number[] {
+  if (horizonYears <= 6) {
     return Array.from({ length: horizonYears + 1 }, (_, idx) => idx);
   }
 
-  const checkpoints = new Set<number>([0, horizonYears]);
-  const interval = horizonYears <= 12 ? 3 : 5;
+  const interval =
+    horizonYears <= 8 ? 2 : horizonYears <= 15 ? 3 : horizonYears <= 25 ? 5 : 6;
+  const years = new Set<number>([0, horizonYears]);
 
   for (let year = interval; year < horizonYears; year += interval) {
-    checkpoints.add(year);
+    years.add(year);
   }
 
-  return [...checkpoints].sort((a, b) => a - b);
+  return [...years].sort((a, b) => a - b);
 }
 
 function formatCheckpointLabel(year: number, startLabel: string) {
   if (year === 0) return startLabel;
   return `${year}Y`;
+}
+
+function spacingFor(width: number, pointCount: number) {
+  return Math.max(28, Math.floor((width - 84) / Math.max(pointCount - 1, 1)));
 }
 
 function ValueField({
@@ -124,15 +147,15 @@ function ValueField({
   }, [draft, onChange, value]);
 
   return (
-    <View style={styles.inputBlock}>
-      <View style={styles.inputHeader}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        {helperText ? <Text style={styles.inputHelper}>{helperText}</Text> : null}
+    <View style={styles.fieldBlock}>
+      <View style={styles.fieldHeader}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {helperText ? <Text style={styles.fieldHelper}>{helperText}</Text> : null}
       </View>
-      <View style={styles.inputShell}>
-        {prefix ? <Text style={styles.inputAffix}>{prefix}</Text> : null}
+      <View style={styles.fieldShell}>
+        {prefix ? <Text style={styles.fieldAffix}>{prefix}</Text> : null}
         <TextInput
-          style={[styles.input, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+          style={[styles.fieldInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
           value={draft}
           onChangeText={setDraft}
           onBlur={commit}
@@ -141,7 +164,7 @@ function ValueField({
           returnKeyType="done"
           {...(Platform.OS === 'web' ? { inputMode: 'numeric' } : null)}
         />
-        {suffix ? <Text style={styles.inputAffix}>{suffix}</Text> : null}
+        {suffix ? <Text style={styles.fieldAffix}>{suffix}</Text> : null}
       </View>
       <View style={styles.chipRow}>
         {chips.map((chip) => {
@@ -149,10 +172,10 @@ function ValueField({
           return (
             <TouchableOpacity
               key={`${label}-${chip.label}`}
-              style={[styles.chip, active && styles.chipActive]}
+              style={[styles.choiceChip, active && styles.choiceChipActive]}
               onPress={() => onChange(chip.value)}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
                 {chip.label}
               </Text>
             </TouchableOpacity>
@@ -194,10 +217,10 @@ function ReturnPresetField({
   }, [draft, onCustomChange, value]);
 
   return (
-    <View style={styles.inputBlock}>
-      <View style={styles.inputHeader}>
-        <Text style={styles.inputLabel}>Expected return</Text>
-        <Text style={styles.inputHelper}>Use a cautious long-term assumption.</Text>
+    <View style={styles.fieldBlock}>
+      <View style={styles.fieldHeader}>
+        <Text style={styles.fieldLabel}>Expected return</Text>
+        <Text style={styles.fieldHelper}>Use a cautious long-term assumption.</Text>
       </View>
       <View style={styles.chipRow}>
         {presets.map((preset) => {
@@ -205,19 +228,19 @@ function ReturnPresetField({
           return (
             <TouchableOpacity
               key={preset.key}
-              style={[styles.chip, active && styles.chipActive]}
+              style={[styles.choiceChip, active && styles.choiceChipActive]}
               onPress={() => onPresetChange(preset.key, preset.value)}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
                 {preset.label} · {formatPercent(preset.value)}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
-      <View style={styles.inputShell}>
+      <View style={styles.fieldShell}>
         <TextInput
-          style={[styles.input, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+          style={[styles.fieldInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
           value={draft}
           onChangeText={setDraft}
           onBlur={commit}
@@ -226,9 +249,102 @@ function ReturnPresetField({
           returnKeyType="done"
           {...(Platform.OS === 'web' ? { inputMode: 'decimal' } : null)}
         />
-        <Text style={styles.inputAffix}>% p.a.</Text>
+        <Text style={styles.fieldAffix}>% p.a.</Text>
       </View>
     </View>
+  );
+}
+
+function JourneyLineChart({
+  data,
+  data2,
+  colors,
+  chartWidth,
+  compact,
+  labels,
+  pointerHeight,
+  primaryLabel,
+  secondaryLabel,
+}: JourneyLineChartProps) {
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const spacing = useMemo(() => spacingFor(chartWidth, data.length), [chartWidth, data.length]);
+
+  return (
+    <LineChart
+      data={data}
+      data2={data2}
+      width={chartWidth}
+      parentWidth={chartWidth}
+      adjustToWidth
+      disableScroll
+      bounces={false}
+      height={compact ? 220 : 236}
+      curved
+      isAnimated
+      hideDataPoints
+      color1={data2 ? colors.textTertiary : colors.primary}
+      color2={colors.primary}
+      thickness1={data2 ? 2.5 : 3}
+      thickness2={3}
+      yAxisLabelWidth={56}
+      noOfSections={4}
+      spacing={spacing}
+      initialSpacing={10}
+      endSpacing={10}
+      xAxisLabelTexts={labels}
+      xAxisLabelTextStyle={styles.chartAxisText}
+      yAxisTextStyle={styles.chartAxisText}
+      xAxisLabelsHeight={24}
+      labelsExtraHeight={36}
+      xAxisLabelsVerticalShift={8}
+      xAxisColor={colors.borderLight}
+      yAxisColor="transparent"
+      hideRules={false}
+      rulesColor={colors.borderLight}
+      formatYLabel={(value) => formatAxisValue(Number(value))}
+      pointerConfig={{
+        showPointerStrip: true,
+        pointerStripHeight: pointerHeight,
+        pointerStripWidth: 1,
+        pointerStripColor: `${colors.textTertiary}88`,
+        pointerColor: colors.primary,
+        radius: 4,
+        pointerLabelWidth: data2 ? 152 : 144,
+        pointerLabelHeight: data2 ? 56 : 40,
+        activatePointersOnLongPress: true,
+        autoAdjustPointerLabelPosition: true,
+        pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+          const first = data[pointerIndex];
+          const second = data2?.[pointerIndex];
+          if (!first) return null;
+
+          return (
+            <View style={styles.pointerLabel}>
+              <Text style={styles.pointerDate}>{first.label}</Text>
+              {data2 ? (
+                <>
+                  <Text style={styles.pointerSeriesText}>
+                    <Text style={{ color: colors.textTertiary }}>● </Text>
+                    {primaryLabel}: {formatCurrency(first.value)}
+                  </Text>
+                  {second ? (
+                    <Text style={styles.pointerSeriesText}>
+                      <Text style={{ color: colors.primary }}>● </Text>
+                      {secondaryLabel}: {formatCurrency(second.value)}
+                    </Text>
+                  ) : null}
+                </>
+              ) : (
+                <Text style={styles.pointerSeriesText}>
+                  <Text style={{ color: colors.primary }}>● </Text>
+                  {primaryLabel}: {formatCurrency(first.value)}
+                </Text>
+              )}
+            </View>
+          );
+        },
+      }}
+    />
   );
 }
 
@@ -241,6 +357,10 @@ export default function WealthJourneyScreen() {
   const userId = session?.user.id;
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [screenMode, setScreenMode] = useState<ScreenMode>('summary');
+  const [resultsView, setResultsView] = useState<ResultsView>('growth');
+  const [sipEditorMode, setSipEditorMode] = useState<SipEditorMode>(null);
+  const [sipDraft, setSipDraft] = useState('');
 
   const { wealthJourney, updateWealthJourney } = useAppStore();
 
@@ -296,9 +416,9 @@ export default function WealthJourneyScreen() {
   useEffect(() => {
     const patch: Record<string, number | WealthJourneyReturnPreset> = {};
     if (wealthJourney.expectedReturn == null) {
-      patch.expectedReturn = returnProfile.presets.find(
-        (preset) => preset.key === returnProfile.defaultPresetKey,
-      )?.value ?? 10;
+      patch.expectedReturn =
+        returnProfile.presets.find((preset) => preset.key === returnProfile.defaultPresetKey)?.value ??
+        10;
     }
     if (wealthJourney.expectedReturnPreset == null) {
       patch.expectedReturnPreset = returnProfile.defaultPresetKey;
@@ -320,10 +440,9 @@ export default function WealthJourneyScreen() {
   ]);
 
   const currentSip = wealthJourney.currentSipOverride ?? detectedSip ?? 0;
-  const monthlySipIncrease = wealthJourney.monthlySipIncrease;
   const futureSipTarget =
     wealthJourney.futureSipTarget ??
-    clamp(currentSip + monthlySipIncrease, 0, 25_00_000);
+    clamp(currentSip + wealthJourney.monthlySipIncrease, 0, MAX_SIP);
   const adjustedSip = futureSipTarget;
   const additionalTopUp = wealthJourney.additionalTopUp;
   const yearsToRetirement = wealthJourney.yearsToRetirement;
@@ -339,7 +458,7 @@ export default function WealthJourneyScreen() {
   useEffect(() => {
     if (wealthJourney.futureSipTarget == null && wealthJourney.monthlySipIncrease !== 0) {
       updateWealthJourney({
-        futureSipTarget: clamp(currentSip + wealthJourney.monthlySipIncrease, 0, 25_00_000),
+        futureSipTarget: clamp(currentSip + wealthJourney.monthlySipIncrease, 0, MAX_SIP),
         monthlySipIncrease: 0,
       });
     }
@@ -367,7 +486,6 @@ export default function WealthJourneyScreen() {
     [additionalTopUp, adjustedSip, currentCorpus, expectedReturn, yearsToRetirement],
   );
 
-  const milestones = useMemo(() => getMilestones(adjustedPoints), [adjustedPoints]);
   const projectedCorpus = adjustedPoints[adjustedPoints.length - 1]?.value ?? currentCorpus;
   const baselineCorpus = baselinePoints[baselinePoints.length - 1]?.value ?? currentCorpus;
   const planDelta = projectedCorpus - baselineCorpus;
@@ -376,7 +494,7 @@ export default function WealthJourneyScreen() {
     FIXED_INFLATION_RATE,
     yearsToRetirement,
   );
-  const retirementProjection = useMemo(
+  const withdrawalProjection = useMemo(
     () =>
       projectRetirementIncome(
         projectedCorpus,
@@ -384,7 +502,7 @@ export default function WealthJourneyScreen() {
         retirementDurationYears,
         postRetirementReturn,
       ),
-    [projectedCorpus, withdrawalRate, retirementDurationYears, postRetirementReturn],
+    [postRetirementReturn, projectedCorpus, retirementDurationYears, withdrawalRate],
   );
 
   const scenarioChanged =
@@ -394,33 +512,50 @@ export default function WealthJourneyScreen() {
     wealthJourney.hasSavedPlan;
 
   const screenWidth = Math.max(320, viewportWidth || 360);
-  const chartOuterWidth = screenWidth - Spacing.md * 2;
-  const isCompactChart = screenWidth <= MOBILE_CHART_BREAKPOINT;
-  const chartWidth = chartOuterWidth - (isCompactChart ? 96 : 88);
-  const chartPlotWidth = chartWidth - 72;
-  const accumulationYears = useMemo(
-    () => buildCheckpointYears(yearsToRetirement, isCompactChart),
-    [yearsToRetirement, isCompactChart],
+  const compact = screenWidth <= 430;
+  const chartWidth = Math.max(250, screenWidth - Spacing.md * 4 - 8);
+
+  const visibleGrowthYears = useMemo(() => buildVisibleYears(yearsToRetirement), [yearsToRetirement]);
+  const baselineChartData = useMemo(
+    () =>
+      visibleGrowthYears.map((year) => ({
+        value:
+          year === 0
+            ? currentCorpus
+            : baselinePoints.find((point) => point.year === year)?.value ?? currentCorpus,
+        label: formatCheckpointLabel(year, 'Now'),
+      })),
+    [baselinePoints, currentCorpus, visibleGrowthYears],
   );
-  const baselineChartData = accumulationYears.map((year) => ({
-    value:
-      year === 0
-        ? currentCorpus
-        : baselinePoints.find((point) => point.year === year)?.value ?? currentCorpus,
-    label: formatCheckpointLabel(year, 'Now'),
-  }));
-  const adjustedChartData = accumulationYears.map((year) => ({
-    value:
-      year === 0
-        ? currentCorpus
-        : adjustedPoints.find((point) => point.year === year)?.value ?? currentCorpus,
-    label: formatCheckpointLabel(year, 'Now'),
-  }));
-  const accumulationChartSpacing = Math.max(
-    isCompactChart ? 30 : 18,
-    Math.floor(chartPlotWidth / Math.max(adjustedChartData.length - 1, 1)),
+  const adjustedChartData = useMemo(
+    () =>
+      visibleGrowthYears.map((year) => ({
+        value:
+          year === 0
+            ? currentCorpus
+            : adjustedPoints.find((point) => point.year === year)?.value ?? currentCorpus,
+        label: formatCheckpointLabel(year, 'Now'),
+      })),
+    [adjustedPoints, currentCorpus, visibleGrowthYears],
   );
-  const accumulationXAxisLabels = baselineChartData.map((point) => point.label);
+
+  const visibleWithdrawalYears = useMemo(
+    () => buildVisibleYears(retirementDurationYears),
+    [retirementDurationYears],
+  );
+  const withdrawalChartData = useMemo(
+    () =>
+      visibleWithdrawalYears.map((year) => ({
+        value: withdrawalProjection.trajectory.find((point) => point.year === year)?.value ?? 0,
+        label: formatCheckpointLabel(year, 'Start'),
+      })),
+    [visibleWithdrawalYears, withdrawalProjection.trajectory],
+  );
+
+  const displayedMilestones = useMemo(() => {
+    const milestones = getMilestones(adjustedPoints);
+    return milestones.slice(0, 3);
+  }, [adjustedPoints]);
 
   const currentSipChips = useMemo<ChoiceChip[]>(
     () => buildSipPresetChips(detectedSip > 0 ? detectedSip : currentSip || 100000),
@@ -430,20 +565,25 @@ export default function WealthJourneyScreen() {
     () => buildSipTargetChips(currentSip || 100000),
     [currentSip],
   );
-  const drawdownYears = useMemo(
-    () => buildCheckpointYears(retirementDurationYears, isCompactChart),
-    [retirementDurationYears, isCompactChart],
-  );
-  const drawdownChartData = drawdownYears.map((year) => ({
-    value: retirementProjection.trajectory.find((point) => point.year === year)?.value ?? 0,
-    label: formatCheckpointLabel(year, 'Start'),
-  }));
-  const drawdownChartSpacing = Math.max(
-    isCompactChart ? 30 : 18,
-    Math.floor(chartPlotWidth / Math.max(drawdownChartData.length - 1, 1)),
-  );
-  const drawdownXAxisLabels = drawdownChartData.map((point) => point.label);
-  const hideChartDataPoints = true;
+
+  const openSipReview = useCallback(() => {
+    setSipDraft(String(currentSip || detectedSip || 0));
+    setSipEditorMode('review');
+  }, [currentSip, detectedSip]);
+
+  const closeSipReview = useCallback(() => {
+    setSipEditorMode(null);
+  }, []);
+
+  const saveSipDraft = useCallback(() => {
+    const numeric = parseFloat(sipDraft.replace(/[^0-9.]/g, ''));
+    if (!Number.isNaN(numeric)) {
+      updateWealthJourney({
+        currentSipOverride: clamp(Math.round(numeric), 0, MAX_SIP),
+      });
+      setSipEditorMode(null);
+    }
+  }, [sipDraft, updateWealthJourney]);
 
   async function handleSync() {
     if (!profile?.kfintech_email) {
@@ -466,6 +606,11 @@ export default function WealthJourneyScreen() {
     [updateWealthJourney],
   );
 
+  const growthBadgeLabel =
+    wealthJourney.expectedReturnPreset === 'custom'
+      ? `Custom ${formatPercent(expectedReturn)}`
+      : `${returnProfile.suggestedLabel} ${formatPercent(expectedReturn)}`;
+
   return (
     <SafeAreaView style={styles.container}>
       <PrimaryShellHeader
@@ -484,413 +629,482 @@ export default function WealthJourneyScreen() {
         onSettings={() => router.push('/(tabs)/settings')}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>Wealth Journey</Text>
-          <Text style={styles.subtitle}>
-            See how small changes to your plan affect your future corpus and withdrawal
-            income.
-          </Text>
-        </View>
-
-        {portfolioLoading ? (
-          <View style={[styles.card, styles.loadingCard]}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.loadingText}>Reading your portfolio and recent SIP pattern…</Text>
-          </View>
-        ) : (
-          <View style={styles.contextCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Your portfolio today</Text>
-              <Text style={styles.sectionCaption}>Pre-filled from your current holdings.</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {screenMode === 'summary' ? (
+          <>
+            <View style={styles.titleBlock}>
+              <Text style={styles.title}>Wealth Journey</Text>
+              <Text style={styles.subtitle}>Plan today. See your future with clarity.</Text>
             </View>
-            <View style={styles.contextStats}>
-              <View style={styles.contextStat}>
-                <Text style={styles.contextValue}>{formatCurrency(currentCorpus)}</Text>
-                <Text style={styles.contextLabel}>Current corpus</Text>
+
+            {portfolioLoading ? (
+              <View style={[styles.card, styles.loadingCard]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.loadingText}>Reading your portfolio and recent SIP pattern…</Text>
               </View>
-              <View style={styles.contextStat}>
-                <Text style={styles.contextValue}>{formatCurrency(currentSip)}/mo</Text>
-                <Text style={styles.contextLabel}>Detected monthly SIP</Text>
+            ) : (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryCardHeader}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Your portfolio today</Text>
+                    <Text style={styles.sectionCaption}>
+                      Started from your current portfolio. You can edit assumptions anytime.
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.ghostButton} onPress={openSipReview}>
+                    <Text style={styles.ghostButtonText}>Edit</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.contextStats}>
+                  <View style={styles.contextStat}>
+                    <Text style={styles.contextValue}>{formatCurrency(currentCorpus)}</Text>
+                    <Text style={styles.contextLabel}>Corpus</Text>
+                  </View>
+                  <View style={styles.contextStat}>
+                    <Text style={styles.contextValue}>{formatCurrency(currentSip)}/mo</Text>
+                    <Text style={styles.contextLabel}>Monthly SIP used</Text>
+                  </View>
+                  <View style={styles.contextStat}>
+                    <Text style={[styles.contextValue, { color: colors.positive }]}>
+                      {Number.isFinite(summary?.xirr)
+                        ? `${(summary!.xirr * 100).toFixed(1)}%`
+                        : formatPercent(expectedReturn)}
+                    </Text>
+                    <Text style={styles.contextLabel}>XIRR</Text>
+                  </View>
+                </View>
+
+                <View style={styles.noteRow}>
+                  <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
+                  <Text style={styles.noteText}>
+                    {wealthJourney.currentSipOverride != null
+                      ? `Detected ${formatCurrency(detectedSip)}/mo from recurring buys in the last 6 months — using your override.`
+                      : 'Detected from recurring buys in the last 6 months.'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity style={styles.inlineLink} onPress={openSipReview}>
+                  <Text style={styles.inlineLinkText}>Review / edit</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.contextStat}>
-                <Text style={[styles.contextValue, { color: colors.positive }]}>
-                  {Number.isFinite(summary?.xirr) ? `${(summary!.xirr * 100).toFixed(1)}%` : formatPercent(expectedReturn)}
+            )}
+
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Your plan at a glance</Text>
+                <Text style={styles.sectionCaption}>
+                  Switch between future corpus and withdrawal income.
                 </Text>
-                <Text style={styles.contextLabel}>Current XIRR</Text>
               </View>
-            </View>
-            <View style={styles.noteRow}>
-              <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
-              <Text style={styles.noteText}>
-                {wealthJourney.currentSipOverride != null
-                  ? `Detected ${formatCurrency(detectedSip)}/mo from recurring buys across the last 6 months — using your override.`
-                  : 'Detected from recurring buys across the last 6 months.'}
-              </Text>
-            </View>
-            <ValueField
-              label="Current monthly SIP"
-              helperText="Fix the system's estimate here. This does not change your future plan yet."
-              value={currentSip}
-              onChange={(value) =>
-                updateWealthJourney({
-                  currentSipOverride: clamp(Math.round(value), 0, 25_00_000),
-                })
-              }
-              prefix="₹"
-              chips={currentSipChips}
-            />
-            {wealthJourney.currentSipOverride != null ? (
-              <TouchableOpacity
-                style={styles.resetButton}
-                onPress={() => updateWealthJourney({ currentSipOverride: null })}
-              >
-                <Text style={styles.resetButtonText}>Reset to detected SIP</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        )}
 
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Adjust your plan</Text>
-            <Text style={styles.sectionCaption}>
-              Use quick presets or type your own numbers.
-            </Text>
-          </View>
-
-          <View style={styles.planCompareCard}>
-            <View style={styles.planCompareItem}>
-              <Text style={styles.planCompareLabel}>Current plan</Text>
-              <Text style={styles.planCompareValue}>{formatCurrency(currentSip)}/mo</Text>
-            </View>
-            <View style={styles.planCompareDivider} />
-            <View style={styles.planCompareItem}>
-              <Text style={styles.planCompareLabel}>Going forward</Text>
-              <Text style={styles.planCompareValue}>{formatCurrency(adjustedSip)}/mo</Text>
-            </View>
-          </View>
-
-          <ValueField
-            label="Monthly SIP going forward"
-            helperText="Set the SIP you want from now on. This can be lower, higher, or zero."
-            value={adjustedSip}
-            onChange={(value) =>
-              markSaved({ futureSipTarget: clamp(Math.round(value), 0, 25_00_000) })
-            }
-            prefix="₹"
-            chips={futureSipChips}
-          />
-
-          <ValueField
-            label="Additional top-up"
-            helperText="Extra money you plan to add now."
-            value={additionalTopUp}
-            onChange={(value) => markSaved({ additionalTopUp: clamp(Math.round(value), 0, 10_00_00_000) })}
-            prefix="₹"
-            chips={[
-              { label: '₹0', value: 0 },
-              { label: '₹5L', value: 5_00_000 },
-              { label: '₹10L', value: 10_00_000 },
-              { label: '₹25L', value: 25_00_000 },
-            ]}
-          />
-
-          <ValueField
-            label="Saving period"
-            helperText="How long you'll keep investing before withdrawals begin."
-            value={yearsToRetirement}
-            onChange={(value) => markSaved({ yearsToRetirement: clamp(Math.round(value), 1, 40) })}
-            suffix="years"
-            chips={[
-              { label: '10Y', value: 10 },
-              { label: '15Y', value: 15 },
-              { label: '20Y', value: 20 },
-              { label: '25Y', value: 25 },
-            ]}
-          />
-
-          <ReturnPresetField
-            presets={returnProfile.presets}
-            selectedPreset={wealthJourney.expectedReturnPreset}
-            value={expectedReturn}
-            onPresetChange={(presetKey, value) =>
-              markSaved({ expectedReturn: value, expectedReturnPreset: presetKey })
-            }
-            onCustomChange={(value) =>
-              markSaved({
-                expectedReturn: clamp(Number(value.toFixed(1)), 4, 18),
-                expectedReturnPreset: 'custom',
-              })
-            }
-          />
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Projected wealth</Text>
-            <Text style={styles.sectionCaption}>
-              Both lines start from your current portfolio value today.
-            </Text>
-          </View>
-
-          <Text style={styles.outcomeValue}>{formatCurrency(projectedCorpus)}</Text>
-          <Text style={styles.outcomeSubtle}>
-            {scenarioChanged
-              ? `${planDelta >= 0 ? '+' : '-'}${formatCurrency(Math.abs(planDelta))} vs keeping your current plan for ${yearsToRetirement} years`
-              : `Based on your current corpus and ${formatCurrency(currentSip)}/month`}
-          </Text>
-
-          <View style={styles.noteRow}>
-            <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
-            <Text style={styles.noteText}>
-              Nominal, pre-tax. At {FIXED_INFLATION_RATE}% inflation, {formatCurrency(projectedCorpus)} in{' '}
-              {yearsToRetirement}y ≈ {formatCurrency(presentValueToday)} today.
-            </Text>
-          </View>
-
-          <View style={styles.milestonesGrid}>
-            {milestones.map((milestone) => (
-              <View key={milestone.year} style={styles.milestoneItem}>
-                <Text style={styles.milestoneYear}>{milestone.year}Y</Text>
-                <Text style={styles.milestoneValue}>{formatCurrency(milestone.value)}</Text>
+              <View style={styles.segmentedControl}>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentedButton,
+                    resultsView === 'growth' && styles.segmentedButtonActive,
+                  ]}
+                  onPress={() => setResultsView('growth')}
+                >
+                  <Text
+                    style={[
+                      styles.segmentedText,
+                      resultsView === 'growth' && styles.segmentedTextActive,
+                    ]}
+                  >
+                    Wealth growth
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentedButton,
+                    resultsView === 'withdrawal' && styles.segmentedButtonActive,
+                  ]}
+                  onPress={() => setResultsView('withdrawal')}
+                >
+                  <Text
+                    style={[
+                      styles.segmentedText,
+                      resultsView === 'withdrawal' && styles.segmentedTextActive,
+                    ]}
+                  >
+                    Withdrawal income
+                  </Text>
+                </TouchableOpacity>
               </View>
-            ))}
-          </View>
 
-          <View style={styles.chartWrap}>
-            <LineChart
-              data={baselineChartData}
-              data2={adjustedChartData}
-              width={chartWidth}
-              parentWidth={chartWidth}
-              adjustToWidth={isCompactChart}
-              disableScroll={isCompactChart}
-              bounces={false}
-              height={208}
-              curved
-              isAnimated
-              hideDataPoints={hideChartDataPoints}
-              color1={colors.textTertiary}
-              color2={colors.primary}
-              dataPointsColor1={colors.textTertiary}
-              dataPointsColor2={colors.primary}
-              thickness1={2.5}
-              thickness2={3}
-              yAxisLabelWidth={56}
-              noOfSections={4}
-              spacing={accumulationChartSpacing}
-              initialSpacing={isCompactChart ? 8 : 0}
-              endSpacing={isCompactChart ? 8 : 0}
-              xAxisLabelTexts={accumulationXAxisLabels}
-              xAxisLabelTextStyle={styles.chartAxisText}
-              yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={isCompactChart ? 20 : 24}
-              labelsExtraHeight={isCompactChart ? 34 : 40}
-              xAxisLabelsVerticalShift={isCompactChart ? 4 : 8}
-              xAxisColor={colors.borderLight}
-              yAxisColor="transparent"
-              hideRules={false}
-              rulesColor={colors.borderLight}
-              formatYLabel={(value) => formatAxisValue(Number(value))}
-              pointerConfig={{
-                showPointerStrip: true,
-                pointerStripHeight: 236,
-                pointerStripWidth: 1,
-                pointerStripColor: colors.textTertiary + '88',
-                pointerColor: colors.primary,
-                radius: 5,
-                pointerLabelWidth: 150,
-                pointerLabelHeight: 54,
-                activatePointersOnLongPress: true,
-                autoAdjustPointerLabelPosition: true,
-                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                  const baselinePoint = baselineChartData[pointerIndex];
-                  const adjustedPoint = adjustedChartData[pointerIndex];
-                  const horizonLabel = baselinePoint?.label ?? `Year ${pointerIndex}`;
-
-                  return (
-                    <View style={styles.pointerLabel}>
-                      <Text style={styles.pointerDate}>{horizonLabel}</Text>
-                      {baselinePoint ? (
-                        <Text style={styles.pointerSeriesText}>
-                          <Text style={{ color: colors.textTertiary }}>● </Text>
-                          Current: {formatCurrency(baselinePoint.value)}
-                        </Text>
-                      ) : null}
-                      {adjustedPoint ? (
-                        <Text style={styles.pointerSeriesText}>
-                          <Text style={{ color: colors.primary }}>● </Text>
-                          Adjusted: {formatCurrency(adjustedPoint.value)}
-                        </Text>
-                      ) : null}
+              {resultsView === 'growth' ? (
+                <View style={styles.resultsStack}>
+                  <View style={styles.resultSummaryHeader}>
+                    <View>
+                      <Text style={styles.resultLabel}>Projected corpus</Text>
+                      <Text style={styles.resultSubtle}>In {yearsToRetirement} years</Text>
                     </View>
-                  );
-                },
-              }}
-            />
-            <View style={styles.chartLegend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.textTertiary }]} />
-                <Text style={styles.legendText}>Current plan</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-                <Text style={styles.legendText}>Adjusted plan</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{growthBadgeLabel}</Text>
+                    </View>
+                  </View>
 
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Withdrawal income</Text>
-            <Text style={styles.sectionCaption}>
-              Turn your projected corpus into a simple withdrawal scenario.
-            </Text>
-          </View>
+                  <Text style={styles.outcomeValue}>{formatCurrency(projectedCorpus)}</Text>
+                  <Text style={styles.outcomeSubtle}>
+                    {scenarioChanged
+                      ? `${planDelta >= 0 ? '+' : '-'}${formatCurrency(Math.abs(planDelta))} vs your current plan`
+                      : `Based on your current corpus and ${formatCurrency(currentSip)}/month`}
+                  </Text>
 
-          <Text style={styles.outcomeValue}>{formatCurrency(retirementProjection.monthlyIncome)}/mo</Text>
-          <Text style={styles.outcomeSubtle}>
-            {retirementProjection.riskLabel} withdrawal pace · {formatPercent(withdrawalRate)} withdrawal rate
-          </Text>
+                  <View style={styles.noteRow}>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color={colors.textTertiary}
+                    />
+                    <Text style={styles.noteText}>
+                      Nominal, pre-tax. At {FIXED_INFLATION_RATE}% inflation,{' '}
+                      {formatCurrency(projectedCorpus)} in {yearsToRetirement}y ≈{' '}
+                      {formatCurrency(presentValueToday)} today.
+                    </Text>
+                  </View>
 
-          <ValueField
-            label="Withdrawal duration"
-            helperText="How long should withdrawals last?"
-            value={retirementDurationYears}
-            onChange={(value) =>
-              markSaved({ retirementDurationYears: clamp(Math.round(value), 5, 40) })
-            }
-            suffix="years"
-            chips={[
-              { label: '20Y', value: 20 },
-              { label: '25Y', value: 25 },
-              { label: '30Y', value: 30 },
-            ]}
-          />
+                  <View style={styles.chartWrap}>
+                    <JourneyLineChart
+                      data={baselineChartData}
+                      data2={adjustedChartData}
+                      colors={colors}
+                      chartWidth={chartWidth}
+                      compact={compact}
+                      labels={baselineChartData.map((point) => point.label)}
+                      pointerHeight={236}
+                      primaryLabel="Current"
+                      secondaryLabel="Adjusted"
+                    />
+                    <View style={styles.chartLegend}>
+                      <View style={styles.legendItem}>
+                        <View
+                          style={[styles.legendLine, { backgroundColor: colors.textTertiary }]}
+                        />
+                        <Text style={styles.legendText}>Current plan</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <View style={[styles.legendLine, { backgroundColor: colors.primary }]} />
+                        <Text style={styles.legendText}>Adjusted plan</Text>
+                      </View>
+                    </View>
+                  </View>
 
-          <ValueField
-            label="Withdrawal rate"
-            helperText="Annual withdrawal as a percentage of the starting corpus."
-            value={withdrawalRate}
-            onChange={(value) =>
-              markSaved({ withdrawalRate: clamp(Number(value.toFixed(1)), 2, 8) })
-            }
-            suffix="%"
-            chips={[
-              { label: '3%', value: 3 },
-              { label: '4%', value: 4 },
-              { label: '5%', value: 5 },
-            ]}
-          />
-
-          <ValueField
-            label="Post-withdrawal return"
-            helperText="Use a more conservative rate during withdrawals."
-            value={postRetirementReturn}
-            onChange={(value) =>
-              markSaved({ postRetirementReturn: clamp(Number(value.toFixed(1)), 3, 12) })
-            }
-            suffix="% p.a."
-            chips={[
-              { label: '5%', value: 5 },
-              { label: '6%', value: 6 },
-              { label: '7%', value: 7 },
-            ]}
-          />
-
-          <View style={styles.retirementSummaryRow}>
-            <View style={styles.retirementSummaryItem}>
-              <Text style={styles.retirementSummaryLabel}>Corpus at start</Text>
-              <Text style={styles.retirementSummaryValue}>
-                {formatCurrency(retirementProjection.retirementCorpus)}
-              </Text>
-            </View>
-            <View style={styles.retirementSummaryItem}>
-              <Text style={styles.retirementSummaryLabel}>Residual corpus</Text>
-              <Text style={styles.retirementSummaryValue}>
-                {formatCurrency(retirementProjection.endCorpus)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.noteRow}>
-            <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
-            <Text style={styles.noteText}>
-              {retirementProjection.depletionYear == null
-                ? `This path leaves ${formatCurrency(retirementProjection.endCorpus)} after ${retirementDurationYears} years.`
-                : `At this pace the corpus runs out around year ${retirementProjection.depletionYear}.`}
-            </Text>
-          </View>
-          <View style={styles.drawdownChartWrap}>
-            <Text style={styles.drawdownTitle}>Drawdown path</Text>
-            <LineChart
-              data={drawdownChartData}
-              width={chartWidth}
-              parentWidth={chartWidth}
-              adjustToWidth={isCompactChart}
-              disableScroll={isCompactChart}
-              bounces={false}
-              height={176}
-              curved
-              isAnimated
-              hideDataPoints={hideChartDataPoints}
-              color1={colors.primary}
-              dataPointsColor1={colors.primary}
-              thickness1={3}
-              yAxisLabelWidth={56}
-              noOfSections={4}
-              spacing={drawdownChartSpacing}
-              initialSpacing={isCompactChart ? 8 : 0}
-              endSpacing={isCompactChart ? 8 : 0}
-              xAxisLabelTexts={drawdownXAxisLabels}
-              xAxisLabelTextStyle={styles.chartAxisText}
-              yAxisTextStyle={styles.chartAxisText}
-              xAxisLabelsHeight={isCompactChart ? 20 : 24}
-              labelsExtraHeight={isCompactChart ? 34 : 40}
-              xAxisLabelsVerticalShift={isCompactChart ? 4 : 8}
-              xAxisColor={colors.borderLight}
-              yAxisColor="transparent"
-              hideRules={false}
-              rulesColor={colors.borderLight}
-              formatYLabel={(value) => formatAxisValue(Number(value))}
-              pointerConfig={{
-                showPointerStrip: true,
-                pointerStripHeight: 204,
-                pointerStripWidth: 1,
-                pointerStripColor: colors.textTertiary + '88',
-                pointerColor: colors.primary,
-                radius: 5,
-                pointerLabelWidth: 144,
-                pointerLabelHeight: 40,
-                activatePointersOnLongPress: true,
-                autoAdjustPointerLabelPosition: true,
-                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                  const point = drawdownChartData[pointerIndex];
-                  if (!point) return null;
-                  const horizonLabel = point.label ?? `Year ${pointerIndex}`;
-
-                  return (
-                    <View style={styles.pointerLabel}>
-                      <Text style={styles.pointerDate}>{horizonLabel}</Text>
-                      <Text style={styles.pointerSeriesText}>
-                        <Text style={{ color: colors.primary }}>● </Text>
-                        Corpus: {formatCurrency(point.value)}
+                  <View style={styles.milestonesGrid}>
+                    {displayedMilestones.map((milestone) => (
+                      <View key={milestone.year} style={styles.milestoneItem}>
+                        <Text style={styles.milestoneYear}>{milestone.year}Y</Text>
+                        <Text style={styles.milestoneValue}>{formatCurrency(milestone.value)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.resultsStack}>
+                  <View style={styles.resultsTopStats}>
+                    <View style={styles.resultTopStat}>
+                      <Text style={styles.resultLabel}>Monthly income</Text>
+                      <Text style={styles.resultTopValue}>
+                        {formatCurrency(withdrawalProjection.monthlyIncome)}/mo
+                      </Text>
+                      <Text style={styles.resultSubtle}>
+                        {formatPercent(withdrawalRate)} withdrawal rate
                       </Text>
                     </View>
-                  );
-                },
-              }}
-            />
-          </View>
-        </View>
+                    <View style={styles.resultTopStat}>
+                      <Text style={styles.resultLabel}>Lasts for</Text>
+                      <Text style={styles.resultTopValue}>{retirementDurationYears} years</Text>
+                      <Text style={styles.resultSubtle}>
+                        At {formatPercent(postRetirementReturn)} post-withdrawal return
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.retirementSummaryRow}>
+                    <View style={styles.retirementSummaryItem}>
+                      <Text style={styles.retirementSummaryLabel}>Corpus at start</Text>
+                      <Text style={styles.retirementSummaryValue}>
+                        {formatCurrency(withdrawalProjection.retirementCorpus)}
+                      </Text>
+                    </View>
+                    <View style={styles.retirementSummaryItem}>
+                      <Text style={styles.retirementSummaryLabel}>Residual corpus</Text>
+                      <Text style={styles.retirementSummaryValue}>
+                        {formatCurrency(withdrawalProjection.endCorpus)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.drawdownChartWrap}>
+                    <Text style={styles.drawdownTitle}>Withdrawal path</Text>
+                    <JourneyLineChart
+                      data={withdrawalChartData}
+                      colors={colors}
+                      chartWidth={chartWidth}
+                      compact={compact}
+                      labels={withdrawalChartData.map((point) => point.label)}
+                      pointerHeight={208}
+                      primaryLabel="Corpus"
+                    />
+                  </View>
+
+                  <View style={styles.noteRow}>
+                    <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+                    <Text style={styles.noteText}>
+                      {withdrawalProjection.depletionYear == null
+                        ? `This path leaves ${formatCurrency(withdrawalProjection.endCorpus)} after ${retirementDurationYears} years.`
+                        : `At this pace the corpus runs out around year ${withdrawalProjection.depletionYear}.`}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity style={styles.primaryCta} onPress={() => setScreenMode('adjust')}>
+              <Text style={styles.primaryCtaText}>Adjust your plan</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <View style={styles.editHeader}>
+              <TouchableOpacity style={styles.backButton} onPress={() => setScreenMode('summary')}>
+                <Ionicons name="arrow-back" size={18} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <View style={styles.editHeaderCopy}>
+                <Text style={styles.editTitle}>Adjust your plan</Text>
+                <Text style={styles.editSubtitle}>Build your plan using simple inputs.</Text>
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.groupEyebrow}>1. Investment plan</Text>
+
+              <View style={styles.planCompareCard}>
+                <View style={styles.planCompareItem}>
+                  <Text style={styles.planCompareLabel}>Current plan</Text>
+                  <Text style={styles.planCompareValue}>{formatCurrency(currentSip)}/mo</Text>
+                </View>
+                <View style={styles.planCompareDivider} />
+                <View style={styles.planCompareItem}>
+                  <Text style={styles.planCompareLabel}>Going forward</Text>
+                  <Text style={styles.planCompareValue}>{formatCurrency(adjustedSip)}/mo</Text>
+                </View>
+              </View>
+
+              <ValueField
+                label="Monthly SIP (going forward)"
+                helperText="Choose the SIP you want from now on. You can reduce it, stop it, or increase it."
+                value={adjustedSip}
+                onChange={(value) =>
+                  markSaved({ futureSipTarget: clamp(Math.round(value), 0, MAX_SIP) })
+                }
+                prefix="₹"
+                chips={futureSipChips}
+              />
+
+              <ValueField
+                label="Additional top-up"
+                helperText="One-time or periodic extra money you plan to add now."
+                value={additionalTopUp}
+                onChange={(value) =>
+                  markSaved({ additionalTopUp: clamp(Math.round(value), 0, MAX_TOP_UP) })
+                }
+                prefix="₹"
+                chips={[
+                  { label: '₹0', value: 0 },
+                  { label: '₹5L', value: 5_00_000 },
+                  { label: '₹10L', value: 10_00_000 },
+                  { label: '₹25L', value: 25_00_000 },
+                ]}
+              />
+
+              <ValueField
+                label="Saving period"
+                helperText="How long you'll keep investing before withdrawals begin."
+                value={yearsToRetirement}
+                onChange={(value) =>
+                  markSaved({ yearsToRetirement: clamp(Math.round(value), 1, 40) })
+                }
+                suffix="years"
+                chips={[
+                  { label: '10Y', value: 10 },
+                  { label: '15Y', value: 15 },
+                  { label: '20Y', value: 20 },
+                  { label: '25Y', value: 25 },
+                ]}
+              />
+
+              <ReturnPresetField
+                presets={returnProfile.presets}
+                selectedPreset={wealthJourney.expectedReturnPreset}
+                value={expectedReturn}
+                onPresetChange={(presetKey, value) =>
+                  markSaved({ expectedReturn: value, expectedReturnPreset: presetKey })
+                }
+                onCustomChange={(value) =>
+                  markSaved({
+                    expectedReturn: clamp(Number(value.toFixed(1)), 4, 18),
+                    expectedReturnPreset: 'custom',
+                  })
+                }
+              />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.groupEyebrow}>2. Withdrawal plan (future)</Text>
+
+              <ValueField
+                label="Withdrawal rate"
+                helperText="Annual withdrawals as a percentage of the starting corpus."
+                value={withdrawalRate}
+                onChange={(value) =>
+                  markSaved({ withdrawalRate: clamp(Number(value.toFixed(1)), 2, 8) })
+                }
+                suffix="%"
+                chips={[
+                  { label: '3%', value: 3 },
+                  { label: '4%', value: 4 },
+                  { label: '5%', value: 5 },
+                ]}
+              />
+
+              <ValueField
+                label="Post-withdrawal return"
+                helperText="Use a more conservative rate during withdrawals."
+                value={postRetirementReturn}
+                onChange={(value) =>
+                  markSaved({ postRetirementReturn: clamp(Number(value.toFixed(1)), 3, 12) })
+                }
+                suffix="% p.a."
+                chips={[
+                  { label: '5%', value: 5 },
+                  { label: '6%', value: 6 },
+                  { label: '7%', value: 7 },
+                ]}
+              />
+
+              <ValueField
+                label="Withdrawal duration"
+                helperText="How long should withdrawals last?"
+                value={retirementDurationYears}
+                onChange={(value) =>
+                  markSaved({ retirementDurationYears: clamp(Math.round(value), 5, 40) })
+                }
+                suffix="years"
+                chips={[
+                  { label: '20Y', value: 20 },
+                  { label: '25Y', value: 25 },
+                  { label: '30Y', value: 30 },
+                ]}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.primaryCta} onPress={() => setScreenMode('summary')}>
+              <Text style={styles.primaryCtaText}>See results</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <View style={styles.bottomPad} />
       </ScrollView>
+
+      <Modal visible={sipEditorMode != null} transparent animationType="fade" onRequestClose={closeSipReview}>
+        <Pressable style={styles.modalBackdrop} onPress={closeSipReview}>
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {sipEditorMode === 'review' ? 'Review detected SIP' : 'Enter monthly SIP'}
+              </Text>
+              <TouchableOpacity onPress={closeSipReview}>
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {sipEditorMode === 'review' ? (
+              <>
+                <Text style={styles.modalBodyText}>
+                  We estimated this from recurring investments in the last 6 months.
+                </Text>
+                <View style={styles.modalSummaryBox}>
+                  <Text style={styles.modalSummaryLabel}>Detected SIP</Text>
+                  <Text style={styles.modalSummaryValue}>{formatCurrency(detectedSip)}/mo</Text>
+                </View>
+                <View style={styles.modalSummaryBox}>
+                  <Text style={styles.modalSummaryLabel}>Used for projections</Text>
+                  <Text style={styles.modalSummaryValue}>{formatCurrency(currentSip)}/mo</Text>
+                </View>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.secondaryCta}
+                    onPress={() => {
+                      updateWealthJourney({ currentSipOverride: null });
+                      setSipEditorMode(null);
+                    }}
+                  >
+                    <Text style={styles.secondaryCtaText}>Use detected SIP</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.primaryCtaInline}
+                    onPress={() => {
+                      setSipDraft(String(currentSip || detectedSip || 0));
+                      setSipEditorMode('manual');
+                    }}
+                  >
+                    <Text style={styles.primaryCtaInlineText}>Enter manually</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalBodyText}>
+                  Set the monthly SIP you want Wealth Journey to use as your current baseline.
+                </Text>
+                <View style={styles.fieldShell}>
+                  <Text style={styles.fieldAffix}>₹</Text>
+                  <TextInput
+                    style={[styles.fieldInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+                    value={sipDraft}
+                    onChangeText={setSipDraft}
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    {...(Platform.OS === 'web' ? { inputMode: 'numeric' } : null)}
+                  />
+                </View>
+                <View style={styles.chipRow}>
+                  {currentSipChips.map((chip) => (
+                    <TouchableOpacity
+                      key={`manual-${chip.label}`}
+                      style={[
+                        styles.choiceChip,
+                        Math.abs(Number(sipDraft || 0) - chip.value) < 0.001 &&
+                          styles.choiceChipActive,
+                      ]}
+                      onPress={() => setSipDraft(String(chip.value))}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceChipText,
+                          Math.abs(Number(sipDraft || 0) - chip.value) < 0.001 &&
+                            styles.choiceChipTextActive,
+                        ]}
+                      >
+                        {chip.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.modalHint}>
+                  This only changes your Wealth Journey estimate. It does not change portfolio data.
+                </Text>
+                <TouchableOpacity style={styles.primaryCtaInlineFull} onPress={saveSipDraft}>
+                  <Text style={styles.primaryCtaInlineText}>Save</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -918,6 +1132,16 @@ function makeStyles(colors: AppColors) {
       color: colors.textSecondary,
       lineHeight: 24,
     },
+    summaryCard: {
+      marginHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      padding: Spacing.md,
+      borderRadius: Radii.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      gap: Spacing.md,
+    },
     card: {
       marginHorizontal: Spacing.md,
       marginTop: Spacing.md,
@@ -928,18 +1152,24 @@ function makeStyles(colors: AppColors) {
       backgroundColor: colors.surface,
       gap: Spacing.md,
     },
-    contextCard: {
-      marginHorizontal: Spacing.md,
-      marginTop: Spacing.md,
-      padding: Spacing.md,
-      borderRadius: Radii.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.primaryLight,
-      gap: Spacing.md,
+    loadingCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    loadingText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+    },
+    summaryCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+      alignItems: 'flex-start',
     },
     sectionHeader: {
       gap: 4,
+      flex: 1,
     },
     sectionTitle: {
       ...Typography.h2,
@@ -950,18 +1180,31 @@ function makeStyles(colors: AppColors) {
       color: colors.textSecondary,
       lineHeight: 20,
     },
+    ghostButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: Radii.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    ghostButtonText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
     contextStats: {
       flexDirection: 'row',
       gap: Spacing.sm,
       flexWrap: 'wrap',
     },
     contextStat: {
-      minWidth: 100,
       flex: 1,
+      minWidth: 92,
       gap: 4,
     },
     contextValue: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '800',
       color: colors.textPrimary,
     },
@@ -980,19 +1223,242 @@ function makeStyles(colors: AppColors) {
       flex: 1,
       lineHeight: 19,
     },
-    resetButton: {
+    inlineLink: {
       alignSelf: 'flex-start',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: Radii.full,
+    },
+    inlineLinkText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    segmentedControl: {
+      flexDirection: 'row',
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      padding: 4,
+      gap: 4,
+    },
+    segmentedButton: {
+      flex: 1,
+      minHeight: 36,
+      borderRadius: Radii.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+    },
+    segmentedButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    segmentedText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    segmentedTextActive: {
+      color: '#fff',
+    },
+    resultsStack: {
+      gap: Spacing.md,
+    },
+    resultSummaryHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+      alignItems: 'flex-start',
+    },
+    resultLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    resultSubtle: {
+      ...Typography.bodySmall,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    badge: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: Radii.sm,
+      backgroundColor: colors.primaryLight,
+    },
+    badgeText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.primary,
+    },
+    outcomeValue: {
+      fontSize: 38,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -1.2,
+    },
+    outcomeSubtle: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      lineHeight: 24,
+    },
+    chartWrap: {
+      overflow: 'hidden',
+      gap: Spacing.sm,
+    },
+    chartAxisText: {
+      fontSize: 11,
+      color: colors.textTertiary,
+    },
+    chartLegend: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: Spacing.lg,
+      marginTop: 4,
+      flexWrap: 'wrap',
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    legendLine: {
+      width: 14,
+      height: 3,
+      borderRadius: 2,
+    },
+    legendText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    milestonesGrid: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+      flexWrap: 'wrap',
+    },
+    milestoneItem: {
+      flex: 1,
+      minWidth: 96,
+      padding: Spacing.md,
+      borderRadius: Radii.md,
+      backgroundColor: colors.primaryLight,
+      gap: 4,
+    },
+    milestoneYear: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    milestoneValue: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    resultsTopStats: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+      flexWrap: 'wrap',
+    },
+    resultTopStat: {
+      flex: 1,
+      minWidth: 120,
+      padding: Spacing.md,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      gap: 4,
+    },
+    resultTopValue: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: colors.primary,
+      letterSpacing: -0.8,
+    },
+    retirementSummaryRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+      flexWrap: 'wrap',
+    },
+    retirementSummaryItem: {
+      flex: 1,
+      minWidth: 120,
+      padding: Spacing.md,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      gap: 6,
+    },
+    retirementSummaryLabel: {
+      ...Typography.bodySmall,
+      color: colors.textTertiary,
+    },
+    retirementSummaryValue: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    drawdownChartWrap: {
+      gap: Spacing.sm,
+      overflow: 'hidden',
+    },
+    drawdownTitle: {
+      ...Typography.body,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    primaryCta: {
+      marginHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      minHeight: 52,
+      borderRadius: Radii.md,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: Spacing.md,
+    },
+    primaryCtaText: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: '#fff',
+    },
+    editHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.lg,
+    },
+    backButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    resetButtonText: {
+    editHeaderCopy: {
+      gap: 4,
+      flex: 1,
+    },
+    editTitle: {
+      ...Typography.h2,
+      color: colors.textPrimary,
+    },
+    editSubtitle: {
+      ...Typography.bodySmall,
+      color: colors.textSecondary,
+    },
+    groupEyebrow: {
       fontSize: 12,
-      fontWeight: '700',
-      color: colors.primary,
+      fontWeight: '800',
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
     },
     planCompareCard: {
       flexDirection: 'row',
@@ -1025,35 +1491,26 @@ function makeStyles(colors: AppColors) {
       fontWeight: '800',
       color: colors.textPrimary,
     },
-    loadingCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-    },
-    loadingText: {
-      ...Typography.body,
-      color: colors.textSecondary,
-    },
-    inputBlock: {
+    fieldBlock: {
       gap: Spacing.sm,
       paddingTop: Spacing.xs,
       borderTopWidth: 1,
       borderTopColor: colors.borderLight,
     },
-    inputHeader: {
+    fieldHeader: {
       gap: 3,
     },
-    inputLabel: {
+    fieldLabel: {
       fontSize: 16,
       fontWeight: '700',
       color: colors.textPrimary,
     },
-    inputHelper: {
+    fieldHelper: {
       ...Typography.bodySmall,
       color: colors.textTertiary,
       lineHeight: 18,
     },
-    inputShell: {
+    fieldShell: {
       minHeight: 52,
       borderRadius: Radii.md,
       borderWidth: 1,
@@ -1064,12 +1521,12 @@ function makeStyles(colors: AppColors) {
       alignItems: 'center',
       gap: 8,
     },
-    inputAffix: {
+    fieldAffix: {
       fontSize: 15,
       fontWeight: '700',
       color: colors.textSecondary,
     },
-    input: {
+    fieldInput: {
       flex: 1,
       fontSize: 18,
       fontWeight: '700',
@@ -1081,7 +1538,7 @@ function makeStyles(colors: AppColors) {
       flexWrap: 'wrap',
       gap: 8,
     },
-    chip: {
+    choiceChip: {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: Radii.full,
@@ -1089,83 +1546,17 @@ function makeStyles(colors: AppColors) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    chipActive: {
+    choiceChipActive: {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
     },
-    chipText: {
+    choiceChipText: {
       fontSize: 12,
       fontWeight: '700',
       color: colors.textSecondary,
     },
-    chipTextActive: {
+    choiceChipTextActive: {
       color: '#fff',
-    },
-    outcomeValue: {
-      fontSize: 34,
-      fontWeight: '800',
-      color: colors.textPrimary,
-      letterSpacing: -1,
-    },
-    outcomeSubtle: {
-      ...Typography.body,
-      color: colors.textSecondary,
-      lineHeight: 22,
-    },
-    milestonesGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: Spacing.sm,
-    },
-    milestoneItem: {
-      flexBasis: '48%',
-      flexGrow: 1,
-      minWidth: 130,
-      padding: Spacing.md,
-      borderRadius: Radii.md,
-      backgroundColor: colors.primaryLight,
-      gap: 4,
-    },
-    milestoneYear: {
-      fontSize: 12,
-      fontWeight: '800',
-      color: colors.primary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
-    },
-    milestoneValue: {
-      fontSize: 18,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    chartWrap: {
-      marginTop: Spacing.xs,
-      overflow: 'hidden',
-    },
-    chartAxisText: {
-      fontSize: 11,
-      color: colors.textTertiary,
-    },
-    chartLegend: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: Spacing.lg,
-      marginTop: Spacing.md,
-    },
-    legendItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    legendDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-    },
-    legendText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.textSecondary,
     },
     pointerLabel: {
       paddingHorizontal: 10,
@@ -1191,37 +1582,99 @@ function makeStyles(colors: AppColors) {
       fontWeight: '700',
       color: colors.textPrimary,
     },
-    drawdownChartWrap: {
-      marginTop: Spacing.sm,
-      overflow: 'hidden',
-      gap: Spacing.xs,
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(12, 20, 34, 0.3)',
+      justifyContent: 'center',
+      padding: Spacing.md,
     },
-    drawdownTitle: {
-      ...Typography.body,
-      fontWeight: '700',
-      color: colors.textPrimary,
+    modalCard: {
+      borderRadius: Radii.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: Spacing.md,
+      gap: Spacing.md,
     },
-    retirementSummaryRow: {
+    modalHeader: {
       flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       gap: Spacing.sm,
     },
-    retirementSummaryItem: {
+    modalTitle: {
+      ...Typography.h3,
+      color: colors.textPrimary,
       flex: 1,
+    },
+    modalBodyText: {
+      ...Typography.bodySmall,
+      color: colors.textSecondary,
+      lineHeight: 20,
+    },
+    modalSummaryBox: {
       padding: Spacing.md,
       borderRadius: Radii.md,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.background,
-      gap: 6,
+      gap: 4,
     },
-    retirementSummaryLabel: {
+    modalSummaryLabel: {
       ...Typography.bodySmall,
       color: colors.textTertiary,
     },
-    retirementSummaryValue: {
-      fontSize: 18,
+    modalSummaryValue: {
+      fontSize: 22,
       fontWeight: '800',
       color: colors.textPrimary,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    secondaryCta: {
+      flex: 1,
+      minHeight: 46,
+      borderRadius: Radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      paddingHorizontal: 12,
+    },
+    secondaryCtaText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    primaryCtaInline: {
+      flex: 1,
+      minHeight: 46,
+      borderRadius: Radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+    },
+    primaryCtaInlineFull: {
+      minHeight: 46,
+      borderRadius: Radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+    },
+    primaryCtaInlineText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: '#fff',
+    },
+    modalHint: {
+      ...Typography.bodySmall,
+      color: colors.textTertiary,
+      lineHeight: 18,
     },
     bottomPad: {
       height: 28,

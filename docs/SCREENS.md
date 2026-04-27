@@ -121,18 +121,22 @@ Includes:
 
 Purpose:
 
-- help users model future wealth creation and retirement-income scenarios from their
+- help users model future wealth creation and withdrawal-income scenarios from their
   actual portfolio rather than from generic defaults
 
 Includes:
 
+- summary-first flow with:
+  - `Your portfolio today`
+  - `Your plan at a glance`
+  - segmented results: `Wealth growth` / `Withdrawal income`
+- dedicated `Adjust your plan` step instead of one long stacked calculator
+- detected SIP review/edit flow that is separate from future plan changes
 - current corpus and current XIRR context
-- detected SIP pace from recent recurring purchases, with manual override + reset
-- editable planning inputs via chips + direct entry
 - accumulation projection from today’s corpus
 - fixed 6% inflation note to translate future nominal values into today-value context
-- retirement-income section with withdrawal rate, retirement duration, and post-retirement return
-- projection chart comparing current plan vs adjusted plan
+- withdrawal-income view with withdrawal rate, withdrawal duration, and post-withdrawal return
+- mobile-first charts showing visible checkpoint years only
 
 ### 7. Settings
 

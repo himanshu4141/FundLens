@@ -243,3 +243,31 @@ Then verify in browser and on device:
 - [x] Add the Portfolio teaser card
 - [x] Rename the shared tab label and update docs
 - [x] Validate with typecheck, lint, and tests
+
+## Amendments
+
+### Summary-first journey replaced the original stacked screen
+
+The original redesign plan described one long screen with portfolio context,
+inputs, projected wealth, and withdrawal outputs all stacked vertically. That
+proved serviceable for the math, but it remained too calculator-like on mobile
+and kept reintroducing layout problems around charts and axis labels.
+
+The implementation was deliberately reshaped into a clearer two-step journey:
+
+- a **summary screen** with:
+  - `Your portfolio today`
+  - `Your plan at a glance`
+  - one results view at a time via `Wealth growth` / `Withdrawal income`
+  - a single `Adjust your plan` CTA
+- an **adjust screen** where investment and withdrawal assumptions are edited
+  without competing with charts
+
+This also moved SIP correction out of the main planning form and into an explicit
+review/edit flow, which better matches user intent:
+
+- fixing a wrong detected SIP is a baseline correction
+- changing the plan going forward is a separate action
+
+That separation is now part of the intended design, not just an implementation
+detail.
