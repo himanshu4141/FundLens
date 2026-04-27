@@ -310,6 +310,7 @@ Scope:
 - Convert Portfolio Insights allocation cards toward the spec's donut-card presentation.
 - Refine Your Funds expanded sparkline and sort bottom sheet toward the supplied fund-card and sheet examples.
 - Align the Portfolio chart card naming and control placement with the board's `How your money grew` section.
+- Tighten Clear Lens shared chrome, negative color tokens, and PDF import fallback styling.
 - Record remaining visual differences against the uploaded spec and define the next correction pass.
 
 Expected outcome:
@@ -333,6 +334,7 @@ Acceptance criteria:
 - Portfolio Insights asset allocation and market-cap mix use donut cards with legend/value rows.
 - Your Funds expanded card uses a filled mini sparkline and sort bottom sheet uses icon/radio rows plus an explicit apply action.
 - Portfolio chart card uses the `How your money grew` title, benchmark pill, clearer legend labels, and range controls below the graph.
+- Clear Lens negative values use the red loss token, the shared header/bottom tabs are less oversized, and `/onboarding/pdf` uses the same card/button treatment as the main import screen.
 - Remaining differences are documented with an implementation plan instead of being left implicit.
 
 
@@ -430,6 +432,7 @@ Expected automated result:
 - [x] Convert Clear Lens Insights allocation cards to donut-card presentation
 - [x] Refine Clear Lens Your Funds sparkline and sort bottom sheet
 - [x] Align Clear Lens Portfolio chart card title and controls
+- [x] Tighten Clear Lens shared chrome, negative tokens, and PDF import fallback
 - [x] Record remaining visual differences and follow-up plan
 
 
@@ -442,6 +445,7 @@ Expected automated result:
 5. A follow-up review found the main import portfolio screen still using the classic onboarding gradient. The Clear Lens correction keeps the same PAN, import-address, CAS request, refresh, and PDF fallback behavior while replacing the visual surface with Clear Lens header, cards, status chips, and button styling.
 6. The next parity pass converted Portfolio Insights asset allocation and market-cap mix from stacked bars to donut cards, changed Your Funds expanded sparklines to a filled mini-chart treatment, and restyled the sort bottom sheet with icons, radio controls, and an apply action.
 7. Portfolio chart copy and controls were aligned closer to the board: the card now uses `How your money grew`, shows a compact benchmark pill, uses plain-language legend labels, and places range controls below the graph.
+8. Clear Lens support surfaces were tightened after the first checkpoint push: negative color tokens now use red, the shared Clear Lens header and bottom tabs are more compact, and the PDF import fallback uses Clear Lens card, radius, shadow, typography, and button treatment.
 
 ## Remaining Visual Gaps
 
@@ -449,7 +453,7 @@ Expected automated result:
 - Portfolio Insights allocation cards now use donut presentation, but still need screenshot comparison for exact spacing, sizing, and disclosure-row placement.
 - Your Funds expanded row now has a filled mini-chart and improved sort sheet, but still needs screenshot comparison for exact card density and row spacing.
 - Header and bottom-tab chrome should get a final pixel pass after the primary card surfaces are aligned.
-- Import portfolio now has Clear Lens treatment, but it still needs screenshot comparison alongside the other supporting screens.
+- Import portfolio and PDF fallback now have Clear Lens treatment, but still need screenshot comparison alongside the other supporting screens.
 
 ## Handoff Summary
 
@@ -461,6 +465,7 @@ Current progress:
 - Import portfolio now has dedicated Clear Lens treatment on `/onboarding`; behavior stayed unchanged.
 - Portfolio Insights allocation cards, Your Funds mini-chart, and sort sheet were further aligned toward the uploaded design examples.
 - Portfolio chart card naming, benchmark pill, legend labels, and range-control placement are now closer to the supplied board.
+- Clear Lens negative tokens, shared header/tab sizing, and PDF fallback styling have been tightened.
 - The current checkout is detached at the Clear Lens branch tip, so continue carefully without assuming a named branch is checked out.
 
 Decisions:
@@ -474,4 +479,4 @@ Next steps:
 - Do a browser/device visual pass against the uploaded board for Portfolio, Portfolio Insights, Your Funds, and sort sheet.
 - Screenshot-check the main import portfolio screen and PDF fallback in Clear Lens mode.
 - Screenshot-check Portfolio Insights donut cards, Your Funds expanded cards, and the sort bottom sheet in Clear Lens mode.
-- Continue with final header/bottom-tab spacing and screenshot-based chart density adjustments.
+- Continue with screenshot-based chart density and exact spacing adjustments.
