@@ -10,6 +10,7 @@
  * Resilience design:
  *   - Per-scheme errors are isolated — one failed lookup never blocks others.
  *   - AbortController (10 s) per HTTP fetch prevents hanging.
+ *   - Single retry (2 s delay) for transient 5xx / 429 responses.
  *   - Idempotent upserts — safe to re-run at any time.
  *   - category_rules always seeded last — Insights screen is never empty even if
  *     all richer-data fetches fail.
@@ -117,7 +118,8 @@ function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJson(url: string): Promise<unknown> {
+// A5: single retry with 2 s delay for transient 5xx / 429 errors
+async function fetchJson(url: string, retries = 1): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -127,6 +129,15 @@ async function fetchJson(url: string): Promise<unknown> {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
+  } catch (err) {
+    const isRetryable = err instanceof Error &&
+      (err.message.startsWith('HTTP 5') || err.message === 'HTTP 429');
+    if (retries > 0 && isRetryable) {
+      clearTimeout(timer);
+      await delay(2000);
+      return fetchJson(url, retries - 1);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -143,9 +154,60 @@ interface MfdataEquityHolding {
   weight_pct?: number;
 }
 
+// A1: actual field names confirmed by live probe (scripts/mfdata-probe*.sh, 2026-04-27)
+// Valid holding_type codes — debt: B, BT, BD, CD, CP, BY
+//                           — other: FO, DG, CQ, EP, CA, C, EX
+// Numeric strings (e.g. "-18.07", "23.23") as holding_type signal data corruption.
+interface MfdataDebtHolding {
+  name?: string;
+  credit_rating?: string;
+  maturity_date?: string | null;
+  holding_type?: string;
+  market_value?: number | null;
+  weight_pct?: number;
+  quantity?: number | null;
+  month_change_qty?: number | null;
+  month_change_pct?: number | null;
+}
+
+type MfdataOtherHolding = MfdataDebtHolding;
+
 interface MfdataHoldings {
   equity_pct?: number;
+  debt_pct?: number;
+  other_pct?: number;
   equity_holdings?: MfdataEquityHolding[];
+  debt_holdings?: MfdataDebtHolding[];
+  other_holdings?: MfdataOtherHolding[];
+}
+
+// ---------------------------------------------------------------------------
+// A1: debt holdings helpers
+// ---------------------------------------------------------------------------
+
+function isNumericString(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return /^-?\d+(\.\d+)?$/.test(value.trim());
+}
+
+// Some pure-equity fund families have benchmark performance data injected into
+// debt_holdings with numeric holding_type and credit_rating values. Discard the
+// entire array when this pattern is detected.
+function isDebtDataCorrupted(debtHoldings: MfdataDebtHolding[]): boolean {
+  return debtHoldings.some(
+    (h) => isNumericString(h.holding_type) || isNumericString(h.credit_rating),
+  );
+}
+
+function deriveDebtPct(debtHoldings: MfdataDebtHolding[]): number {
+  return debtHoldings.reduce((sum, h) => sum + (h.weight_pct ?? 0), 0);
+}
+
+// A3: reject equity_pct values that are implausible for the fund category
+function isEquityPctPlausible(equityPct: number, catRules: CategoryComposition): boolean {
+  if (catRules.equity >= 80 && equityPct < 50) return false;
+  if (catRules.debt >= 80 && equityPct > 20) return false;
+  return true;
 }
 
 async function getSchemeInfo(schemeCode: number): Promise<MfdataSchemeInfo | null> {
@@ -174,6 +236,7 @@ interface EnrichedPortfolio {
     marketCap: string;
     pctOfNav: number;
   }> | null;
+  rawDebtHoldings: MfdataDebtHolding[] | null;
 }
 
 function buildPortfolioFromHoldings(
@@ -182,24 +245,38 @@ function buildPortfolioFromHoldings(
 ): EnrichedPortfolio {
   const catRules = getCategoryRules(schemeCategory);
 
-  // Overseas FoFs hold foreign securities — the provider returns the
-  // underlying stocks as equity. Category rules are more truthful here.
-  if (catRules.other === 100) {
-    return {
-      equityPct: 0,
-      debtPct: 0,
-      cashPct: 0,
-      otherPct: 100,
-      largeCapPct: 0,
-      midCapPct: 0,
-      smallCapPct: 0,
-      sectorAllocation: null,
-      topHoldings: null,
-    };
+  // A3: validate equity_pct before trusting it
+  const rawEquityPct = holdings.equity_pct;
+  const equityPctValid = typeof rawEquityPct === 'number' && isEquityPctPlausible(rawEquityPct, catRules);
+  if (typeof rawEquityPct === 'number' && !equityPctValid) {
+    console.warn(
+      '[sync-fund-portfolios] equity_pct %.2f implausible for category "%s", falling back to rules',
+      rawEquityPct, schemeCategory,
+    );
+  }
+  const equityPct = equityPctValid ? rawEquityPct! : catRules.equity;
+
+  // A1: derive debt_pct from actual debt_holdings (guard against corrupted arrays)
+  const debtHoldings = holdings.debt_holdings ?? [];
+  let debtPct: number;
+  let rawDebtHoldings: MfdataDebtHolding[] | null = null;
+
+  if (debtHoldings.length > 0) {
+    if (isDebtDataCorrupted(debtHoldings)) {
+      console.warn(
+        '[sync-fund-portfolios] debt_holdings corrupted for category "%s", falling back to rules',
+        schemeCategory,
+      );
+      debtPct = Math.min(catRules.debt, Math.max(0, 100 - equityPct));
+    } else {
+      const derived = deriveDebtPct(debtHoldings);
+      debtPct = derived > 0 ? Math.round(derived * 100) / 100 : Math.min(catRules.debt, Math.max(0, 100 - equityPct));
+      rawDebtHoldings = debtHoldings;
+    }
+  } else {
+    debtPct = Math.min(catRules.debt, Math.max(0, 100 - equityPct));
   }
 
-  const equityPct = typeof holdings.equity_pct === 'number' ? holdings.equity_pct : catRules.equity;
-  const debtPct = Math.min(catRules.debt, Math.max(0, 100 - equityPct));
   const cashPct = Math.max(0, 100 - equityPct - debtPct);
   const otherPct = 0;
 
@@ -238,6 +315,7 @@ function buildPortfolioFromHoldings(
     smallCapPct: catRules.small,
     sectorAllocation: Object.keys(sectorAllocation).length > 0 ? sectorAllocation : null,
     topHoldings: topHoldings.length > 0 ? topHoldings : null,
+    rawDebtHoldings,
   };
 }
 
@@ -344,6 +422,7 @@ Deno.serve(async (req) => {
             not_classified_pct: notClassified,
             sector_allocation: portfolio.sectorAllocation,
             top_holdings: portfolio.topHoldings,
+            raw_debt_holdings: portfolio.rawDebtHoldings,
             source: 'amfi',
             synced_at: new Date().toISOString(),
           }, { onConflict: 'scheme_code,portfolio_date,source' });
@@ -405,6 +484,7 @@ Deno.serve(async (req) => {
         not_classified_pct: notClassified,
         sector_allocation: null,
         top_holdings: null,
+        raw_debt_holdings: null,
         source: 'category_rules',
         synced_at: new Date().toISOString(),
       };
