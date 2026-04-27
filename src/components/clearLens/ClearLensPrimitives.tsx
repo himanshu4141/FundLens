@@ -111,7 +111,7 @@ export function ClearLensMetricCard({
     tone === 'positive'
       ? { color: ClearLensColors.emerald }
       : tone === 'negative'
-        ? { color: ClearLensColors.slate }
+        ? { color: ClearLensColors.negative }
         : { color: ClearLensColors.navy };
 
   return (
@@ -158,10 +158,10 @@ const styles = StyleSheet.create({
     ...ClearLensShadow,
   },
   header: {
-    minHeight: 68,
+    minHeight: 64,
     paddingHorizontal: ClearLensSpacing.md,
-    paddingTop: ClearLensSpacing.xs,
-    paddingBottom: ClearLensSpacing.sm,
+    paddingTop: 2,
+    paddingBottom: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
@@ -176,8 +176,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconButton: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -186,8 +186,8 @@ const styles = StyleSheet.create({
     borderColor: ClearLensColors.border,
   },
   iconButtonGhost: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
   },
   segmented: {
     flexDirection: 'row',

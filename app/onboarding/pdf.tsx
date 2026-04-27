@@ -22,6 +22,12 @@ import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
 import { Radii, Spacing, Typography } from '@/src/constants/theme';
 import { useTheme, type AppColors } from '@/src/context/ThemeContext';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import {
+  ClearLensRadii,
+  ClearLensShadow,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
 type UploadResult = { funds: number; transactions: number };
@@ -293,78 +299,99 @@ export default function PDFScreen() {
 function makeStyles(Colors: AppColors, isClearLens: boolean) {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { paddingBottom: Spacing.xxl, gap: Spacing.md },
+  content: {
+    paddingBottom: isClearLens ? ClearLensSpacing.xxl : Spacing.xxl,
+    paddingTop: isClearLens ? ClearLensSpacing.md : 0,
+    gap: isClearLens ? ClearLensSpacing.md : Spacing.md,
+  },
   hero: {
-    paddingTop: 56,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl + Spacing.sm,
-    gap: Spacing.lg,
+    paddingTop: isClearLens ? ClearLensSpacing.lg : 56,
+    paddingHorizontal: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
+    paddingBottom: isClearLens ? ClearLensSpacing.lg : Spacing.xl + Spacing.sm,
+    gap: isClearLens ? ClearLensSpacing.md : Spacing.lg,
   },
   heroClearLens: {
-    margin: Spacing.lg,
+    margin: ClearLensSpacing.md,
     marginBottom: 0,
-    paddingTop: Spacing.lg,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radii.xl,
+    borderRadius: ClearLensRadii.lg,
+    ...ClearLensShadow,
   },
   heroCopy: { gap: Spacing.sm },
-  title: { ...Typography.h1, color: isClearLens ? Colors.textPrimary : Colors.textOnDark, fontWeight: '700' },
-  subtitle: { ...Typography.body, color: isClearLens ? Colors.textSecondary : 'rgba(255,255,255,0.8)' },
+  title: {
+    ...(isClearLens ? ClearLensTypography.h1 : Typography.h1),
+    color: isClearLens ? Colors.textPrimary : Colors.textOnDark,
+    fontWeight: '700',
+  },
+  subtitle: {
+    ...(isClearLens ? ClearLensTypography.body : Typography.body),
+    color: isClearLens ? Colors.textSecondary : 'rgba(255,255,255,0.8)',
+  },
 
   panel: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
+    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
+    padding: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
     gap: Spacing.sm,
+    ...(isClearLens ? ClearLensShadow : {}),
   },
   sectionLabel: {
-    ...Typography.label,
+    ...(isClearLens ? ClearLensTypography.label : Typography.label),
     color: Colors.primary,
     textTransform: 'uppercase',
   },
-  infoTitle: { ...Typography.h3, color: Colors.textPrimary, fontWeight: '700' },
-  infoItem: { ...Typography.bodySmall, color: Colors.textSecondary },
+  infoTitle: { ...(isClearLens ? ClearLensTypography.h3 : Typography.h3), color: Colors.textPrimary, fontWeight: '700' },
+  infoItem: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.textSecondary },
 
-  howTitle: { ...Typography.h3, color: Colors.textPrimary, fontWeight: '700' },
-  howStep: { ...Typography.bodySmall, color: Colors.textSecondary },
+  howTitle: { ...(isClearLens ? ClearLensTypography.h3 : Typography.h3), color: Colors.textPrimary, fontWeight: '700' },
+  howStep: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.textSecondary },
   bold: { fontWeight: '700' },
 
   panNote: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
     backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
-    borderRadius: Radii.lg, padding: 14,
+    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
+    padding: 14,
   },
-  panNoteText: { ...Typography.bodySmall, color: Colors.primaryDark },
+  panNoteText: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.primaryDark },
 
   successCard: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
     backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
-    borderRadius: Radii.lg, padding: Spacing.lg, gap: Spacing.sm, alignItems: 'center',
+    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
+    padding: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
+    gap: Spacing.sm,
+    alignItems: 'center',
   },
-  successTitle: { ...Typography.h3, color: Colors.primaryDark },
-  successText: { ...Typography.body, color: Colors.primaryDark, textAlign: 'center' },
+  successTitle: { ...(isClearLens ? ClearLensTypography.h3 : Typography.h3), color: Colors.primaryDark },
+  successText: { ...(isClearLens ? ClearLensTypography.body : Typography.body), color: Colors.primaryDark, textAlign: 'center' },
   doneBtn: {
-    backgroundColor: Colors.primary, borderRadius: Radii.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: isClearLens ? ClearLensRadii.full : Radii.lg,
     paddingVertical: 10, paddingHorizontal: 24, marginTop: 4,
   },
   doneBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 14 },
 
   errorCard: {
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
     backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca',
-    borderRadius: Radii.lg, padding: 14, gap: 6,
+    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
+    padding: 14,
+    gap: 6,
   },
   errorTitle: { fontSize: 14, fontWeight: '700', color: '#991b1b' },
   errorText: { ...Typography.bodySmall, color: '#b91c1c' },
 
   uploadBtn: {
-    marginHorizontal: Spacing.lg,
-    backgroundColor: Colors.primary, borderRadius: Radii.lg, paddingVertical: 14,
+    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: isClearLens ? ClearLensRadii.full : Radii.lg,
+    paddingVertical: 14,
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center',
   },
   uploadBtnDisabled: { opacity: 0.6 },
