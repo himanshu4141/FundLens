@@ -42,3 +42,4 @@ The milestones are a stacked PR chain — each branch builds on the one before i
 | `M6-wealth-simulator.md` | `feat/m6-wealth-simulator` | Interactive SIP/lumpsum wealth projection tool |
 | `M7-ab-theme-toggle.md` | `feat/m7-ab-theme-toggle` | V2 "Editorial Wealth" theme; settings toggle; new logo |
 | `M8-google-login.md` | `claude/google-login-integration-Gx6to` | Google OAuth sign-in; account linking in Settings; existing-account detection |
+| `M12-composition-data-acquisition.md` | — | Two-phase composition data reliability: code quality fixes + AMC source migration |
