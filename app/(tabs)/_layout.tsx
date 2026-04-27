@@ -27,9 +27,9 @@ export default function TabLayout() {
           shadowOpacity: 0,
           // Give the icon + label stack enough vertical room on phone-sized
           // viewports where font metrics tend to clip label descenders.
-          paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom, 14),
-          height: 76 + Math.max(insets.bottom, 14),
+          paddingTop: isClearLens ? 6 : 8,
+          paddingBottom: Math.max(insets.bottom, isClearLens ? 10 : 14),
+          height: (isClearLens ? 68 : 76) + Math.max(insets.bottom, isClearLens ? 10 : 14),
         },
         // Force each visible tab item to fill its fair share of the bar width
         // and center content so icons don't bunch left on wider screens / web
@@ -48,8 +48,8 @@ export default function TabLayout() {
           fontWeight: '600',
           fontFamily: isClearLens ? ClearLensFonts.semiBold : undefined,
           lineHeight: 16,
-          marginTop: 2,
-          marginBottom: 2,
+          marginTop: isClearLens ? 1 : 2,
+          marginBottom: isClearLens ? 0 : 2,
         },
       }}
     >
