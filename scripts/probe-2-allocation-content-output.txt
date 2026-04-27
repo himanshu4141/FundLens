@@ -1,0 +1,78 @@
+
+======================================================================
+FUND:     SBI Large Cap (family 5148)
+CATEGORY: large_cap_fund
+
+[portfolio_date]
+null
+
+[allocations — full content]
+null
+
+======================================================================
+FUND:     DSP Large Cap (family 760)
+CATEGORY: large_cap_fund
+
+[portfolio_date]
+null
+
+[allocations — full content]
+null
+
+======================================================================
+FUND:     PPFAS Flexi Cap (family 7428)
+CATEGORY: flexi_cap_fund
+
+[portfolio_date]
+null
+
+[allocations — full content]
+null
+
+======================================================================
+FUND:     DSP Aggressive Hybrid (family 772)
+CATEGORY: aggressive_hybrid_fund
+
+[portfolio_date]
+null
+
+[allocations — full content]
+null
+
+======================================================================
+FUND:     HDFC Balanced Advantage (family 1378)
+CATEGORY: balanced_advantage_fund
+
+[portfolio_date]
+null
+
+[allocations — full content]
+null
+
+======================================================================
+FUND:     HDFC Corporate Bond (family 1296)
+CATEGORY: corporate_bond_fund
+
+[portfolio_date]
+null
+
+[allocations — full content]
+null
+
+======================================================================
+FUND:     HDFC Developed World FoF (family 1387)
+CATEGORY: fund_of_funds_overseas
+
+[portfolio_date]
+null
+
+[allocations — full content]
+null
+
+======================================================================
+DONE. Key questions to answer from this output:
+  1. Does allocations contain asset class percentages (equity/debt/other)?
+  2. Does it include large/mid/small cap breakdown?
+  3. Is the data structured (array of objects?) or a flat object?
+  4. Does the portfolio_date match the holdings month we saw in probe 1?
+  5. For DSP Large Cap: does allocation show 89% equity or the corrupted 140%?

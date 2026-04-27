@@ -33,25 +33,40 @@ Two independent research passes agree on the root cause. See:
 - Codex Stage 1: `docs/research/2026-04-21-composition-source-validation.md`
 - Claude independent review: `docs/research/2026-04-27-composition-independent-review.md`
 
-The agreed findings, updated with live API probe data (2026-04-27):
+The agreed findings, confirmed by live API probes across 17 funds (scripts/mfdata-probe*.sh,
+probes 1–7, run 2026-04-27):
 
-1. `mfdata.in`'s holdings-derived totals can exceed 100% — DSP Large Cap showed
-   140.70% (equity_pct 89.43 + debt_pct 49.29 + other_pct 1.98). The top-level
-   `debt_pct` field is not trustworthy; derive it from debt_holdings weights instead.
-2. `mfdata.in`'s `/allocation` endpoint is NOT always null — Codex Stage 1 was wrong
-   about this. The endpoint returns `{"allocations": ..., "portfolio_date": ...}` for
-   all 7 tested funds. The content of `allocations` has not yet been inspected and
-   may contain better asset allocation data than holdings-derived totals.
-3. `equity_pct` is reliable for some funds (DSP Large Cap exact match, HDFC Balanced
-   Advantage within 2pp) but materially wrong for others (PPFAS: 78% vs official 97%,
-   SBI Large Cap: 95% vs official 99%). Treat it as a hint, not a fact.
-4. Several data quality bugs in the current code can be fixed without any new data
-   source — including the overseas FoF null-overwrite and silently discarded debt holdings.
-5. Market-cap classification via AMFI stock list is NOT feasible from mfdata alone:
-   `isin` is null for all equity holdings in the live probe. Deferred to Phase B.
-6. AMFI publishes a consolidated monthly portfolio disclosure covering all AMCs.
-   Whether it provides structured allocation data (and ISINs) should be confirmed
-   before committing to 16 per-AMC parsers.
+1. **`debt_pct` field is corrupted for all pure-equity and overseas funds tested.** The
+   top-level holdings totals exceed 100% for most large-cap funds (e.g. Axis Large Cap
+   equity+debt+other = 156.25%, HDFC Mid Cap = 188.9%). The `debt_pct` field must never
+   be used directly; derive it from `sum(debt_holdings[].weight_pct)` instead. Motilal
+   Oswal S&P 500 (97.07+0+0.28 = 97.35) and DSP Global Innovation FoF (52.64+0+43.67 =
+   96.31) are the only clean totals observed across 17 tested funds.
+2. **`/allocation` endpoint is effectively useless.** Probe 2 confirmed: while the
+   endpoint's outer wrapper object is not null, the actual `allocations` and
+   `portfolio_date` fields are null for all 7 tested funds. Do not plan any work around
+   this endpoint.
+3. **`equity_pct` is reliable as a single field.** Probe 4 shows pure equity large-cap
+   funds (Axis 93.65%, Mirae 99.18%, Nippon 99.27%, Tata 97.09%, Kotak 98.23%) all
+   broadly match official values even when the debt total is corrupted. PPFAS at 78.46%
+   appears wrong vs SEBI category (flexi cap ~65% min) but is actually correct: PPFAS
+   genuinely holds 79 debt instruments (T-bills, CDs, CPs worth ~22% of AUM). Treat
+   `equity_pct` as reliable, with the validation guard from A3 as a safety net.
+4. **ISINs are null universally.** Confirmed across all 17 funds in probes 1–4. Zero
+   exceptions. The `isin` field exists in the equity_holdings schema but the free API
+   tier does not populate it. Market-cap classification via ISIN lookup is not possible.
+5. **AMFI consolidated portfolio and stock list are inaccessible via direct URL.** Probe
+   6 confirmed all tested amfiindia.com URLs return HTTP 404. Only the NAV master
+   redirected to portal.amfiindia.com — suggesting AMFI moved their portal. Phase B must
+   identify the correct portal URL or use an alternative access method before any AMFI-
+   based approach can proceed.
+6. **Overseas FoFs use both equity_holdings and other_holdings for fund units.** DSP
+   Global Innovation FoF puts 3 ETFs in equity_holdings (iShares NASDAQ-100 27.53%,
+   KraneShares China 12.86%, Invesco NASDAQ-100 EW 12.25%) and 3 funds in other_holdings
+   with holding_type='FO' (BlueBox Global Tech 37.16%, Fidelity Medical 4.01%, BlueBox
+   Precision Medicine 2.50%). Removing the overseas FoF short-circuit (A4) will surface
+   all of these. Nippon India US Equity and Motilal S&P 500 return full individual stock
+   lists (27 and 475 holdings respectively) in equity_holdings with sector data.
 
 
 ## Assumptions
@@ -138,7 +153,9 @@ interface MfdataDebtHolding {
   name?: string;            // instrument name e.g. "6.90% Gs 2065", "Kotak Mahindra Bank (24/09/2026)"
   credit_rating?: string;   // e.g. "Sovereign", "CRISIL A1+", "ICRA AA+"
   maturity_date?: string | null;
-  holding_type?: string;    // "BT" = G-Sec/bond, "CD" = cert of deposit, "FO" = fund unit, "CQ" = derivatives offset
+  holding_type?: string;    // debt: B=bond, BT=G-Sec/T-bill, BD=bond/debenture, CD=cert of deposit, CP=commercial paper, BY=structured product/trust
+                            // other: FO=fund unit, DG=derivative future, CQ=derivatives cash offset, EP=put option, CA=CBLO, C=cash, EX=exchange-listed
+                            // WARNING: some families return numeric strings (e.g. "-18.07", "23.23") as holding_type — this is data corruption
   market_value?: number | null;
   weight_pct?: number;
   quantity?: number | null;
@@ -170,9 +187,10 @@ on a pure equity fund (the field is corrupted for some families). Derive it from
 
 Store the individual debt instruments in a new `raw_debt_holdings JSONB` column.
 
-Data quality guard: if any debt_holding has a `credit_rating` that is a number string
-(e.g. "-14.30") rather than a rating label, that family's debt data is corrupted —
-discard it and fall back to category rules for debt_pct.
+Data quality guard: if any debt_holding has a `credit_rating` OR `holding_type` that is
+a numeric string (e.g. credit_rating: "-14.30", holding_type: "-18.07", holding_type:
+"23.23"), that family's debt data is corrupted — discard it entirely and fall back to
+category rules for debt_pct. Both fields can carry the corruption; check both.
 
 #### A2. Market-cap classification — DEFERRED to Phase B
 
@@ -256,13 +274,22 @@ disclosure can serve as the primary source.
 SEBI regulation 59 of the SEBI (Mutual Funds) Regulations 1996 requires each AMC to
 submit its full portfolio to AMFI monthly. AMFI publishes this at amfiindia.com.
 
+**Note (probe 6, 2026-04-27):** All tested amfiindia.com direct URLs for consolidated
+portfolio and stock categorisation list return HTTP 404. Only the NAV master file works,
+redirecting to portal.amfiindia.com. AMFI appears to have migrated their portal. Before
+this B1 work begins, the correct portal URL must be identified (likely through
+portal.amfiindia.com) and any session/POST requirements must be documented.
+
 Proof-of-concept steps:
-1. Fetch the most recent consolidated portfolio file from amfiindia.com.
-2. Check format: is it a structured CSV/Excel with per-scheme, per-holding rows? Does it
+1. Identify the correct URL on portal.amfiindia.com for the consolidated portfolio
+   disclosure and stock categorisation list. Test whether they require session auth or
+   form-based POST.
+2. Fetch the most recent consolidated portfolio file.
+3. Check format: is it a structured CSV/Excel with per-scheme, per-holding rows? Does it
    include asset allocation percentages or only holding weights?
-3. For 3 representative schemes (one large-cap equity, one hybrid, one FoF): compare
+4. For 3 representative schemes (one large-cap equity, one hybrid, one FoF): compare
    AMFI consolidated data against the official AMC factsheet from Stage 1.
-4. Document findings and make a binary decision: AMFI consolidated as primary source
+5. Document findings and make a binary decision: AMFI consolidated as primary source
    (yes/no), with concrete reasoning.
 
 **If AMFI consolidated is sufficient:** design a single `sync-amfi-portfolio` edge
@@ -318,27 +345,28 @@ Each parser must:
 
 Scope:
 - Write additive migration: add `raw_debt_holdings JSONB` column to `fund_portfolio_composition`
-- Expand `MfdataHoldings` interface and log raw API response for one hybrid scheme
-- Confirm debt holdings field names, update interface, compute debt_pct from holdings
-- Integrate AMFI stock list: fetch, parse, and use for market cap tagging
+- Expand `MfdataHoldings` interface with actual field names confirmed by live probe
+- Compute debt_pct from actual debt_holdings weights (guard against corrupted debt arrays)
 - Remove the overseas FoF short-circuit that overwrites holdings with null
-- Add equity_pct validation
+- Add equity_pct validation guard (A3)
 - Add fetchJson retry (A5)
 
+Note: AMFI stock list integration (A2) is NOT in this milestone. ISINs are null
+universally on mfdata.in free tier, and AMFI stock list URLs return 404. Market-cap
+classification remains at `marketCap: 'Other'` until Phase B resolves both issues.
+
 Expected outcome:
-- Market-cap breakdown changes from hardcoded 'Other' to ISIN-resolved classifications
 - Debt holdings for hybrid/debt funds visible in `raw_debt_holdings` column
-- `debt_pct` derived from actual instrument weights, not category rules
+- `debt_pct` derived from actual instrument weights for funds where data is clean
 - Overseas FoF holdings no longer wiped to null
 - Transient mfdata failures no longer silently corrupt to category rules
 
 Acceptance criteria:
-- For a known hybrid fund: `debt_pct` computed from actual debt holding weights, not
-  category rules
-- For a known large-cap fund: `large_cap_pct` computed from equity holding weights x
-  AMFI stock list, not category rules
-- `marketCap` field in `top_holdings` JSONB is no longer 'Other' for any ISIN that
-  appears in the AMFI stock list
+- For a known hybrid fund (HDFC Balanced Advantage or ICICI Balanced Advantage):
+  `debt_pct` computed from actual debt holding weights, not category rules
+- For HDFC Developed World FoF: equity_holdings (ETFs) visible in DB, not null
+- `raw_debt_holdings` column populated with instrument-level data for at least one
+  hybrid fund after a sync run
 
 Validation:
 ```bash
@@ -394,6 +422,10 @@ Before marking any milestone complete:
 
 ## Risks And Mitigations
 
+- Risk: AMFI portal URLs are not directly accessible (probe 6 confirmed all direct
+  amfiindia.com URLs return 404). Mitigation: Phase B must begin by identifying the
+  correct portal.amfiindia.com URL; if access requires a session or POST, use a
+  server-side fetch with appropriate headers rather than assuming a direct CDN link.
 - Risk: AMFI stock list URL or format changes. Mitigation: store last-fetched-at and
   alert if refresh fails; the 6-month update cadence gives ample warning time.
 - Risk: mfdata debt_holdings field names differ from assumed names. Mitigation: log the

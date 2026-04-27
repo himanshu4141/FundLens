@@ -1,0 +1,3187 @@
+
+======================================================================
+FUND:     DSP Global Innovation FoF (fund_of_funds_overseas)
+SCHEME:   149816
+FAMILY:   784
+
+[allocation + metadata]
+{
+  "month": "2026-04",
+  "equity_pct": 52.64,
+  "debt_pct": 0.0,
+  "other_pct": 43.67,
+  "equity_holdings_count": 3,
+  "debt_holdings_count": 1,
+  "other_holdings_count": 3
+}
+
+[ALL equity_holdings — name, isin, sector, holding_type if present, weight_pct]
+[
+  {
+    "stock_name": "iShares NASDAQ 100 ETF USD Acc",
+    "isin": null,
+    "sector": null,
+    "weight_pct": 27.53
+  },
+  {
+    "stock_name": "KraneShares CSI China Internet ETF USD",
+    "isin": null,
+    "sector": null,
+    "weight_pct": 12.86
+  },
+  {
+    "stock_name": "Invesco NASDAQ-100 Equal Wght ETF $ Acc",
+    "isin": null,
+    "sector": null,
+    "weight_pct": 12.25
+  }
+]
+
+[ALL other_holdings — name, holding_type, weight_pct]
+[
+  {
+    "name": "BlueBox Funds Global Technology I Acc",
+    "holding_type": "FO",
+    "weight_pct": 37.16
+  },
+  {
+    "name": "Fidelity Select Medical Tech and Devcs",
+    "holding_type": "FO",
+    "weight_pct": 4.01
+  },
+  {
+    "name": "BlueBox Precision Medicine D USD Acc",
+    "holding_type": "FO",
+    "weight_pct": 2.5
+  }
+]
+
+[debt_holdings sample (first 3)]
+[
+  {
+    "name": "-5.08",
+    "credit_rating": "27.90",
+    "maturity_date": null,
+    "holding_type": null,
+    "weight_pct": null
+  }
+]
+
+[unique holding_type values across all arrays]
+[
+  "FO",
+  "null"
+]
+
+======================================================================
+FUND:     Nippon India US Equity (thematic_overseas_direct_equity)
+SCHEME:   134923
+FAMILY:   4479
+
+[allocation + metadata]
+{
+  "month": "2026-04",
+  "equity_pct": 95.39,
+  "debt_pct": 24.05,
+  "other_pct": 0.0,
+  "equity_holdings_count": 27,
+  "debt_holdings_count": 1,
+  "other_holdings_count": 1
+}
+
+[ALL equity_holdings — name, isin, sector, holding_type if present, weight_pct]
+[
+  {
+    "stock_name": "Taiwan Semiconductor Manufacturing Co Ltd ADR",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 9.54
+  },
+  {
+    "stock_name": "Alphabet Inc Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 8.06
+  },
+  {
+    "stock_name": "Meta Platforms Inc Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 6.71
+  },
+  {
+    "stock_name": "Amazon.com Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 6.37
+  },
+  {
+    "stock_name": "Charles Schwab Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 5.37
+  },
+  {
+    "stock_name": "Microsoft Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 4.79
+  },
+  {
+    "stock_name": "Mastercard Inc Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 4.4
+  },
+  {
+    "stock_name": "Booking Holdings Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 4.3
+  },
+  {
+    "stock_name": "Cencora Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 4.21
+  },
+  {
+    "stock_name": "Applied Materials Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 3.91
+  },
+  {
+    "stock_name": "Visa Inc Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 3.89
+  },
+  {
+    "stock_name": "IQVIA Holdings Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 3.69
+  },
+  {
+    "stock_name": "The Walt Disney Co",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 3.54
+  },
+  {
+    "stock_name": "Starbucks Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 3.04
+  },
+  {
+    "stock_name": "Elevance Health Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 2.93
+  },
+  {
+    "stock_name": "Check Point Software Technologies Ltd",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 2.52
+  },
+  {
+    "stock_name": "Diageo PLC ADR",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 2.23
+  },
+  {
+    "stock_name": "Autodesk Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 2.11
+  },
+  {
+    "stock_name": "Qualcomm Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 2.03
+  },
+  {
+    "stock_name": "Air Products and Chemicals Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 2.02
+  },
+  {
+    "stock_name": "Salesforce Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 1.91
+  },
+  {
+    "stock_name": "Adobe Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 1.72
+  },
+  {
+    "stock_name": "CarMax Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 1.67
+  },
+  {
+    "stock_name": "Ecolab Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 1.61
+  },
+  {
+    "stock_name": "UnitedHealth Group Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 1.12
+  },
+  {
+    "stock_name": "Veeva Systems Inc Class A",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 1.09
+  },
+  {
+    "stock_name": "Fiserv Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.61
+  }
+]
+
+[ALL other_holdings — name, holding_type, weight_pct]
+[
+  {
+    "name": "Cash",
+    "holding_type": "C",
+    "weight_pct": 0.0
+  }
+]
+
+[debt_holdings sample (first 3)]
+[
+  {
+    "name": "-6.57",
+    "credit_rating": "13.33",
+    "maturity_date": null,
+    "holding_type": "-18.07",
+    "weight_pct": 24.05
+  }
+]
+
+[unique holding_type values across all arrays]
+[
+  "-18.07",
+  "C",
+  "null"
+]
+
+======================================================================
+FUND:     Motilal Oswal S&P 500 Index (index_fund_overseas)
+SCHEME:   148381
+FAMILY:   7349
+
+[allocation + metadata]
+{
+  "month": "2026-04",
+  "equity_pct": 97.07,
+  "debt_pct": 0.0,
+  "other_pct": 0.28,
+  "equity_holdings_count": 475,
+  "debt_holdings_count": 1,
+  "other_holdings_count": 1
+}
+
+[ALL equity_holdings — name, isin, sector, holding_type if present, weight_pct]
+[
+  {
+    "stock_name": "NVIDIA Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 7.23
+  },
+  {
+    "stock_name": "Apple Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 6.56
+  },
+  {
+    "stock_name": "Microsoft Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 4.9
+  },
+  {
+    "stock_name": "Amazon.com Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 3.43
+  },
+  {
+    "stock_name": "Alphabet Inc Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 3.05
+  },
+  {
+    "stock_name": "Broadcom Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 2.54
+  },
+  {
+    "stock_name": "Alphabet Inc Class C",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 2.43
+  },
+  {
+    "stock_name": "Meta Platforms Inc Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 2.37
+  },
+  {
+    "stock_name": "Tesla Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 1.9
+  },
+  {
+    "stock_name": "Berkshire Hathaway Inc Class B",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 1.56
+  },
+  {
+    "stock_name": "Eli Lilly and Co",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 1.4
+  },
+  {
+    "stock_name": "JPMorgan Chase & Co",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 1.37
+  },
+  {
+    "stock_name": "Exxon Mobil Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 1.08
+  },
+  {
+    "stock_name": "Johnson & Johnson",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 1.01
+  },
+  {
+    "stock_name": "Walmart Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.94
+  },
+  {
+    "stock_name": "Visa Inc Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.91
+  },
+  {
+    "stock_name": "Micron Technology Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.78
+  },
+  {
+    "stock_name": "Costco Wholesale Corp",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.75
+  },
+  {
+    "stock_name": "Mastercard Inc Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.71
+  },
+  {
+    "stock_name": "AbbVie Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.69
+  },
+  {
+    "stock_name": "Netflix Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.69
+  },
+  {
+    "stock_name": "Procter & Gamble Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.66
+  },
+  {
+    "stock_name": "The Home Depot Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.64
+  },
+  {
+    "stock_name": "GE Aerospace",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.61
+  },
+  {
+    "stock_name": "Chevron Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.59
+  },
+  {
+    "stock_name": "Caterpillar Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.58
+  },
+  {
+    "stock_name": "Bank of America Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.56
+  },
+  {
+    "stock_name": "Advanced Micro Devices Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.55
+  },
+  {
+    "stock_name": "Palantir Technologies Inc Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.53
+  },
+  {
+    "stock_name": "Cisco Systems Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.53
+  },
+  {
+    "stock_name": "Coca-Cola Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.53
+  },
+  {
+    "stock_name": "Merck & Co Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.52
+  },
+  {
+    "stock_name": "Applied Materials Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.5
+  },
+  {
+    "stock_name": "Philip Morris International Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.49
+  },
+  {
+    "stock_name": "Lam Research Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.49
+  },
+  {
+    "stock_name": "RTX Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.46
+  },
+  {
+    "stock_name": "UnitedHealth Group Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.45
+  },
+  {
+    "stock_name": "The Goldman Sachs Group Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.43
+  },
+  {
+    "stock_name": "Wells Fargo & Co",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.43
+  },
+  {
+    "stock_name": "McDonald's Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.41
+  },
+  {
+    "stock_name": "Oracle Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.41
+  },
+  {
+    "stock_name": "Linde PLC",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.4
+  },
+  {
+    "stock_name": "GE Vernova Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.4
+  },
+  {
+    "stock_name": "PepsiCo Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.39
+  },
+  {
+    "stock_name": "International Business Machines Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.38
+  },
+  {
+    "stock_name": "Verizon Communications Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.36
+  },
+  {
+    "stock_name": "Amgen Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.35
+  },
+  {
+    "stock_name": "Morgan Stanley",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.34
+  },
+  {
+    "stock_name": "Intel Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.34
+  },
+  {
+    "stock_name": "Abbott Laboratories",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.34
+  },
+  {
+    "stock_name": "KLA Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.34
+  },
+  {
+    "stock_name": "NextEra Energy Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.33
+  },
+  {
+    "stock_name": "AT&T Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.33
+  },
+  {
+    "stock_name": "Citigroup Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.33
+  },
+  {
+    "stock_name": "Thermo Fisher Scientific Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.33
+  },
+  {
+    "stock_name": "Texas Instruments Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.32
+  },
+  {
+    "stock_name": "The Walt Disney Co",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.32
+  },
+  {
+    "stock_name": "Gilead Sciences Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.31
+  },
+  {
+    "stock_name": "Salesforce Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.31
+  },
+  {
+    "stock_name": "Boeing Co",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.3
+  },
+  {
+    "stock_name": "TJX Companies Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.3
+  },
+  {
+    "stock_name": "Amphenol Corp Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.3
+  },
+  {
+    "stock_name": "Intuitive Surgical Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.3
+  },
+  {
+    "stock_name": "Analog Devices Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.29
+  },
+  {
+    "stock_name": "American Express Co",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.28
+  },
+  {
+    "stock_name": "Deere & Co",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.27
+  },
+  {
+    "stock_name": "Charles Schwab Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.27
+  },
+  {
+    "stock_name": "Union Pacific Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.26
+  },
+  {
+    "stock_name": "Qualcomm Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.26
+  },
+  {
+    "stock_name": "BlackRock Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.26
+  },
+  {
+    "stock_name": "Honeywell International Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.26
+  },
+  {
+    "stock_name": "Pfizer Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.26
+  },
+  {
+    "stock_name": "Uber Technologies Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.26
+  },
+  {
+    "stock_name": "Eaton Corp PLC",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.25
+  },
+  {
+    "stock_name": "Lowe's Companies Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.25
+  },
+  {
+    "stock_name": "Vanguard S&P 500 ETF",
+    "isin": null,
+    "sector": null,
+    "weight_pct": 0.25
+  },
+  {
+    "stock_name": "Newmont Corp",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.24
+  },
+  {
+    "stock_name": "ConocoPhillips",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.24
+  },
+  {
+    "stock_name": "Booking Holdings Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.23
+  },
+  {
+    "stock_name": "Arista Networks Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.23
+  },
+  {
+    "stock_name": "S&P Global Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.23
+  },
+  {
+    "stock_name": "Lockheed Martin Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.23
+  },
+  {
+    "stock_name": "Stryker Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.22
+  },
+  {
+    "stock_name": "Danaher Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.22
+  },
+  {
+    "stock_name": "Accenture PLC Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.22
+  },
+  {
+    "stock_name": "Capital One Financial Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Vertex Pharmaceuticals Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Progressive Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Medtronic PLC",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Chubb Ltd",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Parker Hannifin Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Bristol-Myers Squibb Co",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Corning Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.2
+  },
+  {
+    "stock_name": "AppLovin Corp Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.2
+  },
+  {
+    "stock_name": "Palo Alto Networks Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.2
+  },
+  {
+    "stock_name": "McKesson Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.2
+  },
+  {
+    "stock_name": "Comcast Corp Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.19
+  },
+  {
+    "stock_name": "Boston Scientific Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.19
+  },
+  {
+    "stock_name": "Intuit Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.19
+  },
+  {
+    "stock_name": "Starbucks Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.19
+  },
+  {
+    "stock_name": "Altria Group Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.19
+  },
+  {
+    "stock_name": "CME Group Inc Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.19
+  },
+  {
+    "stock_name": "ServiceNow Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.19
+  },
+  {
+    "stock_name": "Howmet Aerospace Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.18
+  },
+  {
+    "stock_name": "T-Mobile US Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.18
+  },
+  {
+    "stock_name": "Southern Co",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.18
+  },
+  {
+    "stock_name": "Adobe Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.18
+  },
+  {
+    "stock_name": "Duke Energy Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.17
+  },
+  {
+    "stock_name": "Constellation Energy Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.17
+  },
+  {
+    "stock_name": "Trane Technologies PLC Class A",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.17
+  },
+  {
+    "stock_name": "CVS Health Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.17
+  },
+  {
+    "stock_name": "Western Digital Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.16
+  },
+  {
+    "stock_name": "Intercontinental Exchange Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.16
+  },
+  {
+    "stock_name": "CrowdStrike Holdings Inc Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.16
+  },
+  {
+    "stock_name": "Freeport-McMoRan Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.16
+  },
+  {
+    "stock_name": "Northrop Grumman Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.16
+  },
+  {
+    "stock_name": "Waste Management Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "Seagate Technology Holdings PLC",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "SanDisk Corp Ordinary Shares",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "3M Co",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "Johnson Controls International PLC Registered Shares",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "Automatic Data Processing Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "Marsh",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "Williams Companies Inc",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "General Dynamics Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "FedEx Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "United Parcel Service Inc Class B",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "U.S. Bancorp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "Emerson Electric Co",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "HCA Healthcare Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "Quanta Services Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "Blackstone Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "Sherwin-Williams Co",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "PNC Financial Services Group Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "Bank of New York Mellon Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "Cadence Design Systems Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "Cummins Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "CRH PLC",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.14
+  },
+  {
+    "stock_name": "SLB Ltd",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Motorola Solutions Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Marriott International Inc Class A",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Colgate-Palmolive Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "CSX Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Mondelez International Inc Class A",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "O'Reilly Automotive Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Royal Caribbean Group",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Regeneron Pharmaceuticals Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Ecolab Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "The Cigna Group",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Synopsys Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Illinois Tool Works Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.13
+  },
+  {
+    "stock_name": "Elevance Health Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Warner Bros. Discovery Inc Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Cintas Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Nike Inc Class B",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "TransDigm Group Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "General Motors Co",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "The Travelers Companies Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Moodys Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Hilton Worldwide Holdings Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Cencora Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Aon PLC Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "American Electric Power Co Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Norfolk Southern Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "L3Harris Technologies Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "TE Connectivity PLC Registered Shares",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "EOG Resources Inc",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "Ross Stores Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "PACCAR Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "DoorDash Inc Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "Kinder Morgan Inc Class P",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "Baker Hughes Co Class A",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "Truist Financial Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "Sempra",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.11
+  },
+  {
+    "stock_name": "Airbnb Inc Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "NXP Semiconductors NV",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Valero Energy Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "AutoZone Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Phillips 66",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Air Products and Chemicals Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Monster Beverage Corp",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "KKR & Co Inc Ordinary Shares",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Robinhood Markets Inc Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Marathon Petroleum Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Arthur J. Gallagher & Co",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Zoetis Inc Class A",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Carrier Global Corp Ordinary Shares",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Allstate Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Vistra Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Ford Motor Co",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "AMETEK Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Monolithic Power Systems Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Cardinal Health Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Corteva Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Dominion Energy Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "United Rentals Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Aflac Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Fastenal Co",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Keysight Technologies Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "IDEXX Laboratories Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Autodesk Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "ONEOK Inc",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Target Corp",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Targa Resources Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Yum Brands Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Republic Services Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Electronic Arts Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Becton Dickinson & Co",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Comfort Systems USA Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Edwards Lifesciences Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Teradyne Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "W.W. Grainger Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Exelon Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Fortinet Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Rockwell Automation Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Westinghouse Air Brake Technologies Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Xcel Energy Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Chipotle Mexican Grill Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Ciena Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Apollo Global Management Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Entergy Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Carvana Co Class A",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "The Kroger Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Dell Technologies Inc Ordinary Shares - Class C",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Fifth Third Bancorp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "D.R. Horton Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Ameriprise Financial Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Sysco Corp",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "American International Group Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "CBRE Group Inc Class A",
+    "isin": null,
+    "sector": "Real Estate",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "PayPal Holdings Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Public Service Enterprise Group Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "MSCI Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Axon Enterprise Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Delta Air Lines Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "PG&E Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Garmin Ltd",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Keurig Dr Pepper Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "eBay Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Vulcan Materials Co",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Martin Marietta Materials Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Consolidated Edison Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Nucor Corp",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Microchip Technology Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Coinbase Global Inc Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "MetLife Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Nasdaq Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "The Hartford Insurance Group Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "Kimberly-Clark Corp",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Take-Two Interactive Software Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Kenvue Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Arch Capital Group Ltd",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Otis Worldwide Corp Ordinary Shares",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "State Street Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "The Hershey Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Block Inc Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Prudential Financial Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Agilent Technologies Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "United Airlines Holdings Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Dollar General Corp",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "NRG Energy Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Carnival Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Huntington Bancshares Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Copart Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Ingersoll Rand Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Fiserv Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "M&T Bank Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Fair Isaac Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Archer-Daniels-Midland Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Datadog Inc Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "GE HealthCare Technologies Inc Common Stock",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "EQT Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Occidental Petroleum Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "WEC Energy Group Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Roper Technologies Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "ResMed Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Old Dominion Freight Line Inc Ordinary Shares",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Biogen Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Mettler-Toledo International Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "PPG Industries Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Tractor Supply Co",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Devon Energy Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Omnicom Group Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Hubbell Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Northern Trust Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "The Estee Lauder Companies Inc Class A",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Raymond James Financial Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "EMCOR Group Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Diamondback Energy Inc",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Teledyne Technologies Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Tapestry Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Interactive Brokers Group Inc Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Xylem Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Waters Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Cboe Global Markets Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Cognizant Technology Solutions Corp Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Dover Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "DTE Energy Co",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Ulta Beauty Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Ameren Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "IQVIA Holdings Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Paychex Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Texas Pacific Land Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Halliburton Co",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Atmos Energy Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Willis Towers Watson PLC",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Workday Inc Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Verisk Analytics Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "PPL Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Edison International",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "DexCom Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Eversource Energy",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "CenterPoint Energy Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Hewlett Packard Enterprise Co",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Jabil Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Darden Restaurants Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "ON Semiconductor Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "PulteGroup Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "FirstEnergy Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Qnity Electronics Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "American Water Works Co Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Steel Dynamics Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Fidelity National Information Services Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Citizens Financial Group Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Expand Energy Corp Ordinary Shares - New",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Live Nation Entertainment Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Cincinnati Financial Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Equifax Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Southwest Airlines Co",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Expedia Group Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Church & Dwight Co Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Williams-Sonoma Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Synchrony Financial",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Steris PLC",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Lennar Corp Class A",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Smurfit WestRock PLC",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Regions Financial Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Veralto Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "General Mills Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Dollar Tree Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Labcorp Holdings Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "CMS Energy Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Quest Diagnostics Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Coterra Energy Inc Ordinary Shares",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Ares Management Corp Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "International Paper Co",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Humana Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Corpay Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "NiSource Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Leidos Holdings Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Amcor PLC Ordinary Shares",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Constellation Brands Inc Class A",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "C.H. Robinson Worldwide Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Dow Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Broadridge Financial Solutions Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "WR Berkley Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "First Solar Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "NVR Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Brown & Brown Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "International Flavors & Fragrances Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Albemarle Corp",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "The Kraft Heinz Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "DuPont de Nemours Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Centene Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Avery Dennison Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Packaging Corp of America",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Charter Communications Inc Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "T. Rowe Price Group Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Snap-on Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Lululemon Athletica Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "NetApp Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Zimmer Biomet Holdings Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Expeditors International of Washington Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "KeyCorp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Evergy Inc",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Principal Financial Group Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "VeriSign Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "CoStar Group Inc",
+    "isin": null,
+    "sector": "Real Estate",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Fortive Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "PTC Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Loews Corp",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Moderna Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Alliant Energy Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Tyson Foods Inc Class A",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "West Pharmaceutical Services Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Lennox International Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Global Payments Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Ball Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "McCormick & Co Inc Ordinary Shares (Non Voting)",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Rollins Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "HP Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "JB Hunt Transport Services Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Huntington Ingalls Industries Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Textron Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Insulet Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Las Vegas Sands Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Viatris Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Deckers Outdoor Corp",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Hologic Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Incyte Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "The Cooper Companies Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Genuine Parts Co",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Jacobs Solutions Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Bunge Global SA",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Super Micro Computer Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Pentair PLC",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "CDW Corp",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Trimble Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Aptiv PLC",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Nordson Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "IDEX Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "F5 Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "CF Industries Holdings Inc",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Clorox Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "Tyler Technologies Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.03
+  },
+  {
+    "stock_name": "GoDaddy Inc Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Masco Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "TKO Group Holdings Inc",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "LyondellBasell Industries NV Class A",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Everest Group Ltd",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Ralph Lauren Corp Class A",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Allegion PLC",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Stanley Black & Decker Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Hasbro Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Generac Holdings Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Align Technology Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Gen Digital Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Domino's Pizza Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "JM Smucker Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "The AES Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Best Buy Co Inc",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Pinnacle West Capital Corp",
+    "isin": null,
+    "sector": "Utilities",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Jack Henry & Associates Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Fox Corp Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Invesco Ltd",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Globe Life Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Builders FirstSource Inc",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Assurant Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Universal Health Services Inc Class B",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Zebra Technologies Corp Ordinary Shares - Class A",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Gartner Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Norwegian Cruise Line Holdings Ltd",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Revvity Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Solventum Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "APA Corp",
+    "isin": null,
+    "sector": "Energy",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "The Trade Desk Inc Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Baxter International Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Conagra Brands Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Bio-Techne Corp",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Akamai Technologies Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Wynn Resorts Ltd",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "News Corp Class A",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "DaVita Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "The Campbell's Co",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Skyworks Solutions Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Brown-Forman Corp Registered Shs -B- Non Vtg",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "A.O. Smith Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "The Mosaic Co",
+    "isin": null,
+    "sector": "Basic Materials",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Charles River Laboratories International Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Molson Coors Beverage Co Shs -B- Non-Voting",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Henry Schein Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Franklin Resources Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "FactSet Research Systems Inc",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Molina Healthcare Inc",
+    "isin": null,
+    "sector": "Healthcare",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "EPAM Systems Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Fox Corp Class B",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "News Corp Class B",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Paramount Skydance Corp Ordinary Shares - Class B",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "MGM Resorts International",
+    "isin": null,
+    "sector": "Consumer Cyclical",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Hormel Foods Corp",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Match Group Inc Ordinary Shares - New",
+    "isin": null,
+    "sector": "Communication Services",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Pool Corp",
+    "isin": null,
+    "sector": "Industrials",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Erie Indemnity Co Class A",
+    "isin": null,
+    "sector": "Financial Services",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Lamb Weston Holdings Inc",
+    "isin": null,
+    "sector": "Consumer Defensive",
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Paycom Software Inc",
+    "isin": null,
+    "sector": "Technology",
+    "weight_pct": 0.01
+  }
+]
+
+[ALL other_holdings — name, holding_type, weight_pct]
+[
+  {
+    "name": "Collateralized Borrowing & Lending Obligation",
+    "holding_type": "CA",
+    "weight_pct": 0.28
+  }
+]
+
+[debt_holdings sample (first 3)]
+[
+  {
+    "name": "-0.31",
+    "credit_rating": "21.73",
+    "maturity_date": null,
+    "holding_type": "-10.31",
+    "weight_pct": null
+  }
+]
+
+[unique holding_type values across all arrays]
+[
+  "-10.31",
+  "CA",
+  "null"
+]
+
+======================================================================
+DONE. Key questions:
+  1. Does DSP Global Innovation return ETF names (like HDFC Developed World did)?
+  2. Do Nippon US and Motilal S&P 500 return individual stock names (Apple, Nvidia etc.)?
+  3. Are any ISINs populated for foreign holdings?
+  4. What holding_type values appear for foreign ETF / foreign equity entries?

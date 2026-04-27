@@ -1,0 +1,19 @@
+equity_pct reliability check — Mon 27 Apr 2026 14:53:12 IST
+
+Fund                                     equity_pct   debt_pct     other_pct    total        expected     eq_ct      isin_null 
+Axis Large Cap                           93.65        61.52        1.08         156.25       ~99          52         all_null  
+Mirae Asset Large Cap                    99.18        55.5         0.16         154.84       ~100         77         all_null  
+Nippon India Large Cap                   99.27        47.65        0.0          146.92       ~97          67         all_null  
+Tata Large Cap                           97.09        51.02        0.0          148.11       ~97          43         all_null  
+Kotak Flexicap                           98.23        48.43        0.12         146.78       ~90          58         all_null  
+HDFC Mid Cap                             94.24        94.66        0.0          188.9        ~95          78         all_null  
+ICICI Balanced Advantage                 73.43        19.77        21.02        114.22       ~65          105        all_null  
+Motilal Oswal S&P 500                    97.07        0.0          0.28         97.35        ~100         475        all_null  
+Nippon India US Equity                   95.39        24.05        0.0          119.44       ~95          27         all_null  
+DSP Global Innovation FoF                52.64        0.0          43.67        96.31        ~100         3          all_null  
+
+======================================================================
+
+Now printing the first equity_holding for any fund where ISIN is NOT null:
+(If no output appears below, ISINs are null universally)
+

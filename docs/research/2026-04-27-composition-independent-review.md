@@ -21,11 +21,15 @@ than building on Stage 1.
 3. Read `usePortfolioInsights.ts` and `useFundComposition.ts`.
 4. Tested portfolio data for 16 funds across 11 AMCs via Groww public pages (which
    aggregate official AMC factsheet data). Groww was used because mfdata.in's API blocks
-   automated WebFetch requests with HTTP 403 (Cloudflare filtering). This is a limitation:
-   direct mfdata.in field-level comparison was not possible for all cases.
-5. Cross-checked AMFI's regulatory obligations for portfolio disclosure.
-6. Checked the AMFI biannual stock categorisation process (SEBI circular).
-7. Verified the TypeScript interfaces in the code against expected API response shapes.
+   automated WebFetch requests with HTTP 403 (Cloudflare filtering).
+5. Live API probe: 7 bash scripts (probes 1–7) queried mfdata.in directly across 17 funds,
+   run from India to bypass Cloudflare filtering. Probes confirmed actual field names,
+   holding_type taxonomy, ISINs availability, equity_pct reliability, AMFI URL
+   accessibility. Results stored in `scripts/mfdata-probe-output.txt` and
+   `scripts/probe-2-* through probe-7-*` output files.
+6. Cross-checked AMFI's regulatory obligations for portfolio disclosure.
+7. Checked the AMFI biannual stock categorisation process (SEBI circular).
+8. Verified the TypeScript interfaces in the code against the live API responses.
 
 
 ## Funds Tested
@@ -121,29 +125,26 @@ directly validated mfdata comparison.
 from category rules) is still warranted before trusting the field in production, but
 the mechanism of reading equity_pct as a single field from mfdata is reasonable.
 
-### 3. Market cap breakdown has a clean fix that requires no new source
+### 3. Market cap breakdown via AMFI stock list — NOT feasible in Phase A
 
-SEBI mandates that AMFI publish a biannual list of all Indian stocks classified as Large
-Cap (top 100 by average 6-month market cap), Mid Cap (101–250), and Small Cap (251+).
-All AMCs are required to use this exact list for their own categorisation and cannot deviate.
+~~The AMFI biannual stock list approach was identified as a clean fix requiring no new
+source.~~ **This is not feasible in Phase A, for two independent reasons confirmed by
+live probes:**
 
-The list is updated every January and July and is published at amfiindia.com as a
-structured CSV. Using this list to tag each equity holding already stored in
-`top_holdings` would replace the hardcoded category-rule splits with real per-holding
-classification. No new API, no AMC parser, no schema change needed.
+**Reason 1 — ISINs are null universally.** The `isin` field exists in the equity_holdings
+schema, and the existing code at line 225 reads `holding.isin ?? ''`. However, the live
+probe confirmed ISINs are null for 100% of equity holdings across all 17 tested funds.
+The mfdata.in free API tier does not populate ISIN data. Without ISINs, the stock list
+lookup (ISIN → Large/Mid/Small Cap) cannot be performed.
 
-Current code (line 227 of `sync-fund-portfolios/index.ts`):
-```ts
-marketCap: 'Other',   // hardcoded for every holding
-```
+**Reason 2 — AMFI stock list URL returns 404.** Probe 6 tested multiple candidate URLs
+on amfiindia.com for both the consolidated portfolio and the stock categorisation list.
+All returned HTTP 404. AMFI appears to have migrated their portal to portal.amfiindia.com,
+and direct URL access may require session authentication or a form-based POST.
 
-With the AMFI stock list (ISIN already present in equity_holdings per line 225):
-```ts
-marketCap: amfiStockList.get(holding.isin) ?? 'Other',
-```
-
-And large_cap_pct / mid_cap_pct / small_cap_pct would be computed by summing weighted
-holdings instead of reading from category rules (lines 236–238).
+Consequence: `marketCap: 'Other'` and category-rule cap splits remain unchanged in Phase A.
+This is deferred to Phase B, which must first resolve both the ISIN source question and
+the AMFI portal access approach.
 
 Reference: SEBI Circular SEBI/HO/IMD/DF3/CIR/P/2017/114 (October 2017), amended 2018.
 
@@ -222,11 +223,13 @@ and individual equity holdings with weights on Groww. This data originates from 
 mandated monthly portfolio disclosures that all AMCs must publish. The sector granularity
 is consistent across AMCs (Financial Services, Technology, Energy, Healthcare, etc.).
 
-### 8. ISINs are present in mfdata.in equity_holdings
+### 8. ISINs are null in mfdata.in equity_holdings — universally
 
-The existing code at line 225 already reads `holding.isin ?? ''` from equity_holdings,
-confirming that mfdata.in returns ISIN codes alongside each equity holding. This is the
-data point needed for the AMFI stock list lookup (ISIN → Large/Mid/Small Cap).
+~~The existing code at line 225 reads `holding.isin ?? ''`, suggesting mfdata.in returns
+ISINs.~~ **The live probe contradicts the mfdata.in documentation.** Probe 4 tested
+17 funds and found `isin: null` for 100% of equity holdings across all funds. The
+`isin` field exists in the response schema but is not populated on the free API tier.
+This blocks the AMFI stock list approach (see Finding 3).
 
 ### 9. Debt instruments are visible for hybrid and pure debt funds
 
@@ -243,15 +246,79 @@ This has no impact on the implementation — mfdata.in provides them — but con
 the ISIN → cap category lookup must come from programmatic sources.
 
 
+## Findings From Live API Probes (Probes 1–7, 2026-04-27)
+
+These findings are based on direct mfdata.in API calls across 17 funds, run from India.
+
+### P1. equity_pct is reliable; debt_pct top-level field is not
+
+Probe 4 tested 10 additional funds. The `equity_pct` field broadly matches official values
+for all pure-equity funds (93–99% range, consistent with SEBI category minimums). However,
+the `debt_pct` field is corrupted for most pure-equity and overseas funds — totals sum to
+135–189% rather than 100%. Rule: use `equity_pct` directly; derive `debt_pct` from
+`sum(debt_holdings[].weight_pct)` only.
+
+### P2. Corruption pattern in debt_holdings
+
+Probe 7 revealed a systematic corruption in `debt_holdings` for pure-equity funds: the
+API injects index performance data (BSE 100, Nifty Midcap 150, BSE 500) as fake debt
+instruments, with the performance percentage as `holding_type` (e.g. "23.23", "3.69")
+and the return value as `credit_rating`. This appears in Axis, DSP, Mirae, Nippon, Tata,
+Kotak, HDFC Mid Cap, and both overseas equity funds. Guard: if `holding_type` or
+`credit_rating` is a numeric string, the entire `debt_holdings` array for that family
+is corrupted — discard and fall back to category rules.
+
+### P3. Complete holding_type taxonomy
+
+Confirmed across 17 funds (probe 7):
+
+| Type | Count | Meaning |
+|---|---|---|
+| B | 346 | Bond / NCD / debenture (NBFC, HFC, bank bonds) |
+| BT | 161 | G-Sec, SDL, T-bill (Sovereign/SDL issuers) |
+| DG | 70 | Derivative future (equity futures, negative market value possible) |
+| CD | 56 | Certificate of deposit (bank issuers, CRISIL A1+ typical) |
+| CP | 15 | Commercial paper |
+| BD | 14 | Bond/debenture (PSU banks, export-import bank) |
+| BY | 13 | Structured product / trust unit (INDIA UNIVERSAL TRUST AL1/AL2) |
+| FO | 12 | Fund unit (ETF, domestic or overseas MF) |
+| C | 2 | Cash |
+| EP | 1 | Equity put option |
+| EX | 1 | Exchange-listed instrument |
+| CA | 1 | CBLO (Collateralized Borrowing & Lending Obligation) |
+| CQ | 4 | Cash offset for derivatives |
+
+### P4. Overseas fund holdings breakdown
+
+- **DSP Global Innovation FoF**: 3 ETFs in equity_holdings (iShares NASDAQ-100 27.53%,
+  KraneShares China 12.86%, Invesco NASDAQ-100 EW 12.25%) + 3 FO-type holdings in
+  other_holdings (BlueBox Global Tech 37.16%, Fidelity Medical 4.01%, BlueBox Precision
+  Medicine 2.50%). Removing the short-circuit will surface all 6 fund units.
+- **Nippon India US Equity**: 27 direct US stocks in equity_holdings with sector data
+  (TSMC ADR 9.54%, Alphabet 8.06%, Meta 6.71%, etc.). debt_pct=24.05 is corrupted.
+- **Motilal Oswal S&P 500**: 475 S&P 500 stocks in equity_holdings with sectors.
+  Clean total (97.07 + 0 + 0.28 = 97.35). Motilal is in `index_fund_overseas` category,
+  not `fund_of_funds_overseas`, so it does not go through the FoF short-circuit.
+
+### P5. AMFI portal has moved; all direct URLs are inaccessible
+
+Probe 6 tested 7 candidate amfiindia.com URLs for consolidated portfolio and stock list.
+All returned HTTP 404. The baseline NAV master URL returned a 302 redirect to
+portal.amfiindia.com — confirming connectivity but also that AMFI migrated their public
+endpoints. Phase B cannot proceed with the B1 proof-of-concept until the correct
+portal.amfiindia.com URL is identified and any session/auth requirements are documented.
+
+
 ## Summary Of Recommended Changes Vs Stage 1
 
 | Conclusion | Stage 1 (Codex) | This Review |
 |---|---|---|
 | Official AMC > mfdata for allocation totals | Yes | Agree |
-| mfdata equity_pct field is reliable | Not addressed | Likely yes for tested cases; validated for DSP Large Cap only |
-| mfdata debt_holdings are available | Not checked | Yes — returned by API but silently discarded by code |
-| Market cap fix | Requires AMC parsers | No — AMFI biannual stock list is a cleaner solution |
-| AMFI consolidated portfolio as a source | Not mentioned | Should be evaluated before building AMC parsers |
+| mfdata equity_pct field is reliable | Not addressed | Yes — confirmed across 17 funds (probe 4); use with A3 validation guard |
+| mfdata ISINs available | Assumed yes (from docs) | No — null universally across all 17 tested funds (free tier limitation) |
+| mfdata debt_holdings are available | Not checked | Yes — returned for hybrid/debt funds; corrupted for pure-equity funds (discard those) |
+| Market cap fix | Requires AMC parsers | Blocked in Phase A: ISINs null + AMFI stock list URL returns 404. Deferred to Phase B |
+| AMFI consolidated portfolio as a source | Not mentioned | Phase B candidate, but URL is 404; portal.amfiindia.com access must be investigated first |
 | AMC-specific parsers (Tier 1 AMCs) | Primary M12 path | Still needed but later; after Phase A fixes and AMFI proof-of-concept |
 | Overseas FoF handling | Not detailed | Broken for two distinct reasons; FoF ETF-level detail is available and should be shown |
 | Sync reliability (retry/backoff) | Not mentioned | Must be fixed alongside any source work |
@@ -300,5 +367,10 @@ different source (not mfdata.in) and should be scoped into Phase B or a follow-o
   - groww.in/mutual-funds/motilal-oswal-s-p-500-index-fund-direct-growth
 - SEBI Circular SEBI/HO/IMD/DF3/CIR/P/2017/114 — Large/Mid/Small Cap categorisation
 - AMFI portfolio disclosure mandate: SEBI (Mutual Funds) Regulations 1996, Regulation 59
-- mfdata.in API documentation (public): debt_holdings fields include instrument_name,
-  isin, rating, maturity_date, coupon_rate, weight_pct
+- mfdata.in API live probe (scripts/mfdata-probe.sh + probe-2 through probe-7, 17 funds):
+  confirmed actual field names (name, credit_rating, holding_type — not instrument_name,
+  rating as docs state); ISINs null universally; full holding_type taxonomy; equity_pct
+  reliability; AMFI URL accessibility
+- mfdata.in API documentation (public): debt_holdings fields listed as instrument_name,
+  isin, rating, maturity_date, coupon_rate, weight_pct — **several names do not match
+  live API response** (use probe findings, not docs)

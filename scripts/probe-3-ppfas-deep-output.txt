@@ -1,0 +1,1295 @@
+
+======================================================================
+PPFAS Flexi Cap — family 7428
+
+[metadata]
+{
+  "month": "2026-04",
+  "fetched_at": "2026-04-07T06:18:38.344660",
+  "equity_pct": 78.46,
+  "debt_pct": 13.95,
+  "other_pct": 4.35
+}
+
+======================================================================
+ALL EQUITY HOLDINGS (sorted by weight, descending)
+Looking for: Alphabet/Google, Meta, Amazon, Microsoft, any non-Indian stock
+
+[
+  {
+    "stock_name": "HDFC Bank Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 7.73
+  },
+  {
+    "stock_name": "Power Grid Corp Of India Ltd",
+    "sector": "Utilities",
+    "isin": null,
+    "weight_pct": 6.92
+  },
+  {
+    "stock_name": "Coal India Ltd",
+    "sector": "Energy",
+    "isin": null,
+    "weight_pct": 5.18
+  },
+  {
+    "stock_name": "ICICI Bank Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 5.07
+  },
+  {
+    "stock_name": "ITC Ltd",
+    "sector": "Consumer Defensive",
+    "isin": null,
+    "weight_pct": 5.04
+  },
+  {
+    "stock_name": "Bajaj Holdings and Investment Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 4.85
+  },
+  {
+    "stock_name": "Alphabet Inc Class A",
+    "sector": "Communication Services",
+    "isin": null,
+    "weight_pct": 3.99
+  },
+  {
+    "stock_name": "Kotak Mahindra Bank Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 3.81
+  },
+  {
+    "stock_name": "Mahindra & Mahindra Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 3.54
+  },
+  {
+    "stock_name": "Axis Bank Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 3.43
+  },
+  {
+    "stock_name": "Maruti Suzuki India Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 3.17
+  },
+  {
+    "stock_name": "Bharti Airtel Ltd",
+    "sector": "Communication Services",
+    "isin": null,
+    "weight_pct": 2.96
+  },
+  {
+    "stock_name": "HCL Technologies Ltd",
+    "sector": "Technology",
+    "isin": null,
+    "weight_pct": 2.87
+  },
+  {
+    "stock_name": "Meta Platforms Inc Class A",
+    "sector": "Communication Services",
+    "isin": null,
+    "weight_pct": 2.6
+  },
+  {
+    "stock_name": "Tata Consultancy Services Ltd",
+    "sector": "Technology",
+    "isin": null,
+    "weight_pct": 2.04
+  },
+  {
+    "stock_name": "Infosys Ltd",
+    "sector": "Technology",
+    "isin": null,
+    "weight_pct": 2.0
+  },
+  {
+    "stock_name": "Amazon.com Inc",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 1.97
+  },
+  {
+    "stock_name": "Microsoft Corp",
+    "sector": "Technology",
+    "isin": null,
+    "weight_pct": 1.95
+  },
+  {
+    "stock_name": "Dr Reddy's Laboratories Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 1.32
+  },
+  {
+    "stock_name": "Zydus Lifesciences Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 1.29
+  },
+  {
+    "stock_name": "Cipla Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 1.29
+  },
+  {
+    "stock_name": "Indian Energy Exchange Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.76
+  },
+  {
+    "stock_name": "Reliance Industries Ltd",
+    "sector": "Energy",
+    "isin": null,
+    "weight_pct": 0.69
+  },
+  {
+    "stock_name": "Zydus Wellness Ltd",
+    "sector": "Consumer Defensive",
+    "isin": null,
+    "weight_pct": 0.63
+  },
+  {
+    "stock_name": "Balkrishna Industries Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 0.52
+  },
+  {
+    "stock_name": "E I D Parry India Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.48
+  },
+  {
+    "stock_name": "Narayana Hrudayalaya Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 0.27
+  },
+  {
+    "stock_name": "Great Eastern Shipping Co Ltd",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.22
+  },
+  {
+    "stock_name": "Central Depository Services (India) Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.21
+  },
+  {
+    "stock_name": "Bajaj Finance Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.15
+  },
+  {
+    "stock_name": "Eternal Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "ICRA Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Jio Financial Services Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "CMS Info Systems Ltd",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.12
+  },
+  {
+    "stock_name": "Tata Steel Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Larsen & Toubro Ltd",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Titan Co Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 0.1
+  },
+  {
+    "stock_name": "Sun Pharmaceuticals Industries Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 0.09
+  },
+  {
+    "stock_name": "Hindalco Industries Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Maharashtra Scooters Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.08
+  },
+  {
+    "stock_name": "Future on BANK Index",
+    "sector": null,
+    "isin": null,
+    "weight_pct": 0.07
+  },
+  {
+    "stock_name": "IndusInd Bank Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.06
+  },
+  {
+    "stock_name": "Bajaj Finserv Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.05
+  },
+  {
+    "stock_name": "Punjab National Bank",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.04
+  },
+  {
+    "stock_name": "Indus Towers Ltd Ordinary Shares",
+    "sector": "Communication Services",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Bharti Airtel Ltd (Partly Paid Rs.1.25)",
+    "sector": "Communication Services",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "JSW Steel Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Bank of Baroda",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Grasim Industries Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Nestle India Ltd",
+    "sector": "Consumer Defensive",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "DLF Ltd",
+    "sector": "Real Estate",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Divi's Laboratories Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "CIE Automotive India Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 0.02
+  },
+  {
+    "stock_name": "Tata Consumer Products Ltd",
+    "sector": "Consumer Defensive",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Eicher Motors Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Nesco Ltd",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Swaraj Engines Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "LIC Housing Finance Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Lupin Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "IDFC First Bank Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "Hindustan Petroleum Corp Ltd",
+    "sector": "Energy",
+    "isin": null,
+    "weight_pct": 0.01
+  },
+  {
+    "stock_name": "NMDC Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Shriram Finance Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "PNB Housing Finance Ltd",
+    "sector": "Financial Services",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Indraprastha Gas Ltd",
+    "sector": "Utilities",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Aurobindo Pharma Ltd",
+    "sector": "Healthcare",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Dabur India Ltd",
+    "sector": "Consumer Defensive",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Polycab India Ltd",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Bharat Electronics Ltd",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Bharat Heavy Electricals Ltd",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Steel Authority Of India Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Godrej Properties Ltd",
+    "sector": "Real Estate",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "GAIL (India) Ltd",
+    "sector": "Utilities",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "United Spirits Ltd",
+    "sector": "Consumer Defensive",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Lodha Developers Ltd",
+    "sector": "Real Estate",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Mahanagar Gas Ltd",
+    "sector": "Utilities",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Asian Paints Ltd",
+    "sector": "Basic Materials",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Trent Ltd",
+    "sector": "Consumer Cyclical",
+    "isin": null,
+    "weight_pct": 0.0
+  },
+  {
+    "stock_name": "Hindustan Aeronautics Ltd Ordinary Shares",
+    "sector": "Industrials",
+    "isin": null,
+    "weight_pct": 0.0
+  }
+]
+
+======================================================================
+ALL DEBT HOLDINGS (sorted by weight, descending)
+Checking if these are real debt instruments (CDs, bonds) or something else
+
+[
+  {
+    "name": "Kotak Mahindra Bank Limited (24/09/2026)",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-09-24",
+    "holding_type": "CD",
+    "weight_pct": 0.5
+  },
+  {
+    "name": "State Bank Of India",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-27",
+    "holding_type": "CD",
+    "weight_pct": 0.48
+  },
+  {
+    "name": "Axis Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-11-08",
+    "holding_type": "CD",
+    "weight_pct": 0.47
+  },
+  {
+    "name": "Bank Of Baroda (16/09/2026)",
+    "credit_rating": "IND A1+",
+    "maturity_date": "2026-09-16",
+    "holding_type": "CD",
+    "weight_pct": 0.47
+  },
+  {
+    "name": "Canara Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-12-06",
+    "holding_type": "CD",
+    "weight_pct": 0.44
+  },
+  {
+    "name": "Union Bank Of India",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2026-06-25",
+    "holding_type": "CD",
+    "weight_pct": 0.4
+  },
+  {
+    "name": "HDFC Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-10-09",
+    "holding_type": "CD",
+    "weight_pct": 0.36
+  },
+  {
+    "name": "National Bank For Agriculture And Rural Development (18/09/2026)",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-09-18",
+    "holding_type": "CD",
+    "weight_pct": 0.36
+  },
+  {
+    "name": "Small Industries Development Bank Of India",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-05-05",
+    "holding_type": "CD",
+    "weight_pct": 0.35
+  },
+  {
+    "name": "Kotak Mahindra Bank Ltd.",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-12-18",
+    "holding_type": "B",
+    "weight_pct": 0.35
+  },
+  {
+    "name": "National Bank For Agriculture And Rural Development",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-25",
+    "holding_type": "CP",
+    "weight_pct": 0.33
+  },
+  {
+    "name": "Canara Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-12-18",
+    "holding_type": "BD",
+    "weight_pct": 0.32
+  },
+  {
+    "name": "Indian Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-12-06",
+    "holding_type": "CD",
+    "weight_pct": 0.31
+  },
+  {
+    "name": "HDFC Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-24",
+    "holding_type": "CD",
+    "weight_pct": 0.29
+  },
+  {
+    "name": "Canara Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-11-11",
+    "holding_type": "CD",
+    "weight_pct": 0.28
+  },
+  {
+    "name": "Union Bank of India",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2026-06-12",
+    "holding_type": "BD",
+    "weight_pct": 0.26
+  },
+  {
+    "name": "15/10/2026 Maturing 364 DTB",
+    "credit_rating": "Sovereign",
+    "maturity_date": "2026-10-15",
+    "holding_type": "BT",
+    "weight_pct": 0.25
+  },
+  {
+    "name": "Bank of Baroda",
+    "credit_rating": "IND A1+",
+    "maturity_date": "2026-07-23",
+    "holding_type": "B",
+    "weight_pct": 0.24
+  },
+  {
+    "name": "Bajaj Finance Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-18",
+    "holding_type": "CP",
+    "weight_pct": 0.22
+  },
+  {
+    "name": "Axis Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-11-06",
+    "holding_type": "CD",
+    "weight_pct": 0.22
+  },
+  {
+    "name": "Indian Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-07-28",
+    "holding_type": "BD",
+    "weight_pct": 0.22
+  },
+  {
+    "name": "Indian Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-01-22",
+    "holding_type": "CD",
+    "weight_pct": 0.21
+  },
+  {
+    "name": "Union Bank Of India",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2027-01-19",
+    "holding_type": "CD",
+    "weight_pct": 0.21
+  },
+  {
+    "name": "Indian Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-10-30",
+    "holding_type": "CD",
+    "weight_pct": 0.21
+  },
+  {
+    "name": "Small Industries Development Bank of India",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-10-13",
+    "holding_type": "B",
+    "weight_pct": 0.21
+  },
+  {
+    "name": "Small Industries Dev Bank Of India (24/09/2026)",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-09-24",
+    "holding_type": "CD",
+    "weight_pct": 0.21
+  },
+  {
+    "name": "Small Industries Development Bank of India",
+    "credit_rating": "CARE A1+",
+    "maturity_date": "2026-03-27",
+    "holding_type": "CP",
+    "weight_pct": 0.19
+  },
+  {
+    "name": "Bank Of Baroda (16/10/2026)",
+    "credit_rating": "IND A1+",
+    "maturity_date": "2026-10-16",
+    "holding_type": "CD",
+    "weight_pct": 0.18
+  },
+  {
+    "name": "Nabard",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2027-01-19",
+    "holding_type": "CD",
+    "weight_pct": 0.18
+  },
+  {
+    "name": "Punjab National Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-02-05",
+    "holding_type": "BD",
+    "weight_pct": 0.17
+  },
+  {
+    "name": "National Bank For Agriculture And Rural Development",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-01-14",
+    "holding_type": "CD",
+    "weight_pct": 0.16
+  },
+  {
+    "name": "Tbill",
+    "credit_rating": "Sovereign",
+    "maturity_date": "2027-01-15",
+    "holding_type": "BT",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "HDFC Bank Ltd.",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-24",
+    "holding_type": "B",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "Axis Bank Ltd",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-25",
+    "holding_type": "CD",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "Indian Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-05",
+    "holding_type": "CD",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "Bajaj Finance Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-05-06",
+    "holding_type": "CP",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "Bajaj Finance Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-05-26",
+    "holding_type": "CP",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "Axis Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-12-06",
+    "holding_type": "CD",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "HDFC Bank Limited",
+    "credit_rating": "CARE A1+",
+    "maturity_date": "2026-12-06",
+    "holding_type": "CD",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "ICICI Bank Limited",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2027-01-27",
+    "holding_type": "CD",
+    "weight_pct": 0.14
+  },
+  {
+    "name": "Punjab National Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-12-15",
+    "holding_type": "CD",
+    "weight_pct": 0.14
+  },
+  {
+    "name": "Kotak Mahindra Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-01-08",
+    "holding_type": "CD",
+    "weight_pct": 0.14
+  },
+  {
+    "name": "Canara Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-01-12",
+    "holding_type": "CD",
+    "weight_pct": 0.14
+  },
+  {
+    "name": "Bank of Baroda",
+    "credit_rating": "IND A1+",
+    "maturity_date": "2026-12-15",
+    "holding_type": "B",
+    "weight_pct": 0.14
+  },
+  {
+    "name": "Axis Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-01-14",
+    "holding_type": "CD",
+    "weight_pct": 0.14
+  },
+  {
+    "name": "Axis Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-25",
+    "holding_type": "CD",
+    "weight_pct": 0.13
+  },
+  {
+    "name": "Punjab National Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-24",
+    "holding_type": "BD",
+    "weight_pct": 0.13
+  },
+  {
+    "name": "Union Bank Of India",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2026-03-27",
+    "holding_type": "CD",
+    "weight_pct": 0.13
+  },
+  {
+    "name": "Small Industries Dev Bank Of India",
+    "credit_rating": "CARE A1+",
+    "maturity_date": "2026-12-16",
+    "holding_type": "CD",
+    "weight_pct": 0.12
+  },
+  {
+    "name": "Bank Of Baroda",
+    "credit_rating": "IND A1+",
+    "maturity_date": "2026-11-25",
+    "holding_type": "CD",
+    "weight_pct": 0.12
+  },
+  {
+    "name": "Punjab National Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-12",
+    "holding_type": "BD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "Union Bank of India",
+    "credit_rating": "IND A1+",
+    "maturity_date": "2026-04-23",
+    "holding_type": "BD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "Punjab National Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-20",
+    "holding_type": "BD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "Union Bank of India",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2026-03-18",
+    "holding_type": "BD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "Kotak Securities Ltd",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2026-05-07",
+    "holding_type": "CP",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "Indian Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-05-06",
+    "holding_type": "CD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "Small Industries Development Bank Of India",
+    "credit_rating": "CARE A1+",
+    "maturity_date": "2026-09-07",
+    "holding_type": "CD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "National Bank For Agriculture And Rural Development",
+    "credit_rating": "ICRA A1+",
+    "maturity_date": "2027-01-22",
+    "holding_type": "CD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "National Bank For Agriculture And Rural Development",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-01-28",
+    "holding_type": "CD",
+    "weight_pct": 0.11
+  },
+  {
+    "name": "HDFC Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-05-19",
+    "holding_type": "CD",
+    "weight_pct": 0.09
+  },
+  {
+    "name": "Icici Securities Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-15",
+    "holding_type": "CP",
+    "weight_pct": 0.09
+  },
+  {
+    "name": "30/07/2026 Maturing 364 DTB",
+    "credit_rating": "Sovereign",
+    "maturity_date": "2026-07-30",
+    "holding_type": "BT",
+    "weight_pct": 0.08
+  },
+  {
+    "name": "Bank of Baroda",
+    "credit_rating": "IND A1+",
+    "maturity_date": "2026-05-25",
+    "holding_type": "B",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "16/04/2026 Maturing 364 DTB",
+    "credit_rating": "Sovereign",
+    "maturity_date": "2026-04-16",
+    "holding_type": "BT",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "Bajaj Finance Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-05-07",
+    "holding_type": "CP",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "HDFC Securities Limited",
+    "credit_rating": "CARE A1+",
+    "maturity_date": "2026-05-15",
+    "holding_type": "CP",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "Export Import Bank Of India",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-05-27",
+    "holding_type": "CP",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "Axis Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-10-08",
+    "holding_type": "CD",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "Sidbi",
+    "credit_rating": "CARE A1+",
+    "maturity_date": "2026-11-10",
+    "holding_type": "CD",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "HDFC Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-11-13",
+    "holding_type": "CD",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "HDFC Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-01-22",
+    "holding_type": "CD",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "HDFC Bank Ltd.",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-09-21",
+    "holding_type": "B",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "Canara Bank",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-06-15",
+    "holding_type": "BD",
+    "weight_pct": 0.07
+  },
+  {
+    "name": "National Bank for Agriculture and Rural Development",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-24",
+    "holding_type": "CD",
+    "weight_pct": 0.06
+  },
+  {
+    "name": "Axis Bank Ltd",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-11-27",
+    "holding_type": "CD",
+    "weight_pct": 0.04
+  },
+  {
+    "name": "HDFC Securities Limited",
+    "credit_rating": "CARE A1+",
+    "maturity_date": "2026-05-13",
+    "holding_type": "CP",
+    "weight_pct": 0.04
+  },
+  {
+    "name": "National Bank for Agriculture and Rural Development",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2027-02-04",
+    "holding_type": "BD",
+    "weight_pct": 0.03
+  },
+  {
+    "name": "Icici Securities Limited (Earlier Icici Brokerage Services Limited)",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-16",
+    "holding_type": "CP",
+    "weight_pct": 0.02
+  },
+  {
+    "name": "Axis Bank Limited",
+    "credit_rating": "CRISIL A1+",
+    "maturity_date": "2026-03-16",
+    "holding_type": "CD",
+    "weight_pct": 0.02
+  }
+]
+
+======================================================================
+ALL OTHER HOLDINGS
+
+[
+  {
+    "name": "Cash Offset For Derivatives",
+    "holding_type": "CQ",
+    "weight_pct": 1.92
+  },
+  {
+    "name": "Reliance Industries Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.69
+  },
+  {
+    "name": "Parag Parikh Liquid Dir Gr",
+    "holding_type": "FO",
+    "weight_pct": 0.57
+  },
+  {
+    "name": "Bajaj Finance Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.15
+  },
+  {
+    "name": "Jio Financial Services Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.12
+  },
+  {
+    "name": "Eternal Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.12
+  },
+  {
+    "name": "Larsen & Toubro Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.1
+  },
+  {
+    "name": "Titan Company Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.1
+  },
+  {
+    "name": "Sun Pharmaceutical Industries Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.1
+  },
+  {
+    "name": "Tata Steel Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.1
+  },
+  {
+    "name": "Hindalco Industries Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.09
+  },
+  {
+    "name": "Bajaj Finserv Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.05
+  },
+  {
+    "name": "Punjab National Bank Future Mar 26",
+    "holding_type": "DG",
+    "weight_pct": 0.04
+  },
+  {
+    "name": "Bharti Airtel Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.03
+  },
+  {
+    "name": "Future on Bank of Baroda",
+    "holding_type": "DG",
+    "weight_pct": 0.02
+  },
+  {
+    "name": "Grasim Industries Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.02
+  },
+  {
+    "name": "Nestle Future Mar 26",
+    "holding_type": "DG",
+    "weight_pct": 0.02
+  },
+  {
+    "name": "Dlf Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.02
+  },
+  {
+    "name": "Divi's Laboratories Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.02
+  },
+  {
+    "name": "Jsw Steel Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.02
+  },
+  {
+    "name": "Lic Housing Finance Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.01
+  },
+  {
+    "name": "Tata Consumer Future Mar 26",
+    "holding_type": "DG",
+    "weight_pct": 0.01
+  },
+  {
+    "name": "Eicher Motors Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.01
+  },
+  {
+    "name": "Lupin Future Mar 26",
+    "holding_type": "DG",
+    "weight_pct": 0.01
+  },
+  {
+    "name": "Hindustan Petroleum Corporation Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.01
+  },
+  {
+    "name": "Shriram Finance Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Pnb Housing Finance Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Aurobindo Pharma Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Dabur India Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Polycab India Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Bharat Electronics Limited April 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Bharat Heavy Electricals Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Steel Authority Of India Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Godrej Properties Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Gail (India) Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "United Spirits Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Lodha Developers Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Asian Paints Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Trent Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Hindustan Aeronautics Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Nmdc Limited March 2026 Future",
+    "holding_type": "DG",
+    "weight_pct": 0.0
+  },
+  {
+    "name": "Cash",
+    "holding_type": "C",
+    "weight_pct": 0.0
+  }
+]
+
+======================================================================
+SUMMARY
+{
+  "equity_holdings_total_weight": 78.46000000000001,
+  "debt_holdings_total_weight": 13.950000000000001,
+  "other_holdings_total_weight": 4.349999999999997,
+  "reported_equity_pct": 78.46,
+  "reported_debt_pct": 13.95,
+  "reported_other_pct": 4.35
+}
+
+======================================================================
+UNIQUE holding_type values across all arrays
+[
+  "B",
+  "BD",
+  "BT",
+  "C",
+  "CD",
+  "CP",
+  "CQ",
+  "DG",
+  "FO",
+  "null"
+]

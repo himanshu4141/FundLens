@@ -1,0 +1,154 @@
+  Processing SBI Large Cap... done
+  Processing DSP Large Cap... done
+  Processing PPFAS Flexi Cap... done
+  Processing DSP Aggressive Hybrid... done
+  Processing HDFC Balanced Advantage... done
+  Processing HDFC Corporate Bond... done
+  Processing HDFC Developed World FoF... done
+  Processing Axis Large Cap... done
+  Processing Mirae Asset Large Cap... done
+  Processing Nippon India Large Cap... done
+  Processing Tata Large Cap... done
+  Processing Kotak Flexicap... done
+  Processing HDFC Mid Cap... done
+  Processing ICICI Balanced Advantage... done
+  Processing Motilal Oswal S&P 500... done
+  Processing Nippon India US Equity... done
+  Processing DSP Global Innovation FoF... done
+
+======================================================================
+HOLDING TYPE TAXONOMY
+
+Unique (array_source, holding_type) combinations with one example name each:
+
+ARRAY                TYPE     EXAMPLE NAME
+-------------------- -------- -------------------------------------------
+debt_holdings        B        Bajaj Housing Finance Limited
+debt_holdings        BT       6.1% Rajasthan Sdl 2026
+debt_holdings        CD       HDFC Bank Limited
+debt_holdings        CP       Bharti Telecom Limited
+other_holdings       FO       DSP S/T Dir Gr
+debt_holdings        1.60     -13.51
+debt_holdings        23.23    BSE 100 India TR INR
+debt_holdings        3.69     -12.32
+debt_holdings        BD       Canara Bank
+debt_holdings        BY       INDIA UNIVERSAL TRUST AL2
+other_holdings       CQ       Cash Offset For Derivatives
+other_holdings       DG       Future on Asian Paints Ltd
+other_holdings       EP       Nifty 50 Index Put Option
+other_holdings       EX       Corporate Debt Market Development Fund
+debt_holdings        -9.45    -0.23
+other_holdings       C        Cash
+debt_holdings        0.31     -11.75
+debt_holdings        26.55    BSE 500 India TR INR
+debt_holdings        5.98     -10.07
+debt_holdings        12.30    -11.49
+debt_holdings        -18.07   -6.57
+debt_holdings        -5.66    -12.02
+debt_holdings        1.44     -12.23
+debt_holdings        4.46     -12.39
+debt_holdings        13.09    -10.01
+debt_holdings        2.60     -10.68
+debt_holdings        44.61    Nifty Midcap 150 TR INR
+debt_holdings        -10.31   -0.31
+other_holdings       CA       Collateralized Borrowing & Lending Obligation
+
+======================================================================
+
+Count of entries per holding_type (across all funds and arrays):
+ 346 B
+ 161 BT
+  70 DG
+  56 CD
+  15 CP
+  14 BD
+  13 BY
+  12 FO
+   5 3.69
+   5 23.23
+   4 CQ
+   2 C
+   1 EX
+   1 EP
+   1 CA
+   1 5.98
+   1 44.61
+   1 4.46
+   1 26.55
+   1 2.60
+   1 13.09
+   1 12.30
+   1 1.60
+   1 1.44
+   1 0.31
+   1 -9.45
+   1 -5.66
+   1 -18.07
+   1 -10.31
+
+======================================================================
+
+Full deduplicated list of (fund, array, type, name) for DEBT holdings only:
+Sorted by holding_type, then fund:
+
+Motilal Oswal S&P 500          -10.31   -0.31
+Nippon India US Equity         -18.07   -6.57
+Axis Large Cap                 -5.66    -12.02
+HDFC Developed World FoF       -9.45    -0.23
+Kotak Flexicap                 0.31     -11.75
+DSP Large Cap                  1.44     -12.23
+Mirae Asset Large Cap          1.60     -13.51
+Nippon India Large Cap         12.30    -11.49
+HDFC Mid Cap                   13.09    -10.01
+HDFC Mid Cap                   2.60     -10.68
+Axis Large Cap                 23.23    BSE 100 India TR INR
+DSP Large Cap                  23.23    BSE 100 India TR INR
+Mirae Asset Large Cap          23.23    BSE 100 India TR INR
+Nippon India Large Cap         23.23    BSE 100 India TR INR
+Tata Large Cap                 23.23    BSE 100 India TR INR
+Kotak Flexicap                 26.55    BSE 500 India TR INR
+Axis Large Cap                 3.69     -12.32
+DSP Large Cap                  3.69     -12.32
+Mirae Asset Large Cap          3.69     -12.32
+Nippon India Large Cap         3.69     -12.32
+Tata Large Cap                 3.69     -12.32
+Tata Large Cap                 4.46     -12.39
+HDFC Mid Cap                   44.61    Nifty Midcap 150 TR INR
+Kotak Flexicap                 5.98     -10.07
+DSP Aggressive Hybrid          B        Bajaj Housing Finance Limited
+HDFC Balanced Advantage        B        Bajaj Finance Limited
+HDFC Corporate Bond            B        Ascendas It Park (Pune) Private Limited
+ICICI Balanced Advantage       B        Aavas Financiers Limited
+PPFAS Flexi Cap                B        Bank of Baroda
+HDFC Balanced Advantage        BD       Canara Bank
+ICICI Balanced Advantage       BD       Export-Import Bank of India
+PPFAS Flexi Cap                BD       Canara Bank
+DSP Aggressive Hybrid          BT       6.1% Rajasthan Sdl 2026
+HDFC Balanced Advantage        BT       6.67% Gs 2050
+HDFC Corporate Bond            BT       6.68% Gs 2040
+ICICI Balanced Advantage       BT       07/05/2026 Maturing 364 DTB
+PPFAS Flexi Cap                BT       15/10/2026 Maturing 364 DTB
+SBI Large Cap                  BT       19/11/2026 Maturing 364 DTB
+HDFC Balanced Advantage        BY       INDIA UNIVERSAL TRUST AL2
+HDFC Corporate Bond            BY       INDIA UNIVERSAL TRUST AL2
+ICICI Balanced Advantage       BY       INDIA UNIVERSAL TRUST AL1
+DSP Aggressive Hybrid          CD       HDFC Bank Limited
+HDFC Balanced Advantage        CD       Bank Of Baroda
+ICICI Balanced Advantage       CD       Bank Of Baroda
+PPFAS Flexi Cap                CD       Axis Bank Limited
+DSP Aggressive Hybrid          CP       Bharti Telecom Limited
+HDFC Balanced Advantage        CP       Small Industries Development Bk Of India
+ICICI Balanced Advantage       CP       Panatone Finvest Ltd
+PPFAS Flexi Cap                CP       Bajaj Finance Limited
+
+======================================================================
+DONE. This output builds the complete holding_type → meaning table.
+Common types seen so far:
+  BT  — bonds / G-Sec / treasury (maturity dates in 2025-2065)
+  CD  — certificate of deposit (short maturity, bank issuers, CRISIL A1+)
+  DG  — derivatives / equity derivatives (negative market values possible)
+  FO  — fund unit (ETF or mutual fund holding)
+  CQ  — cash offset for derivatives
+  EX  — other/exchange-listed instrument
+
+Any new types in the output above should be investigated.

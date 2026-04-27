@@ -1,0 +1,74 @@
+
+======================================================================
+SECTION A: AMFI CONSOLIDATED PORTFOLIO DISCLOSURE
+SEBI Regulation 59 requires all AMCs to submit monthly portfolios to AMFI.
+Testing multiple possible URLs — AMFI has changed their portal structure.
+
+URL: https://www.amfiindia.com/modules/PortfolioAllAMCs
+DESC: Consolidated portfolio (all AMCs) — primary candidate URL
+
+HTTP status: 404
+Response size:   138194 bytes
+
+URL: https://www.amfiindia.com/downloadPortfolioAllAMCs
+DESC: Alt: download endpoint variant
+
+HTTP status: 404
+Response size:   138190 bytes
+
+URL: https://www.amfiindia.com/modules/PortfolioAllAMCsDownload
+DESC: Alt: download variant 2
+
+HTTP status: 404
+Response size:   138202 bytes
+
+Last month: Mar-2026 (202603)
+
+URL: https://www.amfiindia.com/modules/PortfolioAllAMCs?mf_id=0&month=Mar-2026
+DESC: Consolidated portfolio with month param
+
+HTTP status: 404
+Response size:   138317 bytes
+
+======================================================================
+SECTION B: AMFI BIANNUAL STOCK CATEGORISATION LIST
+SEBI Circular SEBI/HO/IMD/DF3/CIR/P/2017/114 — published Jan and Jul each year.
+Contains: ISIN, company name, market cap category (Large/Mid/Small).
+
+URL: https://www.amfiindia.com/modules/LoadDownloadMasterData
+DESC: Stock categorisation list — primary candidate
+
+HTTP status: 404
+Response size:   138200 bytes
+
+URL: https://www.amfiindia.com/net-asset-value/cap-categorization-of-stocks
+DESC: Alt: cap categorization page
+
+HTTP status: 404
+Response size:   138214 bytes
+
+URL: https://www.amfiindia.com/research-information/other-data/categorization-of-stocks
+DESC: Alt: categorization page v2
+
+HTTP status: 404
+Response size:   138230 bytes
+
+======================================================================
+SECTION C: AMFI NAV MASTER (BASELINE — known to be machine-readable)
+This is a well-known working endpoint. Checking it confirms the environment
+can reach amfiindia.com at all, and shows the format AMFI uses for CSV data.
+
+URL: https://www.amfiindia.com/spages/NAVAll.txt
+DESC: NAV master file — baseline connectivity check
+
+HTTP status: 302
+Response size:      169 bytes
+Redirect to: Location: https://portal.amfiindia.com/spages/NAVAll.txt
+
+======================================================================
+DONE. Key questions:
+  1. Did any /PortfolioAllAMCs URL return a machine-readable response (not HTML)?
+  2. What format is the consolidated portfolio — CSV, JSON, XML, or HTML?
+  3. Did the stock categorisation list return a parseable CSV?
+  4. If the NAV master worked but portfolio URLs failed, AMFI likely requires
+     form-based POST or session authentication for portfolio data.
