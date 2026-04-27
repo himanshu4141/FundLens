@@ -27,6 +27,8 @@ const config = {
     global: { lines: 70, statements: 70, branches: 60, functions: 55 },
     // Pure utils (no RN/Supabase deps) must stay near full coverage
     './src/utils/': { lines: 95, statements: 95, branches: 85, functions: 100 },
+    // CAS import edge-function logic has dedicated tests
+    './supabase/functions/_shared/': { lines: 100, statements: 100, branches: 80, functions: 100 },
   },
   coverageReporters: ['text', 'lcov'],
 };
