@@ -46,3 +46,9 @@ All shipped work is in `docs/plans/archive/`. These are read-only historical rec
 | `M9-portfolio-insights.md` | Asset mix, market-cap mix, sector exposure, top holdings |
 | `M10-screen-family-consistency.md` | Unified navigation chrome, single back affordance in Fund Detail, sortable Your Funds list |
 | `M11-wealth-journey-redesign.md` | Wealth Journey — portfolio-anchored planning with drawdown view |
+
+**Bug Fixes** (`archive/bug-fixes/`)
+
+| Plan | What it covers |
+|---|---|
+| `1-portfolio-value-bug-fix.md` | CAS import REVERSAL/tax fix; Android PDF XHR; auth host guard; CI db push |
