@@ -47,13 +47,13 @@ import {
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - ClearLensSpacing.md * 2 - ClearLensSpacing.md * 2;
 const JOURNEY_Y_AXIS_WIDTH = 54;
-const JOURNEY_CHART_HEIGHT = 216;
-const JOURNEY_X_AXIS_HEIGHT = 28;
+const JOURNEY_CHART_HEIGHT = 178;
+const JOURNEY_X_AXIS_HEIGHT = 24;
 const JOURNEY_CHART_TOP_PADDING = 10;
 const JOURNEY_CHART_RIGHT_PADDING = 6;
 const JOURNEY_TOOLTIP_WIDTH = 226;
 const JOURNEY_TOOLTIP_HEIGHT = 112;
-const JOURNEY_WINDOWS: TimeWindow[] = ['1Y', '3Y', '5Y', '10Y', '15Y', 'All'];
+const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '6M', '1Y', '3Y', 'All'];
 const CLEAR_LENS_RED = '#EF4444';
 const CLEAR_LENS_RED_SOFT = '#FEE2E2';
 const CLEAR_LENS_GREEN_SOFT = '#DFF8ED';
@@ -363,7 +363,7 @@ function InvestmentVsBenchmarkChart({
   userId: string | undefined;
   benchmarkSymbol: string;
 }) {
-  const [window, setWindow] = useState<TimeWindow>('All');
+  const [window, setWindow] = useState<TimeWindow>('1Y');
   const [chartInnerWidth, setChartInnerWidth] = useState(CHART_WIDTH);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const { points, isLoading, error } = useInvestmentVsBenchmarkTimeline(
@@ -398,7 +398,6 @@ function InvestmentVsBenchmarkChart({
     ? Math.round(clamp(activeIndex, 0, points.length - 1))
     : null;
   const activePoint = activeIndexForRender !== null ? points[activeIndexForRender] : null;
-  const snapshotPoint = activePoint ?? points[points.length - 1];
   const activeX = activeIndexForRender !== null ? getChartX(activeIndexForRender, points.length, plotWidth) : 0;
   const activePortfolioY = activePoint
     ? getScaledY(activePoint.portfolioValue, journeyScale, JOURNEY_CHART_HEIGHT)
@@ -616,16 +615,6 @@ function InvestmentVsBenchmarkChart({
               </TouchableOpacity>
             ))}
           </ScrollView>
-          {snapshotPoint && (
-            <View style={styles.journeySnapshot}>
-              <Text style={styles.snapshotDate}>{formatJourneyTooltipDate(snapshotPoint.date)}</Text>
-              <View style={styles.snapshotGrid}>
-                <SnapshotMetric label="Invested" value={snapshotPoint.investedValue} color={ClearLensColors.navy} />
-                <SnapshotMetric label="Portfolio" value={snapshotPoint.portfolioValue} color={ClearLensColors.emerald} />
-                <SnapshotMetric label={benchmarkLabel} value={snapshotPoint.benchmarkValue} color={ClearLensColors.slate} />
-              </View>
-            </View>
-          )}
         </>
       )}
     </ClearLensCard>
@@ -638,15 +627,6 @@ function PointerRow({ color, label, value }: { color: string; label: string; val
       <Text style={[styles.pointerSeries, { color }]}>●</Text>
       <Text style={styles.pointerText}>{label}</Text>
       <Text style={styles.pointerValue}>{formatTooltipCurrency(value)}</Text>
-    </View>
-  );
-}
-
-function SnapshotMetric({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <View style={styles.snapshotMetric}>
-      <Text style={styles.snapshotLabel}>{label}</Text>
-      <Text style={[styles.snapshotValue, { color }]}>{formatCurrency(value)}</Text>
     </View>
   );
 }
@@ -1131,7 +1111,7 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textOnDark,
   },
   chartLoading: {
-    height: 172,
+    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1203,34 +1183,6 @@ const styles = StyleSheet.create({
   pointerValue: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.navy,
-    fontFamily: ClearLensFonts.bold,
-  },
-  journeySnapshot: {
-    padding: ClearLensSpacing.sm,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-    gap: ClearLensSpacing.sm,
-  },
-  snapshotDate: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
-  },
-  snapshotGrid: {
-    flexDirection: 'row',
-    gap: ClearLensSpacing.sm,
-  },
-  snapshotMetric: {
-    flex: 1,
-    minWidth: 0,
-  },
-  snapshotLabel: {
-    ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
-    textTransform: 'uppercase',
-    fontSize: 9,
-  },
-  snapshotValue: {
-    ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
   },
   chartAxis: {

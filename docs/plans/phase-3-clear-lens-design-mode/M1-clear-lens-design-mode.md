@@ -437,6 +437,7 @@ Expected automated result:
 - [x] Remove duplicate Portfolio hero benchmark chip and tighten Fund Detail / fund-card parity
 - [x] Add Your Funds allocation overview fallback when composition insights are still loading
 - [x] Bootstrap Clear Lens Portfolio Insights composition data on direct navigation
+- [x] Compact Clear Lens Portfolio journey chart toward the board layout
 
 
 ## Amendments
@@ -452,10 +453,11 @@ Expected automated result:
 9. The next screenshot pass removed the duplicate benchmark status from the Portfolio hero, centered the shared Clear Lens title header, moved Fund Detail benchmark status into the hero card, tightened Fund Detail stat labels, and made expanded fund cards always show Redeemed and Booked P&L rows.
 10. Your Funds overview now falls back to live fund values for top-3 share, largest position, and row percentages when composition insight rows are not yet available, avoiding blank/zero summary states during direct navigation.
 11. Clear Lens Portfolio Insights now treats "fund cards loaded but no composition insights yet" as a bootstrap state and triggers the composition sync instead of leaving the user on the empty state.
+12. The Portfolio journey card now defaults to the board's 1Y view, uses the shorter board range set, and drops the persistent snapshot panel so the chart area is more compact and the mover cards sit closer to the first viewport.
 
 ## Remaining Visual Gaps
 
-- Portfolio chart card is now closer to the board, but still needs screenshot comparison for exact chart density, axis labels, and benchmark control sizing.
+- Portfolio chart card is now closer to the board, but still needs screenshot comparison for exact chart density, axis labels, first-viewport balance, and benchmark control sizing.
 - Portfolio Insights allocation cards now use donut presentation, but still need screenshot comparison for exact spacing, sizing, and disclosure-row placement.
 - Your Funds expanded row now has a filled mini-chart and improved sort sheet, but still needs screenshot comparison for exact card density and row spacing.
 - Header chrome is closer to the board after the centered-title pass, but bottom-tab chrome still needs a final pixel pass after the primary card surfaces are aligned.
@@ -475,6 +477,7 @@ Current progress:
 - Current in-progress parity pass removes the extra Portfolio hero status chip, centers title headers, restores Fund Detail hero benchmark status, and fills out expanded fund-card realized-value rows.
 - Your Funds now uses live current-value fallback percentages while waiting for composition insights.
 - Portfolio Insights now auto-bootstraps composition data on direct navigation so the Debt and Cash card can appear without pressing the manual load button.
+- Portfolio journey chart now defaults to 1Y and no longer reserves space for the non-spec persistent snapshot panel.
 - The current checkout is detached at the Clear Lens branch tip, so continue carefully without assuming a named branch is checked out.
 
 Decisions:
