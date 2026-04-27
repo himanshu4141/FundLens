@@ -1,6 +1,17 @@
 /**
- * sync-fund-meta — fetches expense ratio, AUM, min SIP for each active fund
- * from MFAPI (for ISIN) and mf.captnemo.in (for fund meta).
+ * sync-fund-meta — fetches shared scheme metadata for each active scheme and
+ * stores it once in scheme_master.
+ *
+ * Primary source: mfdata.in
+ * Fallback source for ISIN only: mfapi.in
+ *
+ * mfdata also exposes useful future-facing fields that we are not showing in
+ * the UI yet, but want to persist now:
+ * - family_id
+ * - declared benchmark label
+ * - risk label
+ * - Morningstar rating
+ * - related variants for the same scheme family
  *
  * Run on-demand after new fund imports. Deploy with --no-verify-jwt.
  */
@@ -9,6 +20,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const MFDATA_USER_AGENT = 'Mozilla/5.0 (compatible; FundLens/1.0; +https://fundlens.app)';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -17,12 +29,57 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+interface MFDataSchemePayload {
+  family_id?: number | null;
+  isin?: string | null;
+  expense_ratio?: number | null;
+  morningstar?: number | null;
+  risk_label?: string | null;
+  aum?: number | null;
+  min_sip?: number | null;
+  benchmark?: string | null;
+  related_variants?: unknown[] | null;
+}
+
+interface MFDataSchemeResponse {
+  status?: string;
+  data?: MFDataSchemePayload | null;
+}
+
+function toCrores(amount: number | null | undefined): number | null {
+  if (amount == null || Number.isNaN(amount)) return null;
+  return Math.round((amount / 10_000_000) * 100) / 100;
+}
+
+async function fetchMFDataScheme(schemeCode: number): Promise<MFDataSchemePayload | null> {
+  const res = await fetch(`https://mfdata.in/api/v1/schemes/${schemeCode}`, {
+    headers: { 'User-Agent': MFDATA_USER_AGENT, Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    throw new Error(`mfdata ${res.status}`);
+  }
+
+  const body = await res.json() as MFDataSchemeResponse | MFDataSchemePayload;
+  if ('data' in body) return body.data ?? null;
+  return body ?? null;
+}
+
+async function fetchMfapiIsin(schemeCode: number): Promise<string | null> {
+  const res = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+  if (!res.ok) {
+    throw new Error(`mfapi ${res.status}`);
+  }
+  const body = await res.json();
+  return body?.meta?.isin_growth ?? null;
+}
+
 Deno.serve(async (_req) => {
   console.log('[sync-fund-meta] invocation started');
 
   const { data: funds, error: fundsError } = await supabase
-    .from('fund')
-    .select('id, scheme_code')
+    .from('user_fund')
+    .select('scheme_code')
     .eq('is_active', true);
 
   if (fundsError) {
@@ -35,72 +92,91 @@ Deno.serve(async (_req) => {
     return new Response(JSON.stringify({ updated: 0 }), { status: 200 });
   }
 
-  console.log(`[sync-fund-meta] processing ${funds.length} active funds`);
+  const schemeCodes = [...new Set((funds ?? []).map((fund) => fund.scheme_code as number))];
+  console.log(`[sync-fund-meta] processing ${schemeCodes.length} distinct active schemes`);
 
   let updated = 0;
   let failed = 0;
 
-  for (const fund of funds) {
+  for (const schemeCode of schemeCodes) {
     await delay(200); // rate-limit between funds
 
     try {
-      // Step 1: fetch ISIN from MFAPI
-      const mfapiRes = await fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`);
-      if (!mfapiRes.ok) {
-        console.warn(`[sync-fund-meta] scheme ${fund.scheme_code}: MFAPI ${mfapiRes.status}`);
-        failed++;
-        continue;
-      }
-      const mfapiData = await mfapiRes.json();
-      const isin: string | null = mfapiData?.meta?.isin_growth ?? null;
+      let mfdata: MFDataSchemePayload | null = null;
+      let mfdataError: string | null = null;
 
+      try {
+        mfdata = await fetchMFDataScheme(schemeCode);
+      } catch (err) {
+        mfdataError = String(err);
+        console.warn(`[sync-fund-meta] scheme ${schemeCode}: ${mfdataError}`);
+      }
+
+      let isin = mfdata?.isin ?? null;
       if (!isin) {
-        console.warn(`[sync-fund-meta] scheme ${fund.scheme_code}: no ISIN in MFAPI response`);
+        try {
+          isin = await fetchMfapiIsin(schemeCode);
+        } catch (err) {
+          console.warn(`[sync-fund-meta] scheme ${schemeCode}: ${String(err)}`);
+        }
+      }
+
+      const expense_ratio =
+        mfdata?.expense_ratio != null ? Number(mfdata.expense_ratio) : null;
+      const aum_cr = toCrores(mfdata?.aum ?? null);
+      const min_sip_amount =
+        mfdata?.min_sip != null ? Math.round(Number(mfdata.min_sip)) : null;
+      const morningstar_rating =
+        mfdata?.morningstar != null ? Math.round(Number(mfdata.morningstar)) : null;
+
+      if (
+        !isin &&
+        expense_ratio == null &&
+        aum_cr == null &&
+        min_sip_amount == null &&
+        !mfdata?.benchmark &&
+        !mfdata?.risk_label &&
+        morningstar_rating == null
+      ) {
         failed++;
         continue;
       }
 
-      // Step 2: fetch meta from Kuvera API
-      const kuveraRes = await fetch(`https://mf.captnemo.in/kuvera/${isin}`);
-      if (!kuveraRes.ok) {
-        console.warn(`[sync-fund-meta] scheme ${fund.scheme_code}: Kuvera ${kuveraRes.status}`);
-        // Still save the ISIN even if Kuvera fails
-        await supabase.from('fund').update({ isin }).eq('id', fund.id);
-        failed++;
-        continue;
-      }
-      // Response is an array; first element is the fund scheme
-      const kuveraRaw = await kuveraRes.json();
-      const kuveraData = Array.isArray(kuveraRaw) ? kuveraRaw[0] : kuveraRaw;
+      const now = new Date().toISOString();
 
-      // expense_ratio comes as a string e.g. "0.70"; aum is in lakhs; sip_min is rupees
-      const expense_ratio: number | null =
-        kuveraData?.expense_ratio != null ? parseFloat(kuveraData.expense_ratio) : null;
-      const aum_cr: number | null =
-        kuveraData?.aum != null ? Math.round(kuveraData.aum / 100) : null; // lakhs → crores
-      const min_sip_amount: number | null =
-        kuveraData?.sip_min != null ? Math.round(kuveraData.sip_min) : null;
+      const updatePayload: Record<string, unknown> = {
+        fund_meta_synced_at: now,
+      };
+
+      if (isin) updatePayload.isin = isin;
+      if (expense_ratio != null) updatePayload.expense_ratio = expense_ratio;
+      if (aum_cr != null) updatePayload.aum_cr = aum_cr;
+      if (min_sip_amount != null) updatePayload.min_sip_amount = min_sip_amount;
+      if (mfdata) {
+        updatePayload.mfdata_family_id = mfdata.family_id ?? null;
+        updatePayload.declared_benchmark_name = mfdata.benchmark ?? null;
+        updatePayload.risk_label = mfdata.risk_label ?? null;
+        updatePayload.morningstar_rating = morningstar_rating;
+        updatePayload.related_variants = mfdata.related_variants ?? null;
+        updatePayload.mfdata_meta_synced_at = now;
+      }
 
       const { error: updateError } = await supabase
-        .from('fund')
-        .update({
-          isin,
-          expense_ratio,
-          aum_cr,
-          min_sip_amount,
-          fund_meta_synced_at: new Date().toISOString(),
-        })
-        .eq('id', fund.id);
+        .from('scheme_master')
+        .update(updatePayload)
+        .eq('scheme_code', schemeCode);
 
       if (updateError) {
-        console.error(`[sync-fund-meta] scheme ${fund.scheme_code}: update error:`, updateError.message);
+        console.error(`[sync-fund-meta] scheme ${schemeCode}: update error:`, updateError.message);
         failed++;
       } else {
-        console.log(`[sync-fund-meta] scheme ${fund.scheme_code}: updated (isin=${isin}, er=${expense_ratio}, aum=${aum_cr}cr, minsip=${min_sip_amount})`);
+        console.log(
+          `[sync-fund-meta] scheme ${schemeCode}: updated (isin=${isin}, er=${expense_ratio}, aum=${aum_cr}cr, minsip=${min_sip_amount}, family=${mfdata?.family_id ?? 'n/a'})`,
+        );
         updated++;
       }
     } catch (err) {
-      console.error(`[sync-fund-meta] scheme ${fund.scheme_code}: unexpected error:`, String(err));
+      console.error(`[sync-fund-meta] scheme ${schemeCode}: unexpected error:`, String(err));
       failed++;
     }
   }

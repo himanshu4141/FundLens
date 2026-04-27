@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       benchmark_mapping: {
@@ -98,111 +123,57 @@ export type Database = {
         }
         Relationships: []
       }
-      fund: {
-        Row: {
-          aum_cr: number | null
-          benchmark_index: string | null
-          benchmark_index_symbol: string | null
-          created_at: string
-          expense_ratio: number | null
-          fund_meta_synced_at: string | null
-          id: string
-          is_active: boolean
-          isin: string | null
-          min_sip_amount: number | null
-          scheme_category: string
-          scheme_code: number
-          scheme_name: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          aum_cr?: number | null
-          benchmark_index?: string | null
-          benchmark_index_symbol?: string | null
-          created_at?: string
-          expense_ratio?: number | null
-          fund_meta_synced_at?: string | null
-          id?: string
-          is_active?: boolean
-          isin?: string | null
-          min_sip_amount?: number | null
-          scheme_category: string
-          scheme_code: number
-          scheme_name: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          aum_cr?: number | null
-          benchmark_index?: string | null
-          benchmark_index_symbol?: string | null
-          created_at?: string
-          expense_ratio?: number | null
-          fund_meta_synced_at?: string | null
-          id?: string
-          is_active?: boolean
-          isin?: string | null
-          min_sip_amount?: number | null
-          scheme_category?: string
-          scheme_code?: number
-          scheme_name?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       fund_portfolio_composition: {
         Row: {
-          id: string
-          scheme_code: number
-          portfolio_date: string
-          equity_pct: number
-          debt_pct: number
           cash_pct: number
-          other_pct: number
+          debt_pct: number
+          equity_pct: number
+          id: string
           large_cap_pct: number | null
           mid_cap_pct: number | null
-          small_cap_pct: number | null
           not_classified_pct: number | null
+          other_pct: number
+          portfolio_date: string
+          scheme_code: number
           sector_allocation: Json | null
-          top_holdings: Json | null
+          small_cap_pct: number | null
           source: string
           synced_at: string
+          top_holdings: Json | null
         }
         Insert: {
-          id?: string
-          scheme_code: number
-          portfolio_date: string
-          equity_pct?: number
-          debt_pct?: number
           cash_pct?: number
-          other_pct?: number
+          debt_pct?: number
+          equity_pct?: number
+          id?: string
           large_cap_pct?: number | null
           mid_cap_pct?: number | null
-          small_cap_pct?: number | null
           not_classified_pct?: number | null
+          other_pct?: number
+          portfolio_date: string
+          scheme_code: number
           sector_allocation?: Json | null
-          top_holdings?: Json | null
+          small_cap_pct?: number | null
           source?: string
           synced_at?: string
+          top_holdings?: Json | null
         }
         Update: {
-          id?: string
-          scheme_code?: number
-          portfolio_date?: string
-          equity_pct?: number
-          debt_pct?: number
           cash_pct?: number
-          other_pct?: number
+          debt_pct?: number
+          equity_pct?: number
+          id?: string
           large_cap_pct?: number | null
           mid_cap_pct?: number | null
-          small_cap_pct?: number | null
           not_classified_pct?: number | null
+          other_pct?: number
+          portfolio_date?: string
+          scheme_code?: number
           sector_allocation?: Json | null
-          top_holdings?: Json | null
+          small_cap_pct?: number | null
           source?: string
           synced_at?: string
+          top_holdings?: Json | null
         }
         Relationships: []
       }
@@ -254,6 +225,69 @@ export type Database = {
           nav?: number
           nav_date?: string
           scheme_code?: number
+        }
+        Relationships: []
+      }
+      scheme_master: {
+        Row: {
+          aum_cr: number | null
+          benchmark_index: string | null
+          benchmark_index_symbol: string | null
+          created_at: string
+          declared_benchmark_name: string | null
+          expense_ratio: number | null
+          fund_meta_synced_at: string | null
+          isin: string | null
+          mfdata_family_id: number | null
+          mfdata_meta_synced_at: string | null
+          min_sip_amount: number | null
+          morningstar_rating: number | null
+          related_variants: Json | null
+          risk_label: string | null
+          scheme_category: string
+          scheme_code: number
+          scheme_name: string
+          updated_at: string
+        }
+        Insert: {
+          aum_cr?: number | null
+          benchmark_index?: string | null
+          benchmark_index_symbol?: string | null
+          created_at?: string
+          declared_benchmark_name?: string | null
+          expense_ratio?: number | null
+          fund_meta_synced_at?: string | null
+          isin?: string | null
+          mfdata_family_id?: number | null
+          mfdata_meta_synced_at?: string | null
+          min_sip_amount?: number | null
+          morningstar_rating?: number | null
+          related_variants?: Json | null
+          risk_label?: string | null
+          scheme_category: string
+          scheme_code: number
+          scheme_name: string
+          updated_at?: string
+        }
+        Update: {
+          aum_cr?: number | null
+          benchmark_index?: string | null
+          benchmark_index_symbol?: string | null
+          created_at?: string
+          declared_benchmark_name?: string | null
+          expense_ratio?: number | null
+          fund_meta_synced_at?: string | null
+          isin?: string | null
+          mfdata_family_id?: number | null
+          mfdata_meta_synced_at?: string | null
+          min_sip_amount?: number | null
+          morningstar_rating?: number | null
+          related_variants?: Json | null
+          risk_label?: string | null
+          scheme_category?: string
+          scheme_code?: number
+          scheme_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -312,6 +346,48 @@ export type Database = {
             referencedRelation: "fund"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transaction_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "user_fund"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_fund: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          scheme_code: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          scheme_code: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          scheme_code?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_fund_scheme_code_fk"
+            columns: ["scheme_code"]
+            isOneToOne: false
+            referencedRelation: "scheme_master"
+            referencedColumns: ["scheme_code"]
+          },
         ]
       }
       user_profile: {
@@ -340,7 +416,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      fund: {
+        Row: {
+          aum_cr: number | null
+          benchmark_index: string | null
+          benchmark_index_symbol: string | null
+          created_at: string | null
+          declared_benchmark_name: string | null
+          expense_ratio: number | null
+          fund_meta_synced_at: string | null
+          id: string | null
+          is_active: boolean | null
+          isin: string | null
+          mfdata_family_id: number | null
+          mfdata_meta_synced_at: string | null
+          min_sip_amount: number | null
+          morningstar_rating: number | null
+          related_variants: Json | null
+          risk_label: string | null
+          scheme_category: string | null
+          scheme_code: number | null
+          scheme_name: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_fund_scheme_code_fk"
+            columns: ["scheme_code"]
+            isOneToOne: false
+            referencedRelation: "scheme_master"
+            referencedColumns: ["scheme_code"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
@@ -479,6 +588,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       import_source: ["email", "qr", "pdf"],

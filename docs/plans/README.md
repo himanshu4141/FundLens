@@ -22,6 +22,7 @@ The initial build of the app: auth, data pipeline, onboarding, core screens (Hom
 | `milestone-8-ux-polish.md` | Additional UX polish pass |
 | `09-local-cas-pdf-parser.md` | Local PDF parsing (replaces CAS upload) |
 | `10-dev-auth-bypass.md` | Demo account / local dev auth shortcut |
+| `11-shared-scheme-catalog.md` | Shared scheme metadata catalog + slimmer user holdings storage |
 
 ---
 
