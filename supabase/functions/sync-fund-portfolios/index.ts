@@ -21,6 +21,13 @@
 
 import { createServiceClient } from '../_shared/supabase-client.ts';
 import { CORS, json } from '../_shared/cors.ts';
+import {
+  type CategoryComposition,
+  isNumericString,
+  isDebtDataCorrupted,
+  deriveDebtPct,
+  isEquityPctPlausible,
+} from '../_shared/portfolio-utils.ts';
 
 const FETCH_TIMEOUT_MS = 10_000;
 const REQUEST_DELAY_MS = 300; // stay well within mfdata.in rate limits
@@ -29,16 +36,6 @@ const MFDATA_BASE = 'https://mfdata.in/api/v1';
 // ---------------------------------------------------------------------------
 // SEBI category → approximate composition (regulatory minimum exposures)
 // ---------------------------------------------------------------------------
-
-interface CategoryComposition {
-  equity: number;
-  debt: number;
-  cash: number;
-  other: number;
-  large: number;  // % of equity
-  mid: number;
-  small: number;
-}
 
 const CATEGORY_RULES: Record<string, CategoryComposition> = {
   'large cap fund':            { equity: 95, debt: 0,  cash: 5,  other: 0, large: 80, mid: 12, small: 8  },
@@ -179,35 +176,6 @@ interface MfdataHoldings {
   equity_holdings?: MfdataEquityHolding[];
   debt_holdings?: MfdataDebtHolding[];
   other_holdings?: MfdataOtherHolding[];
-}
-
-// ---------------------------------------------------------------------------
-// A1: debt holdings helpers
-// ---------------------------------------------------------------------------
-
-function isNumericString(value: string | undefined | null): boolean {
-  if (!value) return false;
-  return /^-?\d+(\.\d+)?$/.test(value.trim());
-}
-
-// Some pure-equity fund families have benchmark performance data injected into
-// debt_holdings with numeric holding_type and credit_rating values. Discard the
-// entire array when this pattern is detected.
-function isDebtDataCorrupted(debtHoldings: MfdataDebtHolding[]): boolean {
-  return debtHoldings.some(
-    (h) => isNumericString(h.holding_type) || isNumericString(h.credit_rating),
-  );
-}
-
-function deriveDebtPct(debtHoldings: MfdataDebtHolding[]): number {
-  return debtHoldings.reduce((sum, h) => sum + (h.weight_pct ?? 0), 0);
-}
-
-// A3: reject equity_pct values that are implausible for the fund category
-function isEquityPctPlausible(equityPct: number, catRules: CategoryComposition): boolean {
-  if (catRules.equity >= 80 && equityPct < 50) return false;
-  if (catRules.debt >= 80 && equityPct > 20) return false;
-  return true;
 }
 
 async function getSchemeInfo(schemeCode: number): Promise<MfdataSchemeInfo | null> {
