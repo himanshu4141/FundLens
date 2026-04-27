@@ -3,11 +3,19 @@
 ## Purpose
 This file defines how coding agents should plan and execute work in this repository.
 
+## Project State
+
+Phase 1 (foundation) and Phase 2 milestones M1–M9 and M11 are all shipped to `main`. The app has magic-link + Google auth, CAS import (email forwarding + local PDF), home screen with XIRR/benchmark, fund detail, leaderboard, wealth simulator, A/B theme toggle, and portfolio insights (asset mix, sectors, holdings). All ExecPlans are archived in `docs/plans/archive/`. There is no active plan — create a new one for the next feature.
+
 ## Repository Anchors
-Agents must review these documents at the start of new work:
-- VISION.md — the product vision, core user problems, design principles, and what is out of scope. All decisions must align with this document.
-- docs/SCREENS.md — the screen map and navigation structure. Reference this when building any UI or planning flows.
-- docs/TECH-DISCOVERY.md — tech stack decisions, data sources, and key constraints. Do not revisit closed decisions without strong justification.
+
+Read `VISION.md` at the start of every session. Read the others on-demand.
+
+| Read this | When you are... |
+|---|---|
+| `VISION.md` | Always — read this first |
+| `docs/SCREENS.md` | Building or changing any UI, navigation, or screen layout |
+| `docs/TECH-DISCOVERY.md` | Touching infra, DB schema, third-party integrations, or the data pipeline |
 
 ## ExecPlans
 When writing complex features, multi-day efforts, or significant refactors, use an ExecPlan as described in `docs/process/PLANS.md` from design through implementation.

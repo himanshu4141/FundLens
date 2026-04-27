@@ -1,12 +1,18 @@
 # FundLens — ExecPlan Index
 
-This folder contains the execution plans that document every significant change to the FundLens codebase. Plans are organised by phase.
+---
+
+## Active plans
+
+None — all plans are archived. Create a new ExecPlan for the next feature.
 
 ---
 
-## Phase 1 — Foundation Build (`phase-1-foundation/`)
+## Archived plans
 
-The initial build of the app: auth, data pipeline, onboarding, core screens (Home, Fund Detail, Compare, Settings), NAV sync, and developer tooling.
+All shipped work is in `docs/plans/archive/`. These are read-only historical records — agents should not read them unless debugging a specific decision from that feature.
+
+**Phase 1 — Foundation Build** (`archive/phase-1-foundation/`)
 
 | Plan | What it covers |
 |---|---|
@@ -22,23 +28,21 @@ The initial build of the app: auth, data pipeline, onboarding, core screens (Hom
 | `milestone-8-ux-polish.md` | Additional UX polish pass |
 | `09-local-cas-pdf-parser.md` | Local PDF parsing (replaces CAS upload) |
 | `10-dev-auth-bypass.md` | Demo account / local dev auth shortcut |
+| `10-supabase-migration-drift-repair.md` | Migration drift repair and parity CI |
 | `11-shared-scheme-catalog.md` | Shared scheme metadata catalog + slimmer user holdings storage |
 
----
+**Phase 2 — Design Integration & Feature Completion** (`archive/phase-2-design-integration/`)
 
-## Phase 2 — Design Integration & Feature Completion (`phase-2-design-integration/`)
-
-A stacked milestone series (M1→M7) that bridges the gap between the built app and the designer's "Editorial Wealth" concept, building all missing features before an A/B focus group test.
-
-The milestones are a stacked PR chain — each branch builds on the one before it. **Test from the M7 tip branch** to see the complete product.
-
-| Plan | Branch | What it covers |
-|---|---|---|
-| `M1-nav-restructure.md` | `feat/m1-nav-restructure` | Settings→header icon; Compare removed; Leaderboard+Simulator tab placeholders |
-| `M2-home-enhancements.md` | `feat/m2-home-enhancements` | Portfolio vs Market chart; Top Gainers/Losers section |
-| `M3-leaderboard.md` | `feat/m3-leaderboard` | Performance Leaderboard screen (Leaders/Laggards) |
-| `M4-fund-tech-details.md` | `feat/m4-fund-tech-details` | Fund metadata sync (expense ratio, AUM, min SIP); technical details card |
-| `M5-fund-detail-enhancements.md` | `feat/m5-fund-detail-enhancements` | Growth consistency chart; Portfolio health donut |
-| `M6-wealth-simulator.md` | `feat/m6-wealth-simulator` | Interactive SIP/lumpsum wealth projection tool |
-| `M7-ab-theme-toggle.md` | `feat/m7-ab-theme-toggle` | V2 "Editorial Wealth" theme; settings toggle; new logo |
-| `M8-google-login.md` | `claude/google-login-integration-Gx6to` | Google OAuth sign-in; account linking in Settings; existing-account detection |
+| Plan | What it covers |
+|---|---|
+| `M1-nav-restructure.md` | Settings→header icon; 3-tab layout |
+| `M2-home-enhancements.md` | Portfolio vs Market chart; Top Gainers/Losers |
+| `M3-leaderboard.md` | Performance Leaderboard screen |
+| `M4-fund-tech-details.md` | Fund metadata sync (expense ratio, AUM, min SIP) |
+| `M5-fund-detail-enhancements.md` | Growth consistency chart; Portfolio health donut |
+| `M6-wealth-simulator.md` | Interactive SIP/lumpsum wealth projection tool |
+| `M7-ab-theme-toggle.md` | V2 "Editorial Wealth" theme; settings toggle; new logo |
+| `M8-google-login.md` | Google OAuth sign-in; account linking; existing-account detection |
+| `M9-portfolio-insights.md` | Asset mix, market-cap mix, sector exposure, top holdings |
+| `M10-screen-family-consistency.md` | Unified navigation chrome, single back affordance in Fund Detail, sortable Your Funds list |
+| `M11-wealth-journey-redesign.md` | Wealth Journey — portfolio-anchored planning with drawdown view |
