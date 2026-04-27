@@ -434,6 +434,8 @@ Expected automated result:
 - [x] Align Clear Lens Portfolio chart card title and controls
 - [x] Tighten Clear Lens shared chrome, negative tokens, and PDF import fallback
 - [x] Record remaining visual differences and follow-up plan
+- [x] Remove duplicate Portfolio hero benchmark chip and tighten Fund Detail / fund-card parity
+- [x] Add Your Funds allocation overview fallback when composition insights are still loading
 
 
 ## Amendments
@@ -446,13 +448,15 @@ Expected automated result:
 6. The next parity pass converted Portfolio Insights asset allocation and market-cap mix from stacked bars to donut cards, changed Your Funds expanded sparklines to a filled mini-chart treatment, and restyled the sort bottom sheet with icons, radio controls, and an apply action.
 7. Portfolio chart copy and controls were aligned closer to the board: the card now uses `How your money grew`, shows a compact benchmark pill, uses plain-language legend labels, and places range controls below the graph.
 8. Clear Lens support surfaces were tightened after the first checkpoint push: negative color tokens now use red, the shared Clear Lens header and bottom tabs are more compact, and the PDF import fallback uses Clear Lens card, radius, shadow, typography, and button treatment.
+9. The next screenshot pass removed the duplicate benchmark status from the Portfolio hero, centered the shared Clear Lens title header, moved Fund Detail benchmark status into the hero card, tightened Fund Detail stat labels, and made expanded fund cards always show Redeemed and Booked P&L rows.
+10. Your Funds overview now falls back to live fund values for top-3 share, largest position, and row percentages when composition insight rows are not yet available, avoiding blank/zero summary states during direct navigation.
 
 ## Remaining Visual Gaps
 
 - Portfolio chart card is now closer to the board, but still needs screenshot comparison for exact chart density, axis labels, and benchmark control sizing.
 - Portfolio Insights allocation cards now use donut presentation, but still need screenshot comparison for exact spacing, sizing, and disclosure-row placement.
 - Your Funds expanded row now has a filled mini-chart and improved sort sheet, but still needs screenshot comparison for exact card density and row spacing.
-- Header and bottom-tab chrome should get a final pixel pass after the primary card surfaces are aligned.
+- Header chrome is closer to the board after the centered-title pass, but bottom-tab chrome still needs a final pixel pass after the primary card surfaces are aligned.
 - Import portfolio and PDF fallback now have Clear Lens treatment, but still need screenshot comparison alongside the other supporting screens.
 
 ## Handoff Summary
@@ -466,6 +470,8 @@ Current progress:
 - Portfolio Insights allocation cards, Your Funds mini-chart, and sort sheet were further aligned toward the uploaded design examples.
 - Portfolio chart card naming, benchmark pill, legend labels, and range-control placement are now closer to the supplied board.
 - Clear Lens negative tokens, shared header/tab sizing, and PDF fallback styling have been tightened.
+- Current in-progress parity pass removes the extra Portfolio hero status chip, centers title headers, restores Fund Detail hero benchmark status, and fills out expanded fund-card realized-value rows.
+- Your Funds now uses live current-value fallback percentages while waiting for composition insights.
 - The current checkout is detached at the Clear Lens branch tip, so continue carefully without assuming a named branch is checked out.
 
 Decisions:

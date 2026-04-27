@@ -195,16 +195,12 @@ function FundListItem({
               subvalue={gain != null && gainPct != null ? `(${gain >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)` : undefined}
               color={gainColor}
             />
-            {fund.redeemedUnits > 0 && (
-              <>
-                <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
-                <MetricRow
-                  label="Booked P&L"
-                  value={`${fund.realizedGain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.realizedGain))}`}
-                  color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
-                />
-              </>
-            )}
+            <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
+            <MetricRow
+              label="Booked P&L"
+              value={`${fund.realizedGain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.realizedGain))}`}
+              color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
+            />
           </View>
 
           {sparklineData.length >= 2 && (
@@ -331,12 +327,30 @@ export function ClearLensFundsScreen() {
 
   const allocationPctByFundId = useMemo(() => {
     const map = new Map<string, number>();
+    const totalValue = summary?.totalValue ?? 0;
+    if (totalValue > 0) {
+      for (const fund of fundCards) {
+        if (fund.currentValue != null) {
+          map.set(fund.id, (fund.currentValue / totalValue) * 100);
+        }
+      }
+    }
     for (const item of insights?.fundAllocation ?? []) map.set(item.fundId, item.pct);
     return map;
-  }, [insights?.fundAllocation]);
+  }, [fundCards, insights?.fundAllocation, summary?.totalValue]);
 
-  const largestPosition = insights?.fundAllocation[0]?.shortName ?? '—';
-  const topThreeShare = (insights?.fundAllocation ?? []).slice(0, 3).reduce((sum, item) => sum + item.pct, 0);
+  const valueSortedFunds = useMemo(
+    () => [...fundCards].sort((a, b) => sortableNumber(b.currentValue) - sortableNumber(a.currentValue)),
+    [fundCards],
+  );
+  const largestPosition =
+    insights?.fundAllocation[0]?.shortName ??
+    (valueSortedFunds[0] ? parseFundName(valueSortedFunds[0].schemeName).base : '—');
+  const topThreeShare = insights?.fundAllocation.length
+    ? insights.fundAllocation.slice(0, 3).reduce((sum, item) => sum + item.pct, 0)
+    : valueSortedFunds
+      .slice(0, 3)
+      .reduce((sum, fund) => sum + (allocationPctByFundId.get(fund.id) ?? 0), 0);
   const benchmarkXirr = summary?.marketXirr ?? 0;
   const sortLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? 'Current value';
 
