@@ -32,7 +32,7 @@ import type { TimeWindow } from '@/src/utils/navUtils';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
-import { formatChange, formatCurrency } from '@/src/utils/formatting';
+import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
 import {
@@ -54,6 +54,10 @@ const JOURNEY_CHART_RIGHT_PADDING = 6;
 const JOURNEY_TOOLTIP_WIDTH = 226;
 const JOURNEY_TOOLTIP_HEIGHT = 112;
 const JOURNEY_WINDOWS: TimeWindow[] = ['1Y', '3Y', '5Y', '10Y', '15Y', 'All'];
+const CLEAR_LENS_RED = '#EF4444';
+const CLEAR_LENS_RED_SOFT = '#FEE2E2';
+const CLEAR_LENS_GREEN_SOFT = '#DFF8ED';
+const CLEAR_LENS_ORANGE = '#F59E0B';
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
@@ -62,7 +66,12 @@ function toneForValue(value: number): 'positive' | 'negative' {
 }
 
 function toneColor(tone: 'positive' | 'negative') {
-  return tone === 'positive' ? ClearLensColors.emerald : ClearLensColors.slate;
+  return tone === 'positive' ? ClearLensColors.emerald : CLEAR_LENS_RED;
+}
+
+function formatSignedChange(amount: number, pct: number): string {
+  const sign = amount >= 0 ? '+' : '-';
+  return `${sign}${formatCurrency(Math.abs(amount))} (${sign}${Math.abs(pct).toFixed(2)}%)`;
 }
 
 function PortfolioHero({
@@ -86,50 +95,47 @@ function PortfolioHero({
   const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
   const delta = Number.isFinite(xirr) && Number.isFinite(marketXirr) ? (xirr - marketXirr) * 100 : null;
   const ahead = delta !== null && delta >= 0;
+  const gainColor = toneColor(toneForValue(gain));
+  const dailyColor = toneColor(toneForValue(dailyChangeAmount));
 
   return (
     <ClearLensCard style={styles.heroCard}>
-      <View style={styles.heroTopRow}>
-        <View style={styles.heroIcon}>
-          <Ionicons name="pie-chart-outline" size={20} color={ClearLensColors.emerald} />
-        </View>
-        {delta !== null && (
-          <View style={styles.statusPill}>
-            <Ionicons
-              name={ahead ? 'trending-up' : 'trending-down'}
-              size={15}
-              color={ClearLensColors.emerald}
-            />
-            <Text style={styles.statusText}>
-              {ahead ? 'Ahead of' : 'Behind'} {benchmarkLabel} by {Math.abs(delta).toFixed(1)}%
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <Text style={styles.heroLabel}>Current value</Text>
+      <Text style={styles.heroLabel}>Your portfolio value</Text>
       <Text style={styles.heroValue}>{formatCurrency(totalValue)}</Text>
 
-      <View style={styles.heroMetricGrid}>
-        <View style={styles.heroMetric}>
-          <Text style={styles.metricLabel}>Today</Text>
-          <Text style={[styles.metricValue, { color: toneColor(toneForValue(dailyChangeAmount)) }]}>
-            {formatChange(dailyChangeAmount, dailyChangePct)}
-          </Text>
-        </View>
-        <View style={styles.heroMetric}>
-          <Text style={styles.metricLabel}>Overall gain</Text>
-          <Text style={[styles.metricValue, { color: toneColor(toneForValue(gain)) }]}>
+      <Text style={styles.heroToday}>
+        Today{' '}
+        <Text style={[styles.heroTodayValue, { color: dailyColor }]}>
+          {formatSignedChange(dailyChangeAmount, dailyChangePct)}
+        </Text>
+      </Text>
+
+      <View style={styles.heroBottomRow}>
+        <View style={styles.heroBottomMetric}>
+          <Text style={styles.heroBottomLabel}>Overall gain</Text>
+          <Text style={[styles.heroBottomValue, { color: gainColor }]}>
             {gain >= 0 ? '+' : '-'}{formatCurrency(Math.abs(gain))} ({gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%)
           </Text>
         </View>
-        <View style={styles.heroMetric}>
-          <Text style={styles.metricLabel}>SIP-aware return</Text>
-          <Text style={[styles.metricValue, { color: toneColor(toneForValue(xirr)) }]}>
-            {formatXirr(xirr)}
-          </Text>
+        <View style={styles.heroDivider} />
+        <View style={styles.heroBottomMetric}>
+          <Text style={styles.heroBottomLabel}>Your real return (XIRR)</Text>
+          <Text style={styles.heroXirrValue}>{formatXirr(xirr)} p.a.</Text>
         </View>
       </View>
+
+      {delta !== null && (
+        <View style={styles.heroBenchmarkPill}>
+          <Ionicons
+            name={ahead ? 'trending-up' : 'trending-down'}
+            size={16}
+            color={ahead ? ClearLensColors.emerald : CLEAR_LENS_RED}
+          />
+          <Text style={styles.heroBenchmarkText}>
+            You are {ahead ? 'ahead of' : 'behind'} {benchmarkLabel} by {Math.abs(delta).toFixed(1)}%
+          </Text>
+        </View>
+      )}
     </ClearLensCard>
   );
 }
@@ -147,31 +153,22 @@ function BenchmarkComparisonCard({
 }) {
   const benchmarkLabel = BENCHMARK_OPTIONS.find((option) => option.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
   const difference = Number.isFinite(xirr) && Number.isFinite(marketXirr) ? (xirr - marketXirr) * 100 : null;
+  const ahead = difference === null || difference >= 0;
 
   return (
-    <ClearLensCard style={styles.sectionCard}>
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Benchmark comparison</Text>
-        <Text style={styles.sectionMeta}>XIRR</Text>
-      </View>
-      <View style={styles.compareGrid}>
-        <View style={styles.compareCell}>
-          <Text style={styles.metricLabel}>Portfolio</Text>
-          <Text style={styles.compareValue}>{formatXirr(xirr)}</Text>
-        </View>
-        <View style={styles.compareDivider} />
-        <View style={styles.compareCell}>
-          <Text style={styles.metricLabel}>{benchmarkLabel}</Text>
-          <Text style={styles.compareValue}>{formatXirr(marketXirr)}</Text>
-        </View>
-        <View style={styles.compareDivider} />
-        <View style={styles.compareCell}>
-          <Text style={styles.metricLabel}>Difference</Text>
-          <Text style={[styles.compareValue, { color: (difference ?? 0) >= 0 ? ClearLensColors.emerald : ClearLensColors.slate }]}>
-            {difference === null ? 'N/A' : `${difference >= 0 ? '+' : ''}${difference.toFixed(2)}%`}
+    <View style={styles.benchmarkWrap}>
+      {difference !== null && (
+        <View style={[styles.marketStatusPill, !ahead && styles.marketStatusPillNegative]}>
+          <Ionicons
+            name={ahead ? 'trending-up' : 'trending-down'}
+            size={18}
+            color={ahead ? ClearLensColors.emerald : CLEAR_LENS_RED}
+          />
+          <Text style={[styles.marketStatusText, !ahead && styles.marketStatusTextNegative]}>
+            You are {ahead ? 'ahead of' : 'behind'} {benchmarkLabel} by {Math.abs(difference).toFixed(1)}%
           </Text>
         </View>
-      </View>
+      )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
         {BENCHMARK_OPTIONS.map((option) => (
           <ClearLensPill
@@ -182,7 +179,7 @@ function BenchmarkComparisonCard({
           />
         ))}
       </ScrollView>
-    </ClearLensCard>
+    </View>
   );
 }
 
@@ -260,10 +257,6 @@ function getNiceChartBounds(values: number[]): { yMin: number; yMax: number; ran
   const yMax = Math.max(step, Math.ceil(paddedMax / step) * step);
 
   return { yMin, yMax, range: Math.max(yMax - yMin, step) };
-}
-
-function rangeLabel(window: TimeWindow): string {
-  return window === 'All' ? 'Since start' : window;
 }
 
 function rangePillLabel(window: TimeWindow): string {
@@ -451,27 +444,15 @@ function InvestmentVsBenchmarkChart({
     <ClearLensCard style={styles.journeyCard}>
       <View style={styles.journeyHeader}>
         <View>
-          <Text style={styles.sectionTitle}>Investment journey</Text>
+          <Text style={styles.sectionTitle}>How your money grew</Text>
           <Text style={styles.journeySubtitle}>
             Amount invested, current worth, and benchmark worth
           </Text>
         </View>
-        <Text style={styles.sectionMeta}>{rangeLabel(window)}</Text>
+        <View style={styles.chartBenchmarkBadge}>
+          <Text style={styles.chartBenchmarkText}>vs {benchmarkLabel}</Text>
+        </View>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rangePillRow}>
-        {JOURNEY_WINDOWS.map((option) => (
-          <TouchableOpacity
-            key={option}
-            style={[styles.rangePill, window === option && styles.rangePillActive]}
-            onPress={() => setWindow(option)}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.rangePillText, window === option && styles.rangePillTextActive]}>
-              {rangePillLabel(option)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
       {isLoading ? (
         <View style={styles.chartLoading}>
           <ActivityIndicator size="small" color={ClearLensColors.emerald} />
@@ -482,6 +463,11 @@ function InvestmentVsBenchmarkChart({
         </View>
       ) : (
         <>
+          <View style={styles.legendWrap}>
+            <Legend color={ClearLensColors.navy} label="Amount invested" />
+            <Legend color={ClearLensColors.emerald} label="Portfolio value" />
+            <Legend color={ClearLensColors.slate} label={`If invested in ${benchmarkLabel}`} />
+          </View>
           <View
             style={styles.journeyChartFrame}
             onLayout={(event) => setChartInnerWidth(event.nativeEvent.layout.width)}
@@ -635,11 +621,20 @@ function InvestmentVsBenchmarkChart({
               onResponderMove={updateActivePoint}
             />
           </View>
-          <View style={styles.legendWrap}>
-            <Legend color={ClearLensColors.navy} label="Amount invested" />
-            <Legend color={ClearLensColors.emerald} label="Worth of investment" />
-            <Legend color={ClearLensColors.slate} label={`Worth in ${benchmarkLabel}`} />
-          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rangePillRow}>
+            {JOURNEY_WINDOWS.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.rangePill, window === option && styles.rangePillActive]}
+                onPress={() => setWindow(option)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.rangePillText, window === option && styles.rangePillTextActive]}>
+                  {rangePillLabel(option)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
           {snapshotPoint && (
             <View style={styles.journeySnapshot}>
               <Text style={styles.snapshotDate}>{formatJourneyTooltipDate(snapshotPoint.date)}</Text>
@@ -712,11 +707,14 @@ function MoverCard({
   const { base } = parseFundName(fund.schemeName);
   const pct = fund.dailyChangePct ?? 0;
   const amount = fund.dailyChangeAmount ?? 0;
-  const color = positive ? ClearLensColors.emerald : ClearLensColors.slate;
+  const color = positive ? ClearLensColors.emerald : CLEAR_LENS_RED;
 
   return (
-    <ClearLensCard style={styles.moverCard}>
-      <Text style={styles.metricLabel}>{title}</Text>
+    <ClearLensCard style={[
+      styles.moverCard,
+      positive ? styles.moverCardPositive : styles.moverCardNegative,
+    ]}>
+      <Text style={[styles.metricLabel, positive ? styles.moverPositiveLabel : styles.moverNegativeLabel]}>{title}</Text>
       <Text style={styles.moverName} numberOfLines={2}>{base}</Text>
       <Text style={[styles.moverPct, { color }]}>
         {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
@@ -741,7 +739,7 @@ function AssetAllocationPreview({
 }) {
   const rows = [
     { label: 'Equity', pct: equityPct, color: ClearLensColors.emerald },
-    { label: 'Debt', pct: debtPct, color: ClearLensColors.slate },
+    { label: 'Debt', pct: debtPct, color: CLEAR_LENS_ORANGE },
     { label: 'Cash & Others', pct: cashPct, color: ClearLensColors.mint },
   ];
 
@@ -982,58 +980,68 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.md,
   },
   heroCard: {
-    gap: ClearLensSpacing.md,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: ClearLensSpacing.sm,
-  },
-  heroIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: ClearLensRadii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DFF8ED',
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: ClearLensSpacing.sm,
-    paddingVertical: 8,
-    borderRadius: ClearLensRadii.full,
-    backgroundColor: '#DFF8ED',
-    flexShrink: 1,
-  },
-  statusText: {
-    ...ClearLensTypography.caption,
-    color: '#087A5B',
-    fontWeight: '700',
+    backgroundColor: ClearLensColors.navy,
+    borderColor: ClearLensColors.navy,
+    padding: ClearLensSpacing.lg,
   },
   heroLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
-    textTransform: 'uppercase',
+    color: ClearLensColors.mint,
   },
   heroValue: {
     ...ClearLensTypography.hero,
-    color: ClearLensColors.navy,
+    color: ClearLensColors.textOnDark,
   },
-  heroMetricGrid: {
+  heroToday: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textOnDark,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  heroTodayValue: {
+    fontFamily: ClearLensFonts.bold,
+  },
+  heroBottomRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: ClearLensSpacing.sm,
+    alignItems: 'stretch',
+    marginTop: ClearLensSpacing.sm,
   },
-  heroMetric: {
-    minWidth: '47%',
+  heroBottomMetric: {
     flex: 1,
-    padding: ClearLensSpacing.sm,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-    gap: 3,
+    gap: 4,
+  },
+  heroDivider: {
+    width: 1,
+    marginHorizontal: ClearLensSpacing.md,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+  },
+  heroBottomLabel: {
+    ...ClearLensTypography.caption,
+    color: '#BAC6D8',
+  },
+  heroBottomValue: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.bold,
+  },
+  heroXirrValue: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.textOnDark,
+  },
+  heroBenchmarkPill: {
+    marginTop: ClearLensSpacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 7,
+    paddingHorizontal: ClearLensSpacing.sm,
+    paddingVertical: 8,
+    borderRadius: ClearLensRadii.full,
+    backgroundColor: 'rgba(167, 243, 208, 0.14)',
+  },
+  heroBenchmarkText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textOnDark,
+    fontFamily: ClearLensFonts.semiBold,
   },
   metricLabel: {
     ...ClearLensTypography.label,
@@ -1047,6 +1055,30 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     gap: ClearLensSpacing.md,
+  },
+  benchmarkWrap: {
+    gap: ClearLensSpacing.sm,
+  },
+  marketStatusPill: {
+    minHeight: 42,
+    borderRadius: ClearLensRadii.md,
+    paddingHorizontal: ClearLensSpacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    backgroundColor: CLEAR_LENS_GREEN_SOFT,
+  },
+  marketStatusPillNegative: {
+    backgroundColor: CLEAR_LENS_RED_SOFT,
+  },
+  marketStatusText: {
+    ...ClearLensTypography.bodySmall,
+    flex: 1,
+    color: '#087A5B',
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  marketStatusTextNegative: {
+    color: '#B91C1C',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -1096,6 +1128,21 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
     marginTop: 2,
+  },
+  chartBenchmarkBadge: {
+    minHeight: 34,
+    paddingHorizontal: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.surfaceSoft,
+    borderWidth: 1,
+    borderColor: ClearLensColors.borderLight,
+  },
+  chartBenchmarkText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.semiBold,
   },
   rangePillRow: {
     gap: 6,
@@ -1256,6 +1303,21 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 148,
     gap: ClearLensSpacing.xs,
+    borderLeftWidth: 3,
+  },
+  moverCardPositive: {
+    borderLeftColor: ClearLensColors.emerald,
+    backgroundColor: ClearLensColors.surface,
+  },
+  moverCardNegative: {
+    borderLeftColor: CLEAR_LENS_RED,
+    backgroundColor: '#FFF7F7',
+  },
+  moverPositiveLabel: {
+    color: '#087A5B',
+  },
+  moverNegativeLabel: {
+    color: '#B91C1C',
   },
   moverName: {
     ...ClearLensTypography.bodySmall,
