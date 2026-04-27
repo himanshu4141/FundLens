@@ -80,21 +80,15 @@ function PortfolioHero({
   dailyChangeAmount,
   dailyChangePct,
   xirr,
-  marketXirr,
-  benchmarkLabel,
 }: {
   totalValue: number;
   totalInvested: number;
   dailyChangeAmount: number;
   dailyChangePct: number;
   xirr: number;
-  marketXirr: number;
-  benchmarkLabel: string;
 }) {
   const gain = totalValue - totalInvested;
   const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
-  const delta = Number.isFinite(xirr) && Number.isFinite(marketXirr) ? (xirr - marketXirr) * 100 : null;
-  const ahead = delta !== null && delta >= 0;
   const gainColor = toneColor(toneForValue(gain));
   const dailyColor = toneColor(toneForValue(dailyChangeAmount));
 
@@ -123,19 +117,6 @@ function PortfolioHero({
           <Text style={styles.heroXirrValue}>{formatXirr(xirr)} p.a.</Text>
         </View>
       </View>
-
-      {delta !== null && (
-        <View style={styles.heroBenchmarkPill}>
-          <Ionicons
-            name={ahead ? 'trending-up' : 'trending-down'}
-            size={16}
-            color={ahead ? ClearLensColors.emerald : CLEAR_LENS_RED}
-          />
-          <Text style={styles.heroBenchmarkText}>
-            You are {ahead ? 'ahead of' : 'behind'} {benchmarkLabel} by {Math.abs(delta).toFixed(1)}%
-          </Text>
-        </View>
-      )}
     </ClearLensCard>
   );
 }
@@ -873,7 +854,6 @@ export function ClearLensPortfolioScreen() {
     [fundCards],
   );
   const { insights, isLoading: insightsLoading } = usePortfolioInsights(fundCards);
-  const benchmarkLabel = BENCHMARK_OPTIONS.find((option) => option.symbol === defaultBenchmarkSymbol)?.label ?? defaultBenchmarkSymbol;
 
   return (
     <ClearLensScreen>
@@ -929,8 +909,6 @@ export function ClearLensPortfolioScreen() {
             dailyChangeAmount={summary.dailyChangeAmount}
             dailyChangePct={summary.dailyChangePct}
             xirr={summary.xirr}
-            marketXirr={summary.marketXirr}
-            benchmarkLabel={benchmarkLabel}
           />
 
           <BenchmarkComparisonCard
@@ -1026,22 +1004,6 @@ const styles = StyleSheet.create({
   heroXirrValue: {
     ...ClearLensTypography.h3,
     color: ClearLensColors.textOnDark,
-  },
-  heroBenchmarkPill: {
-    marginTop: ClearLensSpacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 7,
-    paddingHorizontal: ClearLensSpacing.sm,
-    paddingVertical: 8,
-    borderRadius: ClearLensRadii.full,
-    backgroundColor: 'rgba(167, 243, 208, 0.14)',
-  },
-  heroBenchmarkText: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textOnDark,
-    fontFamily: ClearLensFonts.semiBold,
   },
   metricLabel: {
     ...ClearLensTypography.label,

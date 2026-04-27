@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     ...ClearLensShadow,
   },
   header: {
-    minHeight: 64,
+    minHeight: 58,
     paddingHorizontal: ClearLensSpacing.md,
     paddingTop: 2,
     paddingBottom: 6,
@@ -171,6 +171,7 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.h3,
     flex: 1,
     color: ClearLensColors.navy,
+    textAlign: 'center',
   },
   headerSpacer: {
     flex: 1,
@@ -181,9 +182,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surface,
-    borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    backgroundColor: 'transparent',
   },
   iconButtonGhost: {
     width: 40,
