@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Svg, { Polygon, Polyline } from 'react-native-svg';
 import {
   ClearLensCard,
   ClearLensHeader,
@@ -35,16 +36,58 @@ import {
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'currentValue', label: 'Current value' },
-  { value: 'invested', label: 'Invested' },
-  { value: 'xirr', label: 'XIRR' },
-  { value: 'benchmarkLead', label: 'Lead vs benchmark' },
-  { value: 'alphabetical', label: 'Alphabetical' },
+const CLEAR_LENS_RED = '#EF4444';
+const CLEAR_LENS_DEBT = '#D97706';
+
+const SORT_OPTIONS: { value: SortOption; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'currentValue', label: 'Current value', icon: 'trending-up-outline' },
+  { value: 'invested', label: 'Invested', icon: 'calendar-outline' },
+  { value: 'xirr', label: 'XIRR', icon: 'analytics-outline' },
+  { value: 'benchmarkLead', label: 'Lead vs benchmark', icon: 'rocket-outline' },
+  { value: 'alphabetical', label: 'Alphabetical', icon: 'text-outline' },
 ];
 
 function sortableNumber(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+}
+
+function FundSparkline({
+  data,
+  color,
+  width = 260,
+  height = 54,
+}: {
+  data: number[];
+  color: string;
+  width?: number;
+  height?: number;
+}) {
+  if (data.length < 2) return null;
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pad = 5;
+  const linePoints = data.map((value, index) => {
+    const x = (index / (data.length - 1)) * width;
+    const y = height - pad - ((value - min) / range) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const areaPoints = `0,${height} ${linePoints.join(' ')} ${width},${height}`;
+
+  return (
+    <Svg width={width} height={height}>
+      <Polygon points={areaPoints} fill={color} opacity={0.12} />
+      <Polyline
+        points={linePoints.join(' ')}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 function AllocationOverview({
@@ -96,22 +139,30 @@ function FundListItem({
   const gain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
   const gainPct = gain != null && fund.investedAmount > 0 ? (gain / fund.investedAmount) * 100 : null;
   const stale = navStaleness(latestNavDate);
-  const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : ClearLensColors.slate;
-  const gainColor = (gain ?? 0) >= 0 ? ClearLensColors.emerald : ClearLensColors.slate;
+  const isDebtLike = /debt|liquid|gilt|income|overnight|money market|ultra short/i.test(fund.schemeCategory);
+  const categoryColor = isDebtLike ? CLEAR_LENS_DEBT : ClearLensColors.emerald;
+  const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const gainColor = (gain ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const xirrColor = fund.returnXirr >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const xirrLabel = Number.isFinite(fund.returnXirr) ? `${formatXirr(fund.returnXirr)} p.a.` : '—';
+  const sparklineData = fund.navHistory30d.map((point) => point.value);
 
   return (
-    <ClearLensCard style={styles.fundCard}>
+    <ClearLensCard style={[
+      styles.fundCard,
+      { borderLeftColor: categoryColor },
+    ]}>
       <View style={styles.fundTopRow}>
         <TouchableOpacity style={styles.fundMainTap} onPress={onOpen} activeOpacity={0.76}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>{base}</Text>
-            <Text style={styles.fundMeta} numberOfLines={1}>
+            <Text style={[styles.fundMeta, { color: categoryColor }]} numberOfLines={1}>
               {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
             </Text>
           </View>
           <View style={styles.valueBlock}>
             <Text style={styles.fundValue}>{fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}</Text>
-            <Text style={styles.shareText}>{portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'} of portfolio</Text>
+            <Text style={styles.shareText}>{portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'}</Text>
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.expandButton} onPress={onToggle} activeOpacity={0.75}>
@@ -121,39 +172,70 @@ function FundListItem({
 
       {expanded && (
         <View style={styles.expandedPanel}>
-          <View style={styles.detailGrid}>
+          <View style={styles.quickMetrics}>
             <DetailCell
               label="Today"
               value={fund.dailyChangePct != null ? `${fund.dailyChangePct >= 0 ? '+' : ''}${fund.dailyChangePct.toFixed(2)}%` : '—'}
               subvalue={fund.dailyChangeAmount != null ? `${fund.dailyChangeAmount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.dailyChangeAmount))}${stale.stale ? ` · ${stale.label}` : ''}` : undefined}
               color={dailyColor}
             />
+            <View style={styles.quickDivider} />
             <DetailCell
               label="XIRR"
-              value={Number.isFinite(fund.returnXirr) ? formatXirr(fund.returnXirr) : '—'}
-              color={fund.returnXirr >= 0 ? ClearLensColors.emerald : ClearLensColors.slate}
+              value={xirrLabel}
+              color={xirrColor}
             />
-            <DetailCell label="Invested" value={formatCurrency(fund.investedAmount)} />
-            <DetailCell
+          </View>
+
+          <View style={styles.expandedRows}>
+            <MetricRow label="Invested (SIP)" value={formatCurrency(fund.investedAmount)} />
+            <MetricRow
               label="Gain / Loss"
               value={gain != null ? `${gain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(gain))}` : '—'}
               subvalue={gain != null && gainPct != null ? `(${gain >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)` : undefined}
               color={gainColor}
             />
+            {fund.redeemedUnits > 0 && (
+              <>
+                <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
+                <MetricRow
+                  label="Booked P&L"
+                  value={`${fund.realizedGain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.realizedGain))}`}
+                  color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
+                />
+              </>
+            )}
           </View>
-          {fund.redeemedUnits > 0 && (
-            <View style={styles.redemptionRow}>
-              <DetailCell label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
-              <DetailCell
-                label="Booked P&L"
-                value={`${fund.realizedGain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.realizedGain))}`}
-                color={fund.realizedGain >= 0 ? ClearLensColors.emerald : ClearLensColors.slate}
-              />
+
+          {sparklineData.length >= 2 && (
+            <View style={styles.sparklinePanel}>
+              <FundSparkline data={sparklineData} color={categoryColor} />
             </View>
           )}
         </View>
       )}
     </ClearLensCard>
+  );
+}
+
+function MetricRow({
+  label,
+  value,
+  subvalue,
+  color = ClearLensColors.navy,
+}: {
+  label: string;
+  value: string;
+  subvalue?: string;
+  color?: string;
+}) {
+  return (
+    <View style={styles.metricRow}>
+      <Text style={styles.metricRowLabel}>{label}</Text>
+      <Text style={[styles.metricRowValue, { color }]}>
+        {value}{subvalue ? ` ${subvalue}` : ''}
+      </Text>
+    </View>
   );
 }
 
@@ -188,27 +270,46 @@ function SortBottomSheet({
   onSelect: (value: SortOption) => void;
   onClose: () => void;
 }) {
+  const [draft, setDraft] = useState<SortOption>(selected);
+
+  useEffect(() => {
+    if (visible) setDraft(selected);
+  }, [selected, visible]);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Sort funds by</Text>
+          <Text style={styles.sheetTitle}>Sort by</Text>
           {SORT_OPTIONS.map((option, index) => (
             <TouchableOpacity
               key={option.value}
-              style={[styles.sheetRow, index > 0 && styles.sheetDivider]}
-              onPress={() => {
-                onSelect(option.value);
-                onClose();
-              }}
+              style={[styles.sheetOption, index > 0 && styles.sheetDivider]}
+              onPress={() => setDraft(option.value)}
+              activeOpacity={0.76}
             >
-              <Text style={styles.sheetRowText}>{option.label}</Text>
-              {option.value === selected && (
-                <Ionicons name="checkmark-circle" size={20} color={ClearLensColors.emerald} />
-              )}
+              <View style={styles.sheetOptionLeft}>
+                <View style={styles.sheetIcon}>
+                  <Ionicons name={option.icon} size={18} color={ClearLensColors.slate} />
+                </View>
+                <Text style={styles.sheetRowText}>{option.label}</Text>
+              </View>
+              <View style={[styles.radioOuter, option.value === draft && styles.radioOuterActive]}>
+                {option.value === draft && <View style={styles.radioInner} />}
+              </View>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={() => {
+              onSelect(draft);
+              onClose();
+            }}
+            activeOpacity={0.82}
+          >
+            <Text style={styles.applyButtonText}>Apply</Text>
+          </TouchableOpacity>
         </Pressable>
       </Pressable>
     </Modal>
@@ -419,15 +520,18 @@ const styles = StyleSheet.create({
   },
   fundCard: {
     gap: 0,
+    borderLeftWidth: 3,
+    paddingLeft: ClearLensSpacing.sm,
   },
   fundTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.sm,
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.xs,
   },
   fundMainTap: {
     flex: 1,
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: ClearLensSpacing.sm,
   },
   fundNameBlock: {
@@ -440,7 +544,7 @@ const styles = StyleSheet.create({
   },
   fundMeta: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
   },
   valueBlock: {
     alignItems: 'flex-end',
@@ -454,12 +558,12 @@ const styles = StyleSheet.create({
   shareText: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
   },
   expandButton: {
-    width: 38,
-    height: 38,
+    width: 28,
+    height: 28,
     borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -470,29 +574,56 @@ const styles = StyleSheet.create({
     borderTopColor: ClearLensColors.borderLight,
     gap: ClearLensSpacing.md,
   },
-  detailGrid: {
+  quickMetrics: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: ClearLensSpacing.sm,
+    alignItems: 'stretch',
+  },
+  quickDivider: {
+    width: 1,
+    marginRight: ClearLensSpacing.md,
+    backgroundColor: ClearLensColors.borderLight,
   },
   detailCell: {
     flex: 1,
-    minWidth: '46%',
-    padding: ClearLensSpacing.sm,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    minWidth: 0,
+    paddingRight: ClearLensSpacing.md,
     gap: 3,
   },
   detailValue: {
-    ...ClearLensTypography.bodySmall,
+    ...ClearLensTypography.h3,
     fontFamily: ClearLensFonts.bold,
   },
   detailSubvalue: {
     ...ClearLensTypography.caption,
   },
-  redemptionRow: {
-    flexDirection: 'row',
+  expandedRows: {
     gap: ClearLensSpacing.sm,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+  },
+  metricRowLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  metricRowValue: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+    textAlign: 'right',
+    flexShrink: 1,
+  },
+  sparklinePanel: {
+    minHeight: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: '#F2FBF7',
+    overflow: 'hidden',
   },
   backdrop: {
     flex: 1,
@@ -523,21 +654,68 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.sm,
   },
-  sheetRow: {
-    minHeight: 50,
+  sheetOption: {
+    minHeight: 58,
     paddingHorizontal: ClearLensSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
   },
   sheetDivider: {
     borderTopWidth: 1,
     borderTopColor: ClearLensColors.borderLight,
   },
+  sheetOptionLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  sheetIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: ClearLensRadii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
   sheetRowText: {
     ...ClearLensTypography.body,
     color: ClearLensColors.navy,
     fontFamily: ClearLensFonts.medium,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: ClearLensColors.textTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterActive: {
+    borderColor: ClearLensColors.emerald,
+  },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: ClearLensColors.emerald,
+  },
+  applyButton: {
+    minHeight: 48,
+    marginHorizontal: ClearLensSpacing.md,
+    marginTop: ClearLensSpacing.md,
+    borderRadius: ClearLensRadii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.emerald,
+  },
+  applyButtonText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textOnDark,
+    fontFamily: ClearLensFonts.bold,
   },
   centered: {
     flex: 1,

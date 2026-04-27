@@ -298,6 +298,43 @@ Acceptance criteria:
 - Screenshots captured for Settings switch, Portfolio, Portfolio Insights, Your Funds, Fund Detail Performance, Fund Detail NAV History, Fund Detail Composition, sort sheet, and one supporting screen.
 - The visual pass confirms correct colors, logo usage, typography, spacing, bottom-nav labels, and no accidental product rename.
 
+### Milestone 5 — Spec alignment correction pass
+
+Scope:
+
+- Correct the Clear Lens Portfolio hero so it follows the dark value/status card from the Focus Ring spec.
+- Correct today's best and today's worst cards so positive and negative movement use the intended green/red treatment.
+- Add the missing debt and cash details section to Portfolio Insights.
+- Correct Your Funds rows and expanded fund cards so they match the compact list-card direction from the spec.
+- Apply the Clear Lens visual system to the main import portfolio / CAS setup screen.
+- Convert Portfolio Insights allocation cards toward the spec's donut-card presentation.
+- Refine Your Funds expanded sparkline and sort bottom sheet toward the supplied fund-card and sheet examples.
+- Align the Portfolio chart card naming and control placement with the board's `How your money grew` section.
+- Record remaining visual differences against the uploaded spec and define the next correction pass.
+
+Expected outcome:
+
+The most visible Clear Lens mismatches called out in preview testing are corrected before continuing broader visual polish.
+
+Commands:
+
+    npm run typecheck
+    npm run lint
+    npm test
+    npm run export:web
+
+Acceptance criteria:
+
+- Portfolio hero is a navy summary card with portfolio value, today's move, overall gain, XIRR, and benchmark status visible in the first viewport.
+- Today's best uses green emphasis and today's worst uses red emphasis.
+- Portfolio Insights includes debt and cash values and fund-level debt/cash breakdown when the portfolio has meaningful non-equity exposure.
+- Your Funds list rows show compact value/share information and expanded rows show Today, XIRR, invested, gain/loss, redeemed/booked P&L where available.
+- Import portfolio uses Clear Lens header, cards, typography, and button treatment instead of the classic gradient onboarding surface when Clear Lens mode is enabled.
+- Portfolio Insights asset allocation and market-cap mix use donut cards with legend/value rows.
+- Your Funds expanded card uses a filled mini sparkline and sort bottom sheet uses icon/radio rows plus an explicit apply action.
+- Portfolio chart card uses the `How your money grew` title, benchmark pill, clearer legend labels, and range controls below the graph.
+- Remaining differences are documented with an implementation plan instead of being left implicit.
+
 
 ## Validation
 
@@ -367,6 +404,8 @@ Expected automated result:
 5. `appDesignMode` defaults to `classic`.
 6. Old persisted `v1` and `v2` values migrate to `classic`.
 7. Mockup values are visual references; live portfolio data remains authoritative.
+8. Preview feedback after the first Clear Lens pass is treated as a Milestone 5 correction pass rather than a new design direction.
+9. The uploaded Focus Ring board remains the visual source of truth for Portfolio, Portfolio Insights, Your Funds, and sort sheet alignment.
 
 
 ## Progress
@@ -384,6 +423,14 @@ Expected automated result:
 - [x] Add tests
 - [x] Run automated validation
 - [x] Launch app and validate with demo account
+- [x] Correct Clear Lens Portfolio hero and mover cards
+- [x] Add Clear Lens debt/cash details in Portfolio Insights
+- [x] Correct Clear Lens Your Funds card and expanded-row shape
+- [x] Apply Clear Lens treatment to main import portfolio screen
+- [x] Convert Clear Lens Insights allocation cards to donut-card presentation
+- [x] Refine Clear Lens Your Funds sparkline and sort bottom sheet
+- [x] Align Clear Lens Portfolio chart card title and controls
+- [x] Record remaining visual differences and follow-up plan
 
 
 ## Amendments
@@ -391,3 +438,40 @@ Expected automated result:
 1. Portfolio investment journey chart was expanded after demo-account visual review. The Clear Lens portfolio now uses a custom SVG chart instead of the generic gifted line chart so the long-history view can keep x/y labels, legend, crosshair, and tooltip fully contained inside the card.
 2. The chart supports `1Y`, `3Y`, `5Y`, `10Y`, `15Y`, and `All` ranges. Long ranges use currency-level y-axis ticks so early investments remain readable instead of being flattened by a large linear scale.
 3. Investment-vs-benchmark data fetching now pages transaction, NAV, and index history; uses the latest available NAV or benchmark value on or before each chart date; and preserves all historical cashflows needed to simulate benchmark worth across long journeys.
+4. Preview feedback drove a Milestone 5 spec-alignment pass. Portfolio now uses a dark navy hero card, best/worst movers use green/red semantics, Portfolio Insights includes debt/cash details, and Your Funds rows use a compact expanded-card shape with Today, XIRR, invested, gain/loss, realized values, and a sparkline when NAV history is available.
+5. A follow-up review found the main import portfolio screen still using the classic onboarding gradient. The Clear Lens correction keeps the same PAN, import-address, CAS request, refresh, and PDF fallback behavior while replacing the visual surface with Clear Lens header, cards, status chips, and button styling.
+6. The next parity pass converted Portfolio Insights asset allocation and market-cap mix from stacked bars to donut cards, changed Your Funds expanded sparklines to a filled mini-chart treatment, and restyled the sort bottom sheet with icons, radio controls, and an apply action.
+7. Portfolio chart copy and controls were aligned closer to the board: the card now uses `How your money grew`, shows a compact benchmark pill, uses plain-language legend labels, and places range controls below the graph.
+
+## Remaining Visual Gaps
+
+- Portfolio chart card is now closer to the board, but still needs screenshot comparison for exact chart density, axis labels, and benchmark control sizing.
+- Portfolio Insights allocation cards now use donut presentation, but still need screenshot comparison for exact spacing, sizing, and disclosure-row placement.
+- Your Funds expanded row now has a filled mini-chart and improved sort sheet, but still needs screenshot comparison for exact card density and row spacing.
+- Header and bottom-tab chrome should get a final pixel pass after the primary card surfaces are aligned.
+- Import portfolio now has Clear Lens treatment, but it still needs screenshot comparison alongside the other supporting screens.
+
+## Handoff Summary
+
+Current progress:
+
+- Branch/worktree state contains the feature-gated Clear Lens implementation, including design-mode persistence, Clear Lens tokens, logo, primary screens, supporting chrome, and investment-vs-benchmark chart work.
+- Preview testing found the highest-impact visual mismatches in Portfolio, Portfolio Insights, and Your Funds rather than in the underlying calculations or navigation.
+- Milestone 5 corrections are implemented for Portfolio hero/mover colors, Portfolio Insights debt/cash details, and Your Funds compact/expanded fund cards.
+- Import portfolio now has dedicated Clear Lens treatment on `/onboarding`; behavior stayed unchanged.
+- Portfolio Insights allocation cards, Your Funds mini-chart, and sort sheet were further aligned toward the uploaded design examples.
+- Portfolio chart card naming, benchmark pill, legend labels, and range-control placement are now closer to the supplied board.
+- The current checkout is detached at the Clear Lens branch tip, so continue carefully without assuming a named branch is checked out.
+
+Decisions:
+
+- Keep live portfolio and composition hooks as the source of truth; do not hardcode spec numbers.
+- Align screen hierarchy and color treatment to the uploaded Focus Ring board before chasing smaller typography and spacing differences.
+- Keep classic mode untouched and make corrections only inside Clear Lens screen components unless a shared Clear Lens primitive is clearly responsible.
+
+Next steps:
+
+- Do a browser/device visual pass against the uploaded board for Portfolio, Portfolio Insights, Your Funds, and sort sheet.
+- Screenshot-check the main import portfolio screen and PDF fallback in Clear Lens mode.
+- Screenshot-check Portfolio Insights donut cards, Your Funds expanded cards, and the sort bottom sheet in Clear Lens mode.
+- Continue with final header/bottom-tab spacing and screenshot-based chart density adjustments.

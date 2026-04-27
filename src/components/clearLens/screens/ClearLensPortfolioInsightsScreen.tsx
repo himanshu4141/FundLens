@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Svg, { Circle } from 'react-native-svg';
 import {
   ClearLensCard,
   ClearLensHeader,
@@ -18,6 +19,7 @@ import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { useAppStore } from '@/src/store/appStore';
 import { formatCurrency } from '@/src/utils/formatting';
+import type { InsightDebtFund } from '@/src/types/app';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -25,6 +27,10 @@ import {
   ClearLensSpacing,
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
+
+const CLEAR_LENS_ORANGE = '#F59E0B';
+const DONUT_SIZE = 104;
+const DONUT_STROKE = 18;
 
 function formatDisclosureDate(value: string | null | undefined): string {
   if (!value) return 'Disclosure pending';
@@ -80,6 +86,90 @@ function ExposureCard({
   );
 }
 
+function DonutMixCard({
+  title,
+  rows,
+  total,
+  disclosure,
+}: {
+  title: string;
+  rows: { label: string; pct: number; color: string }[];
+  total: number;
+  disclosure?: string;
+}) {
+  const radius = (DONUT_SIZE - DONUT_STROKE) / 2;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const nonZeroRows = rows.filter((row) => row.pct > 0);
+  const lead = [...nonZeroRows].sort((a, b) => b.pct - a.pct)[0];
+
+  return (
+    <ClearLensCard style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderCopy}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          {disclosure ? <Text style={styles.cardMeta}>{disclosure}</Text> : null}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
+      </View>
+
+      <View style={styles.donutContent}>
+        <View style={styles.donutWrap}>
+          <Svg width={DONUT_SIZE} height={DONUT_SIZE}>
+            <Circle
+              cx={DONUT_SIZE / 2}
+              cy={DONUT_SIZE / 2}
+              r={radius}
+              stroke={ClearLensColors.surfaceSoft}
+              strokeWidth={DONUT_STROKE}
+              fill="none"
+            />
+            {nonZeroRows.map((row) => {
+              const dash = Math.max((row.pct / 100) * circumference, 0);
+              const dashOffset = -offset;
+              offset += dash;
+              return (
+                <Circle
+                  key={row.label}
+                  cx={DONUT_SIZE / 2}
+                  cy={DONUT_SIZE / 2}
+                  r={radius}
+                  stroke={row.color}
+                  strokeWidth={DONUT_STROKE}
+                  fill="none"
+                  strokeDasharray={`${dash} ${circumference}`}
+                  strokeDashoffset={dashOffset}
+                  strokeLinecap="butt"
+                  transform={`rotate(-90 ${DONUT_SIZE / 2} ${DONUT_SIZE / 2})`}
+                />
+              );
+            })}
+          </Svg>
+          {lead && (
+            <View style={styles.donutCenter}>
+              <Text style={styles.donutCenterValue}>{lead.pct.toFixed(0)}%</Text>
+              <Text style={styles.donutCenterLabel} numberOfLines={1}>{lead.label}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.donutRows}>
+          {rows.map((row) => (
+            <View key={row.label} style={styles.donutRow}>
+              <View style={styles.donutLabelWrap}>
+                <View style={[styles.dot, { backgroundColor: row.color }]} />
+                <Text style={styles.rowName} numberOfLines={1}>{row.label}</Text>
+              </View>
+              <Text style={styles.donutPct}>{row.pct.toFixed(1)}%</Text>
+              <Text style={styles.donutValue}>{formatCurrency((row.pct / 100) * total)}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </ClearLensCard>
+  );
+}
+
 function HoldingsCard({
   holdings,
 }: {
@@ -101,6 +191,78 @@ function HoldingsCard({
           </View>
         ))}
       </View>
+    </ClearLensCard>
+  );
+}
+
+function DebtCashCard({
+  totalValue,
+  debtPct,
+  cashPct,
+  debtFunds,
+}: {
+  totalValue: number;
+  debtPct: number;
+  cashPct: number;
+  debtFunds: InsightDebtFund[];
+}) {
+  const rows = [
+    {
+      label: 'Debt',
+      pct: debtPct,
+      value: (debtPct / 100) * totalValue,
+      color: CLEAR_LENS_ORANGE,
+      icon: 'shield-checkmark-outline' as const,
+    },
+    {
+      label: 'Cash & Others',
+      pct: cashPct,
+      value: (cashPct / 100) * totalValue,
+      color: ClearLensColors.mint,
+      icon: 'wallet-outline' as const,
+    },
+  ];
+
+  return (
+    <ClearLensCard style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>Debt and cash details</Text>
+        <Text style={styles.cardMeta}>Portfolio weight</Text>
+      </View>
+      <View style={styles.debtSummaryRow}>
+        {rows.map((row) => (
+          <View key={row.label} style={styles.debtSummaryItem}>
+            <View style={[styles.debtIcon, { backgroundColor: row.color }]}>
+              <Ionicons name={row.icon} size={16} color={ClearLensColors.navy} />
+            </View>
+            <Text style={styles.debtPct}>{row.pct.toFixed(1)}%</Text>
+            <Text style={styles.debtLabel}>{row.label}</Text>
+            <Text style={styles.debtValue}>{formatCurrency(row.value)}</Text>
+          </View>
+        ))}
+      </View>
+
+      {debtFunds.length > 0 && (
+        <View style={styles.debtFundList}>
+          <Text style={styles.debtSectionLabel}>Funds with debt or cash exposure</Text>
+          {debtFunds.slice(0, 5).map((fund, index) => (
+            <View key={fund.fundId} style={[styles.debtFundRow, index > 0 && styles.divider]}>
+              <View style={styles.debtFundNameBlock}>
+                <Text style={styles.debtFundName} numberOfLines={1}>{fund.shortName}</Text>
+                <Text style={styles.debtFundShare}>{fund.portfolioPct.toFixed(1)}% of portfolio</Text>
+              </View>
+              <View style={styles.debtFundMetrics}>
+                <Text style={[styles.debtFundMetric, { color: CLEAR_LENS_ORANGE }]}>
+                  Debt {fund.debtPct.toFixed(1)}%
+                </Text>
+                <Text style={styles.debtFundMetric}>
+                  Cash {fund.cashPct.toFixed(1)}%
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
     </ClearLensCard>
   );
 }
@@ -181,18 +343,29 @@ export function ClearLensPortfolioInsightsScreen() {
               </Text>
             </View>
 
-            <ExposureCard
+            <DonutMixCard
               title="Asset allocation"
               total={insights.totalValue}
               disclosure={disclosure}
               rows={[
                 { label: 'Equity', pct: insights.assetMix.equity, color: ClearLensColors.emerald },
-                { label: 'Debt', pct: insights.assetMix.debt, color: ClearLensColors.slate },
+                { label: 'Debt', pct: insights.assetMix.debt, color: CLEAR_LENS_ORANGE },
                 { label: 'Cash & Others', pct: insights.assetMix.cash + insights.assetMix.other, color: ClearLensColors.mint },
               ]}
             />
 
-            <ExposureCard
+            {(insights.assetMix.debt >= 1 ||
+              insights.assetMix.cash + insights.assetMix.other >= 1 ||
+              insights.debtFunds.length > 0) && (
+              <DebtCashCard
+                totalValue={insights.totalValue}
+                debtPct={insights.assetMix.debt}
+                cashPct={insights.assetMix.cash + insights.assetMix.other}
+                debtFunds={insights.debtFunds}
+              />
+            )}
+
+            <DonutMixCard
               title="Market-cap mix"
               total={insights.totalValue * (insights.assetMix.equity / 100)}
               rows={[
@@ -260,6 +433,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: ClearLensSpacing.sm,
   },
+  cardHeaderCopy: {
+    flex: 1,
+    gap: 2,
+  },
   cardTitle: {
     ...ClearLensTypography.h3,
     color: ClearLensColors.navy,
@@ -280,6 +457,62 @@ const styles = StyleSheet.create({
   },
   rows: {
     gap: ClearLensSpacing.sm,
+  },
+  donutContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.md,
+  },
+  donutWrap: {
+    width: DONUT_SIZE,
+    height: DONUT_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  donutCenter: {
+    position: 'absolute',
+    left: DONUT_STROKE,
+    right: DONUT_STROKE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  donutCenterValue: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.navy,
+  },
+  donutCenterLabel: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  donutRows: {
+    flex: 1,
+    gap: ClearLensSpacing.sm,
+  },
+  donutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  donutLabelWrap: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  donutPct: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+    minWidth: 48,
+    textAlign: 'right',
+  },
+  donutValue: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    minWidth: 68,
+    textAlign: 'right',
   },
   exposureRow: {
     flexDirection: 'row',
@@ -364,6 +597,76 @@ const styles = StyleSheet.create({
   pendingText: {
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.textSecondary,
+  },
+  debtSummaryRow: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  debtSummaryItem: {
+    flex: 1,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    padding: ClearLensSpacing.sm,
+    gap: 4,
+  },
+  debtIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.85,
+  },
+  debtPct: {
+    ...ClearLensTypography.h2,
+    color: ClearLensColors.navy,
+  },
+  debtLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textSecondary,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  debtValue: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  debtFundList: {
+    gap: ClearLensSpacing.xs,
+  },
+  debtSectionLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  debtFundRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    paddingTop: ClearLensSpacing.sm,
+  },
+  debtFundNameBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  debtFundName: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  debtFundShare: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  debtFundMetrics: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  debtFundMetric: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textSecondary,
+    fontFamily: ClearLensFonts.semiBold,
   },
   syncButton: {
     flexDirection: 'row',
