@@ -53,8 +53,8 @@ const JOURNEY_CHART_TOP_PADDING = 10;
 const JOURNEY_CHART_RIGHT_PADDING = 6;
 const JOURNEY_TOOLTIP_WIDTH = 226;
 const JOURNEY_TOOLTIP_HEIGHT = 112;
-const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '6M', '1Y', '3Y', 'All'];
-const CLEAR_LENS_RED = '#EF4444';
+const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
+const CLEAR_LENS_RED = '#E5484D';
 const CLEAR_LENS_RED_SOFT = '#FEE2E2';
 const CLEAR_LENS_GREEN_SOFT = '#DFF8ED';
 const CLEAR_LENS_ORANGE = '#F59E0B';
@@ -70,8 +70,9 @@ function toneColor(tone: 'positive' | 'negative') {
 }
 
 function formatSignedChange(amount: number, pct: number): string {
+  const arrow = amount >= 0 ? '▲' : '▼';
   const sign = amount >= 0 ? '+' : '-';
-  return `${sign}${formatCurrency(Math.abs(amount))} (${sign}${Math.abs(pct).toFixed(2)}%)`;
+  return `${arrow} ${sign}${formatCurrency(Math.abs(amount))} (${sign}${Math.abs(pct).toFixed(2)}%)`;
 }
 
 function PortfolioHero({
@@ -678,7 +679,7 @@ function MoverCard({
       <Text style={[styles.metricLabel, positive ? styles.moverPositiveLabel : styles.moverNegativeLabel]}>{title}</Text>
       <Text style={styles.moverName} numberOfLines={2}>{base}</Text>
       <Text style={[styles.moverPct, { color }]}>
-        {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+        {pct >= 0 ? '▲' : '▼'} {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
       </Text>
       <Text style={[styles.moverAmount, { color }]}>
         {amount >= 0 ? '+' : '-'}{formatCurrency(Math.abs(amount))}

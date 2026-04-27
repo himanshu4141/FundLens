@@ -11,7 +11,7 @@ export const ClearLensColors = {
   textSecondary: '#263248',
   textTertiary: '#7B8AA3',
   positive: '#10B981',
-  negative: '#EF4444',
+  negative: '#E5484D',
   border: '#DDE5EE',
   borderLight: '#E6EBF1',
   textOnDark: '#FFFFFF',

@@ -978,17 +978,17 @@ function makeDonutStyles(colors: AppColors) {
 // ---------------------------------------------------------------------------
 
 const COMP_ASSET_COLORS = {
-  equity: ClearLensColors.emerald,
-  debt: ClearLensColors.navy,
-  cash: ClearLensColors.mint,
-  other: ClearLensColors.lightGrey,
+  equity: '#ef4444',
+  debt: '#3b82f6',
+  cash: '#f97316',
+  other: '#a78bfa',
 };
 
 const COMP_CAP_COLORS = {
-  large: ClearLensColors.navy,
-  mid: ClearLensColors.emerald,
-  small: ClearLensColors.slate,
-  other: ClearLensColors.lightGrey,
+  large: '#3b82f6',
+  mid: '#f97316',
+  small: '#ef4444',
+  other: '#a78bfa',
 };
 
 function FundCompositionTab({ schemeCode }: { schemeCode: number }) {

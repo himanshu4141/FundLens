@@ -22,6 +22,8 @@ import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
 import { Radii, Spacing, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { ClearLensWealthJourneyScreen } from '@/src/components/clearLens/screens/ClearLensWealthJourneyScreen';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -349,6 +351,12 @@ function JourneyLineChart({
 }
 
 export default function WealthJourneyScreen() {
+  const { isClearLens } = useAppDesignMode();
+  if (isClearLens) return <ClearLensWealthJourneyScreen />;
+  return <ClassicWealthJourneyScreen />;
+}
+
+function ClassicWealthJourneyScreen() {
   const router = useRouter();
   const { width: viewportWidth } = useWindowDimensions();
   const { colors } = useTheme();

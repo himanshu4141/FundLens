@@ -22,6 +22,8 @@ import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { ClearLensLeaderboardScreen } from '@/src/components/clearLens/screens/ClearLensLeaderboardScreen';
 
 // ---------------------------------------------------------------------------
 // Benchmark Selector (same pattern as Home)
@@ -179,6 +181,12 @@ function SkeletonCard() {
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 export default function LeaderboardScreen() {
+  const { isClearLens } = useAppDesignMode();
+  if (isClearLens) return <ClearLensLeaderboardScreen />;
+  return <ClassicLeaderboardScreen />;
+}
+
+function ClassicLeaderboardScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;

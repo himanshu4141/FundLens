@@ -175,7 +175,7 @@ function FundListItem({
           <View style={styles.quickMetrics}>
             <DetailCell
               label="Today"
-              value={fund.dailyChangePct != null ? `${fund.dailyChangePct >= 0 ? '+' : ''}${fund.dailyChangePct.toFixed(2)}%` : '—'}
+              value={fund.dailyChangePct != null ? `${fund.dailyChangePct >= 0 ? '▲' : '▼'} ${fund.dailyChangePct >= 0 ? '+' : ''}${fund.dailyChangePct.toFixed(2)}%` : '—'}
               subvalue={fund.dailyChangeAmount != null ? `${fund.dailyChangeAmount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.dailyChangeAmount))}${stale.stale ? ` · ${stale.label}` : ''}` : undefined}
               color={dailyColor}
             />

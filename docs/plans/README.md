@@ -62,3 +62,4 @@ A new design-mode phase that keeps the current app as the default while adding t
 | Plan | What it covers |
 |---|---|
 | `M1-clear-lens-design-mode.md` | `appDesignMode` setting; Clear Lens tokens and logo; redesigned Portfolio, Insights, Your Funds, Fund Detail, and supporting screens |
+| `M2-continue.md` | Rebase gap closure: ESLint fix, classic composition color regression, Clear Lens Wealth Journey + Leaderboard, token reconciliation (danger red, 3M range, ▲/▼ arrows) |
