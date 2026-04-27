@@ -1,8 +1,10 @@
 # M6 — Wealth Simulator
 
+Superseded by [M11 — Wealth Journey Redesign](/Users/hyadav/code/personal/FundLens/docs/plans/phase-2-design-integration/M11-wealth-journey-redesign.md).
+
 ## Context
 
-Replace the M1 placeholder in `app/(tabs)/simulator.tsx` with a fully functional
+Replace the M1 placeholder in `app/(tabs)/wealth-journey.tsx` with a fully functional
 Wealth Simulator. Users enter SIP amount, one-time lumpsum, expected return %,
 and investment horizon; the screen shows projected wealth milestones and a compound
 growth line chart.
@@ -60,7 +62,7 @@ Data points at each year from year 1 to horizon (max 30 points).
 |---|---|
 | `src/utils/simulatorCalc.ts` | NEW — projection math |
 | `src/utils/__tests__/simulatorCalc.test.ts` | NEW — unit tests |
-| `app/(tabs)/simulator.tsx` | Replace placeholder with full screen |
+| `app/(tabs)/wealth-journey.tsx` | Replace placeholder with full screen |
 
 ---
 
@@ -114,7 +116,7 @@ Tests:
 - Negative inputs clamped to 0
 - Milestone extraction helper if extracted to util (or inline tests)
 
-### 3. `app/(tabs)/simulator.tsx`
+### 3. `app/(tabs)/wealth-journey.tsx`
 
 Structure:
 ```

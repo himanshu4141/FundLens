@@ -6,7 +6,7 @@ Primary tabs:
 
 - `Portfolio`
 - `Leaderboard`
-- `Simulator`
+- `Wealth Journey`
 
 Secondary navigation:
 
@@ -16,7 +16,7 @@ Secondary navigation:
 
 Screen families:
 
-- `Portfolio`, `Leaderboard`, and `Simulator` use the shared primary-shell header: logo on the left, one `...` action sheet on the right
+- `Portfolio`, `Leaderboard`, and `Wealth Journey` use the shared primary-shell header: logo on the left, one `...` action sheet on the right
 - `Settings`, `Your Funds`, and CAS import screens use a lighter utility header with one back action and one title
 - `Fund Detail` uses the native stack back behavior and does not hardcode an origin label
 
@@ -35,6 +35,7 @@ It includes:
 - portfolio-vs-market chart
 - top gainers / losers
 - `Portfolio Insights` entry card
+- `Wealth Journey` teaser card
 - `Your Funds` entry card
 
 The benchmark selector is configurable and reused across the app.
@@ -116,19 +117,26 @@ Includes:
 - ranked holding list
 - insight card explaining ranking mode / benchmark fallback behavior when needed
 
-### 6. Simulator
+### 6. Wealth Journey
 
 Purpose:
 
-- model future outcomes from the user’s actual portfolio rather than from generic defaults
+- help users model future wealth creation and withdrawal-income scenarios from their
+  actual portfolio rather than from generic defaults
 
 Includes:
 
-- current corpus
-- inferred SIP pace
-- recent one-offs / redemption-aware baseline
-- editable assumptions
-- projection chart comparing current plan vs proposed plan
+- summary-first flow with:
+  - `Your portfolio today`
+  - `Your plan at a glance`
+  - segmented results: `Wealth growth` / `Withdrawal income`
+- dedicated `Adjust your plan` step instead of one long stacked calculator
+- detected SIP review/edit flow that is separate from future plan changes
+- current corpus and current XIRR context
+- accumulation projection from today’s corpus
+- fixed 6% inflation note to translate future nominal values into today-value context
+- withdrawal-income view with withdrawal rate, withdrawal duration, and post-withdrawal return
+- mobile-first charts showing visible checkpoint years only
 
 ### 7. Settings
 

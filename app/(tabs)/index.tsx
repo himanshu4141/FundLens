@@ -19,6 +19,7 @@ import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioTimeline, type FundRef } from '@/src/hooks/usePortfolioTimeline';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { PortfolioInsightsEntryCard } from '@/src/components/insights/PortfolioInsightsEntryCard';
+import { WealthJourneyTeaserCard } from '@/src/components/WealthJourneyTeaserCard';
 import { YourFundsEntryCard } from '@/src/components/YourFundsEntryCard';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency, formatChange } from '@/src/utils/formatting';
@@ -524,6 +525,11 @@ export default function HomeScreen() {
             isStale={isStale}
             isSyncing={isSyncing}
             onSyncPress={triggerSync}
+          />
+
+          <WealthJourneyTeaserCard
+            currentCorpus={summary.totalValue}
+            xirr={summary.xirr}
           />
 
           <YourFundsEntryCard
