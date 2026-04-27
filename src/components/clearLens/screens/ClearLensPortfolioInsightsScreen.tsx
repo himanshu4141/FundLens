@@ -289,18 +289,23 @@ function PendingCard({ title, onSync, isSyncing }: { title: string; onSync: () =
 export function ClearLensPortfolioInsightsScreen() {
   const router = useRouter();
   const { defaultBenchmarkSymbol } = useAppStore();
-  const { data } = usePortfolio(defaultBenchmarkSymbol);
+  const { data, isLoading: portfolioLoading } = usePortfolio(defaultBenchmarkSymbol);
   const fundCards = data?.fundCards ?? [];
   const { insights, isLoading, isStale, isSyncing, triggerSync, hasNoData } =
     usePortfolioInsights(fundCards);
   const didAutoTrigger = useRef(false);
+  const shouldBootstrapInsights = fundCards.length > 0 && !insights && !isLoading;
 
   useEffect(() => {
-    if (!didAutoTrigger.current && (hasNoData || isStale) && !isSyncing) {
+    if (
+      !didAutoTrigger.current &&
+      (hasNoData || isStale || shouldBootstrapInsights) &&
+      !isSyncing
+    ) {
       didAutoTrigger.current = true;
       triggerSync();
     }
-  }, [hasNoData, isStale, isSyncing, triggerSync]);
+  }, [hasNoData, isStale, isSyncing, shouldBootstrapInsights, triggerSync]);
 
   const disclosure = insights ? `AMFI disclosure: ${formatDisclosureDate(insights.dataAsOf)}` : 'AMFI disclosure';
 
@@ -321,7 +326,7 @@ export function ClearLensPortfolioInsightsScreen() {
           </TouchableOpacity>
         )}
 
-        {isLoading || (hasNoData && isSyncing) ? (
+        {portfolioLoading || isLoading || (hasNoData && isSyncing) || (shouldBootstrapInsights && !didAutoTrigger.current) ? (
           <View style={styles.centeredCard}>
             <ActivityIndicator size="large" color={ClearLensColors.emerald} />
           </View>
