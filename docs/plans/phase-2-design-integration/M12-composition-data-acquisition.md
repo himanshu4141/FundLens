@@ -33,20 +33,25 @@ Two independent research passes agree on the root cause. See:
 - Codex Stage 1: `docs/research/2026-04-21-composition-source-validation.md`
 - Claude independent review: `docs/research/2026-04-27-composition-independent-review.md`
 
-The agreed findings:
+The agreed findings, updated with live API probe data (2026-04-27):
 
-1. Official AMC disclosures are more reliable than `mfdata.in` for canonical asset
-   allocation. `mfdata.in`'s `/allocation` endpoint returns `null` universally, and
-   holdings-derived totals can exceed 100% (DSP Large Cap showed `140.70%`).
-2. `mfdata.in` equity_pct field is actually reliable for the cases tested (matches
-   official AMC figures). The unreliable parts are debt_pct and the sum of totals.
-3. Several data quality bugs in the current code can be fixed without any new data
-   source — including the market-cap hardcode and silently discarded debt holdings.
-4. AMFI publishes an official biannual stock categorisation list that directly solves
-   the market-cap approximation problem.
-5. AMFI publishes a consolidated monthly portfolio disclosure covering all AMCs.
-   Whether it provides structured allocation data should be confirmed before committing
-   to 16 per-AMC parsers.
+1. `mfdata.in`'s holdings-derived totals can exceed 100% — DSP Large Cap showed
+   140.70% (equity_pct 89.43 + debt_pct 49.29 + other_pct 1.98). The top-level
+   `debt_pct` field is not trustworthy; derive it from debt_holdings weights instead.
+2. `mfdata.in`'s `/allocation` endpoint is NOT always null — Codex Stage 1 was wrong
+   about this. The endpoint returns `{"allocations": ..., "portfolio_date": ...}` for
+   all 7 tested funds. The content of `allocations` has not yet been inspected and
+   may contain better asset allocation data than holdings-derived totals.
+3. `equity_pct` is reliable for some funds (DSP Large Cap exact match, HDFC Balanced
+   Advantage within 2pp) but materially wrong for others (PPFAS: 78% vs official 97%,
+   SBI Large Cap: 95% vs official 99%). Treat it as a hint, not a fact.
+4. Several data quality bugs in the current code can be fixed without any new data
+   source — including the overseas FoF null-overwrite and silently discarded debt holdings.
+5. Market-cap classification via AMFI stock list is NOT feasible from mfdata alone:
+   `isin` is null for all equity holdings in the live probe. Deferred to Phase B.
+6. AMFI publishes a consolidated monthly portfolio disclosure covering all AMCs.
+   Whether it provides structured allocation data (and ISINs) should be confirmed
+   before committing to 16 per-AMC parsers.
 
 
 ## Assumptions
@@ -125,51 +130,69 @@ interface MfdataHoldings {
 }
 ```
 
-Expand to include debt and other holdings. At minimum:
+Live API probe (2026-04-27, scripts/mfdata-probe-output.txt) confirmed the actual field
+names in debt and other holdings. Use these — not the earlier draft names:
+
 ```ts
 interface MfdataDebtHolding {
-  instrument_name?: string;
-  isin?: string | null;
-  rating?: string | null;
+  name?: string;            // instrument name e.g. "6.90% Gs 2065", "Kotak Mahindra Bank (24/09/2026)"
+  credit_rating?: string;   // e.g. "Sovereign", "CRISIL A1+", "ICRA AA+"
   maturity_date?: string | null;
+  holding_type?: string;    // "BT" = G-Sec/bond, "CD" = cert of deposit, "FO" = fund unit, "CQ" = derivatives offset
+  market_value?: number | null;
   weight_pct?: number;
+  quantity?: number | null;
+  month_change_qty?: number | null;
+  month_change_pct?: number | null;
 }
+
+// other_holdings uses the same shape — it contains derivatives offsets, mutual fund units, etc.
+type MfdataOtherHolding = MfdataDebtHolding;
 
 interface MfdataHoldings {
   equity_pct?: number;
+  debt_pct?: number;
+  other_pct?: number;
   equity_holdings?: MfdataEquityHolding[];
   debt_holdings?: MfdataDebtHolding[];
-  other_holdings?: MfdataDebtHolding[];   // money market, TREPS, etc.
+  other_holdings?: MfdataOtherHolding[];
 }
 ```
 
-Verify the field names by logging the raw API response for a known hybrid fund
-(e.g., DSP Aggressive Hybrid, family 772). Adjust type definitions to match.
+Note: `isin` is NOT present in debt or other holdings. The `equity_holdings` schema
+includes an `isin` field but it was null for all 7 tested funds — ISINs appear to be
+unavailable from mfdata.in's free API tier.
 
-If debt holdings are present, compute `debt_pct` from summing `weight_pct` values
-instead of using category rules. Store the individual debt instruments in a new
-`raw_debt_holdings` JSONB column alongside `top_holdings`.
+When debt_holdings are present and at least some have a valid weight_pct, compute
+`debt_pct` from summing those weights instead of using category rules. Do NOT trust the
+top-level `debt_pct` field from mfdata directly — DSP Large Cap showed debt_pct=49.29
+on a pure equity fund (the field is corrupted for some families). Derive it from holdings.
 
-#### A2. AMFI biannual stock categorisation list
+Store the individual debt instruments in a new `raw_debt_holdings JSONB` column.
 
-SEBI Circular SEBI/HO/IMD/DF3/CIR/P/2017/114 requires AMFI to publish a stock list
-every January and July. The list is available at amfiindia.com as a structured document.
+Data quality guard: if any debt_holding has a `credit_rating` that is a number string
+(e.g. "-14.30") rather than a rating label, that family's debt data is corrupted —
+discard it and fall back to category rules for debt_pct.
 
-Steps:
-1. Fetch and parse the current list. Each row contains: ISIN, company name, cap category
-   (Large Cap / Mid Cap / Small Cap).
-2. Build a lookup table: ISIN → cap category.
-3. In `buildPortfolioFromHoldings`, replace `marketCap: 'Other'` with a lookup against
-   this table.
-4. Compute `large_cap_pct`, `mid_cap_pct`, `small_cap_pct` by summing weighted holdings
-   where the ISIN resolves to each category.
-5. Residual (ISINs not in the list, or holdings without ISIN) → `not_classified_pct`.
+#### A2. Market-cap classification — DEFERRED to Phase B
 
-The AMFI stock list must be refreshed every 6 months. Sync it in a separate edge
-function or in `sync-fund-meta`. Do not hardcode it.
+The original plan was to use the AMFI biannual stock list (ISIN → Large/Mid/Small Cap)
+to replace the `marketCap: 'Other'` hardcode in buildPortfolioFromHoldings.
 
-Reference URL format: `https://www.amfiindia.com/modules/LoadDownloadMasterData` with
-appropriate month/year parameters. Verify current URL before implementing.
+**This is not feasible in Phase A.** The live API probe confirmed that `isin` is null
+for all equity holdings returned by mfdata.in. Without ISINs, the stock list lookup
+cannot be done from holdings data alone.
+
+Name-based matching (stock_name → AMFI list company name) is fragile due to name
+variations and is not a viable substitute.
+
+Phase B, when evaluating the AMFI consolidated portfolio disclosure, should check
+whether that source provides ISINs alongside holdings. If it does, the stock list
+lookup can be implemented as part of Phase B's schema work.
+
+For Phase A: market-cap classification remains at `marketCap: 'Other'` and
+large_cap_pct / mid_cap_pct / small_cap_pct remain at category-rule values. This
+is unchanged from today.
 
 #### A3. Input validation for equity_pct
 
@@ -199,8 +222,10 @@ If it returns nothing, the `!holdings.equity_holdings?.length` guard (line 320) 
 falls back to category rules. No net behaviour change for funds where mfdata returns
 nothing; improved data for funds where it returns ETF names.
 
-ETF-level holdings for true FoFs (showing e.g. "UBS MSCI USA 71%") may require a
-separate data source. That is Phase B scope.
+The live probe confirmed this works: HDFC Developed World FoF (family 1387) returns
+`equity_holdings[0]: "UBS MSCI USA NSL ETF USD acc"` at 70.37% and 4 more ETFs in
+`other_holdings`. This data is available from mfdata today and is being thrown away.
+Removing the short-circuit is sufficient to surface it — no new source needed.
 
 #### A5. Retry logic in fetchJson
 

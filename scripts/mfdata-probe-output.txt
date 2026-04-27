@@ -1,0 +1,821 @@
+
+======================================================================
+FUND:     SBI Large Cap
+SCHEME:   119598
+CATEGORY: large_cap_fund
+
+--- 1. GET /schemes/119598 ---
+{
+  "status": "success",
+  "family_id": 5148,
+  "scheme_name": null,
+  "scheme_category": null
+}
+
+--- 2. GET /families/5148/allocation ---
+{
+  "status": "success",
+  "data_is_null": false,
+  "top_level_keys": [
+    "allocations",
+    "portfolio_date"
+  ]
+}
+
+--- 3. GET /families/5148/holdings ---
+
+[top-level keys in .data]
+[
+  "debt_holdings",
+  "debt_pct",
+  "equity_holdings",
+  "equity_pct",
+  "fetched_at",
+  "month",
+  "other_holdings",
+  "other_pct",
+  "total_aum"
+]
+
+[allocation fields]
+{
+  "equity_pct": 95.32,
+  "debt_pct": 0.75,
+  "other_pct": 0.72,
+  "cash_pct": null,
+  "total_check": 96.78999999999999
+}
+
+[holdings array lengths]
+{
+  "equity_holdings_count": 45,
+  "debt_holdings_count": 2,
+  "other_holdings_count": 2
+}
+
+[sample equity_holding[0] — all fields]
+{
+  "stock_name": "ICICI Bank Ltd",
+  "sector": "Financial Services",
+  "isin": null,
+  "market_value": 45296865000.0,
+  "cost_value": 40221540000.0,
+  "weight_pct": 8.2,
+  "quantity": 32850000.0,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[sample debt_holding[0] — all fields]
+{
+  "name": "27/03/2026 Maturing 91 DTB",
+  "credit_rating": "Sovereign",
+  "maturity_date": "2026-03-27",
+  "holding_type": "BT",
+  "market_value": 3488184000.0,
+  "weight_pct": 0.63,
+  "quantity": 35000000.0,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[sample other_holding[0] — all fields]
+{
+  "name": "Dlf Ltd. 30-Mar-26",
+  "holding_type": "DG",
+  "market_value": 1984318600.0,
+  "weight_pct": 0.36,
+  "quantity": 3276075.0,
+  "month_change_qty": 3276075.0,
+  "month_change_pct": null
+}
+
+[top 5 debt_holdings by weight_pct]
+[
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2026-03-27",
+    "weight_pct": 0.63
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2026-11-19",
+    "weight_pct": 0.12
+  }
+]
+
+======================================================================
+FUND:     DSP Large Cap
+SCHEME:   119250
+CATEGORY: large_cap_fund
+
+--- 1. GET /schemes/119250 ---
+{
+  "status": "success",
+  "family_id": 760,
+  "scheme_name": null,
+  "scheme_category": null
+}
+
+--- 2. GET /families/760/allocation ---
+{
+  "status": "success",
+  "data_is_null": false,
+  "top_level_keys": [
+    "allocations",
+    "portfolio_date"
+  ]
+}
+
+--- 3. GET /families/760/holdings ---
+
+[top-level keys in .data]
+[
+  "debt_holdings",
+  "debt_pct",
+  "equity_holdings",
+  "equity_pct",
+  "fetched_at",
+  "month",
+  "other_holdings",
+  "other_pct",
+  "total_aum"
+]
+
+[allocation fields]
+{
+  "equity_pct": 89.43,
+  "debt_pct": 49.29,
+  "other_pct": 1.98,
+  "cash_pct": null,
+  "total_check": 140.7
+}
+
+[holdings array lengths]
+{
+  "equity_holdings_count": 32,
+  "debt_holdings_count": 3,
+  "other_holdings_count": 2
+}
+
+[sample equity_holding[0] — all fields]
+{
+  "stock_name": "HDFC Bank Ltd",
+  "sector": "Financial Services",
+  "isin": null,
+  "market_value": 6819865000.0,
+  "cost_value": 5892624400.0,
+  "weight_pct": 9.38,
+  "quantity": 7682191.0,
+  "month_change_qty": 398396.0,
+  "month_change_pct": 5.47
+}
+
+[sample debt_holding[0] — all fields]
+{
+  "name": "BSE 100 India TR INR",
+  "credit_rating": "-14.30",
+  "maturity_date": null,
+  "holding_type": "23.23",
+  "market_value": 6.03,
+  "weight_pct": 26.53,
+  "quantity": 16.84,
+  "month_change_qty": 10.92,
+  "month_change_pct": 10.92
+}
+
+[sample other_holding[0] — all fields]
+{
+  "name": "Ntpc Limited Mar26",
+  "holding_type": "DG",
+  "market_value": -717350000.0,
+  "weight_pct": 0.99,
+  "quantity": 1872000.0,
+  "month_change_qty": 1872000.0,
+  "month_change_pct": null
+}
+
+[top 5 debt_holdings by weight_pct]
+[
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": null,
+    "weight_pct": 26.53
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": null,
+    "weight_pct": 15.27
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": null,
+    "weight_pct": 7.49
+  }
+]
+
+======================================================================
+FUND:     PPFAS Flexi Cap
+SCHEME:   122639
+CATEGORY: flexi_cap_fund
+
+--- 1. GET /schemes/122639 ---
+{
+  "status": "success",
+  "family_id": 7428,
+  "scheme_name": null,
+  "scheme_category": null
+}
+
+--- 2. GET /families/7428/allocation ---
+{
+  "status": "success",
+  "data_is_null": false,
+  "top_level_keys": [
+    "allocations",
+    "portfolio_date"
+  ]
+}
+
+--- 3. GET /families/7428/holdings ---
+
+[top-level keys in .data]
+[
+  "debt_holdings",
+  "debt_pct",
+  "equity_holdings",
+  "equity_pct",
+  "fetched_at",
+  "month",
+  "other_holdings",
+  "other_pct",
+  "total_aum"
+]
+
+[allocation fields]
+{
+  "equity_pct": 78.46,
+  "debt_pct": 13.95,
+  "other_pct": 4.35,
+  "cash_pct": null,
+  "total_check": 96.75999999999999
+}
+
+[holdings array lengths]
+{
+  "equity_holdings_count": 79,
+  "debt_holdings_count": 79,
+  "other_holdings_count": 42
+}
+
+[sample equity_holding[0] — all fields]
+{
+  "stock_name": "HDFC Bank Ltd",
+  "sector": "Financial Services",
+  "isin": null,
+  "market_value": 103791804000.0,
+  "cost_value": 89493030000.0,
+  "weight_pct": 7.73,
+  "quantity": 116915576.0,
+  "month_change_qty": 1000000.0,
+  "month_change_pct": 0.86
+}
+
+[sample debt_holding[0] — all fields]
+{
+  "name": "Kotak Mahindra Bank Limited (24/09/2026)",
+  "credit_rating": "CRISIL A1+",
+  "maturity_date": "2026-09-24",
+  "holding_type": "CD",
+  "market_value": 6733825000.0,
+  "weight_pct": 0.5,
+  "quantity": 14000.0,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[sample other_holding[0] — all fields]
+{
+  "name": "Cash Offset For Derivatives",
+  "holding_type": "CQ",
+  "market_value": 25756770000.0,
+  "weight_pct": 1.92,
+  "quantity": 257568.0,
+  "month_change_qty": -81358.0,
+  "month_change_pct": -24.0
+}
+
+[top 5 debt_holdings by weight_pct]
+[
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2026-09-24",
+    "weight_pct": 0.5
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2026-03-27",
+    "weight_pct": 0.48
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2026-11-08",
+    "weight_pct": 0.47
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2026-09-16",
+    "weight_pct": 0.47
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2026-12-06",
+    "weight_pct": 0.44
+  }
+]
+
+======================================================================
+FUND:     DSP Aggressive Hybrid
+SCHEME:   119019
+CATEGORY: aggressive_hybrid_fund
+
+--- 1. GET /schemes/119019 ---
+{
+  "status": "success",
+  "family_id": 772,
+  "scheme_name": null,
+  "scheme_category": null
+}
+
+--- 2. GET /families/772/allocation ---
+{
+  "status": "success",
+  "data_is_null": false,
+  "top_level_keys": [
+    "allocations",
+    "portfolio_date"
+  ]
+}
+
+--- 3. GET /families/772/holdings ---
+
+[top-level keys in .data]
+[
+  "debt_holdings",
+  "debt_pct",
+  "equity_holdings",
+  "equity_pct",
+  "fetched_at",
+  "month",
+  "other_holdings",
+  "other_pct",
+  "total_aum"
+]
+
+[allocation fields]
+{
+  "equity_pct": 66.68,
+  "debt_pct": 27.47,
+  "other_pct": 2.23,
+  "cash_pct": null,
+  "total_check": 96.38000000000001
+}
+
+[holdings array lengths]
+{
+  "equity_holdings_count": 41,
+  "debt_holdings_count": 51,
+  "other_holdings_count": 1
+}
+
+[sample equity_holding[0] — all fields]
+{
+  "stock_name": "HDFC Bank Ltd",
+  "sector": "Financial Services",
+  "isin": null,
+  "market_value": 10648881000.0,
+  "cost_value": 9188446000.0,
+  "weight_pct": 8.93,
+  "quantity": 11995360.0,
+  "month_change_qty": 1837924.0,
+  "month_change_pct": 18.09
+}
+
+[sample debt_holding[0] — all fields]
+{
+  "name": "6.90% Gs 2065",
+  "credit_rating": "Sovereign",
+  "maturity_date": "2065-04-15",
+  "holding_type": "BT",
+  "market_value": 6499303000.0,
+  "weight_pct": 5.45,
+  "quantity": 67500000.0,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[sample other_holding[0] — all fields]
+{
+  "name": "DSP S/T Dir Gr",
+  "holding_type": "FO",
+  "market_value": 2665904100.0,
+  "weight_pct": 2.23,
+  "quantity": 50704568.0,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[top 5 debt_holdings by weight_pct]
+[
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2065-04-15",
+    "weight_pct": 5.45
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2046-01-07",
+    "weight_pct": 1.9
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2033-09-22",
+    "weight_pct": 1.57
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2031-01-17",
+    "weight_pct": 1.49
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2029-12-06",
+    "weight_pct": 1.3
+  }
+]
+
+======================================================================
+FUND:     HDFC Balanced Advantage
+SCHEME:   118968
+CATEGORY: balanced_advantage_fund
+
+--- 1. GET /schemes/118968 ---
+{
+  "status": "success",
+  "family_id": 1378,
+  "scheme_name": null,
+  "scheme_category": null
+}
+
+--- 2. GET /families/1378/allocation ---
+{
+  "status": "success",
+  "data_is_null": false,
+  "top_level_keys": [
+    "allocations",
+    "portfolio_date"
+  ]
+}
+
+--- 3. GET /families/1378/holdings ---
+
+[top-level keys in .data]
+[
+  "debt_holdings",
+  "debt_pct",
+  "equity_holdings",
+  "equity_pct",
+  "fetched_at",
+  "month",
+  "other_holdings",
+  "other_pct",
+  "total_aum"
+]
+
+[allocation fields]
+{
+  "equity_pct": 69.72,
+  "debt_pct": 25.65,
+  "other_pct": 0.0,
+  "cash_pct": null,
+  "total_check": 95.37
+}
+
+[holdings array lengths]
+{
+  "equity_holdings_count": 151,
+  "debt_holdings_count": 155,
+  "other_holdings_count": 0
+}
+
+[sample equity_holding[0] — all fields]
+{
+  "stock_name": "ICICI Bank Ltd",
+  "sector": "Financial Services",
+  "isin": null,
+  "market_value": 51356390000.0,
+  "cost_value": 46138440000.0,
+  "weight_pct": 4.77,
+  "quantity": 37244464.0,
+  "month_change_qty": 5000000.0,
+  "month_change_pct": 15.51
+}
+
+[sample debt_holding[0] — all fields]
+{
+  "name": "7.18% Gs 2033",
+  "credit_rating": "Sovereign",
+  "maturity_date": "2033-08-14",
+  "holding_type": "BT",
+  "market_value": 22551063000.0,
+  "weight_pct": 2.1,
+  "quantity": 218533300.0,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[sample other_holding[0] — all fields]
+"no other holdings"
+
+[top 5 debt_holdings by weight_pct]
+[
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2033-08-14",
+    "weight_pct": 2.1
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2034-10-30",
+    "weight_pct": 1.42
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2037-07-24",
+    "weight_pct": 0.93
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2064-04-22",
+    "weight_pct": 0.73
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2034-04-08",
+    "weight_pct": 0.71
+  }
+]
+
+======================================================================
+FUND:     HDFC Corporate Bond
+SCHEME:   118987
+CATEGORY: corporate_bond_fund
+
+--- 1. GET /schemes/118987 ---
+{
+  "status": "success",
+  "family_id": 1296,
+  "scheme_name": null,
+  "scheme_category": null
+}
+
+--- 2. GET /families/1296/allocation ---
+{
+  "status": "success",
+  "data_is_null": false,
+  "top_level_keys": [
+    "allocations",
+    "portfolio_date"
+  ]
+}
+
+--- 3. GET /families/1296/holdings ---
+
+[top-level keys in .data]
+[
+  "debt_holdings",
+  "debt_pct",
+  "equity_holdings",
+  "equity_pct",
+  "fetched_at",
+  "month",
+  "other_holdings",
+  "other_pct",
+  "total_aum"
+]
+
+[allocation fields]
+{
+  "equity_pct": 0.0,
+  "debt_pct": 98.64,
+  "other_pct": 0.32,
+  "cash_pct": null,
+  "total_check": 98.96
+}
+
+[holdings array lengths]
+{
+  "equity_holdings_count": 0,
+  "debt_holdings_count": 226,
+  "other_holdings_count": 1
+}
+
+[sample equity_holding[0] — all fields]
+"no equity holdings"
+
+[sample debt_holding[0] — all fields]
+{
+  "name": "6.68% Gs 2040",
+  "credit_rating": "Sovereign",
+  "maturity_date": "2040-07-07",
+  "holding_type": "BT",
+  "market_value": 26245128000.0,
+  "weight_pct": 8.2,
+  "quantity": 272500000.0,
+  "month_change_qty": -29500000.0,
+  "month_change_pct": -9.77
+}
+
+[sample other_holding[0] — all fields]
+{
+  "name": "Corporate Debt Market Development Fund",
+  "holding_type": "EX",
+  "market_value": 1021321000.0,
+  "weight_pct": 0.32,
+  "quantity": 87458.0,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[top 5 debt_holdings by weight_pct]
+[
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2040-07-07",
+    "weight_pct": 8.2
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2065-04-15",
+    "weight_pct": 3.66
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2035-04-03",
+    "weight_pct": 3.48
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2033-09-22",
+    "weight_pct": 2.6
+  },
+  {
+    "instrument_name": null,
+    "isin": null,
+    "rating": null,
+    "maturity_date": "2039-09-20",
+    "weight_pct": 2.39
+  }
+]
+
+======================================================================
+FUND:     HDFC Developed World FoF
+SCHEME:   149180
+CATEGORY: fund_of_funds_overseas
+
+--- 1. GET /schemes/149180 ---
+{
+  "status": "success",
+  "family_id": 1387,
+  "scheme_name": null,
+  "scheme_category": null
+}
+
+--- 2. GET /families/1387/allocation ---
+{
+  "status": "success",
+  "data_is_null": false,
+  "top_level_keys": [
+    "allocations",
+    "portfolio_date"
+  ]
+}
+
+--- 3. GET /families/1387/holdings ---
+
+[top-level keys in .data]
+[
+  "debt_holdings",
+  "debt_pct",
+  "equity_holdings",
+  "equity_pct",
+  "fetched_at",
+  "month",
+  "other_holdings",
+  "other_pct",
+  "total_aum"
+]
+
+[allocation fields]
+{
+  "equity_pct": 70.37,
+  "debt_pct": 0.0,
+  "other_pct": 29.59,
+  "cash_pct": null,
+  "total_check": 99.96000000000001
+}
+
+[holdings array lengths]
+{
+  "equity_holdings_count": 1,
+  "debt_holdings_count": 1,
+  "other_holdings_count": 4
+}
+
+[sample equity_holding[0] — all fields]
+{
+  "stock_name": "UBS MSCI USA NSL ETF USD acc",
+  "sector": null,
+  "isin": null,
+  "market_value": 10751641000.0,
+  "cost_value": null,
+  "weight_pct": 70.37,
+  "quantity": 435795.0,
+  "month_change_qty": -1974.0,
+  "month_change_pct": -0.45
+}
+
+[sample debt_holding[0] — all fields]
+{
+  "name": "-0.23",
+  "credit_rating": "26.29",
+  "maturity_date": null,
+  "holding_type": "-9.45",
+  "market_value": null,
+  "weight_pct": null,
+  "quantity": null,
+  "month_change_qty": null,
+  "month_change_pct": null
+}
+
+[sample other_holding[0] — all fields]
+{
+  "name": "UBS MSCI Europe IndexF USD I-W-SSP acc",
+  "holding_type": "FO",
+  "market_value": 2678790000.0,
+  "weight_pct": 17.53,
+  "quantity": 18724.0,
+  "month_change_qty": -43.0,
+  "month_change_pct": -0.23
+}
+
+[top 5 debt_holdings by weight_pct]
+jq: error (at <stdin>:1): null (null) cannot be negated
