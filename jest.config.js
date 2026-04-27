@@ -18,6 +18,7 @@ const config = {
   collectCoverageFrom: [
     'src/**/*.ts',            // .ts only — .tsx files contain JSX that breaks Node instrumenter
     'supabase/functions/_shared/import-cas.ts', // edge-function logic with dedicated tests
+    'supabase/functions/_shared/portfolio-utils.ts', // pure composition helpers with dedicated tests
     '!src/**/*.test.ts',
     '!src/types/**',          // pure type declarations — nothing executable to cover
     '!src/lib/supabase.ts',   // React Native + Supabase bootstrap — not runnable in Node

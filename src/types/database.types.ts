@@ -134,6 +134,7 @@ export type Database = {
           not_classified_pct: number | null
           other_pct: number
           portfolio_date: string
+          raw_debt_holdings: Json | null
           scheme_code: number
           sector_allocation: Json | null
           small_cap_pct: number | null
@@ -151,6 +152,7 @@ export type Database = {
           not_classified_pct?: number | null
           other_pct?: number
           portfolio_date: string
+          raw_debt_holdings?: Json | null
           scheme_code: number
           sector_allocation?: Json | null
           small_cap_pct?: number | null
@@ -168,6 +170,7 @@ export type Database = {
           not_classified_pct?: number | null
           other_pct?: number
           portfolio_date?: string
+          raw_debt_holdings?: Json | null
           scheme_code?: number
           sector_allocation?: Json | null
           small_cap_pct?: number | null
