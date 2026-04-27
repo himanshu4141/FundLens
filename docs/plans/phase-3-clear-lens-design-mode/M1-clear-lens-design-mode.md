@@ -436,6 +436,7 @@ Expected automated result:
 - [x] Record remaining visual differences and follow-up plan
 - [x] Remove duplicate Portfolio hero benchmark chip and tighten Fund Detail / fund-card parity
 - [x] Add Your Funds allocation overview fallback when composition insights are still loading
+- [x] Bootstrap Clear Lens Portfolio Insights composition data on direct navigation
 
 
 ## Amendments
@@ -450,6 +451,7 @@ Expected automated result:
 8. Clear Lens support surfaces were tightened after the first checkpoint push: negative color tokens now use red, the shared Clear Lens header and bottom tabs are more compact, and the PDF import fallback uses Clear Lens card, radius, shadow, typography, and button treatment.
 9. The next screenshot pass removed the duplicate benchmark status from the Portfolio hero, centered the shared Clear Lens title header, moved Fund Detail benchmark status into the hero card, tightened Fund Detail stat labels, and made expanded fund cards always show Redeemed and Booked P&L rows.
 10. Your Funds overview now falls back to live fund values for top-3 share, largest position, and row percentages when composition insight rows are not yet available, avoiding blank/zero summary states during direct navigation.
+11. Clear Lens Portfolio Insights now treats "fund cards loaded but no composition insights yet" as a bootstrap state and triggers the composition sync instead of leaving the user on the empty state.
 
 ## Remaining Visual Gaps
 
@@ -472,6 +474,7 @@ Current progress:
 - Clear Lens negative tokens, shared header/tab sizing, and PDF fallback styling have been tightened.
 - Current in-progress parity pass removes the extra Portfolio hero status chip, centers title headers, restores Fund Detail hero benchmark status, and fills out expanded fund-card realized-value rows.
 - Your Funds now uses live current-value fallback percentages while waiting for composition insights.
+- Portfolio Insights now auto-bootstraps composition data on direct navigation so the Debt and Cash card can appear without pressing the manual load button.
 - The current checkout is detached at the Clear Lens branch tip, so continue carefully without assuming a named branch is checked out.
 
 Decisions:
