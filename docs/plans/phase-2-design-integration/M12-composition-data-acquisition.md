@@ -52,10 +52,13 @@ The agreed findings:
 ## Assumptions
 
 - Both research reports have been reviewed.
-- Phase A work can be shipped without a schema change to `fund_portfolio_composition`.
-- Phase B will likely require a schema change; that schema should be designed before
-  any implementation starts.
-- International FoF handling is deferred to a follow-on plan (M12c or similar).
+- Phase A requires a schema change: one new `raw_debt_holdings JSONB` column on
+  `fund_portfolio_composition` to store the debt instrument detail from mfdata.in.
+  This is a small additive migration with no impact on existing queries.
+- Phase B will likely require a more significant schema change; design before implementing.
+- True international FoF ETF-level holdings (HDFC Developed World, DSP Global Innovation,
+  Franklin US) require a separate data source investigation. This is deferred to Phase B
+  or a follow-on plan — it should not block Phase A.
 
 
 ## Definitions
@@ -78,9 +81,14 @@ The agreed findings:
 **Phase A — Code quality fixes (no new source required):**
 - Expand the `MfdataHoldings` TypeScript interface to capture debt and other holdings
   that the API already returns but the code silently discards
-- Store captured debt/other holdings in `sector_allocation` or a new `raw_holdings`
-  JSONB column (decision in milestone)
+- Store captured debt holdings in a new `raw_debt_holdings JSONB` column alongside
+  `top_holdings` (requires additive migration)
+- Compute `debt_pct` from actual debt holding weights instead of category rules
 - Integrate the AMFI biannual stock list to replace `marketCap: 'Other'` hardcode
+- Fix overseas fund handling: the current code routes all 'fund of funds investing
+  overseas' to `otherPct: 100, holdings: null`. At minimum, stop overwriting holdings
+  with null and preserve whatever mfdata.in returns. ETF-level detail for true FoFs
+  is deferred to Phase B.
 - Add equity_pct sanity check: reject values that deviate from category rules by more
   than 25pp for pure equity or pure debt fund categories (these indicate API data issues)
 - Add one retry with 2-second delay to `fetchJson` for transient HTTP errors
@@ -91,6 +99,8 @@ The agreed findings:
   - If yes: migrate `sync-fund-portfolios` to use it as the primary source
   - If no: proceed with per-AMC parsers for Tier 1 AMCs (DSP, HDFC, PPFAS, Motilal,
     Mirae, ICICI) as Codex's M12 proposed
+- Investigate ETF-level holdings for international FoFs (HDFC Developed World, DSP
+  Global Innovation, Franklin US) — identify source and store ETF names + weights
 
 
 ## Out of Scope
@@ -173,7 +183,26 @@ Add a plausibility check before trusting `mfdata.in`'s `equity_pct`:
 
 This prevents bad API responses from corrupting production data silently.
 
-#### A4. Retry logic in fetchJson
+#### A4. Fix overseas FoF null-overwrite
+
+The current code (lines 187–199) routes all funds where `catRules.other === 100` through
+a short-circuit path that returns `otherPct: 100, sectorAllocation: null, topHoldings: null`.
+This fires for any fund in the 'fund of funds investing overseas' category.
+
+This is wrong: it overwrites potentially useful data from mfdata.in with nulls. Some
+overseas FoFs return ETF holdings from mfdata.in; others return null. The current code
+discards everything.
+
+Fix: remove the short-circuit early return. Let `buildPortfolioFromHoldings` run for all
+fund categories. If mfdata.in returns holdings for an overseas FoF, they will be stored.
+If it returns nothing, the `!holdings.equity_holdings?.length` guard (line 320) already
+falls back to category rules. No net behaviour change for funds where mfdata returns
+nothing; improved data for funds where it returns ETF names.
+
+ETF-level holdings for true FoFs (showing e.g. "UBS MSCI USA 71%") may require a
+separate data source. That is Phase B scope.
+
+#### A5. Retry logic in fetchJson
 
 Add a single retry with 2-second delay for transient HTTP errors (5xx, 429, network
 timeout). The current code makes one attempt and silently falls back to category rules
@@ -263,15 +292,19 @@ Each parser must:
 ### Milestone 1 — Phase A implementation
 
 Scope:
-- Expand `MfdataHoldings` interface and log raw response for one hybrid scheme
-- Confirm debt holdings field names, update interface, store debt holdings
+- Write additive migration: add `raw_debt_holdings JSONB` column to `fund_portfolio_composition`
+- Expand `MfdataHoldings` interface and log raw API response for one hybrid scheme
+- Confirm debt holdings field names, update interface, compute debt_pct from holdings
 - Integrate AMFI stock list: fetch, parse, and use for market cap tagging
+- Remove the overseas FoF short-circuit that overwrites holdings with null
 - Add equity_pct validation
-- Add fetchJson retry
+- Add fetchJson retry (A5)
 
 Expected outcome:
 - Market-cap breakdown changes from hardcoded 'Other' to ISIN-resolved classifications
 - Debt holdings for hybrid/debt funds visible in `raw_debt_holdings` column
+- `debt_pct` derived from actual instrument weights, not category rules
+- Overseas FoF holdings no longer wiped to null
 - Transient mfdata failures no longer silently corrupt to category rules
 
 Acceptance criteria:
@@ -362,12 +395,16 @@ Before marking any milestone complete:
 ## Progress
 
 - [ ] Review both research reports and agree on phasing
-- [ ] Phase A: expand MfdataHoldings interface and log raw debt response
+- [ ] Phase A: write migration to add raw_debt_holdings column
+- [ ] Phase A: expand MfdataHoldings interface and log raw debt response for hybrid fund
+- [ ] Phase A: compute debt_pct from actual instrument weights
 - [ ] Phase A: integrate AMFI biannual stock list for market cap
+- [ ] Phase A: remove overseas FoF short-circuit that nulls out holdings
 - [ ] Phase A: add equity_pct validation
 - [ ] Phase A: add fetchJson retry
 - [ ] Phase A: deploy and verify against hybrid + equity fund in DB
 - [ ] Phase B: fetch AMFI consolidated disclosure and document decision
 - [ ] Phase B: design source-native schema
 - [ ] Phase B: implement chosen path (AMFI consolidated or Tier 1 parsers)
+- [ ] Phase B: investigate ETF-level data source for true international FoFs
 - [ ] Phase B: deploy and verify Tier 1 fund data against official AMC source
