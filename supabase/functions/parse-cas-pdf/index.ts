@@ -208,6 +208,11 @@ Deno.serve(async (req) => {
     importId, status, fundsUpdated, transactionsAdded, errors.length,
   );
 
+  if (fundsUpdated === 0 && errors.length > 0) {
+    console.error('[parse-cas-pdf] all scheme upserts failed; first error: %s', errors[0]);
+    return json({ error: 'Import failed — no funds could be saved. Please try again.' }, { status: 500 });
+  }
+
   if (fundsUpdated > 0) {
     const headers = { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` };
 

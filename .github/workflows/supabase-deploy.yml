@@ -82,7 +82,7 @@ jobs:
         run: sed -i 's/^schedule = .*$/# schedule = (managed via pg_cron migration)/' supabase/config.toml
 
       - name: Deploy all Edge Functions
-        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --no-verify-jwt
+        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --no-verify-jwt --use-api
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
