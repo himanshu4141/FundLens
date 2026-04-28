@@ -135,6 +135,11 @@ export default function SettingsScreen() {
 
   async function handleSync() {
     setSyncState('syncing');
+    // Portfolio composition and fund meta have staleness guards — they return
+    // fast when data is fresh and are covered by their own crons. Fire them in
+    // the background so they don't block the button response.
+    supabase.functions.invoke('sync-fund-portfolios').catch(() => {});
+    supabase.functions.invoke('sync-fund-meta').catch(() => {});
     const [navResult, idxResult] = await Promise.allSettled([
       supabase.functions.invoke('sync-nav'),
       supabase.functions.invoke('sync-index'),
@@ -353,7 +358,7 @@ export default function SettingsScreen() {
                   ? 'Sync complete — NAV and index data updated'
                   : syncState === 'error'
                     ? 'Sync failed — check your connection and try again'
-                    : 'Fetch latest NAV and benchmark index data now'}
+                    : 'Fetch latest NAV, index, portfolio composition, and fund metadata'}
               </Text>
             </View>
             <TouchableOpacity
