@@ -479,6 +479,7 @@ function PerformanceTab({
 function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const { isClearLens } = useAppDesignMode();
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const filtered = filterToWindow(navHistory, window);
 
@@ -515,7 +516,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
 
   return (
     <View style={s.tabContent}>
-      <TimeWindowSelector selected={window} onChange={setWindow} />
+      <TimeWindowSelector selected={window} onChange={setWindow} clearLens={isClearLens} />
 
       {points.length > 1 ? (
         <View style={s.chartCard}>
@@ -1019,17 +1020,17 @@ function makeDonutStyles(colors: AppColors) {
 // ---------------------------------------------------------------------------
 
 const COMP_ASSET_COLORS = {
-  equity: '#ef4444',
-  debt: '#3b82f6',
-  cash: '#f97316',
-  other: '#a78bfa',
+  equity: '#10B981',
+  debt: '#F59E0B',
+  cash: '#A7F3D0',
+  other: '#A7F3D0',
 };
 
 const COMP_CAP_COLORS = {
-  large: '#3b82f6',
-  mid: '#f97316',
-  small: '#ef4444',
-  other: '#a78bfa',
+  large: '#3B82F6',
+  mid: '#10B981',
+  small: '#F59E0B',
+  other: '#A7F3D0',
 };
 
 function FundCompositionTab({ schemeCode }: { schemeCode: number }) {

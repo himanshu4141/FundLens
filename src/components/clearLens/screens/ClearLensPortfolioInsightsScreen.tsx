@@ -42,11 +42,13 @@ function ExposureCard({
   rows,
   total,
   disclosure,
+  showBar = true,
 }: {
   title: string;
   rows: { label: string; pct: number; value?: number; color: string }[];
   total?: number;
   disclosure?: string;
+  showBar?: boolean;
 }) {
   const max = Math.max(...rows.map((row) => row.pct), 1);
 
@@ -56,13 +58,15 @@ function ExposureCard({
         <Text style={styles.cardTitle}>{title}</Text>
         {disclosure ? <Text style={styles.cardMeta}>{disclosure}</Text> : null}
       </View>
-      <View style={styles.stackedBar}>
-        {rows.map((row) => (
-          row.pct > 0 ? (
-            <View key={row.label} style={[styles.stackedSegment, { flex: row.pct, backgroundColor: row.color }]} />
-          ) : null
-        ))}
-      </View>
+      {showBar && (
+        <View style={styles.stackedBar}>
+          {rows.map((row) => (
+            row.pct > 0 ? (
+              <View key={row.label} style={[styles.stackedSegment, { flex: row.pct, backgroundColor: row.color }]} />
+            ) : null
+          ))}
+        </View>
+      )}
       <View style={styles.rows}>
         {rows.map((row) => (
           <View key={row.label} style={styles.exposureRow}>
@@ -385,6 +389,7 @@ export function ClearLensPortfolioInsightsScreen() {
             {insights.sectorBreakdown ? (
               <ExposureCard
                 title="Sector exposure"
+                showBar={false}
                 rows={insights.sectorBreakdown.slice(0, 8).map((sector) => ({
                   label: sector.sector,
                   pct: sector.weight,

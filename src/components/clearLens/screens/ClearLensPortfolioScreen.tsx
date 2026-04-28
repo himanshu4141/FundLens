@@ -424,7 +424,7 @@ function InvestmentVsBenchmarkChart({
   return (
     <ClearLensCard style={styles.journeyCard}>
       <View style={styles.journeyHeader}>
-        <View>
+        <View style={styles.journeyHeaderLeft}>
           <Text style={styles.sectionTitle}>Your investments over time</Text>
           <Text style={styles.journeySubtitle}>
             Amount invested, current worth, and benchmark worth
@@ -1109,6 +1109,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: ClearLensSpacing.sm,
   },
+  journeyHeaderLeft: {
+    flex: 1,
+  },
   journeySubtitle: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
@@ -1123,6 +1126,7 @@ const styles = StyleSheet.create({
     backgroundColor: ClearLensColors.surfaceSoft,
     borderWidth: 1,
     borderColor: ClearLensColors.borderLight,
+    flexShrink: 0,
   },
   chartBenchmarkText: {
     ...ClearLensTypography.caption,

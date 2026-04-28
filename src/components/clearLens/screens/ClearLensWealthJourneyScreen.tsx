@@ -120,12 +120,17 @@ interface ValueFieldProps {
   chips: ChoiceChip[];
 }
 
+function toDraftString(value: number, prefix?: string): string {
+  if (prefix === '₹') return Math.round(value).toLocaleString('en-IN');
+  return String(value);
+}
+
 function ValueField({ label, helperText, value, onChange, prefix, suffix, chips }: ValueFieldProps) {
-  const [draft, setDraft] = useState(String(value));
+  const [draft, setDraft] = useState(() => toDraftString(value, prefix));
 
   useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
+    setDraft(toDraftString(value, prefix));
+  }, [value, prefix]);
 
   const commit = useCallback(() => {
     const numeric = parseFloat(draft.replace(/[^0-9.]/g, ''));
@@ -1251,16 +1256,21 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.xs,
   },
   fieldHeader: {
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.sm,
   },
   fieldLabel: {
-    ...ClearLensTypography.body,
+    ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.semiBold,
-    color: ClearLensColors.navy,
+    color: ClearLensColors.textSecondary,
   },
   fieldHelper: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
+    textAlign: 'right',
+    flex: 1,
   },
   fieldShell: {
     flexDirection: 'row',
