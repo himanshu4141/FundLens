@@ -19,7 +19,7 @@ import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { useAppStore } from '@/src/store/appStore';
 import { formatCurrency } from '@/src/utils/formatting';
-import type { InsightDebtFund } from '@/src/types/app';
+import type { InsightDebtFund, InsightHolding } from '@/src/types/app';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -170,24 +170,26 @@ function DonutMixCard({
   );
 }
 
-function HoldingsCard({
-  holdings,
-}: {
-  holdings: { name: string; portfolioWeight: number; value: number }[];
-}) {
+function HoldingsCard({ holdings }: { holdings: InsightHolding[] }) {
   return (
     <ClearLensCard style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Top holdings</Text>
-        <Text style={styles.cardMeta}>Portfolio weight</Text>
+        <View style={styles.cardHeaderCopy}>
+          <Text style={styles.cardTitle}>Top holdings</Text>
+          <Text style={styles.cardMeta}>Aggregated across all funds</Text>
+        </View>
       </View>
       <View>
-        {holdings.slice(0, 8).map((holding, index) => (
+        {holdings.slice(0, 30).map((holding, index) => (
           <View key={holding.name} style={[styles.holdingRow, index > 0 && styles.divider]}>
-            <Text style={styles.holdingRank}>{index + 1}</Text>
-            <Text style={styles.holdingName} numberOfLines={1}>{holding.name}</Text>
-            <Text style={styles.holdingPct}>{holding.portfolioWeight.toFixed(2)}%</Text>
-            <Text style={styles.holdingValue}>{formatCurrency(holding.value)}</Text>
+            <View style={styles.holdingRankBadge}>
+              <Text style={styles.holdingRankText}>{index + 1}</Text>
+            </View>
+            <View style={styles.holdingBody}>
+              <Text style={styles.holdingName} numberOfLines={1}>{holding.name}</Text>
+              {holding.sector ? <Text style={styles.holdingSector} numberOfLines={1}>{holding.sector}</Text> : null}
+            </View>
+            <Text style={styles.holdingPct}>{holding.portfolioWeight.toFixed(1)}%</Text>
           </View>
         ))}
       </View>
@@ -374,26 +376,20 @@ export function ClearLensPortfolioInsightsScreen() {
               title="Market-cap mix"
               total={insights.totalValue * (insights.assetMix.equity / 100)}
               rows={[
-                { label: 'Large Cap', pct: insights.marketCapMix.large, color: ClearLensColors.navy },
+                { label: 'Large Cap', pct: insights.marketCapMix.large, color: '#3B82F6' },
                 { label: 'Mid Cap', pct: insights.marketCapMix.mid, color: ClearLensColors.emerald },
-                { label: 'Small Cap', pct: insights.marketCapMix.small, color: ClearLensColors.slate },
+                { label: 'Small Cap', pct: insights.marketCapMix.small, color: '#F59E0B' },
               ]}
             />
 
             {insights.sectorBreakdown ? (
               <ExposureCard
                 title="Sector exposure"
-                rows={insights.sectorBreakdown.slice(0, 8).map((sector, index) => ({
+                rows={insights.sectorBreakdown.slice(0, 8).map((sector) => ({
                   label: sector.sector,
                   pct: sector.weight,
                   value: sector.value,
-                  color: [
-                    ClearLensColors.emerald,
-                    ClearLensColors.navy,
-                    ClearLensColors.slate,
-                    ClearLensColors.mint,
-                    ClearLensColors.lightGrey,
-                  ][index % 5],
+                  color: ClearLensColors.emerald,
                 }))}
               />
             ) : (
@@ -568,36 +564,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
-    paddingVertical: ClearLensSpacing.sm,
+    paddingVertical: 10,
   },
   divider: {
     borderTopWidth: 1,
     borderTopColor: ClearLensColors.borderLight,
   },
-  holdingRank: {
+  holdingRankBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  holdingRankText: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
-    width: 20,
-    textAlign: 'center',
+    fontFamily: ClearLensFonts.bold,
+  },
+  holdingBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   holdingName: {
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.navy,
-    flex: 1,
     fontFamily: ClearLensFonts.semiBold,
+  },
+  holdingSector: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
   },
   holdingPct: {
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.navy,
     fontFamily: ClearLensFonts.bold,
-    width: 58,
     textAlign: 'right',
-  },
-  holdingValue: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
-    width: 72,
-    textAlign: 'right',
+    flexShrink: 0,
   },
   pendingText: {
     ...ClearLensTypography.bodySmall,

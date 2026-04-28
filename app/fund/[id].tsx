@@ -33,7 +33,7 @@ import {
   ClearLensCard,
   ClearLensHeader,
   ClearLensScreen,
-  ClearLensSegmentedControl,
+  ClearLensTabBar,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
   ClearLensColors,
@@ -721,10 +721,19 @@ function makeTechStyles(colors: AppColors) {
 // Growth Consistency Chart — quarterly returns from navHistory
 // ---------------------------------------------------------------------------
 
-function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
+function GrowthConsistencyChart({
+  navHistory,
+  clearLens = false,
+}: {
+  navHistory: { date: string; value: number }[];
+  clearLens?: boolean;
+}) {
   const { colors } = useTheme();
   const gs = useMemo(() => makeGrowthStyles(colors), [colors]);
-  const bars = computeQuarterlyReturns(navHistory, '#16a34a', '#dc2626');
+
+  const positiveColor = clearLens ? ClearLensColors.emerald : '#16a34a';
+  const negativeColor = clearLens ? '#E5484D' : '#dc2626';
+  const bars = computeQuarterlyReturns(navHistory, positiveColor, negativeColor);
   if (bars.length < 2) return null;
 
   const vals = bars.map((b) => Math.abs(b.value));
@@ -734,10 +743,28 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
   const barWidth = Math.min(20, Math.floor((CHART_WIDTH - 64) / bars.length) - 6);
   const spacing = Math.max(4, Math.floor((CHART_WIDTH - 64 - barWidth * bars.length) / (bars.length + 1)));
 
+  const ruleColor = clearLens ? ClearLensColors.borderLight : colors.borderLight;
+  const axisLabelStyle = clearLens
+    ? { fontSize: 10, color: ClearLensColors.textTertiary }
+    : gs.axisLabel;
+  const topLabelStyle = clearLens
+    ? { fontSize: 9, color: ClearLensColors.textSecondary }
+    : gs.barTopLabel;
+
+  const cardStyle = clearLens
+    ? {
+        backgroundColor: ClearLensColors.surface,
+        borderRadius: ClearLensRadii.lg,
+        padding: ClearLensSpacing.md,
+        borderWidth: 1,
+        borderColor: ClearLensColors.border,
+      }
+    : gs.card;
+
   return (
-    <View style={gs.card}>
-      <Text style={gs.title}>Growth Consistency</Text>
-      <Text style={gs.subtitle}>Quarterly returns (%)</Text>
+    <View style={cardStyle}>
+      <Text style={clearLens ? clearGrowthStyles.title : gs.title}>Growth Consistency</Text>
+      <Text style={clearLens ? clearGrowthStyles.subtitle : gs.subtitle}>Quarterly returns (%)</Text>
       <View style={{ marginTop: Spacing.xs }}>
         <BarChart
           data={bars}
@@ -752,19 +779,19 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
           noOfSections={4}
           isAnimated
           hideRules={false}
-          rulesColor={colors.borderLight}
+          rulesColor={ruleColor}
           rulesType="solid"
-          xAxisColor={colors.borderLight}
+          xAxisColor={ruleColor}
           yAxisColor="transparent"
-          yAxisTextStyle={gs.axisLabel}
-          xAxisLabelTextStyle={gs.axisLabel}
+          yAxisTextStyle={axisLabelStyle}
+          xAxisLabelTextStyle={axisLabelStyle}
           formatYLabel={(v: string) => `${Number(v).toFixed(0)}%`}
           yAxisLabelWidth={36}
           showValuesAsTopLabel
-          topLabelTextStyle={{ ...gs.barTopLabel }}
+          topLabelTextStyle={{ ...topLabelStyle }}
           showFractionalValues
           referenceLine1Config={{
-            color: colors.textTertiary,
+            color: clearLens ? ClearLensColors.textTertiary : colors.textTertiary,
             dashWidth: 4,
             dashGap: 4,
             thickness: 1,
@@ -774,17 +801,35 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
       </View>
       <View style={gs.legend}>
         <View style={gs.legendItem}>
-          <View style={[gs.legendDot, { backgroundColor: colors.positive }]} />
-          <Text style={gs.legendText}>Positive quarter</Text>
+          <View style={[gs.legendDot, { backgroundColor: positiveColor }]} />
+          <Text style={clearLens ? clearGrowthStyles.legendText : gs.legendText}>Positive quarter</Text>
         </View>
         <View style={gs.legendItem}>
-          <View style={[gs.legendDot, { backgroundColor: colors.negative }]} />
-          <Text style={gs.legendText}>Negative quarter</Text>
+          <View style={[gs.legendDot, { backgroundColor: negativeColor }]} />
+          <Text style={clearLens ? clearGrowthStyles.legendText : gs.legendText}>Negative quarter</Text>
         </View>
       </View>
     </View>
   );
 }
+
+const clearGrowthStyles = StyleSheet.create({
+  title: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  subtitle: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  legendText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+});
 
 function makeGrowthStyles(colors: AppColors) {
   return StyleSheet.create({
@@ -1501,7 +1546,7 @@ function ClearLensFundDetailScreen() {
           )}
         </ClearLensCard>
 
-        <ClearLensSegmentedControl
+        <ClearLensTabBar
           selected={activeTab}
           onChange={setActiveTab}
           options={[
@@ -1524,7 +1569,7 @@ function ClearLensFundDetailScreen() {
               fundMetaSyncedAt={data.fundMetaSyncedAt}
               schemeCode={data.schemeCode}
             />
-            <GrowthConsistencyChart navHistory={data.navHistory} />
+            <GrowthConsistencyChart navHistory={data.navHistory} clearLens />
             <PortfolioHealthDonut fundId={data.id} currentValue={data.currentValue} />
           </>
         )}

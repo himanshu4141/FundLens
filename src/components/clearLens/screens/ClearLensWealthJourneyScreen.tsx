@@ -606,22 +606,16 @@ export function ClearLensWealthJourneyScreen() {
               </ClearLensCard>
             ) : (
               <ClearLensCard style={styles.heroCard}>
-                <View style={styles.heroCardHeader}>
-                  <Text style={styles.heroCardTitle}>Your portfolio today</Text>
-                  <TouchableOpacity style={styles.heroEditButton} onPress={openSipReview}>
-                    <Text style={styles.heroEditText}>Edit SIP</Text>
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.heroCardTitle}>Your portfolio today</Text>
+                <Text style={styles.heroCorpus}>{formatCurrency(currentCorpus)}</Text>
                 <View style={styles.heroStats}>
-                  <View style={styles.heroStat}>
-                    <Text style={styles.heroStatValue}>{formatCurrency(currentCorpus)}</Text>
-                    <Text style={styles.heroStatLabel}>Corpus</Text>
-                  </View>
-                  <View style={styles.heroStatDivider} />
-                  <View style={styles.heroStat}>
+                  <TouchableOpacity style={styles.heroStat} onPress={openSipReview} activeOpacity={0.75}>
                     <Text style={styles.heroStatValue}>{formatCurrency(currentSip)}/mo</Text>
-                    <Text style={styles.heroStatLabel}>Monthly SIP</Text>
-                  </View>
+                    <View style={styles.heroStatLabelRow}>
+                      <Text style={styles.heroStatLabel}>Monthly SIP</Text>
+                      <Ionicons name="pencil-outline" size={11} color={ClearLensColors.mint} />
+                    </View>
+                  </TouchableOpacity>
                   <View style={styles.heroStatDivider} />
                   <View style={styles.heroStat}>
                     <Text style={[styles.heroStatValue, styles.heroXirrValue]}>
@@ -757,7 +751,7 @@ export function ClearLensWealthJourneyScreen() {
           <>
             {/* Adjust view */}
             <ClearLensCard>
-              <Text style={styles.groupEyebrow}>1. Investment plan</Text>
+              <Text style={styles.groupEyebrow}>1 · Investment plan</Text>
 
               <View style={styles.compareBanner}>
                 <View style={styles.compareItem}>
@@ -820,7 +814,7 @@ export function ClearLensWealthJourneyScreen() {
             </ClearLensCard>
 
             <ClearLensCard>
-              <Text style={styles.groupEyebrow}>2. Withdrawal plan (future)</Text>
+              <Text style={styles.groupEyebrow}>2 · Withdrawal plan</Text>
 
               <ValueField
                 label="Withdrawal rate"
@@ -992,37 +986,36 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: ClearLensSpacing.xs,
   },
-  heroCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   heroCardTitle: {
     ...ClearLensTypography.label,
     color: ClearLensColors.textOnDark,
     opacity: 0.7,
     letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  heroEditButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: ClearLensRadii.full,
-    borderWidth: 1,
-    borderColor: `${ClearLensColors.textOnDark}44`,
-  },
-  heroEditText: {
-    ...ClearLensTypography.caption,
+  heroCorpus: {
+    ...ClearLensTypography.hero,
     color: ClearLensColors.textOnDark,
+    marginTop: 2,
+    marginBottom: ClearLensSpacing.sm,
   },
   heroStats: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.xs,
+    paddingTop: ClearLensSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: `${ClearLensColors.textOnDark}20`,
   },
   heroStat: {
     flex: 1,
     alignItems: 'center',
     gap: 2,
+  },
+  heroStatLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   heroStatValue: {
     ...ClearLensTypography.h3,

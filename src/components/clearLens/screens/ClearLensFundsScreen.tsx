@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Svg, { Polygon, Polyline } from 'react-native-svg';
 import {
   ClearLensCard,
   ClearLensHeader,
@@ -36,7 +35,7 @@ import {
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
 
-const CLEAR_LENS_RED = '#EF4444';
+const CLEAR_LENS_RED = '#E5484D';
 const CLEAR_LENS_DEBT = '#D97706';
 
 const SORT_OPTIONS: { value: SortOption; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -51,44 +50,9 @@ function sortableNumber(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
 }
 
-function FundSparkline({
-  data,
-  color,
-  width = 260,
-  height = 54,
-}: {
-  data: number[];
-  color: string;
-  width?: number;
-  height?: number;
-}) {
-  if (data.length < 2) return null;
-
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const pad = 5;
-  const linePoints = data.map((value, index) => {
-    const x = (index / (data.length - 1)) * width;
-    const y = height - pad - ((value - min) / range) * (height - pad * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const areaPoints = `0,${height} ${linePoints.join(' ')} ${width},${height}`;
-
-  return (
-    <Svg width={width} height={height}>
-      <Polygon points={areaPoints} fill={color} opacity={0.12} />
-      <Polyline
-        points={linePoints.join(' ')}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+// ---------------------------------------------------------------------------
+// Allocation overview card
+// ---------------------------------------------------------------------------
 
 function AllocationOverview({
   fundCount,
@@ -120,140 +84,93 @@ function AllocationOverview({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Fund card — matches FLFundCard from design handoff
+// Header: name + category tag | current value + allocation %
+// Footer (borderTop): Today change | XIRR p.a.
+// ---------------------------------------------------------------------------
+
 function FundListItem({
   fund,
   portfolioPct,
-  expanded,
-  onToggle,
-  onOpen,
+  onPress,
   latestNavDate,
 }: {
   fund: FundCardData;
   portfolioPct: number | null;
-  expanded: boolean;
-  onToggle: () => void;
-  onOpen: () => void;
+  onPress: () => void;
   latestNavDate: string | null;
 }) {
   const { base, planBadge } = parseFundName(fund.schemeName);
-  const gain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
-  const gainPct = gain != null && fund.investedAmount > 0 ? (gain / fund.investedAmount) * 100 : null;
-  const stale = navStaleness(latestNavDate);
   const isDebtLike = /debt|liquid|gilt|income|overnight|money market|ultra short/i.test(fund.schemeCategory);
   const categoryColor = isDebtLike ? CLEAR_LENS_DEBT : ClearLensColors.emerald;
-  const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
-  const gainColor = (gain ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const dailyChangePct = fund.dailyChangePct;
+  const dailyColor = (dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
   const xirrColor = fund.returnXirr >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
   const xirrLabel = Number.isFinite(fund.returnXirr) ? `${formatXirr(fund.returnXirr)} p.a.` : '—';
-  const sparklineData = fund.navHistory30d.map((point) => point.value);
+  const stale = navStaleness(latestNavDate);
 
   return (
-    <ClearLensCard style={[
-      styles.fundCard,
-      { borderLeftColor: categoryColor },
-    ]}>
-      <View style={styles.fundTopRow}>
-        <TouchableOpacity style={styles.fundMainTap} onPress={onOpen} activeOpacity={0.76}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.76}>
+      <ClearLensCard style={styles.fundCard}>
+        {/* Header row */}
+        <View style={styles.fundHeader}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>{base}</Text>
-            <Text style={[styles.fundMeta, { color: categoryColor }]} numberOfLines={1}>
-              {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
+            <View style={styles.fundTagRow}>
+              <Text
+                style={[
+                  styles.fundTag,
+                  {
+                    color: categoryColor,
+                    borderColor: `${categoryColor}44`,
+                    backgroundColor: `${categoryColor}18`,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.fundValueBlock}>
+            <Text style={styles.fundValue}>
+              {fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}
+            </Text>
+            <Text style={styles.fundAllocation}>
+              {portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'}
             </Text>
           </View>
-          <View style={styles.valueBlock}>
-            <Text style={styles.fundValue}>{fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}</Text>
-            <Text style={styles.shareText}>{portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'}</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.expandButton} onPress={onToggle} activeOpacity={0.75}>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={ClearLensColors.slate} />
-        </TouchableOpacity>
-      </View>
-
-      {expanded && (
-        <View style={styles.expandedPanel}>
-          <View style={styles.quickMetrics}>
-            <DetailCell
-              label="Today"
-              value={fund.dailyChangePct != null ? `${fund.dailyChangePct >= 0 ? '▲' : '▼'} ${fund.dailyChangePct >= 0 ? '+' : ''}${fund.dailyChangePct.toFixed(2)}%` : '—'}
-              subvalue={fund.dailyChangeAmount != null ? `${fund.dailyChangeAmount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.dailyChangeAmount))}${stale.stale ? ` · ${stale.label}` : ''}` : undefined}
-              color={dailyColor}
-            />
-            <View style={styles.quickDivider} />
-            <DetailCell
-              label="XIRR"
-              value={xirrLabel}
-              color={xirrColor}
-            />
-          </View>
-
-          <View style={styles.expandedRows}>
-            <MetricRow label="Invested (SIP)" value={formatCurrency(fund.investedAmount)} />
-            <MetricRow
-              label="Gain / Loss"
-              value={gain != null ? `${gain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(gain))}` : '—'}
-              subvalue={gain != null && gainPct != null ? `(${gain >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)` : undefined}
-              color={gainColor}
-            />
-            <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
-            <MetricRow
-              label="Booked P&L"
-              value={`${fund.realizedGain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.realizedGain))}`}
-              color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
-            />
-          </View>
-
-          {sparklineData.length >= 2 && (
-            <View style={styles.sparklinePanel}>
-              <FundSparkline data={sparklineData} color={categoryColor} />
-            </View>
-          )}
         </View>
-      )}
-    </ClearLensCard>
+
+        {/* Footer row */}
+        <View style={styles.fundFooter}>
+          <View style={styles.fundFooterCell}>
+            <Text style={styles.fundFooterLabel}>Today</Text>
+            {dailyChangePct != null ? (
+              <Text style={[styles.fundFooterChange, { color: dailyColor }]}>
+                {dailyChangePct >= 0 ? '▲' : '▼'}{' '}
+                {dailyChangePct >= 0 ? '+' : ''}{dailyChangePct.toFixed(2)}%
+                {stale.stale ? ` · ${stale.label}` : ''}
+              </Text>
+            ) : (
+              <Text style={styles.fundFooterMuted}>—</Text>
+            )}
+          </View>
+          <View style={styles.fundFooterDivider} />
+          <View style={[styles.fundFooterCell, styles.fundFooterCellRight]}>
+            <Text style={styles.fundFooterLabel}>XIRR</Text>
+            <Text style={[styles.fundFooterChange, { color: xirrColor }]}>{xirrLabel}</Text>
+          </View>
+        </View>
+      </ClearLensCard>
+    </TouchableOpacity>
   );
 }
 
-function MetricRow({
-  label,
-  value,
-  subvalue,
-  color = ClearLensColors.navy,
-}: {
-  label: string;
-  value: string;
-  subvalue?: string;
-  color?: string;
-}) {
-  return (
-    <View style={styles.metricRow}>
-      <Text style={styles.metricRowLabel}>{label}</Text>
-      <Text style={[styles.metricRowValue, { color }]}>
-        {value}{subvalue ? ` ${subvalue}` : ''}
-      </Text>
-    </View>
-  );
-}
-
-function DetailCell({
-  label,
-  value,
-  subvalue,
-  color = ClearLensColors.navy,
-}: {
-  label: string;
-  value: string;
-  subvalue?: string;
-  color?: string;
-}) {
-  return (
-    <View style={styles.detailCell}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.detailValue, { color }]}>{value}</Text>
-      {subvalue ? <Text style={[styles.detailSubvalue, { color }]}>{subvalue}</Text> : null}
-    </View>
-  );
-}
+// ---------------------------------------------------------------------------
+// Sort bottom sheet
+// ---------------------------------------------------------------------------
 
 function SortBottomSheet({
   visible,
@@ -312,12 +229,15 @@ function SortBottomSheet({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main screen
+// ---------------------------------------------------------------------------
+
 export function ClearLensFundsScreen() {
   const router = useRouter();
   const { defaultBenchmarkSymbol } = useAppStore();
   const [sortBy, setSortBy] = useState<SortOption>('currentValue');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [expandedFundId, setExpandedFundId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data, isLoading } = usePortfolio(defaultBenchmarkSymbol);
@@ -421,9 +341,7 @@ export function ClearLensFundsScreen() {
               fund={fund}
               latestNavDate={summary?.latestNavDate ?? null}
               portfolioPct={allocationPctByFundId.get(fund.id) ?? null}
-              expanded={expandedFundId === fund.id}
-              onToggle={() => setExpandedFundId((current) => current === fund.id ? null : fund.id)}
-              onOpen={() => router.push(`/fund/${fund.id}`)}
+              onPress={() => router.push(`/fund/${fund.id}`)}
             />
           ))}
         </ScrollView>
@@ -437,6 +355,10 @@ export function ClearLensFundsScreen() {
     </ClearLensScreen>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   scroll: {
@@ -532,113 +454,87 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
   },
+  // Fund card — FLFundCard layout
   fundCard: {
     gap: 0,
-    borderLeftWidth: 3,
-    paddingLeft: ClearLensSpacing.sm,
+    padding: ClearLensSpacing.md,
+    ...ClearLensShadow,
   },
-  fundTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: ClearLensSpacing.xs,
-  },
-  fundMainTap: {
-    flex: 1,
+  fundHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: ClearLensSpacing.sm,
+    marginBottom: ClearLensSpacing.sm,
   },
   fundNameBlock: {
     flex: 1,
-    gap: 3,
+    gap: 5,
   },
   fundName: {
     ...ClearLensTypography.h3,
     color: ClearLensColors.navy,
   },
-  fundMeta: {
+  fundTagRow: {
+    flexDirection: 'row',
+  },
+  fundTag: {
     ...ClearLensTypography.caption,
     fontFamily: ClearLensFonts.semiBold,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: ClearLensRadii.full,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  valueBlock: {
+  fundValueBlock: {
     alignItems: 'flex-end',
     gap: 3,
-    minWidth: 92,
+    flexShrink: 0,
   },
   fundValue: {
     ...ClearLensTypography.h3,
     color: ClearLensColors.navy,
   },
-  shareText: {
+  fundAllocation: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
-  expandButton: {
-    width: 28,
-    height: 28,
-    borderRadius: ClearLensRadii.full,
+  fundFooter: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expandedPanel: {
-    marginTop: ClearLensSpacing.md,
-    paddingTop: ClearLensSpacing.md,
+    paddingTop: ClearLensSpacing.sm,
     borderTopWidth: 1,
     borderTopColor: ClearLensColors.borderLight,
-    gap: ClearLensSpacing.md,
-  },
-  quickMetrics: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  quickDivider: {
-    width: 1,
-    marginRight: ClearLensSpacing.md,
-    backgroundColor: ClearLensColors.borderLight,
-  },
-  detailCell: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: ClearLensSpacing.md,
-    gap: 3,
-  },
-  detailValue: {
-    ...ClearLensTypography.h3,
-    fontFamily: ClearLensFonts.bold,
-  },
-  detailSubvalue: {
-    ...ClearLensTypography.caption,
-  },
-  expandedRows: {
     gap: ClearLensSpacing.sm,
   },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: ClearLensSpacing.md,
+  fundFooterCell: {
+    flex: 1,
+    gap: 2,
   },
-  metricRowLabel: {
-    ...ClearLensTypography.bodySmall,
+  fundFooterCellRight: {
+    alignItems: 'flex-end',
+  },
+  fundFooterLabel: {
+    ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  fundFooterChange: {
+    ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.semiBold,
   },
-  metricRowValue: {
+  fundFooterMuted: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
-    fontFamily: ClearLensFonts.bold,
-    textAlign: 'right',
-    flexShrink: 1,
+    color: ClearLensColors.textTertiary,
   },
-  sparklinePanel: {
-    minHeight: 62,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: '#F2FBF7',
-    overflow: 'hidden',
+  fundFooterDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: ClearLensColors.borderLight,
+    flexShrink: 0,
   },
+  // Sort sheet
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',

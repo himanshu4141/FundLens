@@ -425,7 +425,7 @@ function InvestmentVsBenchmarkChart({
     <ClearLensCard style={styles.journeyCard}>
       <View style={styles.journeyHeader}>
         <View>
-          <Text style={styles.sectionTitle}>How your money grew</Text>
+          <Text style={styles.sectionTitle}>Your investments over time</Text>
           <Text style={styles.journeySubtitle}>
             Amount invested, current worth, and benchmark worth
           </Text>
@@ -731,26 +731,42 @@ function AssetAllocationPreview({
   );
 }
 
-function EntryRows({ onInsights, onFunds }: { onInsights: () => void; onFunds: () => void }) {
+function EntryRows({
+  onInsights,
+  onFunds,
+  onWealth,
+}: {
+  onInsights: () => void;
+  onFunds: () => void;
+  onWealth: () => void;
+}) {
   return (
-    <View style={styles.entryRows}>
-      <EntryRow
-        icon="analytics-outline"
-        title="Portfolio Insights"
-        subtitle="See allocation, sectors, and top holdings"
-        onPress={onInsights}
-      />
-      <EntryRow
-        icon="list-outline"
-        title="Your Funds"
-        subtitle="Search, sort, and open every holding"
-        onPress={onFunds}
+    <View style={styles.entrySection}>
+      <View style={styles.entryGrid}>
+        <EntryCard
+          icon="grid-outline"
+          title="Portfolio Insights"
+          subtitle="Deeper analysis of your portfolio"
+          onPress={onInsights}
+        />
+        <EntryCard
+          icon="trending-up-outline"
+          title="Your Funds"
+          subtitle={`See all your active funds`}
+          onPress={onFunds}
+        />
+      </View>
+      <EntryCardWide
+        icon="compass-outline"
+        title="Wealth Journey"
+        subtitle="Plan your financial future with projections"
+        onPress={onWealth}
       />
     </View>
   );
 }
 
-function EntryRow({
+function EntryCard({
   icon,
   title,
   subtitle,
@@ -762,11 +778,36 @@ function EntryRow({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.entryRow} onPress={onPress} activeOpacity={0.76}>
-      <View style={styles.entryIcon}>
-        <Ionicons name={icon} size={19} color={ClearLensColors.emerald} />
+    <TouchableOpacity style={styles.entryCard} onPress={onPress} activeOpacity={0.76}>
+      <View style={styles.entryCardRow}>
+        <View style={styles.entryIcon}>
+          <Ionicons name={icon} size={16} color={ClearLensColors.emerald} />
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
       </View>
-      <View style={styles.entryCopy}>
+      <Text style={styles.entryTitle}>{title}</Text>
+      <Text style={styles.entrySubtitle}>{subtitle}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function EntryCardWide({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.entryCardWide} onPress={onPress} activeOpacity={0.76}>
+      <View style={styles.entryIcon}>
+        <Ionicons name={icon} size={16} color={ClearLensColors.emerald} />
+      </View>
+      <View style={styles.entryCardWideCopy}>
         <Text style={styles.entryTitle}>{title}</Text>
         <Text style={styles.entrySubtitle}>{subtitle}</Text>
       </View>
@@ -925,6 +966,7 @@ export function ClearLensPortfolioScreen() {
           <EntryRows
             onInsights={() => router.push('/portfolio-insights')}
             onFunds={() => router.push('/funds')}
+            onWealth={() => router.push('/(tabs)/wealth-journey')}
           />
         </ScrollView>
       )}
@@ -1293,10 +1335,30 @@ const styles = StyleSheet.create({
     minWidth: 72,
     textAlign: 'right',
   },
-  entryRows: {
+  entrySection: {
     gap: ClearLensSpacing.sm,
   },
-  entryRow: {
+  entryGrid: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  entryCard: {
+    flex: 1,
+    padding: ClearLensSpacing.md,
+    borderRadius: ClearLensRadii.lg,
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    gap: ClearLensSpacing.xs,
+    ...ClearLensShadow,
+  },
+  entryCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: ClearLensSpacing.xs,
+  },
+  entryCardWide: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
@@ -1307,6 +1369,10 @@ const styles = StyleSheet.create({
     borderColor: ClearLensColors.border,
     ...ClearLensShadow,
   },
+  entryCardWideCopy: {
+    flex: 1,
+    gap: 2,
+  },
   entryIcon: {
     width: 40,
     height: 40,
@@ -1314,10 +1380,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#DFF8ED',
-  },
-  entryCopy: {
-    flex: 1,
-    gap: 2,
+    flexShrink: 0,
   },
   entryTitle: {
     ...ClearLensTypography.h3,

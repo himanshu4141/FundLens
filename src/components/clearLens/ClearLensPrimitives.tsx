@@ -123,6 +123,64 @@ export function ClearLensMetricCard({
   );
 }
 
+export function ClearLensTabBar<T extends string>({
+  options,
+  selected,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  selected: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={tabBarStyles.container}>
+      {options.map((option) => {
+        const active = option.value === selected;
+        return (
+          <TouchableOpacity
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={[tabBarStyles.tab, active && tabBarStyles.tabActive]}
+            activeOpacity={0.75}
+          >
+            <Text style={[tabBarStyles.tabText, active && tabBarStyles.tabTextActive]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+const tabBarStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: ClearLensColors.border,
+    backgroundColor: ClearLensColors.background,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: ClearLensSpacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -1,
+  },
+  tabActive: {
+    borderBottomColor: ClearLensColors.emerald,
+  },
+  tabText: {
+    ...ClearLensTypography.bodySmall,
+    fontWeight: '600',
+    color: ClearLensColors.textTertiary,
+  },
+  tabTextActive: {
+    color: ClearLensColors.navy,
+  },
+});
+
 export function ClearLensPill({
   label,
   active = false,
