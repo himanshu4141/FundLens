@@ -551,19 +551,23 @@ function TechnicalDetailsCard({
   minSipAmount,
   fundMetaSyncedAt,
   schemeCode,
+  isin,
 }: {
   expenseRatio: number | null;
   aumCr: number | null;
   minSipAmount: number | null;
   fundMetaSyncedAt: string | null;
   schemeCode: number;
+  isin: string | null;
 }) {
   const { colors } = useTheme();
   const ts = useMemo(() => makeTechStyles(colors), [colors]);
   const unsynced = !fundMetaSyncedAt;
 
-  function openSid() {
-    const url = `https://www.mfapi.in/mf/${schemeCode}`;
+  function openFactsheet() {
+    const url = isin
+      ? `https://www.amfiindia.com/schemes/the-scheme-detail?ISIN=${isin}`
+      : `https://api.mfapi.in/mf/${schemeCode}`;
     Linking.openURL(url);
   }
 
@@ -590,7 +594,7 @@ function TechnicalDetailsCard({
           </Text>
         </View>
       </View>
-      <TouchableOpacity onPress={openSid} style={ts.sidLink}>
+      <TouchableOpacity onPress={openFactsheet} style={ts.sidLink}>
         <Text style={ts.sidLinkText}>View fund factsheet ↗</Text>
       </TouchableOpacity>
     </View>
@@ -1308,6 +1312,7 @@ export default function FundDetailScreen() {
             minSipAmount={data.minSipAmount}
             fundMetaSyncedAt={data.fundMetaSyncedAt}
             schemeCode={data.schemeCode}
+            isin={data.isin}
           />
 
           <GrowthConsistencyChart navHistory={data.navHistory} />
