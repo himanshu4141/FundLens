@@ -52,3 +52,14 @@ All shipped work is in `docs/plans/archive/`. These are read-only historical rec
 | Plan | What it covers |
 |---|---|
 | `1-portfolio-value-bug-fix.md` | CAS import REVERSAL/tax fix; Android PDF XHR; auth host guard; CI db push |
+
+---
+
+## Phase 3 — Clear Lens Design Mode (`phase-3-clear-lens-design-mode/`)
+
+A new design-mode phase that keeps the current app as the default while adding the Focus Ring / Clear Lens redesign behind a persistent Settings switch.
+
+| Plan | What it covers |
+|---|---|
+| `M1-clear-lens-design-mode.md` | `appDesignMode` setting; Clear Lens tokens and logo; redesigned Portfolio, Insights, Your Funds, Fund Detail, and supporting screens |
+| `M2-continue.md` | Rebase gap closure: ESLint fix, classic composition color regression, Clear Lens Wealth Journey + Leaderboard, token reconciliation (danger red, 3M range, ▲/▼ arrows) |

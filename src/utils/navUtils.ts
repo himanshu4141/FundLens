@@ -3,7 +3,7 @@
  * These are extracted here so they can be unit-tested in a Node environment.
  */
 
-export type TimeWindow = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'All';
+export type TimeWindow = '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | '10Y' | '15Y' | 'All';
 
 export interface NavPoint {
   date: string;
@@ -28,6 +28,9 @@ export function filterToWindow<T extends { date: string }>(history: T[], window:
     case '6M': cutoff.setMonth(today.getMonth() - 6); break;
     case '1Y': cutoff.setFullYear(today.getFullYear() - 1); break;
     case '3Y': cutoff.setFullYear(today.getFullYear() - 3); break;
+    case '5Y': cutoff.setFullYear(today.getFullYear() - 5); break;
+    case '10Y': cutoff.setFullYear(today.getFullYear() - 10); break;
+    case '15Y': cutoff.setFullYear(today.getFullYear() - 15); break;
   }
 
   const cutoffStr = cutoff.toISOString().split('T')[0];

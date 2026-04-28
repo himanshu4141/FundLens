@@ -1,4 +1,4 @@
-import { BENCHMARK_OPTIONS } from '../appStore';
+import { BENCHMARK_OPTIONS, migratePersistedAppState } from '../appStore';
 
 describe('BENCHMARK_OPTIONS', () => {
   it('contains exactly 3 entries — Nifty 50, Nifty 100, BSE Sensex', () => {
@@ -18,6 +18,44 @@ describe('BENCHMARK_OPTIONS', () => {
     for (const opt of BENCHMARK_OPTIONS) {
       expect(opt.label.trim().length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('appDesignMode persistence migration', () => {
+  it('defaults missing persisted state to clearLens', () => {
+    expect(migratePersistedAppState(null)).toEqual({ appDesignMode: 'clearLens' });
+  });
+
+  it('preserves clearLens mode when already stored', () => {
+    expect(migratePersistedAppState({ appDesignMode: 'clearLens' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+    });
+  });
+
+  it('preserves classic mode when explicitly stored', () => {
+    expect(migratePersistedAppState({ appDesignMode: 'classic' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'classic',
+    });
+  });
+
+  it('migrates old Editorial v1/v2 designVariant values to clearLens default', () => {
+    expect(migratePersistedAppState({ designVariant: 'v1' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+    });
+    expect(migratePersistedAppState({ designVariant: 'v2' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+    });
+  });
+
+  it('preserves benchmark preference during migration', () => {
+    expect(migratePersistedAppState({ defaultBenchmarkSymbol: '^BSESN', designVariant: 'v2' })).toEqual({
+      defaultBenchmarkSymbol: '^BSESN',
+      appDesignMode: 'clearLens',
+    });
   });
 });
 
