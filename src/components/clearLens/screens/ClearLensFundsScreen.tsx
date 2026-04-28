@@ -36,7 +36,6 @@ import {
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
 
 const CLEAR_LENS_RED = '#E5484D';
-const CLEAR_LENS_DEBT = '#D97706';
 
 const SORT_OPTIONS: { value: SortOption; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'currentValue', label: 'Current value', icon: 'trending-up-outline' },
@@ -51,43 +50,52 @@ function sortableNumber(value: number | null | undefined): number {
 }
 
 // ---------------------------------------------------------------------------
-// Allocation overview card
+// Allocation overview card — matches design handoff layout
 // ---------------------------------------------------------------------------
 
 function AllocationOverview({
   fundCount,
   topThreeShare,
   largestPosition,
+  largestPct,
 }: {
   fundCount: number;
   topThreeShare: number;
   largestPosition: string;
+  largestPct: number;
 }) {
   return (
     <ClearLensCard style={styles.overviewCard}>
       <Text style={styles.screenEyebrow}>Allocation overview</Text>
-      <View style={styles.overviewGrid}>
-        <View style={styles.overviewMetric}>
-          <Text style={styles.metricLabel}>Active funds</Text>
+
+      {/* Two stats side-by-side with vertical divider */}
+      <View style={styles.overviewStatsRow}>
+        <View style={styles.overviewStat}>
           <Text style={styles.overviewValue}>{fundCount}</Text>
+          <Text style={styles.overviewStatLabel}>Active funds</Text>
         </View>
-        <View style={styles.overviewMetric}>
-          <Text style={styles.metricLabel}>Top 3 share</Text>
+        <View style={styles.overviewDivider} />
+        <View style={styles.overviewStat}>
           <Text style={styles.overviewValue}>{topThreeShare.toFixed(1)}%</Text>
+          <Text style={styles.overviewStatLabel}>In top 3 funds</Text>
         </View>
       </View>
-      <View style={styles.largestBox}>
-        <Text style={styles.metricLabel}>Largest position</Text>
-        <Text style={styles.largestName} numberOfLines={2}>{largestPosition}</Text>
+
+      {/* Largest position inline row */}
+      <View style={styles.largestRow}>
+        <View style={styles.largestDot} />
+        <Text style={styles.largestLabel}>Largest: </Text>
+        <Text style={styles.largestName} numberOfLines={1}>{largestPosition}</Text>
+        <Text style={styles.largestPct}>{largestPct.toFixed(1)}%</Text>
       </View>
     </ClearLensCard>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Fund card — matches FLFundCard from design handoff
-// Header: name + category tag | current value + allocation %
-// Footer (borderTop): Today change | XIRR p.a.
+// Fund card — FLFundCard layout
+// Header: name + plain category text | value + "X% of portfolio"
+// Footer: "Today ▼ 0.45%" inline | "XIRR 16.65% p.a." inline
 // ---------------------------------------------------------------------------
 
 function FundListItem({
@@ -102,13 +110,12 @@ function FundListItem({
   latestNavDate: string | null;
 }) {
   const { base, planBadge } = parseFundName(fund.schemeName);
-  const isDebtLike = /debt|liquid|gilt|income|overnight|money market|ultra short/i.test(fund.schemeCategory);
-  const categoryColor = isDebtLike ? CLEAR_LENS_DEBT : ClearLensColors.emerald;
   const dailyChangePct = fund.dailyChangePct;
   const dailyColor = (dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
   const xirrColor = fund.returnXirr >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
   const xirrLabel = Number.isFinite(fund.returnXirr) ? `${formatXirr(fund.returnXirr)} p.a.` : '—';
   const stale = navStaleness(latestNavDate);
+  const categoryText = `${fund.schemeCategory}${planBadge ? ` · ${planBadge}` : ''}`;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.76}>
@@ -117,50 +124,38 @@ function FundListItem({
         <View style={styles.fundHeader}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>{base}</Text>
-            <View style={styles.fundTagRow}>
-              <Text
-                style={[
-                  styles.fundTag,
-                  {
-                    color: categoryColor,
-                    borderColor: `${categoryColor}44`,
-                    backgroundColor: `${categoryColor}18`,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
-              </Text>
-            </View>
+            <Text style={styles.fundCategory} numberOfLines={1}>{categoryText}</Text>
           </View>
           <View style={styles.fundValueBlock}>
             <Text style={styles.fundValue}>
               {fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}
             </Text>
-            <Text style={styles.fundAllocation}>
-              {portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'}
-            </Text>
+            {portfolioPct != null && (
+              <Text style={styles.fundAllocation}>{portfolioPct.toFixed(1)}% of portfolio</Text>
+            )}
           </View>
         </View>
 
-        {/* Footer row */}
+        {/* Footer: label + value inline on one line, no divider */}
         <View style={styles.fundFooter}>
           <View style={styles.fundFooterCell}>
-            <Text style={styles.fundFooterLabel}>Today</Text>
             {dailyChangePct != null ? (
-              <Text style={[styles.fundFooterChange, { color: dailyColor }]}>
-                {dailyChangePct >= 0 ? '▲' : '▼'}{' '}
-                {dailyChangePct >= 0 ? '+' : ''}{dailyChangePct.toFixed(2)}%
-                {stale.stale ? ` · ${stale.label}` : ''}
+              <Text numberOfLines={1}>
+                <Text style={styles.fundFooterLabel}>Today </Text>
+                <Text style={[styles.fundFooterChange, { color: dailyColor }]}>
+                  {dailyChangePct >= 0 ? '▲' : '▼'} {dailyChangePct >= 0 ? '+' : ''}{dailyChangePct.toFixed(2)}%
+                  {stale.stale ? ` · ${stale.label}` : ''}
+                </Text>
               </Text>
             ) : (
-              <Text style={styles.fundFooterMuted}>—</Text>
+              <Text style={styles.fundFooterLabel}>Today —</Text>
             )}
           </View>
-          <View style={styles.fundFooterDivider} />
           <View style={[styles.fundFooterCell, styles.fundFooterCellRight]}>
-            <Text style={styles.fundFooterLabel}>XIRR</Text>
-            <Text style={[styles.fundFooterChange, { color: xirrColor }]}>{xirrLabel}</Text>
+            <Text numberOfLines={1}>
+              <Text style={styles.fundFooterLabel}>XIRR </Text>
+              <Text style={[styles.fundFooterChange, { color: xirrColor }]}>{xirrLabel}</Text>
+            </Text>
           </View>
         </View>
       </ClearLensCard>
@@ -263,9 +258,14 @@ export function ClearLensFundsScreen() {
     () => [...fundCards].sort((a, b) => sortableNumber(b.currentValue) - sortableNumber(a.currentValue)),
     [fundCards],
   );
+  const largestFund = insights?.fundAllocation[0] ?? null;
   const largestPosition =
-    insights?.fundAllocation[0]?.shortName ??
+    largestFund?.shortName ??
     (valueSortedFunds[0] ? parseFundName(valueSortedFunds[0].schemeName).base : '—');
+  const largestPct =
+    largestFund?.pct ??
+    allocationPctByFundId.get(valueSortedFunds[0]?.id ?? '') ??
+    0;
   const topThreeShare = insights?.fundAllocation.length
     ? insights.fundAllocation.slice(0, 3).reduce((sum, item) => sum + item.pct, 0)
     : valueSortedFunds
@@ -311,8 +311,10 @@ export function ClearLensFundsScreen() {
             fundCount={fundCards.length}
             topThreeShare={topThreeShare}
             largestPosition={largestPosition}
+            largestPct={largestPct}
           />
 
+          {/* Search + Sort in a single row */}
           <View style={styles.controls}>
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={18} color={ClearLensColors.textTertiary} />
@@ -325,8 +327,9 @@ export function ClearLensFundsScreen() {
               />
             </View>
             <TouchableOpacity style={styles.sortButton} onPress={() => setSortMenuOpen(true)}>
-              <Ionicons name="swap-vertical-outline" size={18} color={ClearLensColors.navy} />
+              <Ionicons name="swap-vertical-outline" size={16} color={ClearLensColors.navy} />
               <Text style={styles.sortButtonText}>{sortLabel}</Text>
+              <Ionicons name="chevron-down" size={14} color={ClearLensColors.textTertiary} />
             </TouchableOpacity>
           </View>
 
@@ -366,6 +369,7 @@ const styles = StyleSheet.create({
     paddingBottom: ClearLensSpacing.xxl,
     gap: ClearLensSpacing.md,
   },
+  // Allocation overview
   overviewCard: {
     gap: ClearLensSpacing.md,
   },
@@ -373,41 +377,71 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.label,
     color: ClearLensColors.textTertiary,
     textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
-  overviewGrid: {
+  overviewStatsRow: {
     flexDirection: 'row',
-    gap: ClearLensSpacing.sm,
+    alignItems: 'center',
   },
-  overviewMetric: {
+  overviewStat: {
     flex: 1,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-    padding: ClearLensSpacing.sm,
-    gap: 4,
+    gap: 2,
   },
-  metricLabel: {
-    ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
-    textTransform: 'uppercase',
+  overviewDivider: {
+    width: 1,
+    height: 44,
+    backgroundColor: ClearLensColors.borderLight,
+    marginHorizontal: ClearLensSpacing.md,
   },
   overviewValue: {
-    ...ClearLensTypography.h2,
+    ...ClearLensTypography.h1,
     color: ClearLensColors.navy,
   },
-  largestBox: {
-    padding: ClearLensSpacing.sm,
-    borderRadius: ClearLensRadii.md,
+  overviewStatLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+  },
+  largestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#DFF8ED',
-    gap: 4,
+    borderRadius: ClearLensRadii.md,
+    paddingVertical: ClearLensSpacing.sm,
+    paddingHorizontal: ClearLensSpacing.sm,
+    gap: ClearLensSpacing.xs,
+  },
+  largestDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: ClearLensColors.emerald,
+    flexShrink: 0,
+  },
+  largestLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    flexShrink: 0,
   },
   largestName: {
-    ...ClearLensTypography.h3,
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.bold,
     color: ClearLensColors.navy,
+    flex: 1,
   },
+  largestPct: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.bold,
+    color: ClearLensColors.emerald,
+    flexShrink: 0,
+  },
+  // Controls — single row
   controls: {
+    flexDirection: 'row',
     gap: ClearLensSpacing.sm,
+    alignItems: 'center',
   },
   searchBox: {
+    flex: 1,
     minHeight: 46,
     borderRadius: ClearLensRadii.full,
     backgroundColor: ClearLensColors.surface,
@@ -416,31 +450,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ClearLensSpacing.sm,
+    gap: ClearLensSpacing.xs,
   },
   searchInput: {
-    ...ClearLensTypography.body,
+    ...ClearLensTypography.bodySmall,
     flex: 1,
     color: ClearLensColors.navy,
     paddingVertical: 0,
   },
   sortButton: {
-    minHeight: 44,
+    minHeight: 46,
     borderRadius: ClearLensRadii.full,
     backgroundColor: ClearLensColors.surface,
     borderWidth: 1,
     borderColor: ClearLensColors.border,
-    paddingHorizontal: ClearLensSpacing.md,
+    paddingHorizontal: ClearLensSpacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: ClearLensSpacing.xs,
+    gap: 4,
+    flexShrink: 0,
   },
   sortButtonText: {
     ...ClearLensTypography.bodySmall,
-    fontFamily: ClearLensFonts.bold,
+    fontFamily: ClearLensFonts.semiBold,
     color: ClearLensColors.navy,
   },
+  // List header
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -454,7 +489,7 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
   },
-  // Fund card — FLFundCard layout
+  // Fund card
   fundCard: {
     gap: 0,
     padding: ClearLensSpacing.md,
@@ -468,23 +503,15 @@ const styles = StyleSheet.create({
   },
   fundNameBlock: {
     flex: 1,
-    gap: 5,
+    gap: 4,
   },
   fundName: {
     ...ClearLensTypography.h3,
     color: ClearLensColors.navy,
   },
-  fundTagRow: {
-    flexDirection: 'row',
-  },
-  fundTag: {
-    ...ClearLensTypography.caption,
-    fontFamily: ClearLensFonts.semiBold,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: ClearLensRadii.full,
-    borderWidth: 1,
-    overflow: 'hidden',
+  fundCategory: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
   },
   fundValueBlock: {
     alignItems: 'flex-end',
@@ -498,41 +525,28 @@ const styles = StyleSheet.create({
   fundAllocation: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
-    fontFamily: ClearLensFonts.semiBold,
   },
+  // Footer — label + value inline on one line
   fundFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: ClearLensSpacing.sm,
     borderTopWidth: 1,
     borderTopColor: ClearLensColors.borderLight,
-    gap: ClearLensSpacing.sm,
   },
   fundFooterCell: {
     flex: 1,
-    gap: 2,
   },
   fundFooterCellRight: {
     alignItems: 'flex-end',
   },
   fundFooterLabel: {
-    ...ClearLensTypography.caption,
+    ...ClearLensTypography.bodySmall,
     color: ClearLensColors.textTertiary,
-    textTransform: 'uppercase',
   },
   fundFooterChange: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.semiBold,
-  },
-  fundFooterMuted: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
-  },
-  fundFooterDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: ClearLensColors.borderLight,
-    flexShrink: 0,
   },
   // Sort sheet
   backdrop: {
