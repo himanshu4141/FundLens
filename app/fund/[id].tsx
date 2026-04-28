@@ -18,7 +18,6 @@ import {
   useFundDetail,
   filterToWindow,
   indexTo100,
-  type NavPoint,
   type TimeWindow,
 } from '@/src/hooks/useFundDetail';
 import { useFundComposition } from '@/src/hooks/useFundComposition';
@@ -48,6 +47,17 @@ import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 32;
+
+function schemeSubtitle(schemeName: string, category: string): string {
+  const parts: string[] = [];
+  if (category) parts.push(category);
+  const lower = schemeName.toLowerCase();
+  if (lower.includes('direct')) parts.push('Direct');
+  else if (lower.includes('regular')) parts.push('Regular');
+  if (lower.includes('growth')) parts.push('Growth');
+  else if (lower.includes('idcw') || lower.includes('dividend')) parts.push('IDCW');
+  return parts.join(' · ');
+}
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
@@ -79,53 +89,15 @@ function formatChartDate(dateStr: string, window: TimeWindow): string {
   }
 }
 
-function getOneYearBenchmarkLead({
-  navHistory,
-  indexHistory,
-  benchmarkSymbol,
-  benchmarkName,
-}: {
-  navHistory: NavPoint[];
-  indexHistory: NavPoint[];
-  benchmarkSymbol: string | null;
-  benchmarkName: string | null;
-}): { label: string; diff: number; ahead: boolean } | null {
-  const filteredNav = filterToWindow(navHistory, '1Y');
-  const sortedIndex = [...indexHistory].sort((a, b) => a.date.localeCompare(b.date));
-  const navStartDate = filteredNav[0]?.date;
-  if (!navStartDate || filteredNav.length < 2 || sortedIndex.length < 2) return null;
-
-  const filteredIndex = sortedIndex.filter((point) => point.date >= navStartDate);
-  const indexStartDate = filteredIndex[0]?.date ?? navStartDate;
-  const commonStart = navStartDate >= indexStartDate ? navStartDate : indexStartDate;
-  const alignedNav = filteredNav.filter((point) => point.date >= commonStart);
-  const alignedIndex = filteredIndex.filter((point) => point.date >= commonStart);
-  if (alignedNav.length < 2 || alignedIndex.length < 2) return null;
-
-  const fundIndexed = indexTo100(alignedNav);
-  const benchmarkIndexed = indexTo100(alignedIndex);
-  const fundLatest = fundIndexed[fundIndexed.length - 1]?.value;
-  const benchmarkLatest = benchmarkIndexed[benchmarkIndexed.length - 1]?.value;
-  if (!Number.isFinite(fundLatest) || !Number.isFinite(benchmarkLatest)) return null;
-
-  const fundReturn = ((fundLatest - 100) / 100) * 100;
-  const benchmarkReturn = ((benchmarkLatest - 100) / 100) * 100;
-  const diff = fundReturn - benchmarkReturn;
-  const label =
-    BENCHMARK_OPTIONS.find((option) => option.symbol === benchmarkSymbol)?.label ??
-    benchmarkName ??
-    benchmarkSymbol?.replace(/^\^/, '').replace(/([A-Z]+)(\d+)/, '$1 $2') ??
-    'benchmark';
-
-  return { label, diff, ahead: diff >= 0 };
-}
 
 function TimeWindowSelector({
   selected,
   onChange,
+  clearLens = false,
 }: {
   selected: TimeWindow;
   onChange: (w: TimeWindow) => void;
+  clearLens?: boolean;
 }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -134,11 +106,19 @@ function TimeWindowSelector({
       {TIME_WINDOWS.map((w) => (
         <TouchableOpacity
           key={w}
-          style={[s.windowPill, selected === w && s.windowPillActive]}
+          style={[
+            s.windowPill,
+            selected === w && s.windowPillActive,
+            selected === w && clearLens && clWindowActive,
+          ]}
           onPress={() => onChange(w)}
           activeOpacity={0.75}
         >
-          <Text style={[s.windowPillText, selected === w && s.windowPillTextActive]}>
+          <Text style={[
+            s.windowPillText,
+            selected === w && s.windowPillTextActive,
+            selected === w && clearLens && clWindowTextActive,
+          ]}>
             {w}
           </Text>
         </TouchableOpacity>
@@ -146,6 +126,11 @@ function TimeWindowSelector({
     </View>
   );
 }
+
+const clWindowActive = { backgroundColor: ClearLensColors.navy } as const;
+const clWindowTextActive = { color: ClearLensColors.textOnDark } as const;
+const clBenchmarkActive = { backgroundColor: ClearLensColors.navy } as const;
+const clBenchmarkTextActive = { color: ClearLensColors.textOnDark } as const;
 
 function PerformanceTab({
   navHistory,
@@ -320,7 +305,7 @@ function PerformanceTab({
         )}
       </View>
 
-      <TimeWindowSelector selected={window} onChange={setWindow} />
+      <TimeWindowSelector selected={window} onChange={setWindow} clearLens={isClearLens} />
 
       {/* Benchmark selector */}
       <ScrollView
@@ -328,18 +313,29 @@ function PerformanceTab({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.benchmarkSelectorContent}
       >
-        {BENCHMARK_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.symbol}
-            style={[s.benchmarkPill, selectedSymbol === opt.symbol && s.benchmarkPillActive]}
-            onPress={() => setSelectedSymbol(opt.symbol)}
-            activeOpacity={0.75}
-          >
-            <Text style={[s.benchmarkPillText, selectedSymbol === opt.symbol && s.benchmarkPillTextActive]}>
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {BENCHMARK_OPTIONS.map((opt) => {
+          const isActive = selectedSymbol === opt.symbol;
+          return (
+            <TouchableOpacity
+              key={opt.symbol}
+              style={[
+                s.benchmarkPill,
+                isActive && s.benchmarkPillActive,
+                isActive && isClearLens && clBenchmarkActive,
+              ]}
+              onPress={() => setSelectedSymbol(opt.symbol)}
+              activeOpacity={0.75}
+            >
+              <Text style={[
+                s.benchmarkPillText,
+                isActive && s.benchmarkPillTextActive,
+                isActive && isClearLens && clBenchmarkTextActive,
+              ]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {hasNavData ? (
@@ -1474,28 +1470,22 @@ function ClearLensFundDetailScreen() {
   const navIsStale = latestNavDate !== null && latestNavDate !== todayIso;
   const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
   const gainPct = gain !== null && data.investedAmount > 0 ? (gain / data.investedAmount) * 100 : null;
-  const benchmarkLead = getOneYearBenchmarkLead({
-    navHistory: data.navHistory,
-    indexHistory: data.indexHistory,
-    benchmarkSymbol: data.benchmarkSymbol,
-    benchmarkName: data.benchmarkIndex,
-  });
 
   return (
     <ClearLensScreen>
       <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
       <ScrollView contentContainerStyle={clearDetailStyles.scroll} showsVerticalScrollIndicator={false}>
         <ClearLensCard style={clearDetailStyles.heroCard}>
-          <View style={clearDetailStyles.heroTitleRow}>
-            <View style={clearDetailStyles.heroTitleBlock}>
-              <Text style={clearDetailStyles.fundName}>{data.schemeName}</Text>
-              <Text style={clearDetailStyles.category}>{data.schemeCategory || 'Fund'}</Text>
-            </View>
+          <View style={clearDetailStyles.heroTitleBlock}>
+            <Text style={clearDetailStyles.fundName}>{data.schemeName}</Text>
+            <Text style={clearDetailStyles.category}>
+              {schemeSubtitle(data.schemeName, data.schemeCategory || 'Fund')}
+            </Text>
           </View>
 
           <View style={clearDetailStyles.statsRow}>
             <View style={clearDetailStyles.statCell}>
-              <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Current value</Text>
+              <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Current Value</Text>
               <Text style={clearDetailStyles.statValue}>
                 {data.currentValue !== null ? formatCurrency(data.currentValue) : 'NAV pending'}
               </Text>
@@ -1514,34 +1504,24 @@ function ClearLensFundDetailScreen() {
           </View>
 
           {gain !== null && gainPct !== null && (
-            <View style={clearDetailStyles.gainRow}>
-              <Text style={clearDetailStyles.statLabel}>Gain / Loss</Text>
-              <Text style={[clearDetailStyles.gainValue, { color: gain >= 0 ? ClearLensColors.emerald : ClearLensColors.negative }]}>
-                {gain >= 0 ? '+' : '-'}{formatCurrency(Math.abs(gain))} ({gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%)
-              </Text>
-            </View>
-          )}
-
-          {Number.isFinite(data.fundXirr) && (
-            <View style={clearDetailStyles.xirrRow}>
-              <Text style={clearDetailStyles.statLabel}>XIRR</Text>
-              <Text style={[clearDetailStyles.xirrValue, { color: data.fundXirr >= 0 ? ClearLensColors.emerald : ClearLensColors.negative }]}>
-                {formatXirr(data.fundXirr)}
-              </Text>
-              <Text style={clearDetailStyles.xirrHint}>· SIP-aware, annualised</Text>
-            </View>
-          )}
-
-          {benchmarkLead && (
-            <View style={[clearDetailStyles.benchmarkPill, !benchmarkLead.ahead && clearDetailStyles.benchmarkPillNegative]}>
-              <Ionicons
-                name={benchmarkLead.ahead ? 'trending-up' : 'trending-down'}
-                size={16}
-                color={benchmarkLead.ahead ? ClearLensColors.emerald : ClearLensColors.negative}
-              />
-              <Text style={[clearDetailStyles.benchmarkPillText, !benchmarkLead.ahead && clearDetailStyles.benchmarkPillTextNegative]}>
-                {benchmarkLead.ahead ? 'Ahead of' : 'Behind'} {benchmarkLead.label} by {Math.abs(benchmarkLead.diff).toFixed(1)}% (1Y)
-              </Text>
+            <View style={clearDetailStyles.gainXirrRow}>
+              <View style={clearDetailStyles.gainXirrCell}>
+                <Text style={clearDetailStyles.gainXirrLabel}>Gain</Text>
+                <Text style={[clearDetailStyles.gainXirrValue, { color: gain >= 0 ? '#0EA372' : ClearLensColors.negative }]}>
+                  {gain >= 0 ? '+' : '-'}{formatCurrency(Math.abs(gain))}{' '}
+                  <Text style={clearDetailStyles.gainXirrSub}>({gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%)</Text>
+                </Text>
+              </View>
+              <View style={clearDetailStyles.gainXirrDivider} />
+              {Number.isFinite(data.fundXirr) && (
+                <View style={clearDetailStyles.gainXirrCell}>
+                  <Text style={clearDetailStyles.gainXirrLabel}>XIRR</Text>
+                  <Text style={[clearDetailStyles.gainXirrValue, { color: data.fundXirr >= 0 ? '#0EA372' : ClearLensColors.negative }]}>
+                    {formatXirr(data.fundXirr)}{' '}
+                    <Text style={clearDetailStyles.gainXirrSub}>p.a.</Text>
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </ClearLensCard>
@@ -1627,15 +1607,9 @@ const clearDetailStyles = StyleSheet.create({
     color: ClearLensColors.textSecondary,
   },
   heroCard: {
-    gap: ClearLensSpacing.md,
-  },
-  heroTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
     gap: ClearLensSpacing.sm,
   },
   heroTitleBlock: {
-    flex: 1,
     gap: 5,
   },
   fundName: {
@@ -1650,6 +1624,9 @@ const clearDetailStyles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: ClearLensSpacing.sm,
+    paddingTop: ClearLensSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.border,
   },
   statCell: {
     flex: 1,
@@ -1671,49 +1648,38 @@ const clearDetailStyles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
     fontStyle: 'italic',
   },
-  gainRow: {
+  gainXirrRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ClearLensSpacing.sm,
-    flexWrap: 'wrap',
-  },
-  gainValue: {
-    ...ClearLensTypography.h3,
-  },
-  xirrRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.xs,
-    flexWrap: 'wrap',
-  },
-  xirrValue: {
-    ...ClearLensTypography.h3,
-  },
-  xirrHint: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
-  },
-  benchmarkPill: {
-    minHeight: 40,
-    alignSelf: 'flex-end',
-    marginTop: -ClearLensSpacing.xs,
+    justifyContent: 'space-between',
+    backgroundColor: '#ECFDF5',
+    borderRadius: ClearLensRadii.md,
+    padding: ClearLensSpacing.sm,
     paddingHorizontal: ClearLensSpacing.md,
-    borderRadius: ClearLensRadii.full,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: ClearLensSpacing.sm,
-    backgroundColor: '#DFF8ED',
   },
-  benchmarkPillNegative: {
-    backgroundColor: '#FEE2E2',
+  gainXirrCell: {
+    flex: 1,
+    gap: 3,
   },
-  benchmarkPillText: {
-    ...ClearLensTypography.bodySmall,
-    color: '#087A5B',
-    fontFamily: ClearLensFonts.semiBold,
+  gainXirrDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#A7F3D0',
   },
-  benchmarkPillTextNegative: {
-    color: '#B91C1C',
+  gainXirrLabel: {
+    fontSize: 10,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.medium,
+  },
+  gainXirrValue: {
+    fontSize: 14,
+    fontFamily: ClearLensFonts.bold,
+    lineHeight: 20,
+  },
+  gainXirrSub: {
+    fontSize: 11,
+    fontFamily: ClearLensFonts.medium,
   },
   noteCard: {
     marginHorizontal: ClearLensSpacing.md,
