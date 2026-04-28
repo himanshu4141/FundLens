@@ -22,8 +22,8 @@ describe('BENCHMARK_OPTIONS', () => {
 });
 
 describe('appDesignMode persistence migration', () => {
-  it('defaults missing persisted state to classic', () => {
-    expect(migratePersistedAppState(null)).toEqual({ appDesignMode: 'classic' });
+  it('defaults missing persisted state to clearLens', () => {
+    expect(migratePersistedAppState(null)).toEqual({ appDesignMode: 'clearLens' });
   });
 
   it('preserves clearLens mode when already stored', () => {
@@ -33,21 +33,28 @@ describe('appDesignMode persistence migration', () => {
     });
   });
 
-  it('migrates old Editorial v1/v2 designVariant values to classic', () => {
-    expect(migratePersistedAppState({ designVariant: 'v1' })).toEqual({
+  it('preserves classic mode when explicitly stored', () => {
+    expect(migratePersistedAppState({ appDesignMode: 'classic' })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
       appDesignMode: 'classic',
     });
+  });
+
+  it('migrates old Editorial v1/v2 designVariant values to clearLens default', () => {
+    expect(migratePersistedAppState({ designVariant: 'v1' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+    });
     expect(migratePersistedAppState({ designVariant: 'v2' })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
-      appDesignMode: 'classic',
+      appDesignMode: 'clearLens',
     });
   });
 
   it('preserves benchmark preference during migration', () => {
     expect(migratePersistedAppState({ defaultBenchmarkSymbol: '^BSESN', designVariant: 'v2' })).toEqual({
       defaultBenchmarkSymbol: '^BSESN',
-      appDesignMode: 'classic',
+      appDesignMode: 'clearLens',
     });
   });
 });
