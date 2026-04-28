@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -25,10 +25,11 @@ import {
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
+  ClearLensSemanticColors,
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
 
-const CLEAR_LENS_ORANGE = '#F59E0B';
+const CLEAR_LENS_ORANGE = ClearLensSemanticColors.asset.debt;
 const DONUT_SIZE = 104;
 const DONUT_STROKE = 18;
 
@@ -56,29 +57,19 @@ function ExposureCard({
         <Text style={styles.cardTitle}>{title}</Text>
         {disclosure ? <Text style={styles.cardMeta}>{disclosure}</Text> : null}
       </View>
-      <View style={styles.stackedBar}>
-        {rows.map((row) => (
-          row.pct > 0 ? (
-            <View key={row.label} style={[styles.stackedSegment, { flex: row.pct, backgroundColor: row.color }]} />
-          ) : null
-        ))}
-      </View>
       <View style={styles.rows}>
         {rows.map((row) => (
-          <View key={row.label} style={styles.exposureRow}>
-            <View style={styles.rowNameWrap}>
-              <View style={[styles.dot, { backgroundColor: row.color }]} />
+          <View key={row.label} style={styles.exposureItem}>
+            <View style={styles.exposureItemHeader}>
               <Text style={styles.rowName} numberOfLines={1}>{row.label}</Text>
+              <Text style={styles.exposureValue}>
+                <Text style={styles.rowPct}>{row.pct.toFixed(1)}%</Text>
+                {row.value !== undefined || total !== undefined ? ` · ${formatCurrency(row.value ?? ((row.pct / 100) * (total ?? 0)))}` : ''}
+              </Text>
             </View>
             <View style={styles.track}>
-              <View style={[styles.trackFill, { width: `${Math.max((row.pct / max) * 100, 6)}%`, backgroundColor: row.color }]} />
+              <View style={[styles.trackFill, { width: `${Math.max((row.pct / max) * 100, 5)}%`, backgroundColor: row.color }]} />
             </View>
-            <Text style={styles.rowPct}>{row.pct.toFixed(1)}%</Text>
-            {row.value !== undefined || total !== undefined ? (
-              <Text style={styles.rowValue}>
-                {formatCurrency(row.value ?? ((row.pct / 100) * (total ?? 0)))}
-              </Text>
-            ) : null}
           </View>
         ))}
       </View>
@@ -110,7 +101,6 @@ function DonutMixCard({
           <Text style={styles.cardTitle}>{title}</Text>
           {disclosure ? <Text style={styles.cardMeta}>{disclosure}</Text> : null}
         </View>
-        <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
       </View>
 
       <View style={styles.donutContent}>
@@ -175,22 +165,52 @@ function HoldingsCard({
 }: {
   holdings: { name: string; portfolioWeight: number; value: number }[];
 }) {
+  const [page, setPage] = useState(0);
+  const visibleHoldings = holdings.slice(0, 30);
+  const pageCount = Math.max(1, Math.ceil(visibleHoldings.length / 10));
+  const clampedPage = Math.min(page, pageCount - 1);
+  const pageHoldings = visibleHoldings.slice(clampedPage * 10, clampedPage * 10 + 10);
+
   return (
     <ClearLensCard style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Top holdings</Text>
+        <View style={styles.cardHeaderCopy}>
+          <Text style={styles.cardTitle}>Top holdings</Text>
+          <Text style={styles.cardMeta}>Showing {clampedPage * 10 + 1}-{Math.min((clampedPage + 1) * 10, visibleHoldings.length)} of {visibleHoldings.length}</Text>
+        </View>
         <Text style={styles.cardMeta}>Portfolio weight</Text>
       </View>
       <View>
-        {holdings.slice(0, 8).map((holding, index) => (
-          <View key={holding.name} style={[styles.holdingRow, index > 0 && styles.divider]}>
-            <Text style={styles.holdingRank}>{index + 1}</Text>
+        {pageHoldings.map((holding, index) => (
+          <View key={`${holding.name}-${clampedPage}-${index}`} style={[styles.holdingRow, index > 0 && styles.divider]}>
+            <Text style={styles.holdingRank}>{clampedPage * 10 + index + 1}</Text>
             <Text style={styles.holdingName} numberOfLines={1}>{holding.name}</Text>
             <Text style={styles.holdingPct}>{holding.portfolioWeight.toFixed(2)}%</Text>
             <Text style={styles.holdingValue}>{formatCurrency(holding.value)}</Text>
           </View>
         ))}
       </View>
+      {pageCount > 1 && (
+        <View style={styles.paginationRow}>
+          <TouchableOpacity
+            style={[styles.paginationButton, clampedPage === 0 && styles.paginationButtonDisabled]}
+            disabled={clampedPage === 0}
+            onPress={() => setPage((current) => Math.max(0, current - 1))}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="chevron-back" size={18} color={clampedPage === 0 ? ClearLensColors.textTertiary : ClearLensColors.navy} />
+          </TouchableOpacity>
+          <Text style={styles.pageIndicator}>{clampedPage + 1} / {pageCount}</Text>
+          <TouchableOpacity
+            style={[styles.paginationButton, clampedPage >= pageCount - 1 && styles.paginationButtonDisabled]}
+            disabled={clampedPage >= pageCount - 1}
+            onPress={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="chevron-forward" size={18} color={clampedPage >= pageCount - 1 ? ClearLensColors.textTertiary : ClearLensColors.navy} />
+          </TouchableOpacity>
+        </View>
+      )}
     </ClearLensCard>
   );
 }
@@ -353,9 +373,9 @@ export function ClearLensPortfolioInsightsScreen() {
               total={insights.totalValue}
               disclosure={disclosure}
               rows={[
-                { label: 'Equity', pct: insights.assetMix.equity, color: ClearLensColors.emerald },
-                { label: 'Debt', pct: insights.assetMix.debt, color: CLEAR_LENS_ORANGE },
-                { label: 'Cash & Others', pct: insights.assetMix.cash + insights.assetMix.other, color: ClearLensColors.mint },
+                { label: 'Equity', pct: insights.assetMix.equity, color: ClearLensSemanticColors.asset.equity },
+                { label: 'Debt', pct: insights.assetMix.debt, color: ClearLensSemanticColors.asset.debt },
+                { label: 'Cash & Others', pct: insights.assetMix.cash + insights.assetMix.other, color: ClearLensSemanticColors.asset.cash },
               ]}
             />
 
@@ -374,26 +394,20 @@ export function ClearLensPortfolioInsightsScreen() {
               title="Market-cap mix"
               total={insights.totalValue * (insights.assetMix.equity / 100)}
               rows={[
-                { label: 'Large Cap', pct: insights.marketCapMix.large, color: ClearLensColors.navy },
-                { label: 'Mid Cap', pct: insights.marketCapMix.mid, color: ClearLensColors.emerald },
-                { label: 'Small Cap', pct: insights.marketCapMix.small, color: ClearLensColors.slate },
+                { label: 'Large Cap', pct: insights.marketCapMix.large, color: ClearLensSemanticColors.marketCap.large },
+                { label: 'Mid Cap', pct: insights.marketCapMix.mid, color: ClearLensSemanticColors.marketCap.mid },
+                { label: 'Small Cap', pct: insights.marketCapMix.small, color: ClearLensSemanticColors.marketCap.small },
               ]}
             />
 
             {insights.sectorBreakdown ? (
               <ExposureCard
                 title="Sector exposure"
-                rows={insights.sectorBreakdown.slice(0, 8).map((sector, index) => ({
+                rows={insights.sectorBreakdown.slice(0, 8).map((sector) => ({
                   label: sector.sector,
                   pct: sector.weight,
                   value: sector.value,
-                  color: [
-                    ClearLensColors.emerald,
-                    ClearLensColors.navy,
-                    ClearLensColors.slate,
-                    ClearLensColors.mint,
-                    ClearLensColors.lightGrey,
-                  ][index % 5],
+                  color: ClearLensColors.emerald,
                 }))}
               />
             ) : (
@@ -519,16 +533,14 @@ const styles = StyleSheet.create({
     minWidth: 68,
     textAlign: 'right',
   },
-  exposureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.sm,
+  exposureItem: {
+    gap: 5,
   },
-  rowNameWrap: {
-    width: 132,
+  exposureItemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.sm,
   },
   dot: {
     width: 9,
@@ -540,9 +552,13 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textSecondary,
     flex: 1,
   },
+  exposureValue: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    fontVariant: ['tabular-nums'],
+  },
   track: {
-    flex: 1,
-    height: 7,
+    height: 6,
     borderRadius: ClearLensRadii.full,
     overflow: 'hidden',
     backgroundColor: ClearLensColors.surfaceSoft,
@@ -555,8 +571,6 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
     color: ClearLensColors.navy,
-    width: 52,
-    textAlign: 'right',
   },
   rowValue: {
     ...ClearLensTypography.bodySmall,
@@ -598,6 +612,31 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
     width: 72,
     textAlign: 'right',
+  },
+  paginationRow: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: ClearLensSpacing.sm,
+  },
+  paginationButton: {
+    width: 34,
+    height: 34,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  paginationButtonDisabled: {
+    opacity: 0.45,
+  },
+  pageIndicator: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+    minWidth: 36,
+    textAlign: 'center',
   },
   pendingText: {
     ...ClearLensTypography.bodySmall,
@@ -681,12 +720,12 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.full,
-    backgroundColor: '#DFF8ED',
+    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
   },
   syncButtonText: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: '#087A5B',
+    color: ClearLensSemanticColors.sentiment.positiveText,
   },
   infoBanner: {
     flexDirection: 'row',
@@ -694,7 +733,7 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
     padding: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.lg,
-    backgroundColor: '#DFF8ED',
+    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
   },
   infoBannerText: {
     ...ClearLensTypography.bodySmall,

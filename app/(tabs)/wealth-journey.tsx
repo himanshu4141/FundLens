@@ -18,10 +18,12 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
+import { ClearLensWealthJourneyScreen } from '@/src/components/clearLens/screens/ClearLensWealthJourneyScreen';
 import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
 import { Radii, Spacing, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -348,7 +350,7 @@ function JourneyLineChart({
   );
 }
 
-export default function WealthJourneyScreen() {
+function ClassicWealthJourneyScreen() {
   const router = useRouter();
   const { width: viewportWidth } = useWindowDimensions();
   const { colors } = useTheme();
@@ -1107,6 +1109,11 @@ export default function WealthJourneyScreen() {
       </Modal>
     </SafeAreaView>
   );
+}
+
+export default function WealthJourneyScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return isClearLens ? <ClearLensWealthJourneyScreen /> : <ClassicWealthJourneyScreen />;
 }
 
 function makeStyles(colors: AppColors) {

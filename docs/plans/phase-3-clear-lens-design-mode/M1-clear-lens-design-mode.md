@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement a feature-gated Clear Lens redesign for FundLens while preserving the current app as the default experience.
+Implement Clear Lens as the default FundLens experience while preserving the current/classic app as a selectable fallback in Settings.
 
 The work starts a new execution-plan phase. Older execution plans are historical records and must not be amended for this redesign.
 
@@ -11,7 +11,7 @@ The work starts a new execution-plan phase. Older execution plans are historical
 
 FundLens is built for novice mutual fund investors who want to know whether they are doing well without reading a dense finance dashboard. Clear Lens makes the app calmer, more visual, and more beginner-friendly while keeping the same calculations and navigation.
 
-A user should be able to open Settings, switch from `Current design` to `New Clear Lens design`, restart the app, and still see the new design. Switching back restores the classic UI.
+A user should land in Clear Lens by default, open Settings to switch back to `Current design` if needed, restart the app, and see the selected design persist.
 
 
 ## Context
@@ -20,7 +20,7 @@ The app is an Expo React Native app with TypeScript, Expo Router, Supabase data 
 
 Current navigation stays intact:
 
-- bottom tabs: `Portfolio`, `Leaderboard`, `Simulator`
+- bottom tabs: `Portfolio`, `Leaderboard`, `Wealth Journey`
 - hidden route: `Settings`
 - stack routes: `Portfolio Insights`, `Your Funds`, `Fund Detail`, onboarding/import screens
 
@@ -42,7 +42,7 @@ The visual source of truth is the uploaded Focus Ring / Clear Lens design direct
 2. Existing live portfolio data remains the source of truth. Mockup numbers are reference/demo expectations, not hardcoded product values.
 3. No Supabase schema, migration, or Edge Function change is expected.
 4. Older execution plans remain fixed. Divergence discovered during this work is recorded only in this Phase 3 plan.
-5. If the old Editorial theme creates unnecessary complexity, remove it and migrate old persisted values to `classic`.
+5. If the old Editorial theme creates unnecessary complexity, remove it and migrate missing or legacy persisted values to `clearLens`; preserve explicitly stored `classic`.
 
 
 ## Definitions
@@ -71,7 +71,7 @@ A portfolio chart with three INR-value series:
 ## Scope
 
 1. Add a persistent Settings control for `appDesignMode: 'classic' | 'clearLens'`.
-2. Replace the old Editorial `designVariant` toggle and migrate old persisted values to `classic`.
+2. Replace the old Editorial `designVariant` toggle and migrate old persisted or missing values to `clearLens`, except explicitly stored `classic`.
 3. Add Clear Lens tokens and reusable Clear Lens primitives.
 4. Implement the SVG Focus Ring / FundLens logo in code.
 5. Redesign the main Clear Lens screens:
@@ -84,7 +84,7 @@ A portfolio chart with three INR-value series:
    - onboarding/import CAS
    - manual CAS upload
    - Leaderboard
-   - Simulator
+   - Wealth Journey
    - empty/loading/error states
    - action menus, bottom sheets, and toasts
 7. Preserve existing routes, calculations, data loading, and error behavior unless a Clear Lens screen intentionally changes presentation.
@@ -109,7 +109,7 @@ Use one persisted setting in `src/store/appStore.ts`:
 - `appDesignMode: 'classic' | 'clearLens'`
 - `setAppDesignMode(mode)`
 
-Add migration logic so old stored `designVariant` values do not keep a third design path alive. Any old `v1` or `v2` persisted value maps to `classic`.
+Add migration logic so old stored `designVariant` values do not keep a third design path alive. Missing or old `v1`/`v2` persisted values map to `clearLens`; explicitly stored `appDesignMode: 'classic'` remains classic.
 
 Expose a small helper/hook that answers whether Clear Lens is active. Use it at screen boundaries. For example, `Portfolio` can return a Clear Lens screen component when the mode is enabled and otherwise render the existing classic implementation.
 
@@ -167,7 +167,7 @@ Supporting screens:
 
 - Settings uses the Clear Lens palette and includes the design-mode selector.
 - Onboarding/import and manual CAS upload use Clear Lens cards and plain-language copy in Clear Lens mode.
-- Leaderboard and Simulator keep behavior but adopt Clear Lens chrome, cards, buttons, loading, empty, and error treatment.
+- Leaderboard and Wealth Journey keep behavior but adopt Clear Lens chrome, cards, buttons, loading, empty, and error treatment.
 - Any Clear Lens bottom sheet or modal uses the same token system.
 
 ### Chart changes
@@ -222,8 +222,8 @@ Commands:
 
 Acceptance criteria:
 
-- Settings shows `Current design` and `New Clear Lens design`.
-- Default is `Current design`.
+- Settings shows `Current design` and `New Clear Lens design`, with Clear Lens selected by default.
+- Default is Clear Lens.
 - Old persisted `designVariant` values no longer expose Editorial mode.
 - Switching modes survives app restart.
 
@@ -256,7 +256,7 @@ Acceptance criteria:
 
 Scope:
 
-- Apply Clear Lens visual system to Settings, onboarding/import, manual CAS upload, Leaderboard, Simulator, menus, sheets, empty/loading/error states.
+- Apply Clear Lens visual system to Settings, onboarding/import, manual CAS upload, Leaderboard, Wealth Journey, menus, sheets, empty/loading/error states.
 - Update README "What works now".
 
 Expected outcome:
@@ -272,7 +272,7 @@ Commands:
 
 Acceptance criteria:
 
-- Settings, import, upload, Leaderboard, Simulator, menus, and sheets use Clear Lens tokens when enabled.
+- Settings, import, upload, Leaderboard, Wealth Journey, menus, and sheets use Clear Lens tokens by default.
 - Classic mode remains visually and functionally intact.
 
 ### Milestone 4 — Demo-account visual validation
@@ -351,8 +351,8 @@ Required manual/browser checks with the demo account:
 
 1. Launch the app locally.
 2. Sign in with the demo account/dev auth shortcut.
-3. Open Settings and switch to `New Clear Lens design`.
-4. Confirm the setting persists after app reload.
+3. Confirm Clear Lens is active by default.
+4. Open Settings, switch to classic, switch back to Clear Lens, and confirm the selected setting persists after app reload.
 5. Capture and inspect:
    - Settings design switch
    - Portfolio in Clear Lens mode
@@ -403,8 +403,8 @@ Expected automated result:
 2. The app name remains FundLens.
 3. Clear Lens / Focus Ring is a design direction, not a product rename.
 4. The old Editorial `designVariant` path is removed rather than preserved as a third mode.
-5. `appDesignMode` defaults to `classic`.
-6. Old persisted `v1` and `v2` values migrate to `classic`.
+5. `appDesignMode` defaults to `clearLens`.
+6. Missing persisted state and old persisted `v1`/`v2` values migrate to `clearLens`; explicitly persisted `classic` remains selectable.
 7. Mockup values are visual references; live portfolio data remains authoritative.
 8. Preview feedback after the first Clear Lens pass is treated as a Milestone 5 correction pass rather than a new design direction.
 9. The uploaded Focus Ring board remains the visual source of truth for Portfolio, Portfolio Insights, Your Funds, and sort sheet alignment.
@@ -438,12 +438,18 @@ Expected automated result:
 - [x] Add Your Funds allocation overview fallback when composition insights are still loading
 - [x] Bootstrap Clear Lens Portfolio Insights composition data on direct navigation
 - [x] Compact Clear Lens Portfolio journey chart toward the board layout
+- [x] Attach detached handoff worktree to `codex/clear-lens-design-mode`
+- [x] Reconcile Clear Lens default migration and Wealth Journey state preservation tests
+- [x] Add semantic Clear Lens tokens and arrowed delta formatting helpers
+- [x] Implement Clear Lens Leaderboard using real ranking behavior
+- [x] Implement Clear Lens Wealth Journey using real Zustand state and projection utilities
+- [x] Update `docs/SCREENS.md`, add `docs/DESIGN.md`, and add the Clear Lens parity audit
 
 
 ## Amendments
 
 1. Portfolio investment journey chart was expanded after demo-account visual review. The Clear Lens portfolio now uses a custom SVG chart instead of the generic gifted line chart so the long-history view can keep x/y labels, legend, crosshair, and tooltip fully contained inside the card.
-2. The chart supports `1Y`, `3Y`, `5Y`, `10Y`, `15Y`, and `All` ranges. Long ranges use currency-level y-axis ticks so early investments remain readable instead of being flattened by a large linear scale.
+2. The chart originally supported `1Y`, `3Y`, `5Y`, `10Y`, `15Y`, and `All` ranges with long-range currency ticks. The continuation parity pass superseded that UI with the board range set: `1M`, `3M`, `6M`, `1Y`, `3Y`, and `All`.
 3. Investment-vs-benchmark data fetching now pages transaction, NAV, and index history; uses the latest available NAV or benchmark value on or before each chart date; and preserves all historical cashflows needed to simulate benchmark worth across long journeys.
 4. Preview feedback drove a Milestone 5 spec-alignment pass. Portfolio now uses a dark navy hero card, best/worst movers use green/red semantics, Portfolio Insights includes debt/cash details, and Your Funds rows use a compact expanded-card shape with Today, XIRR, invested, gain/loss, realized values, and a sparkline when NAV history is available.
 5. A follow-up review found the main import portfolio screen still using the classic onboarding gradient. The Clear Lens correction keeps the same PAN, import-address, CAS request, refresh, and PDF fallback behavior while replacing the visual surface with Clear Lens header, cards, status chips, and button styling.
@@ -454,14 +460,18 @@ Expected automated result:
 10. Your Funds overview now falls back to live fund values for top-3 share, largest position, and row percentages when composition insight rows are not yet available, avoiding blank/zero summary states during direct navigation.
 11. Clear Lens Portfolio Insights now treats "fund cards loaded but no composition insights yet" as a bootstrap state and triggers the composition sync instead of leaving the user on the empty state.
 12. The Portfolio journey card now defaults to the board's 1Y view, uses the shorter board range set, and drops the persistent snapshot panel so the chart area is more compact and the mover cards sit closer to the first viewport.
+13. The continuation plan superseded the original default-mode decision. Clear Lens is now the default for missing or legacy persisted app state; classic remains selectable only when explicitly stored or chosen in Settings. The migration keeps the existing `wealthJourney` object and fills missing keys from defaults.
+14. Clear Lens tokens were expanded into semantic asset, market-cap, chart, sentiment, state, and overlay mappings in `src/constants/clearLensTheme.ts`. Negative/danger now uses the handoff red `#E5484D`.
+15. Clear Lens Portfolio now includes the `3M` range and uses arrowed signed delta helpers for prominent positive/negative values.
+16. Leaderboard now has a dedicated Clear Lens screen that preserves the real benchmark ranking behavior, leader/laggard grouping, loading, empty, retry, and overflow-menu states.
+17. Wealth Journey now has a dedicated Clear Lens screen that preserves real persisted state, SIP detection, projection utilities, adjust-plan flow, growth results, withdrawal results, and edit-SIP modal behavior.
+18. Documentation was updated for the final navigation and design contract: Clear Lens is default, primary tabs are Portfolio/Leaderboard/Wealth Journey, Settings and Compare are hidden from tabs, and intentional handoff divergences are tracked in `docs/design-audits/clear-lens-handoff-parity.md`.
 
 ## Remaining Visual Gaps
 
-- Portfolio chart card is now closer to the board, but still needs screenshot comparison for exact chart density, axis labels, first-viewport balance, and benchmark control sizing.
-- Portfolio Insights allocation cards now use donut presentation, but still need screenshot comparison for exact spacing, sizing, and disclosure-row placement.
-- Your Funds expanded row now has a filled mini-chart and improved sort sheet, but still needs screenshot comparison for exact card density and row spacing.
-- Header chrome is closer to the board after the centered-title pass, but bottom-tab chrome still needs a final pixel pass after the primary card surfaces are aligned.
-- Import portfolio and PDF fallback now have Clear Lens treatment, but still need screenshot comparison alongside the other supporting screens.
+- Browser screenshot comparison is still required for exact chart density, first-viewport balance, bottom-tab sizing, and card spacing across Portfolio, Insights, Your Funds, Fund Detail, Leaderboard, Wealth Journey, import, PDF upload, menu, and sheets.
+- Leaderboard had only a prototype placeholder, so the implemented Clear Lens layout is an extrapolation from the shared system and must be judged in browser QA.
+- Wealth Journey uses live state and projections rather than static prototype data, so value text and chart paths will differ from the handoff examples.
 
 ## Handoff Summary
 
@@ -478,7 +488,7 @@ Current progress:
 - Your Funds now uses live current-value fallback percentages while waiting for composition insights.
 - Portfolio Insights now auto-bootstraps composition data on direct navigation so the Debt and Cash card can appear without pressing the manual load button.
 - Portfolio journey chart now defaults to 1Y and no longer reserves space for the non-spec persistent snapshot panel.
-- The current checkout is detached at the Clear Lens branch tip, so continue carefully without assuming a named branch is checked out.
+- The continuation worktree has been attached to `codex/clear-lens-design-mode`; the prior local branch tip was preserved as `codex/clear-lens-design-mode-pre-4647`.
 
 Decisions:
 
