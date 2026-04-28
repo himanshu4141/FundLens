@@ -63,3 +63,4 @@ fixtures/private/
 # Misc
 *.pem
 .vercel
+fundlens-clear-lens/**

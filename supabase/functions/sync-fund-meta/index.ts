@@ -13,7 +13,9 @@
  * - Morningstar rating
  * - related variants for the same scheme family
  *
- * Run on-demand after new fund imports. Deploy with --no-verify-jwt.
+ * Staleness window: schemes synced within META_STALE_DAYS are skipped so the
+ * daily cron is cheap even as the scheme catalog grows.
+ * Deploy with --no-verify-jwt.
  */
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -21,6 +23,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const MFDATA_USER_AGENT = 'Mozilla/5.0 (compatible; FundLens/1.0; +https://fundlens.app)';
+
+const META_STALE_DAYS = 7;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -92,8 +96,29 @@ Deno.serve(async (_req) => {
     return new Response(JSON.stringify({ updated: 0 }), { status: 200 });
   }
 
-  const schemeCodes = [...new Set((funds ?? []).map((fund) => fund.scheme_code as number))];
-  console.log(`[sync-fund-meta] processing ${schemeCodes.length} distinct active schemes`);
+  const allSchemeCodes = [...new Set((funds ?? []).map((fund) => fund.scheme_code as number))];
+
+  // Filter out recently-synced schemes so the daily cron stays cheap.
+  const cutoff = new Date(Date.now() - META_STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data: masterRows } = await supabase
+    .from('scheme_master')
+    .select('scheme_code, fund_meta_synced_at')
+    .in('scheme_code', allSchemeCodes);
+
+  const freshCodes = new Set(
+    (masterRows ?? [])
+      .filter((r) => r.fund_meta_synced_at && r.fund_meta_synced_at > cutoff)
+      .map((r) => r.scheme_code as number),
+  );
+  const schemeCodes = allSchemeCodes.filter((c) => !freshCodes.has(c));
+
+  console.log(
+    `[sync-fund-meta] ${allSchemeCodes.length} active schemes — ${freshCodes.size} fresh (skipped), ${schemeCodes.length} stale/new (processing)`,
+  );
+
+  if (!schemeCodes.length) {
+    return new Response(JSON.stringify({ updated: 0, skipped: freshCodes.size }), { status: 200 });
+  }
 
   let updated = 0;
   let failed = 0;
@@ -181,8 +206,8 @@ Deno.serve(async (_req) => {
     }
   }
 
-  console.log(`[sync-fund-meta] done — updated=${updated} failed=${failed}`);
-  return new Response(JSON.stringify({ updated, failed }), {
+  console.log(`[sync-fund-meta] done — updated=${updated} failed=${failed} skipped=${freshCodes.size}`);
+  return new Response(JSON.stringify({ updated, failed, skipped: freshCodes.size }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
