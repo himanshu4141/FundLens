@@ -62,12 +62,12 @@ type PersistedAppStore = Partial<AppStore> & {
 
 export function migratePersistedAppState(persistedState: unknown): Partial<AppStore> {
   if (!persistedState || typeof persistedState !== 'object') {
-    return { appDesignMode: 'classic' };
+    return { appDesignMode: 'clearLens' };
   }
 
   const state = persistedState as PersistedAppStore;
   const appDesignMode: AppDesignMode =
-    state.appDesignMode === 'clearLens' ? 'clearLens' : 'classic';
+    state.appDesignMode === 'classic' ? 'classic' : 'clearLens';
 
   return {
     defaultBenchmarkSymbol: state.defaultBenchmarkSymbol ?? '^NSEI',
@@ -80,7 +80,7 @@ export const useAppStore = create<AppStore>()(
     (set) => ({
       defaultBenchmarkSymbol: '^NSEI',
       setDefaultBenchmarkSymbol: (symbol) => set({ defaultBenchmarkSymbol: symbol }),
-      appDesignMode: 'classic' as AppDesignMode,
+      appDesignMode: 'clearLens' as AppDesignMode,
       setAppDesignMode: (mode) => set({ appDesignMode: mode }),
       wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
       updateWealthJourney: (patch) =>
