@@ -32,7 +32,6 @@ import {
   getMilestones,
   projectRetirementIncome,
   projectWealth,
-  toPresentValueEquivalent,
 } from '@/src/utils/simulatorCalc';
 import {
   buildReturnProfile,
@@ -46,7 +45,6 @@ import {
   ClearLensSpacing,
   ClearLensTypography,
   ClearLensRadii,
-  ClearLensShadow,
   ClearLensFonts,
 } from '@/src/constants/clearLensTheme';
 
@@ -54,7 +52,6 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const FIXED_INFLATION_RATE = 6;
 const MAX_SIP = 25_00_000;
 const MAX_TOP_UP = 10_00_00_000;
 
@@ -478,19 +475,10 @@ export function ClearLensWealthJourneyScreen() {
   );
 
   const projectedCorpus = adjustedPoints[adjustedPoints.length - 1]?.value ?? currentCorpus;
-  const baselineCorpus = baselinePoints[baselinePoints.length - 1]?.value ?? currentCorpus;
-  const planDelta = projectedCorpus - baselineCorpus;
-  const presentValueToday = toPresentValueEquivalent(projectedCorpus, FIXED_INFLATION_RATE, yearsToRetirement);
   const withdrawalProjection = useMemo(
     () => projectRetirementIncome(projectedCorpus, withdrawalRate, retirementDurationYears, postRetirementReturn),
     [postRetirementReturn, projectedCorpus, retirementDurationYears, withdrawalRate],
   );
-
-  const scenarioChanged =
-    wealthJourney.currentSipOverride != null ||
-    adjustedSip !== currentSip ||
-    additionalTopUp > 0 ||
-    wealthJourney.hasSavedPlan;
 
   const screenWidth = Math.max(320, viewportWidth || 360);
   const compact = screenWidth <= 430;
@@ -598,76 +586,83 @@ export function ClearLensWealthJourneyScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {screenMode === 'summary' ? (
           <>
-            {/* Your portfolio today — navy hero card */}
+            {/* Your portfolio today */}
             {portfolioLoading ? (
-              <ClearLensCard style={styles.heroCard}>
-                <ActivityIndicator size="small" color={ClearLensColors.textOnDark} />
-                <Text style={styles.heroLoadingText}>Reading your portfolio…</Text>
+              <ClearLensCard style={styles.portfolioCard}>
+                <ActivityIndicator size="small" color={ClearLensColors.textTertiary} />
               </ClearLensCard>
             ) : (
-              <ClearLensCard style={styles.heroCard}>
-                <Text style={styles.heroCardTitle}>Your portfolio today</Text>
-                <Text style={styles.heroCorpus}>{formatCurrency(currentCorpus)}</Text>
-                <View style={styles.heroStats}>
-                  <TouchableOpacity style={styles.heroStat} onPress={openSipReview} activeOpacity={0.75}>
-                    <Text style={styles.heroStatValue}>{formatCurrency(currentSip)}/mo</Text>
-                    <View style={styles.heroStatLabelRow}>
-                      <Text style={styles.heroStatLabel}>Monthly SIP</Text>
-                      <Ionicons name="pencil-outline" size={11} color={ClearLensColors.mint} />
-                    </View>
+              <ClearLensCard style={styles.portfolioCard}>
+                <View style={styles.portfolioCardHeader}>
+                  <Text style={styles.portfolioCardTitle}>Your portfolio today</Text>
+                  <TouchableOpacity style={styles.editLink} onPress={openSipReview} activeOpacity={0.75}>
+                    <Ionicons name="pencil-outline" size={12} color={ClearLensColors.emerald} />
+                    <Text style={styles.editLinkText}>Edit</Text>
                   </TouchableOpacity>
-                  <View style={styles.heroStatDivider} />
-                  <View style={styles.heroStat}>
-                    <Text style={[styles.heroStatValue, styles.heroXirrValue]}>
+                </View>
+                <Text style={styles.portfolioCardSubtitle}>
+                  Started from your current portfolio. You can edit assumptions anytime.
+                </Text>
+                <View style={styles.portfolioGrid}>
+                  <View style={styles.portfolioGridItem}>
+                    <Text style={styles.portfolioGridValue}>{formatCurrency(currentCorpus)}</Text>
+                    <Text style={styles.portfolioGridLabel}>Corpus</Text>
+                  </View>
+                  <View style={styles.portfolioGridItem}>
+                    <Text style={styles.portfolioGridValue}>{formatCurrency(currentSip)}/mo</Text>
+                    <Text style={styles.portfolioGridLabel}>Monthly SIP used</Text>
+                  </View>
+                  <View style={styles.portfolioGridItem}>
+                    <Text style={[styles.portfolioGridValue, styles.portfolioXirrValue]}>
                       {Number.isFinite(summary?.xirr)
                         ? `${(summary!.xirr * 100).toFixed(1)}%`
                         : formatPercent(expectedReturn)}
                     </Text>
-                    <Text style={styles.heroStatLabel}>XIRR</Text>
+                    <Text style={styles.portfolioGridLabel}>XIRR</Text>
                   </View>
                 </View>
-                {wealthJourney.currentSipOverride != null && (
-                  <Text style={styles.heroNote}>
-                    Detected {formatCurrency(detectedSip)}/mo — using your override.
-                  </Text>
+                {detectedSip > 0 && (
+                  <View style={styles.detectedBanner}>
+                    <Ionicons name="checkmark-circle-outline" size={14} color={ClearLensColors.emerald} />
+                    <Text style={styles.detectedText}>
+                      {wealthJourney.currentSipOverride != null
+                        ? `Detected ${formatCurrency(detectedSip)}/mo — using your override.`
+                        : 'Detected from recurring buys in the last 6 months.'}
+                    </Text>
+                    <TouchableOpacity onPress={openSipReview} activeOpacity={0.75}>
+                      <Text style={styles.detectedLink}>Review / edit</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </ClearLensCard>
             )}
 
-            {/* Plan at a glance */}
-            <ClearLensCard style={styles.planCard}>
-              <Text style={styles.planTitle}>Your plan at a glance</Text>
+            {/* Plan at a glance — section header + segmented control outside card */}
+            <View style={styles.planSectionHeader}>
+              <Text style={styles.planSectionTitle}>Your plan at a glance</Text>
               <ClearLensSegmentedControl
                 options={resultsViewOptions}
                 selected={resultsView}
                 onChange={setResultsView}
               />
+            </View>
 
+            {/* Results card */}
+            <ClearLensCard>
               {resultsView === 'growth' ? (
                 <View style={styles.planSection}>
                   <View style={styles.planHeadRow}>
-                    <View>
-                      <Text style={styles.planLabel}>Projected corpus</Text>
-                      <Text style={styles.planSublabel}>In {yearsToRetirement} years</Text>
+                    <View style={styles.planHeadLeft}>
+                      <View style={styles.planLabelRow}>
+                        <Text style={styles.planLabel}>Projected corpus</Text>
+                        <Text style={styles.planLabelNote}>(not adjusted for inflation)</Text>
+                      </View>
+                      <Text style={styles.planValue}>{formatCurrency(projectedCorpus)}</Text>
+                      <Text style={styles.planSublabel}>in {yearsToRetirement} years</Text>
                     </View>
                     <View style={styles.badge}>
                       <Text style={styles.badgeText}>{growthBadgeLabel}</Text>
                     </View>
-                  </View>
-
-                  <Text style={styles.planValue}>{formatCurrency(projectedCorpus)}</Text>
-                  <Text style={styles.planSubtleText}>
-                    {scenarioChanged
-                      ? `${planDelta >= 0 ? '+' : '-'}${formatCurrency(Math.abs(planDelta))} vs current plan`
-                      : `Based on current corpus and ${formatCurrency(currentSip)}/month`}
-                  </Text>
-
-                  <View style={styles.noteRow}>
-                    <Ionicons name="information-circle-outline" size={14} color={ClearLensColors.textTertiary} />
-                    <Text style={styles.noteText}>
-                      At {FIXED_INFLATION_RATE}% inflation, {formatCurrency(projectedCorpus)} in {yearsToRetirement}y ≈{' '}
-                      {formatCurrency(presentValueToday)} today.
-                    </Text>
                   </View>
 
                   <View style={styles.chartWrap}>
@@ -683,12 +678,12 @@ export function ClearLensWealthJourneyScreen() {
                     />
                     <View style={styles.chartLegend}>
                       <View style={styles.legendItem}>
-                        <View style={[styles.legendLine, { backgroundColor: ClearLensColors.textTertiary }]} />
-                        <Text style={styles.legendText}>Current plan</Text>
-                      </View>
-                      <View style={styles.legendItem}>
                         <View style={[styles.legendLine, { backgroundColor: ClearLensColors.emerald }]} />
                         <Text style={styles.legendText}>Adjusted plan</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <View style={[styles.legendLine, { backgroundColor: ClearLensColors.textTertiary }]} />
+                        <Text style={styles.legendText}>Current plan</Text>
                       </View>
                     </View>
                   </View>
@@ -710,16 +705,14 @@ export function ClearLensWealthJourneyScreen() {
                       <Text style={styles.planValue}>{formatCurrency(withdrawalProjection.monthlyIncome)}/mo</Text>
                       <Text style={styles.planSublabel}>{formatPercent(withdrawalRate)} withdrawal rate</Text>
                     </View>
-                    <View style={styles.heroStatDivider} />
                     <View style={styles.withdrawalStat}>
-                      <Text style={styles.planLabel}>Lasts for</Text>
-                      <Text style={styles.planValue}>{retirementDurationYears} years</Text>
-                      <Text style={styles.planSublabel}>At {formatPercent(postRetirementReturn)} return</Text>
+                      <Text style={[styles.planLabel, { textAlign: 'right' }]}>Lasts for</Text>
+                      <Text style={[styles.planValue, { textAlign: 'right' }]}>{retirementDurationYears} years</Text>
+                      <Text style={[styles.planSublabel, { textAlign: 'right' }]}>at {formatPercent(postRetirementReturn)} p.a. post-return</Text>
                     </View>
                   </View>
 
                   <View style={styles.chartWrap}>
-                    <Text style={styles.planLabel}>Withdrawal path</Text>
                     <JourneyChart
                       data={withdrawalChartData}
                       chartWidth={chartWidth}
@@ -730,11 +723,11 @@ export function ClearLensWealthJourneyScreen() {
                     />
                   </View>
 
-                  <View style={styles.noteRow}>
-                    <Ionicons name="sparkles-outline" size={14} color={ClearLensColors.emerald} />
-                    <Text style={styles.noteText}>
+                  <View style={styles.mintBanner}>
+                    <Ionicons name="bulb-outline" size={14} color={ClearLensColors.emerald} />
+                    <Text style={styles.mintBannerText}>
                       {withdrawalProjection.depletionYear == null
-                        ? `Leaves ${formatCurrency(withdrawalProjection.endCorpus)} after ${retirementDurationYears} years.`
+                        ? `This path leaves ${formatCurrency(withdrawalProjection.endCorpus)} after ${retirementDurationYears} years.`
                         : `At this pace the corpus runs out around year ${withdrawalProjection.depletionYear}.`}
                     </Text>
                   </View>
@@ -744,7 +737,7 @@ export function ClearLensWealthJourneyScreen() {
 
             {/* Adjust CTA */}
             <TouchableOpacity style={styles.primaryCta} onPress={() => setScreenMode('adjust')}>
-              <Text style={styles.primaryCtaText}>Adjust your plan →</Text>
+              <Text style={styles.primaryCtaText}>Adjust your plan</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -758,7 +751,7 @@ export function ClearLensWealthJourneyScreen() {
                   <Text style={styles.compareLabel}>Current plan</Text>
                   <Text style={styles.compareValue}>{formatCurrency(currentSip)}/mo</Text>
                 </View>
-                <View style={styles.heroStatDivider} />
+                <View style={styles.compareDivider} />
                 <View style={styles.compareItem}>
                   <Text style={styles.compareLabel}>Going forward</Text>
                   <Text style={styles.compareValue}>{formatCurrency(adjustedSip)}/mo</Text>
@@ -974,80 +967,85 @@ const styles = StyleSheet.create({
     paddingBottom: ClearLensSpacing.xl,
     gap: ClearLensSpacing.md,
   },
-  // Hero card (navy)
-  heroCard: {
-    backgroundColor: ClearLensColors.navy,
-    gap: ClearLensSpacing.md,
-    ...ClearLensShadow,
+  // Portfolio today card (light)
+  portfolioCard: {
+    gap: ClearLensSpacing.sm,
   },
-  heroLoadingText: {
-    ...ClearLensTypography.body,
-    color: ClearLensColors.textOnDark,
-    opacity: 0.7,
-    marginTop: ClearLensSpacing.xs,
-  },
-  heroCardTitle: {
-    ...ClearLensTypography.label,
-    color: ClearLensColors.textOnDark,
-    opacity: 0.7,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  heroCorpus: {
-    ...ClearLensTypography.hero,
-    color: ClearLensColors.textOnDark,
-    marginTop: 2,
-    marginBottom: ClearLensSpacing.sm,
-  },
-  heroStats: {
+  portfolioCardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: ClearLensSpacing.xs,
-    paddingTop: ClearLensSpacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: `${ClearLensColors.textOnDark}20`,
   },
-  heroStat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
+  portfolioCardTitle: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.navy,
   },
-  heroStatLabelRow: {
+  editLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    padding: 4,
   },
-  heroStatValue: {
-    ...ClearLensTypography.h3,
-    color: ClearLensColors.textOnDark,
+  editLinkText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.emerald,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  portfolioCardSubtitle: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    lineHeight: 17,
+    marginBottom: 4,
+  },
+  portfolioGrid: {
+    flexDirection: 'row',
+    paddingTop: ClearLensSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+    gap: ClearLensSpacing.sm,
+  },
+  portfolioGridItem: {
+    flex: 1,
+    gap: 2,
+  },
+  portfolioGridValue: {
+    ...ClearLensTypography.body,
     fontFamily: ClearLensFonts.bold,
-    textAlign: 'center',
+    color: ClearLensColors.navy,
   },
-  heroXirrValue: {
-    color: ClearLensColors.mint,
-  },
-  heroStatLabel: {
+  portfolioGridLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textOnDark,
-    opacity: 0.6,
-    textAlign: 'center',
+    color: ClearLensColors.textTertiary,
+    marginTop: 2,
   },
-  heroStatDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: `${ClearLensColors.textOnDark}22`,
-    alignSelf: 'center',
+  portfolioXirrValue: {
+    color: ClearLensColors.emerald,
   },
-  heroNote: {
+  detectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    padding: 10,
+    backgroundColor: '#DFF8ED',
+    borderRadius: ClearLensRadii.sm,
+    marginTop: ClearLensSpacing.xs,
+  },
+  detectedText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textOnDark,
-    opacity: 0.6,
+    color: ClearLensColors.textTertiary,
+    flex: 1,
+    lineHeight: 17,
   },
-  // Plan card
-  planCard: {
-    gap: ClearLensSpacing.md,
+  detectedLink: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.emerald,
+    fontFamily: ClearLensFonts.semiBold,
   },
-  planTitle: {
+  // Plan section header (outside card)
+  planSectionHeader: {
+    gap: ClearLensSpacing.sm,
+  },
+  planSectionTitle: {
     ...ClearLensTypography.h3,
     color: ClearLensColors.navy,
   },
@@ -1058,11 +1056,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: ClearLensSpacing.sm,
+  },
+  planHeadLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  planLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
   },
   planLabel: {
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
+  },
+  planLabelNote: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
   },
   planSublabel: {
     ...ClearLensTypography.caption,
@@ -1072,10 +1085,21 @@ const styles = StyleSheet.create({
   planValue: {
     ...ClearLensTypography.h1,
     color: ClearLensColors.navy,
+    marginTop: 4,
   },
-  planSubtleText: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+  mintBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.sm,
+    padding: 10,
+    backgroundColor: '#DFF8ED',
+    borderRadius: ClearLensRadii.sm,
+  },
+  mintBannerText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    flex: 1,
+    lineHeight: 17,
   },
   badge: {
     paddingHorizontal: ClearLensSpacing.sm,
@@ -1087,17 +1111,6 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.caption,
     color: ClearLensColors.emerald,
     fontFamily: ClearLensFonts.semiBold,
-  },
-  noteRow: {
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'flex-start',
-  },
-  noteText: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
-    flex: 1,
-    lineHeight: 17,
   },
   chartWrap: {
     gap: ClearLensSpacing.sm,
@@ -1143,8 +1156,8 @@ const styles = StyleSheet.create({
   },
   withdrawalStatsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.sm,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   withdrawalStat: {
     flex: 1,
@@ -1226,6 +1239,12 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.body,
     fontFamily: ClearLensFonts.bold,
     color: ClearLensColors.navy,
+  },
+  compareDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: ClearLensColors.borderLight,
+    alignSelf: 'center',
   },
   // Fields
   fieldBlock: {
