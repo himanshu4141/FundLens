@@ -41,8 +41,13 @@ import {
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
+  ClearLensSemanticColors,
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
+import {
+  formatClearLensCurrencyDelta,
+  formatClearLensPercentDelta,
+} from '@/src/utils/clearLensFormat';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - ClearLensSpacing.md * 2 - ClearLensSpacing.md * 2;
@@ -53,11 +58,10 @@ const JOURNEY_CHART_TOP_PADDING = 10;
 const JOURNEY_CHART_RIGHT_PADDING = 6;
 const JOURNEY_TOOLTIP_WIDTH = 226;
 const JOURNEY_TOOLTIP_HEIGHT = 112;
-const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '6M', '1Y', '3Y', 'All'];
-const CLEAR_LENS_RED = '#EF4444';
-const CLEAR_LENS_RED_SOFT = '#FEE2E2';
-const CLEAR_LENS_GREEN_SOFT = '#DFF8ED';
-const CLEAR_LENS_ORANGE = '#F59E0B';
+const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
+const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
+const CLEAR_LENS_RED_SOFT = ClearLensSemanticColors.sentiment.negativeSurface;
+const CLEAR_LENS_GREEN_SOFT = ClearLensSemanticColors.sentiment.positiveSurface;
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
@@ -70,8 +74,7 @@ function toneColor(tone: 'positive' | 'negative') {
 }
 
 function formatSignedChange(amount: number, pct: number): string {
-  const sign = amount >= 0 ? '+' : '-';
-  return `${sign}${formatCurrency(Math.abs(amount))} (${sign}${Math.abs(pct).toFixed(2)}%)`;
+  return `${formatClearLensCurrencyDelta(amount)} (${formatClearLensPercentDelta(pct)})`;
 }
 
 function PortfolioHero({
@@ -108,7 +111,7 @@ function PortfolioHero({
         <View style={styles.heroBottomMetric}>
           <Text style={styles.heroBottomLabel}>Overall gain</Text>
           <Text style={[styles.heroBottomValue, { color: gainColor }]}>
-            {gain >= 0 ? '+' : '-'}{formatCurrency(Math.abs(gain))} ({gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%)
+            {formatClearLensCurrencyDelta(gain)} ({formatClearLensPercentDelta(gainPct, 1)})
           </Text>
         </View>
         <View style={styles.heroDivider} />
@@ -444,9 +447,9 @@ function InvestmentVsBenchmarkChart({
       ) : (
         <>
           <View style={styles.legendWrap}>
-            <Legend color={ClearLensColors.navy} label="Amount invested" />
-            <Legend color={ClearLensColors.emerald} label="Portfolio value" />
-            <Legend color={ClearLensColors.slate} label={`If invested in ${benchmarkLabel}`} />
+            <Legend color={ClearLensSemanticColors.chart.invested} label="Amount invested" />
+            <Legend color={ClearLensSemanticColors.chart.portfolio} label="Portfolio value" />
+            <Legend color={ClearLensSemanticColors.chart.benchmark} label={`If invested in ${benchmarkLabel}`} />
           </View>
           <View
             style={styles.journeyChartFrame}
@@ -481,7 +484,7 @@ function InvestmentVsBenchmarkChart({
               />
               <Path
                 d={investedPath}
-                stroke={ClearLensColors.navy}
+                stroke={ClearLensSemanticColors.chart.invested}
                 strokeWidth={2.4}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -490,7 +493,7 @@ function InvestmentVsBenchmarkChart({
               />
               <Path
                 d={benchmarkPath}
-                stroke={ClearLensColors.slate}
+                stroke={ClearLensSemanticColors.chart.benchmark}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -499,7 +502,7 @@ function InvestmentVsBenchmarkChart({
               />
               <Path
                 d={portfolioPath}
-                stroke={ClearLensColors.emerald}
+                stroke={ClearLensSemanticColors.chart.portfolio}
                 strokeWidth={3.2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -520,7 +523,7 @@ function InvestmentVsBenchmarkChart({
                     cx={activeX}
                     cy={getScaledY(activePoint.investedValue, journeyScale, JOURNEY_CHART_HEIGHT)}
                     r={4.5}
-                    fill={ClearLensColors.navy}
+                    fill={ClearLensSemanticColors.chart.invested}
                     stroke={ClearLensColors.surface}
                     strokeWidth={2}
                   />
@@ -528,7 +531,7 @@ function InvestmentVsBenchmarkChart({
                     cx={activeX}
                     cy={getScaledY(activePoint.benchmarkValue, journeyScale, JOURNEY_CHART_HEIGHT)}
                     r={4.5}
-                    fill={ClearLensColors.slate}
+                    fill={ClearLensSemanticColors.chart.benchmark}
                     stroke={ClearLensColors.surface}
                     strokeWidth={2}
                   />
@@ -536,7 +539,7 @@ function InvestmentVsBenchmarkChart({
                     cx={activeX}
                     cy={activePortfolioY}
                     r={5}
-                    fill={ClearLensColors.emerald}
+                    fill={ClearLensSemanticColors.chart.portfolio}
                     stroke={ClearLensColors.surface}
                     strokeWidth={2}
                   />
@@ -587,9 +590,9 @@ function InvestmentVsBenchmarkChart({
                 ]}
               >
                 <Text style={styles.pointerDate}>{formatJourneyTooltipDate(activePoint.date)}</Text>
-                <PointerRow color={ClearLensColors.navy} label="Invested" value={activePoint.investedValue} />
-                <PointerRow color={ClearLensColors.emerald} label="Portfolio" value={activePoint.portfolioValue} />
-                <PointerRow color={ClearLensColors.slate} label={benchmarkLabel} value={activePoint.benchmarkValue} />
+                <PointerRow color={ClearLensSemanticColors.chart.invested} label="Invested" value={activePoint.investedValue} />
+                <PointerRow color={ClearLensSemanticColors.chart.portfolio} label="Portfolio" value={activePoint.portfolioValue} />
+                <PointerRow color={ClearLensSemanticColors.chart.benchmark} label={benchmarkLabel} value={activePoint.benchmarkValue} />
               </View>
             )}
 
@@ -678,10 +681,10 @@ function MoverCard({
       <Text style={[styles.metricLabel, positive ? styles.moverPositiveLabel : styles.moverNegativeLabel]}>{title}</Text>
       <Text style={styles.moverName} numberOfLines={2}>{base}</Text>
       <Text style={[styles.moverPct, { color }]}>
-        {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+        {formatClearLensPercentDelta(pct)}
       </Text>
       <Text style={[styles.moverAmount, { color }]}>
-        {amount >= 0 ? '+' : '-'}{formatCurrency(Math.abs(amount))}
+        {formatClearLensCurrencyDelta(amount)}
       </Text>
     </ClearLensCard>
   );
@@ -699,9 +702,9 @@ function AssetAllocationPreview({
   cashPct: number;
 }) {
   const rows = [
-    { label: 'Equity', pct: equityPct, color: ClearLensColors.emerald },
-    { label: 'Debt', pct: debtPct, color: CLEAR_LENS_ORANGE },
-    { label: 'Cash & Others', pct: cashPct, color: ClearLensColors.mint },
+    { label: 'Equity', pct: equityPct, color: ClearLensSemanticColors.asset.equity },
+    { label: 'Debt', pct: debtPct, color: ClearLensSemanticColors.asset.debt },
+    { label: 'Cash & Others', pct: cashPct, color: ClearLensSemanticColors.asset.cash },
   ];
 
   return (
@@ -971,11 +974,11 @@ const styles = StyleSheet.create({
   heroDivider: {
     width: 1,
     marginHorizontal: ClearLensSpacing.md,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+    backgroundColor: ClearLensSemanticColors.overlay.darkDivider,
   },
   heroBottomLabel: {
     ...ClearLensTypography.caption,
-    color: '#BAC6D8',
+    color: ClearLensColors.textOnDarkMuted,
   },
   heroBottomValue: {
     ...ClearLensTypography.bodySmall,
@@ -1016,11 +1019,11 @@ const styles = StyleSheet.create({
   marketStatusText: {
     ...ClearLensTypography.bodySmall,
     flex: 1,
-    color: '#087A5B',
+    color: ClearLensSemanticColors.sentiment.positiveText,
     fontFamily: ClearLensFonts.semiBold,
   },
   marketStatusTextNegative: {
-    color: '#B91C1C',
+    color: ClearLensSemanticColors.sentiment.negativeText,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -1225,13 +1228,13 @@ const styles = StyleSheet.create({
   },
   moverCardNegative: {
     borderLeftColor: CLEAR_LENS_RED,
-    backgroundColor: '#FFF7F7',
+    backgroundColor: ClearLensSemanticColors.sentiment.negativeSurface,
   },
   moverPositiveLabel: {
-    color: '#087A5B',
+    color: ClearLensSemanticColors.sentiment.positiveText,
   },
   moverNegativeLabel: {
-    color: '#B91C1C',
+    color: ClearLensSemanticColors.sentiment.negativeText,
   },
   moverName: {
     ...ClearLensTypography.bodySmall,
@@ -1312,7 +1315,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DFF8ED',
+    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
   },
   entryCopy: {
     flex: 1,
@@ -1338,7 +1341,7 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textSecondary,
   },
   banner: {
-    backgroundColor: '#DFF8ED',
+    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: ClearLensColors.mint,
@@ -1362,7 +1365,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DFF8ED',
+    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
   },
   emptyTitle: {
     ...ClearLensTypography.h2,

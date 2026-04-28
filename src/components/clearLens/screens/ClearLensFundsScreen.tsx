@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -31,13 +31,19 @@ import {
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
+  ClearLensSemanticColors,
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
+import {
+  formatClearLensCurrencyDelta,
+  formatClearLensPercentDelta,
+} from '@/src/utils/clearLensFormat';
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
+type AllocationSegment = { id: string; pct: number; color: string };
 
-const CLEAR_LENS_RED = '#EF4444';
-const CLEAR_LENS_DEBT = '#D97706';
+const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
+const CLEAR_LENS_DEBT = ClearLensSemanticColors.asset.debt;
 
 const SORT_OPTIONS: { value: SortOption; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'currentValue', label: 'Current value', icon: 'trending-up-outline' },
@@ -94,27 +100,51 @@ function AllocationOverview({
   fundCount,
   topThreeShare,
   largestPosition,
+  largestPositionPct,
+  segments,
 }: {
   fundCount: number;
   topThreeShare: number;
   largestPosition: string;
+  largestPositionPct: number | null;
+  segments: AllocationSegment[];
 }) {
   return (
     <ClearLensCard style={styles.overviewCard}>
       <Text style={styles.screenEyebrow}>Allocation overview</Text>
+      {segments.length > 0 && (
+        <View style={styles.allocationStrip}>
+          {segments.map((segment) => (
+            <View
+              key={segment.id}
+              style={[
+                styles.allocationStripSegment,
+                { flex: Math.max(segment.pct, 1), backgroundColor: segment.color },
+              ]}
+            />
+          ))}
+        </View>
+      )}
       <View style={styles.overviewGrid}>
         <View style={styles.overviewMetric}>
-          <Text style={styles.metricLabel}>Active funds</Text>
           <Text style={styles.overviewValue}>{fundCount}</Text>
+          <Text style={styles.metricCaption}>Active funds</Text>
         </View>
+        <View style={styles.overviewDivider} />
         <View style={styles.overviewMetric}>
-          <Text style={styles.metricLabel}>Top 3 share</Text>
           <Text style={styles.overviewValue}>{topThreeShare.toFixed(1)}%</Text>
+          <Text style={styles.metricCaption}>In top 3 funds</Text>
         </View>
-      </View>
-      <View style={styles.largestBox}>
-        <Text style={styles.metricLabel}>Largest position</Text>
-        <Text style={styles.largestName} numberOfLines={2}>{largestPosition}</Text>
+        <View style={styles.overviewDivider} />
+        <View style={styles.largestMetric}>
+          <Text style={styles.metricCaption}>Largest position</Text>
+          <View style={styles.largestInline}>
+            <Text style={styles.largestName} numberOfLines={1}>{largestPosition}</Text>
+            {largestPositionPct != null && (
+              <Text style={styles.largestPct}>{largestPositionPct.toFixed(1)}%</Text>
+            )}
+          </View>
+        </View>
       </View>
     </ClearLensCard>
   );
@@ -140,7 +170,7 @@ function FundListItem({
   const gainPct = gain != null && fund.investedAmount > 0 ? (gain / fund.investedAmount) * 100 : null;
   const stale = navStaleness(latestNavDate);
   const isDebtLike = /debt|liquid|gilt|income|overnight|money market|ultra short/i.test(fund.schemeCategory);
-  const categoryColor = isDebtLike ? CLEAR_LENS_DEBT : ClearLensColors.emerald;
+  const categoryColor = isDebtLike ? CLEAR_LENS_DEBT : ClearLensSemanticColors.asset.equity;
   const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
   const gainColor = (gain ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
   const xirrColor = fund.returnXirr >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
@@ -148,15 +178,12 @@ function FundListItem({
   const sparklineData = fund.navHistory30d.map((point) => point.value);
 
   return (
-    <ClearLensCard style={[
-      styles.fundCard,
-      { borderLeftColor: categoryColor },
-    ]}>
+    <ClearLensCard style={[styles.fundCard, { borderLeftColor: categoryColor }]}>
       <View style={styles.fundTopRow}>
         <TouchableOpacity style={styles.fundMainTap} onPress={onOpen} activeOpacity={0.76}>
           <View style={styles.fundNameBlock}>
             <Text style={styles.fundName} numberOfLines={2}>{base}</Text>
-            <Text style={[styles.fundMeta, { color: categoryColor }]} numberOfLines={1}>
+            <Text style={styles.fundMeta} numberOfLines={1}>
               {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
             </Text>
           </View>
@@ -170,13 +197,28 @@ function FundListItem({
         </TouchableOpacity>
       </View>
 
+      {!expanded && (
+        <View style={styles.compactMetricRow}>
+          <View style={styles.compactMetric}>
+            <Text style={styles.compactMetricLabel}>Today</Text>
+            <Text style={[styles.compactMetricValue, { color: dailyColor }]}>
+              {fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
+            </Text>
+          </View>
+          <View style={styles.compactMetric}>
+            <Text style={styles.compactMetricLabel}>XIRR</Text>
+            <Text style={styles.compactMetricValue}>{xirrLabel}</Text>
+          </View>
+        </View>
+      )}
+
       {expanded && (
         <View style={styles.expandedPanel}>
           <View style={styles.quickMetrics}>
             <DetailCell
               label="Today"
-              value={fund.dailyChangePct != null ? `${fund.dailyChangePct >= 0 ? '+' : ''}${fund.dailyChangePct.toFixed(2)}%` : '—'}
-              subvalue={fund.dailyChangeAmount != null ? `${fund.dailyChangeAmount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.dailyChangeAmount))}${stale.stale ? ` · ${stale.label}` : ''}` : undefined}
+              value={fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
+              subvalue={fund.dailyChangeAmount != null ? `${formatClearLensCurrencyDelta(fund.dailyChangeAmount)}${stale.stale ? ` · ${stale.label}` : ''}` : undefined}
               color={dailyColor}
             />
             <View style={styles.quickDivider} />
@@ -191,14 +233,14 @@ function FundListItem({
             <MetricRow label="Invested (SIP)" value={formatCurrency(fund.investedAmount)} />
             <MetricRow
               label="Gain / Loss"
-              value={gain != null ? `${gain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(gain))}` : '—'}
-              subvalue={gain != null && gainPct != null ? `(${gain >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)` : undefined}
+              value={gain != null ? formatClearLensCurrencyDelta(gain) : '—'}
+              subvalue={gain != null && gainPct != null ? `(${formatClearLensPercentDelta(gainPct, 1)})` : undefined}
               color={gainColor}
             />
             <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
             <MetricRow
               label="Booked P&L"
-              value={`${fund.realizedGain >= 0 ? '+' : '-'}${formatCurrency(Math.abs(fund.realizedGain))}`}
+              value={formatClearLensCurrencyDelta(fund.realizedGain)}
               color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
             />
           </View>
@@ -318,6 +360,7 @@ export function ClearLensFundsScreen() {
   const [sortBy, setSortBy] = useState<SortOption>('currentValue');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [expandedFundId, setExpandedFundId] = useState<string | null>(null);
+  const didAutoExpand = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data, isLoading } = usePortfolio(defaultBenchmarkSymbol);
@@ -346,6 +389,9 @@ export function ClearLensFundsScreen() {
   const largestPosition =
     insights?.fundAllocation[0]?.shortName ??
     (valueSortedFunds[0] ? parseFundName(valueSortedFunds[0].schemeName).base : '—');
+  const largestPositionPct =
+    insights?.fundAllocation[0]?.pct ??
+    (valueSortedFunds[0] ? allocationPctByFundId.get(valueSortedFunds[0].id) ?? null : null);
   const topThreeShare = insights?.fundAllocation.length
     ? insights.fundAllocation.slice(0, 3).reduce((sum, item) => sum + item.pct, 0)
     : valueSortedFunds
@@ -378,6 +424,26 @@ export function ClearLensFundsScreen() {
     });
   }, [benchmarkXirr, fundCards, searchQuery, sortBy]);
 
+  useEffect(() => {
+    if (!didAutoExpand.current && sortedFunds.length > 0) {
+      didAutoExpand.current = true;
+      setExpandedFundId(sortedFunds[0].id);
+    }
+  }, [sortedFunds]);
+
+  const allocationSegments = useMemo<AllocationSegment[]>(
+    () => valueSortedFunds
+      .map((fund, index) => ({
+        id: fund.id,
+        pct: allocationPctByFundId.get(fund.id) ?? 0,
+        color: ClearLensSemanticColors.fundAllocation[
+          index % ClearLensSemanticColors.fundAllocation.length
+        ],
+      }))
+      .filter((segment) => segment.pct > 0),
+    [allocationPctByFundId, valueSortedFunds],
+  );
+
   return (
     <ClearLensScreen>
       <ClearLensHeader title="Your Funds" onPressBack={() => router.back()} />
@@ -391,6 +457,8 @@ export function ClearLensFundsScreen() {
             fundCount={fundCards.length}
             topThreeShare={topThreeShare}
             largestPosition={largestPosition}
+            largestPositionPct={largestPositionPct}
+            segments={allocationSegments}
           />
 
           <View style={styles.controls}>
@@ -406,7 +474,7 @@ export function ClearLensFundsScreen() {
             </View>
             <TouchableOpacity style={styles.sortButton} onPress={() => setSortMenuOpen(true)}>
               <Ionicons name="swap-vertical-outline" size={18} color={ClearLensColors.navy} />
-              <Text style={styles.sortButtonText}>{sortLabel}</Text>
+              <Text style={styles.sortButtonText} numberOfLines={1}>{sortLabel}</Text>
             </TouchableOpacity>
           </View>
 
@@ -445,7 +513,7 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.md,
   },
   overviewCard: {
-    gap: ClearLensSpacing.md,
+    gap: ClearLensSpacing.sm,
   },
   screenEyebrow: {
     ...ClearLensTypography.label,
@@ -454,40 +522,70 @@ const styles = StyleSheet.create({
   },
   overviewGrid: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: ClearLensSpacing.sm,
+  },
+  allocationStrip: {
+    height: 10,
+    borderRadius: ClearLensRadii.full,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  allocationStripSegment: {
+    height: '100%',
   },
   overviewMetric: {
     flex: 1,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-    padding: ClearLensSpacing.sm,
-    gap: 4,
+    gap: 2,
+  },
+  overviewDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: ClearLensColors.borderLight,
   },
   metricLabel: {
     ...ClearLensTypography.label,
     color: ClearLensColors.textTertiary,
     textTransform: 'uppercase',
   },
+  metricCaption: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.medium,
+  },
   overviewValue: {
     ...ClearLensTypography.h2,
     color: ClearLensColors.navy,
   },
-  largestBox: {
-    padding: ClearLensSpacing.sm,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: '#DFF8ED',
-    gap: 4,
+  largestMetric: {
+    flex: 1.25,
+    gap: 2,
+  },
+  largestInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.xs,
   },
   largestName: {
-    ...ClearLensTypography.h3,
+    ...ClearLensTypography.bodySmall,
+    flex: 1,
     color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  largestPct: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.emeraldDeep,
+    fontFamily: ClearLensFonts.bold,
   },
   controls: {
+    flexDirection: 'row',
     gap: ClearLensSpacing.sm,
   },
   searchBox: {
+    flex: 1,
     minHeight: 46,
-    borderRadius: ClearLensRadii.full,
+    borderRadius: ClearLensRadii.md,
     backgroundColor: ClearLensColors.surface,
     borderWidth: 1,
     borderColor: ClearLensColors.border,
@@ -504,7 +602,8 @@ const styles = StyleSheet.create({
   },
   sortButton: {
     minHeight: 44,
-    borderRadius: ClearLensRadii.full,
+    maxWidth: 188,
+    borderRadius: ClearLensRadii.md,
     backgroundColor: ClearLensColors.surface,
     borderWidth: 1,
     borderColor: ClearLensColors.border,
@@ -533,7 +632,7 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
   },
   fundCard: {
-    gap: 0,
+    gap: ClearLensSpacing.sm,
     borderLeftWidth: 3,
     paddingLeft: ClearLensSpacing.sm,
   },
@@ -559,6 +658,7 @@ const styles = StyleSheet.create({
   fundMeta: {
     ...ClearLensTypography.caption,
     fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.textTertiary,
   },
   valueBlock: {
     alignItems: 'flex-end',
@@ -580,6 +680,29 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  compactMetricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+    paddingTop: ClearLensSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+  },
+  compactMetric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactMetricLabel: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  compactMetricValue: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
   },
   expandedPanel: {
     marginTop: ClearLensSpacing.md,
@@ -636,13 +759,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: ClearLensRadii.md,
-    backgroundColor: '#F2FBF7',
+    backgroundColor: ClearLensColors.mint50,
     overflow: 'hidden',
   },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(10, 20, 48, 0.28)',
+    backgroundColor: ClearLensSemanticColors.overlay.backdrop,
   },
   sheet: {
     backgroundColor: ClearLensColors.surface,
