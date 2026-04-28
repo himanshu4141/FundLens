@@ -92,18 +92,40 @@ export default function PDFScreen() {
         throw new Error('Selected PDF file is empty');
       }
 
-      const { data, error } = await supabase.functions.invoke('parse-cas-pdf', {
-        method: 'POST',
-        body: pdfBytes,
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'x-file-name': asset.name ?? 'cas.pdf',
+      // On native (iOS/Android) React Native's new-arch fetch doesn't reliably
+      // handle ArrayBuffer request bodies — use XHR which works on all platforms.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Session expired. Please sign in again.');
+
+      const uploadResult = await new Promise<{ funds: number; transactions: number }>(
+        (resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const fnUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/parse-cas-pdf`;
+          xhr.open('POST', fnUrl);
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          xhr.setRequestHeader('apikey', process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '');
+          xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+          xhr.setRequestHeader('x-file-name', asset.name ?? 'cas.pdf');
+          xhr.responseType = 'text';
+          xhr.onload = () => {
+            try {
+              const body = JSON.parse(xhr.responseText) as { funds?: number; transactions?: number; error?: string };
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve({ funds: body.funds ?? 0, transactions: body.transactions ?? 0 });
+              } else {
+                reject(new Error(body.error ?? `Import failed (${xhr.status})`));
+              }
+            } catch {
+              reject(new Error(`Import failed (${xhr.status})`));
+            }
+          };
+          xhr.onerror = () => reject(new Error('Network request failed'));
+          xhr.send(pdfBytes);
         },
-      });
+      );
 
-      if (error) throw new Error(error.message);
-
-      setResult({ funds: data.funds, transactions: data.transactions });
+      setResult({ funds: uploadResult.funds, transactions: uploadResult.transactions });
       setState('success');
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Unknown error';
