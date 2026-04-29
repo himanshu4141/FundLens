@@ -76,6 +76,7 @@ export default function TabLayout() {
         name="wealth-journey"
         options={{
           title: 'Wealth Journey',
+          freezeOnBlur: isClearLens,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calculator-outline" size={size} color={color} />
           ),

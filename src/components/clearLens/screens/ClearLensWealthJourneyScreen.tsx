@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  InteractionManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { G, Line as SvgLine, Path as SvgPath, Text as SvgText } from 'react-native-svg';
@@ -369,6 +370,14 @@ function JourneyLineChart({
   );
 }
 
+function ChartPlaceholder({ height }: { height: number }) {
+  return (
+    <View style={[styles.chartPlaceholder, { height }]}>
+      <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+    </View>
+  );
+}
+
 function SnapshotMetric({
   label,
   value,
@@ -547,6 +556,7 @@ function SipEditorModal({
 
 export function ClearLensWealthJourneyScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { width: viewportWidth } = useWindowDimensions();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -556,8 +566,31 @@ export function ClearLensWealthJourneyScreen() {
   const [resultsView, setResultsView] = useState<ResultsView>('growth');
   const [sipEditorMode, setSipEditorMode] = useState<SipEditorMode>(null);
   const [sipDraft, setSipDraft] = useState('');
+  const [chartsReady, setChartsReady] = useState(false);
 
   const { wealthJourney, updateWealthJourney } = useAppStore();
+
+  useEffect(() => {
+    if (!isFocused) {
+      setChartsReady(false);
+      setOverflowOpen(false);
+      setSipEditorMode(null);
+      setScreenMode('home');
+      return undefined;
+    }
+
+    let cancelled = false;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (!cancelled) {
+        setChartsReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      task.cancel();
+    };
+  }, [isFocused]);
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', userId],
@@ -839,14 +872,18 @@ export function ClearLensWealthJourneyScreen() {
             <Text style={styles.badgeText}>{growthBadgeLabel} p.a.</Text>
           </View>
         </View>
-        <JourneyLineChart
-          data={baselineChartData}
-          data2={adjustedChartData}
-          chartWidth={chartWidth}
-          compact={compact}
-          labels={baselineChartData.map((point) => point.label)}
-          pointerHeight={compact ? 210 : 226}
-        />
+        {chartsReady ? (
+          <JourneyLineChart
+            data={baselineChartData}
+            data2={adjustedChartData}
+            chartWidth={chartWidth}
+            compact={compact}
+            labels={baselineChartData.map((point) => point.label)}
+            pointerHeight={compact ? 210 : 226}
+          />
+        ) : (
+          <ChartPlaceholder height={compact ? 210 : 226} />
+        )}
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
             <View style={[styles.legendLine, { backgroundColor: ClearLensSemanticColors.chart.benchmark }]} />
@@ -915,13 +952,17 @@ export function ClearLensWealthJourneyScreen() {
     return (
       <ClearLensCard style={styles.resultCard}>
         <Text style={styles.sectionTitle}>Drawdown path</Text>
-        <JourneyLineChart
-          data={withdrawalChartData}
-          chartWidth={chartWidth}
-          compact={compact}
-          labels={withdrawalChartData.map((point) => point.label)}
-          pointerHeight={compact ? 210 : 226}
-        />
+        {chartsReady ? (
+          <JourneyLineChart
+            data={withdrawalChartData}
+            chartWidth={chartWidth}
+            compact={compact}
+            labels={withdrawalChartData.map((point) => point.label)}
+            pointerHeight={compact ? 210 : 226}
+          />
+        ) : (
+          <ChartPlaceholder height={compact ? 210 : 226} />
+        )}
         <View style={styles.withdrawalDetailRow}>
           <View>
             <Text style={styles.metricLabel}>Post-ret. return</Text>
@@ -1298,6 +1339,10 @@ const styles = StyleSheet.create({
   resultCard: {
     gap: ClearLensSpacing.md,
     overflow: 'hidden',
+  },
+  chartPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   resultHero: {
     ...ClearLensTypography.hero,

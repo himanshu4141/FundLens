@@ -31,6 +31,24 @@ export interface WealthJourneyState {
   postRetirementReturn: number | null;
 }
 
+function applyWealthJourneyPatch(
+  state: WealthJourneyState,
+  patch: Partial<WealthJourneyState>,
+): WealthJourneyState {
+  let changed = false;
+  const next = { ...state };
+
+  for (const key of Object.keys(patch) as (keyof WealthJourneyState)[]) {
+    const value = patch[key];
+    if (next[key] !== value) {
+      changed = true;
+      next[key] = value as never;
+    }
+  }
+
+  return changed ? next : state;
+}
+
 const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
   hasOpened: false,
   hasSavedPlan: false,
@@ -91,9 +109,10 @@ export const useAppStore = create<AppStore>()(
       setAppDesignMode: (mode) => set({ appDesignMode: mode }),
       wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
       updateWealthJourney: (patch) =>
-        set((state) => ({
-          wealthJourney: { ...state.wealthJourney, ...patch },
-        })),
+        set((state) => {
+          const wealthJourney = applyWealthJourneyPatch(state.wealthJourney, patch);
+          return wealthJourney === state.wealthJourney ? state : { wealthJourney };
+        }),
       resetWealthJourney: () => set({ wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE }),
     }),
     {
