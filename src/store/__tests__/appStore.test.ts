@@ -104,6 +104,44 @@ describe('appDesignMode persistence migration', () => {
       },
     });
   });
+
+  it('sanitizes out-of-range Wealth Journey values during migration', () => {
+    expect(migratePersistedAppState({
+      appDesignMode: 'clearLens',
+      wealthJourney: {
+        hasOpened: true,
+        hasSavedPlan: true,
+        currentSipOverride: 99_00_00_000,
+        futureSipTarget: -100,
+        monthlySipIncrease: -99_00_00_000,
+        additionalTopUp: 99_00_00_000,
+        yearsToRetirement: 1000,
+        expectedReturn: 100,
+        expectedReturnPreset: 'balanced',
+        retirementDurationYears: 1000,
+        withdrawalRate: 100,
+        postRetirementReturn: 100,
+      },
+    })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+      wealthJourney: {
+        ...DEFAULT_WEALTH_JOURNEY,
+        hasOpened: true,
+        hasSavedPlan: true,
+        currentSipOverride: 25_00_000,
+        futureSipTarget: 0,
+        monthlySipIncrease: -25_00_000,
+        additionalTopUp: 10_00_00_000,
+        yearsToRetirement: 40,
+        expectedReturn: 30,
+        expectedReturnPreset: 'balanced',
+        retirementDurationYears: 40,
+        withdrawalRate: 12,
+        postRetirementReturn: 20,
+      },
+    });
+  });
 });
 
 /**
