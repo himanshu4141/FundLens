@@ -6,6 +6,14 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import { queryClient } from '@/src/lib/queryClient';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -65,6 +73,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+
   useEffect(() => {
     // Web: Supabase handles the hash fragment natively via detectSessionInUrl
     if (Platform.OS === 'web') return;
@@ -78,6 +94,10 @@ export default function RootLayout() {
     const subscription = Linking.addEventListener('url', ({ url }) => handleAuthDeepLink(url));
     return () => subscription.remove();
   }, []);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

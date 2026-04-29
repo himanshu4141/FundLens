@@ -1,0 +1,1688 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import { LineChart } from 'react-native-gifted-charts';
+import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
+import {
+  ClearLensCard,
+  ClearLensHeader,
+  ClearLensScreen,
+  ClearLensSegmentedControl,
+} from '@/src/components/clearLens/ClearLensPrimitives';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensShadow,
+  ClearLensSpacing,
+  ClearLensSemanticColors,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
+import { usePortfolio } from '@/src/hooks/usePortfolio';
+import { useSession } from '@/src/hooks/useSession';
+import { supabase } from '@/src/lib/supabase';
+import {
+  useAppStore,
+  type WealthJourneyReturnPreset,
+  type WealthJourneyState,
+} from '@/src/store/appStore';
+import { formatCurrency } from '@/src/utils/formatting';
+import {
+  getMilestones,
+  projectRetirementIncome,
+  projectWealth,
+  toPresentValueEquivalent,
+} from '@/src/utils/simulatorCalc';
+import {
+  buildReturnProfile,
+  buildSipTargetChips,
+  detectRecurringMonthlySipDetails,
+  type ReturnPreset,
+  type RecurringMonthlySipDetail,
+} from '@/src/utils/wealthJourney';
+import { parseFundName } from '@/src/utils/fundName';
+
+const FIXED_INFLATION_RATE = 6;
+const MAX_SIP = 25_00_000;
+const MAX_TOP_UP = 10_00_00_000;
+
+type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
+type ScreenMode = 'home' | 'adjust' | 'results';
+type ResultsView = 'growth' | 'withdrawal';
+type SipEditorMode = 'review' | 'manual' | null;
+
+interface ChoiceChip {
+  label: string;
+  value: number;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatPercent(value: number): string {
+  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
+function formatAxisValue(value: number): string {
+  if (value >= 1_00_00_000) return `${(value / 1_00_00_000).toFixed(1)}Cr`;
+  if (value >= 1_00_000) return `${Math.round(value / 1_00_000)}L`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
+  return `${Math.round(value)}`;
+}
+
+function buildVisibleYears(horizonYears: number): number[] {
+  if (horizonYears <= 6) {
+    return Array.from({ length: horizonYears + 1 }, (_, index) => index);
+  }
+
+  const interval =
+    horizonYears <= 8 ? 2 : horizonYears <= 15 ? 3 : horizonYears <= 25 ? 5 : 6;
+  const years = new Set<number>([0, horizonYears]);
+
+  for (let year = interval; year < horizonYears; year += interval) {
+    years.add(year);
+  }
+
+  return [...years].sort((a, b) => a - b);
+}
+
+function formatCheckpointLabel(year: number, startLabel: string): string {
+  return year === 0 ? startLabel : `${year}Y`;
+}
+
+function spacingFor(width: number, pointCount: number): number {
+  return Math.max(28, Math.floor((width - 84) / Math.max(pointCount - 1, 1)));
+}
+
+function ValueField({
+  label,
+  helperText,
+  value,
+  onChange,
+  prefix,
+  suffix,
+  chips,
+  max,
+}: {
+  label: string;
+  helperText?: string;
+  value: number;
+  onChange: (value: number) => void;
+  prefix?: string;
+  suffix?: string;
+  chips: ChoiceChip[];
+  max?: number;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  function commit() {
+    const numeric = parseFloat(draft.replace(/[^0-9.]/g, ''));
+    if (!Number.isNaN(numeric)) {
+      onChange(max ? clamp(numeric, 0, max) : numeric);
+    } else {
+      setDraft(String(value));
+    }
+  }
+
+  return (
+    <View style={styles.fieldBlock}>
+      <View style={styles.fieldHeader}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {helperText ? <Text style={styles.fieldHelper}>{helperText}</Text> : null}
+      </View>
+      <View style={styles.fieldShell}>
+        {prefix ? <Text style={styles.fieldAffix}>{prefix}</Text> : null}
+        <TextInput
+          style={styles.fieldInput}
+          value={draft}
+          onChangeText={setDraft}
+          onBlur={commit}
+          onSubmitEditing={commit}
+          keyboardType="numeric"
+          returnKeyType="done"
+        />
+        {suffix ? <Text style={styles.fieldAffix}>{suffix}</Text> : null}
+        <Ionicons name="pencil-outline" size={16} color={ClearLensColors.textTertiary} />
+      </View>
+      <View style={styles.chipRow}>
+        {chips.map((chip) => {
+          const active = Math.abs(value - chip.value) < 0.001;
+          return (
+            <TouchableOpacity
+              key={`${label}-${chip.label}`}
+              style={[styles.choiceChip, active && styles.choiceChipActive]}
+              onPress={() => onChange(chip.value)}
+              activeOpacity={0.76}
+            >
+              <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                {chip.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function ReturnPresetPicker({
+  presets,
+  selectedPreset,
+  value,
+  onPresetChange,
+  onCustomChange,
+}: {
+  presets: ReturnPreset[];
+  selectedPreset: WealthJourneyReturnPreset | null;
+  value: number;
+  onPresetChange: (key: Exclude<WealthJourneyReturnPreset, 'custom'>, value: number) => void;
+  onCustomChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  function commit() {
+    const numeric = parseFloat(draft.replace(/[^0-9.]/g, ''));
+    if (!Number.isNaN(numeric)) {
+      onCustomChange(clamp(numeric, 0, 30));
+    } else {
+      setDraft(String(value));
+    }
+  }
+
+  return (
+    <View style={styles.fieldBlock}>
+      <View style={styles.fieldHeader}>
+        <Text style={styles.fieldLabel}>Expected return</Text>
+        <Text style={styles.fieldHelper}>Use a cautious long-term assumption.</Text>
+      </View>
+      <View style={styles.returnGrid}>
+        {presets.map((preset) => {
+          const active = selectedPreset === preset.key;
+          return (
+            <TouchableOpacity
+              key={preset.key}
+              style={[styles.returnCard, active && styles.returnCardActive]}
+              onPress={() => onPresetChange(preset.key, preset.value)}
+              activeOpacity={0.76}
+            >
+              <Text style={[styles.returnCardLabel, active && styles.returnCardLabelActive]}>
+                {preset.label}
+              </Text>
+              <Text style={[styles.returnCardValue, active && styles.returnCardLabelActive]}>
+                {formatPercent(preset.value)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <View style={styles.fieldShell}>
+        <TextInput
+          style={styles.fieldInput}
+          value={draft}
+          onChangeText={setDraft}
+          onBlur={commit}
+          onSubmitEditing={commit}
+          keyboardType="numeric"
+          returnKeyType="done"
+        />
+        <Text style={styles.fieldAffix}>% p.a.</Text>
+        <Ionicons name="pencil-outline" size={16} color={ClearLensColors.textTertiary} />
+      </View>
+    </View>
+  );
+}
+
+function JourneyLineChart({
+  data,
+  data2,
+  chartWidth,
+  compact,
+  labels,
+  pointerHeight,
+  primaryLabel,
+  secondaryLabel,
+}: {
+  data: { value: number; label: string }[];
+  data2?: { value: number; label: string }[];
+  chartWidth: number;
+  compact: boolean;
+  labels: string[];
+  pointerHeight: number;
+  primaryLabel: string;
+  secondaryLabel?: string;
+}) {
+  const spacing = spacingFor(chartWidth, data.length);
+
+  return (
+    <LineChart
+      data={data}
+      data2={data2}
+      width={chartWidth}
+      parentWidth={chartWidth}
+      adjustToWidth
+      disableScroll
+      bounces={false}
+      height={compact ? 210 : 226}
+      curved
+      isAnimated
+      hideDataPoints
+      color1={data2 ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio}
+      color2={ClearLensSemanticColors.chart.portfolio}
+      thickness1={data2 ? 2.3 : 3}
+      thickness2={3}
+      yAxisLabelWidth={56}
+      noOfSections={4}
+      spacing={spacing}
+      initialSpacing={10}
+      endSpacing={10}
+      xAxisLabelTexts={labels}
+      xAxisLabelTextStyle={styles.chartAxisText}
+      yAxisTextStyle={styles.chartAxisText}
+      xAxisLabelsHeight={24}
+      labelsExtraHeight={34}
+      xAxisLabelsVerticalShift={8}
+      xAxisColor={ClearLensColors.borderLight}
+      yAxisColor="transparent"
+      hideRules={false}
+      rulesColor={ClearLensColors.borderLight}
+      formatYLabel={(value) => formatAxisValue(Number(value))}
+      pointerConfig={{
+        showPointerStrip: true,
+        pointerStripHeight: pointerHeight,
+        pointerStripWidth: 1,
+        pointerStripColor: `${ClearLensColors.textTertiary}88`,
+        pointerColor: ClearLensColors.emerald,
+        radius: 4,
+        pointerLabelWidth: data2 ? 158 : 146,
+        pointerLabelHeight: data2 ? 58 : 42,
+        activatePointersOnLongPress: true,
+        autoAdjustPointerLabelPosition: true,
+        pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+          const first = data[pointerIndex];
+          const second = data2?.[pointerIndex];
+          if (!first) return null;
+
+          return (
+            <View style={styles.pointerLabel}>
+              <Text style={styles.pointerDate}>{first.label}</Text>
+              <Text style={styles.pointerSeriesText}>
+                <Text style={{ color: data2 ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio }}>● </Text>
+                {primaryLabel}: {formatCurrency(first.value)}
+              </Text>
+              {second ? (
+                <Text style={styles.pointerSeriesText}>
+                  <Text style={{ color: ClearLensSemanticColors.chart.portfolio }}>● </Text>
+                  {secondaryLabel}: {formatCurrency(second.value)}
+                </Text>
+              ) : null}
+            </View>
+          );
+        },
+      }}
+    />
+  );
+}
+
+function SnapshotMetric({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'neutral';
+}) {
+  return (
+    <View style={styles.snapshotMetric}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={[styles.snapshotValue, tone === 'positive' && styles.positiveText]}>{value}</Text>
+    </View>
+  );
+}
+
+function SipEditorModal({
+  mode,
+  hasDetectedSip,
+  detectedSip,
+  detectedDetails,
+  detectedDetailsTitle,
+  fundNameById,
+  currentSip,
+  draft,
+  setDraft,
+  onClose,
+  onUseDetected,
+  onManual,
+  onSaveManual,
+}: {
+  mode: SipEditorMode;
+  hasDetectedSip: boolean;
+  detectedSip: number;
+  detectedDetails: RecurringMonthlySipDetail[];
+  detectedDetailsTitle: string;
+  fundNameById: Map<string, string>;
+  currentSip: number;
+  draft: string;
+  setDraft: (value: string) => void;
+  onClose: () => void;
+  onUseDetected: () => void;
+  onManual: () => void;
+  onSaveManual: () => void;
+}) {
+  const manualDraftValue = parseFloat(draft.replace(/[^0-9.]/g, ''));
+
+  return (
+    <Modal visible={mode !== null} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={(event) => event.stopPropagation()}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>
+              {mode === 'manual'
+                ? 'Enter monthly SIP'
+                : hasDetectedSip
+                  ? 'Review detected SIP'
+                  : 'Review monthly SIP'}
+            </Text>
+            <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+              <Ionicons name="close" size={20} color={ClearLensColors.slate} />
+            </TouchableOpacity>
+          </View>
+
+          {mode === 'manual' ? (
+            <View style={styles.sheetBody}>
+              <Text style={styles.sheetCopy}>Set the monthly SIP you want to use for projections.</Text>
+              <Text style={styles.fieldLabel}>Monthly SIP for projections</Text>
+              <View style={styles.fieldShell}>
+                <Text style={styles.fieldAffix}>₹</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={draft}
+                  onChangeText={setDraft}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                />
+                <Ionicons name="pencil-outline" size={16} color={ClearLensColors.emerald} />
+              </View>
+              <Text style={styles.sheetFinePrint}>
+                This only changes your Wealth Journey estimate. It does not change your portfolio data.
+              </Text>
+              <Text style={styles.sheetSectionTitle}>Quick choices</Text>
+              <View style={styles.chipRow}>
+                {buildSipTargetChips(currentSip || 100000).map((chip) => {
+                  const active = Number.isFinite(manualDraftValue) && Math.abs(manualDraftValue - chip.value) < 1;
+                  return (
+                  <TouchableOpacity
+                    key={chip.label}
+                    style={[styles.choiceChip, active && styles.choiceChipActive]}
+                    onPress={() => setDraft(String(chip.value))}
+                  >
+                    <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                      {chip.label}
+                    </Text>
+                  </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <TouchableOpacity style={styles.primaryButton} onPress={onSaveManual}>
+                <Text style={styles.primaryButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.sheetBody}>
+              <Text style={styles.sheetCopy}>
+                {hasDetectedSip
+                  ? 'We estimated this from recurring investments in the last 6 months.'
+                  : 'This monthly SIP is used only for Wealth Journey projections.'}
+              </Text>
+              <View style={styles.detectedBox}>
+                <Text style={styles.metricLabel}>{hasDetectedSip ? 'Detected SIP' : 'Monthly SIP'}</Text>
+                <Text style={styles.detectedValue}>{formatCurrency(detectedSip || currentSip)}</Text>
+              </View>
+              <View style={styles.detectedToggleRow}>
+                <Text style={styles.detectedToggleText}>Use this for projections</Text>
+                <View style={styles.detectedToggleTrack}>
+                  <View style={styles.detectedToggleThumb} />
+                </View>
+              </View>
+              {detectedDetails.length > 0 && (
+                <View style={styles.recurringList}>
+                  <Text style={styles.sheetSectionTitle}>{detectedDetailsTitle}</Text>
+                  {detectedDetails.slice(0, 4).map((detail, index) => (
+                    <View
+                      key={detail.fundId}
+                      style={[
+                        styles.recurringRow,
+                        index < Math.min(detectedDetails.length, 4) - 1 && styles.recurringRowBorder,
+                      ]}
+                    >
+                      <Text style={styles.recurringName} numberOfLines={1}>
+                        {fundNameById.get(detail.fundId) ?? 'Fund'}
+                      </Text>
+                      <Text style={styles.recurringValue}>{formatCurrency(detail.amount)}</Text>
+                    </View>
+                  ))}
+                  {detectedDetails.length > 4 && (
+                    <Text style={styles.recurringMore}>+{detectedDetails.length - 4} more funds</Text>
+                  )}
+                </View>
+              )}
+              <View style={styles.sheetActions}>
+                <TouchableOpacity style={styles.primaryButton} onPress={onUseDetected}>
+                  <Text style={styles.primaryButtonText}>
+                    {hasDetectedSip ? 'Use detected SIP' : 'Keep monthly SIP'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryButton} onPress={onManual}>
+                  <Text style={styles.secondaryButtonText}>Enter manually</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+export function ClearLensWealthJourneyScreen() {
+  const router = useRouter();
+  const { width: viewportWidth } = useWindowDimensions();
+  const { session } = useSession();
+  const userId = session?.user.id;
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [screenMode, setScreenMode] = useState<ScreenMode>('home');
+  const [resultsView, setResultsView] = useState<ResultsView>('growth');
+  const [sipEditorMode, setSipEditorMode] = useState<SipEditorMode>(null);
+  const [sipDraft, setSipDraft] = useState('');
+
+  const { wealthJourney, updateWealthJourney } = useAppStore();
+
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_profile')
+        .select('kfintech_email')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio();
+  const summary = portfolioData?.summary ?? null;
+  const currentCorpus = summary?.totalValue ?? 0;
+  const returnProfile = useMemo(() => buildReturnProfile(summary?.xirr), [summary?.xirr]);
+  const fundNameById = useMemo(
+    () =>
+      new Map(
+        (portfolioData?.fundCards ?? []).map((fund) => [
+          fund.id,
+          parseFundName(fund.schemeName).base,
+        ]),
+      ),
+    [portfolioData?.fundCards],
+  );
+
+  const sixMonthsAgo = useMemo(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 6);
+    return date.toISOString().split('T')[0];
+  }, []);
+
+  const { data: transactions } = useQuery({
+    queryKey: ['wealth-journey-transactions', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transaction')
+        .select('transaction_date, amount, transaction_type, fund_id')
+        .eq('user_id', userId!)
+        .gte('transaction_date', sixMonthsAgo)
+        .order('transaction_date', { ascending: false });
+
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const detectedSipDetails = useMemo(
+    () => detectRecurringMonthlySipDetails(transactions ?? []),
+    [transactions],
+  );
+  const detectedSip = useMemo(
+    () => detectedSipDetails.reduce((sum, detail) => sum + detail.amount, 0),
+    [detectedSipDetails],
+  );
+
+  useEffect(() => {
+    if (!wealthJourney.hasOpened) {
+      updateWealthJourney({ hasOpened: true });
+    }
+  }, [updateWealthJourney, wealthJourney.hasOpened]);
+
+  const defaultExpectedReturn =
+    returnProfile.presets.find((preset) => preset.key === returnProfile.defaultPresetKey)?.value ??
+    10;
+  const selectedReturnPresetKey =
+    wealthJourney.expectedReturnPreset ?? returnProfile.defaultPresetKey;
+  const selectedReturnPreset =
+    selectedReturnPresetKey === 'custom'
+      ? null
+      : returnProfile.presets.find((preset) => preset.key === selectedReturnPresetKey);
+  const expectedReturn =
+    selectedReturnPresetKey === 'custom'
+      ? wealthJourney.expectedReturn ?? defaultExpectedReturn
+      : selectedReturnPreset?.value ?? defaultExpectedReturn;
+
+  useEffect(() => {
+    const patch: Partial<WealthJourneyState> = {};
+    if (wealthJourney.expectedReturnPreset == null) {
+      patch.expectedReturnPreset = returnProfile.defaultPresetKey;
+    }
+    if (
+      wealthJourney.expectedReturn == null ||
+      (selectedReturnPresetKey !== 'custom' && wealthJourney.expectedReturn !== expectedReturn)
+    ) {
+      patch.expectedReturn = expectedReturn;
+    }
+    if (wealthJourney.postRetirementReturn == null) {
+      patch.postRetirementReturn = returnProfile.postRetirementDefault;
+    }
+    if (Object.keys(patch).length > 0) {
+      updateWealthJourney(patch);
+    }
+  }, [
+    returnProfile.defaultPresetKey,
+    returnProfile.postRetirementDefault,
+    expectedReturn,
+    selectedReturnPresetKey,
+    updateWealthJourney,
+    wealthJourney.expectedReturn,
+    wealthJourney.expectedReturnPreset,
+    wealthJourney.postRetirementReturn,
+  ]);
+
+  const currentSip = wealthJourney.currentSipOverride ?? detectedSip ?? 0;
+  const reviewSipDetails = useMemo(() => {
+    if (detectedSipDetails.length > 0) return detectedSipDetails;
+
+    const fundCards = portfolioData?.fundCards ?? [];
+    const sipTotal = currentSip || detectedSip;
+    const totalValue = fundCards.reduce((sum, fund) => sum + (fund.currentValue ?? 0), 0);
+    if (sipTotal <= 0 || totalValue <= 0) return [];
+
+    return fundCards
+      .map((fund) => ({
+        fundId: fund.id,
+        amount: Math.max(
+          0,
+          Math.round(((sipTotal * (fund.currentValue ?? 0)) / totalValue) / 100) * 100,
+        ),
+        monthCount: 0,
+        latestDate: '',
+      }))
+      .filter((detail) => detail.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+  }, [currentSip, detectedSip, detectedSipDetails, portfolioData?.fundCards]);
+  const reviewSipDetailsTitle =
+    detectedSipDetails.length > 0 ? 'Recent recurring investments' : 'Current SIP allocation';
+  const futureSipTarget =
+    wealthJourney.futureSipTarget ??
+    clamp(currentSip + wealthJourney.monthlySipIncrease, 0, MAX_SIP);
+  const adjustedSip = futureSipTarget;
+  const additionalTopUp = wealthJourney.additionalTopUp;
+  const yearsToRetirement = wealthJourney.yearsToRetirement;
+  const retirementDurationYears = wealthJourney.retirementDurationYears;
+  const withdrawalRate = wealthJourney.withdrawalRate;
+  const postRetirementReturn =
+    wealthJourney.postRetirementReturn ?? returnProfile.postRetirementDefault;
+
+  useEffect(() => {
+    if (wealthJourney.futureSipTarget == null && wealthJourney.monthlySipIncrease !== 0) {
+      updateWealthJourney({
+        futureSipTarget: clamp(currentSip + wealthJourney.monthlySipIncrease, 0, MAX_SIP),
+        monthlySipIncrease: 0,
+      });
+    }
+  }, [
+    currentSip,
+    updateWealthJourney,
+    wealthJourney.futureSipTarget,
+    wealthJourney.monthlySipIncrease,
+  ]);
+
+  const baselinePoints = useMemo(
+    () => projectWealth(currentSip, currentCorpus, expectedReturn, yearsToRetirement, 0),
+    [currentCorpus, currentSip, expectedReturn, yearsToRetirement],
+  );
+  const adjustedPoints = useMemo(
+    () => projectWealth(adjustedSip, currentCorpus, expectedReturn, yearsToRetirement, additionalTopUp),
+    [additionalTopUp, adjustedSip, currentCorpus, expectedReturn, yearsToRetirement],
+  );
+
+  const projectedCorpus = adjustedPoints[adjustedPoints.length - 1]?.value ?? currentCorpus;
+  const baselineCorpus = baselinePoints[baselinePoints.length - 1]?.value ?? currentCorpus;
+  const planDelta = projectedCorpus - baselineCorpus;
+  const presentValueToday = toPresentValueEquivalent(
+    projectedCorpus,
+    FIXED_INFLATION_RATE,
+    yearsToRetirement,
+  );
+  const withdrawalProjection = useMemo(
+    () =>
+      projectRetirementIncome(
+        projectedCorpus,
+        withdrawalRate,
+        retirementDurationYears,
+        postRetirementReturn,
+      ),
+    [postRetirementReturn, projectedCorpus, retirementDurationYears, withdrawalRate],
+  );
+
+  const screenWidth = Math.max(320, viewportWidth || 360);
+  const compact = screenWidth <= 430;
+  const chartWidth = Math.max(250, screenWidth - ClearLensSpacing.md * 4 - 8);
+  const visibleGrowthYears = useMemo(() => buildVisibleYears(yearsToRetirement), [yearsToRetirement]);
+  const baselineChartData = useMemo(
+    () =>
+      visibleGrowthYears.map((year) => ({
+        value:
+          year === 0
+            ? currentCorpus
+            : baselinePoints.find((point) => point.year === year)?.value ?? currentCorpus,
+        label: formatCheckpointLabel(year, 'Now'),
+      })),
+    [baselinePoints, currentCorpus, visibleGrowthYears],
+  );
+  const adjustedChartData = useMemo(
+    () =>
+      visibleGrowthYears.map((year) => ({
+        value:
+          year === 0
+            ? currentCorpus
+            : adjustedPoints.find((point) => point.year === year)?.value ?? currentCorpus,
+        label: formatCheckpointLabel(year, 'Now'),
+      })),
+    [adjustedPoints, currentCorpus, visibleGrowthYears],
+  );
+  const visibleWithdrawalYears = useMemo(
+    () => buildVisibleYears(retirementDurationYears),
+    [retirementDurationYears],
+  );
+  const withdrawalChartData = useMemo(
+    () =>
+      visibleWithdrawalYears.map((year) => ({
+        value: withdrawalProjection.trajectory.find((point) => point.year === year)?.value ?? 0,
+        label: formatCheckpointLabel(year, 'Start'),
+      })),
+    [visibleWithdrawalYears, withdrawalProjection.trajectory],
+  );
+  const displayedMilestones = useMemo(() => getMilestones(adjustedPoints).slice(0, 3), [adjustedPoints]);
+  const futureSipChips = useMemo<ChoiceChip[]>(
+    () => buildSipTargetChips(currentSip || 100000),
+    [currentSip],
+  );
+  const growthBadgeLabel =
+    selectedReturnPresetKey === 'custom'
+      ? `Custom ${formatPercent(expectedReturn)}`
+      : `${selectedReturnPreset?.label ?? returnProfile.suggestedLabel} ${formatPercent(expectedReturn)}`;
+
+  function markSaved(patch: Partial<WealthJourneyState>) {
+    updateWealthJourney({ ...patch, hasSavedPlan: true });
+  }
+
+  async function handleSync() {
+    if (!profile?.kfintech_email) {
+      router.push('/onboarding');
+      return;
+    }
+    setSyncState('syncing');
+    const { error } = await supabase.functions.invoke('request-cas', {
+      method: 'POST',
+      body: { email: profile.kfintech_email },
+    });
+    setSyncState(error ? 'error' : 'requested');
+    setTimeout(() => setSyncState('idle'), 4000);
+  }
+
+  function openSipReview() {
+    setSipDraft(String(currentSip || detectedSip || 0));
+    setSipEditorMode('review');
+  }
+
+  function saveSipDraft() {
+    const numeric = parseFloat(sipDraft.replace(/[^0-9.]/g, ''));
+    if (!Number.isNaN(numeric)) {
+      updateWealthJourney({
+        currentSipOverride: clamp(Math.round(numeric), 0, MAX_SIP),
+      });
+      setSipEditorMode(null);
+    }
+  }
+
+  function renderGrowthCard(compactMode = false) {
+    return (
+      <ClearLensCard style={styles.resultCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.flexCopy}>
+            <Text style={styles.metricLabel}>Projected corpus</Text>
+            <Text style={styles.resultHero}>{formatCurrency(projectedCorpus)}</Text>
+            <Text style={styles.sectionSubtitle}>in {yearsToRetirement} years</Text>
+          </View>
+          <View style={styles.badge}>
+            <View style={styles.badgeDot} />
+            <Text style={styles.badgeText}>{growthBadgeLabel} p.a.</Text>
+          </View>
+        </View>
+        <JourneyLineChart
+          data={baselineChartData}
+          data2={adjustedChartData}
+          chartWidth={chartWidth}
+          compact={compact}
+          labels={baselineChartData.map((point) => point.label)}
+          pointerHeight={compact ? 210 : 226}
+          primaryLabel="Current"
+          secondaryLabel="Adjusted"
+        />
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendLine, { backgroundColor: ClearLensSemanticColors.chart.benchmark }]} />
+            <Text style={styles.legendText}>Current plan</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: ClearLensSemanticColors.chart.portfolio }]} />
+            <Text style={styles.legendText}>Adjusted plan</Text>
+          </View>
+        </View>
+        {!compactMode && (
+          <View style={styles.milestoneGrid}>
+            {displayedMilestones.map((milestone) => (
+              <View key={milestone.year} style={styles.milestoneCell}>
+                <Text style={styles.metricLabel}>{milestone.year}Y</Text>
+                <Text style={styles.milestoneValue}>{formatCurrency(milestone.value)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ClearLensCard>
+    );
+  }
+
+  function renderProjectionDisclaimer() {
+    return (
+      <View style={styles.disclaimer}>
+        <Ionicons name="information-circle-outline" size={15} color={ClearLensColors.textTertiary} />
+        <Text style={styles.disclaimerText}>
+          This is a projection, not a promise. Markets go up and down. Results can be higher or lower than shown. Returns are nominal, pre-tax. Inflation is not adjusted unless stated.
+        </Text>
+      </View>
+    );
+  }
+
+  function renderWithdrawalSummaryCard() {
+    return (
+      <ClearLensCard style={styles.resultCard}>
+        <View style={styles.withdrawalMetricGrid}>
+          <View style={[styles.withdrawalMetricBox, styles.withdrawalIncomeBox]}>
+            <Text style={styles.metricLabel}>Monthly income</Text>
+            <Text style={[styles.largeMetric, styles.positiveText]}>{formatCurrency(withdrawalProjection.monthlyIncome)}/mo</Text>
+            <Text style={styles.sectionSubtitle}>{formatPercent(withdrawalRate)} withdrawal rate</Text>
+          </View>
+          <View style={styles.withdrawalMetricBox}>
+            <Text style={styles.metricLabel}>Lasts for</Text>
+            <Text style={styles.largeMetric}>{retirementDurationYears} years</Text>
+            <Text style={styles.sectionSubtitle}>at {formatPercent(postRetirementReturn)} p.a. post-return</Text>
+          </View>
+        </View>
+        <View style={styles.withdrawalDetailRow}>
+          <View>
+            <Text style={styles.metricLabel}>Corpus at start</Text>
+            <Text style={styles.resultRowValue}>{formatCurrency(projectedCorpus)}</Text>
+          </View>
+          <View style={styles.rightMetric}>
+            <Text style={styles.metricLabel}>Residual corpus</Text>
+            <Text style={styles.resultRowValue}>{formatCurrency(withdrawalProjection.endCorpus)}</Text>
+          </View>
+        </View>
+      </ClearLensCard>
+    );
+  }
+
+  function renderWithdrawalDrawdownCard() {
+    return (
+      <ClearLensCard style={styles.resultCard}>
+        <Text style={styles.sectionTitle}>Drawdown path</Text>
+        <JourneyLineChart
+          data={withdrawalChartData}
+          chartWidth={chartWidth}
+          compact={compact}
+          labels={withdrawalChartData.map((point) => point.label)}
+          pointerHeight={compact ? 210 : 226}
+          primaryLabel="Corpus"
+        />
+        <View style={styles.withdrawalDetailRow}>
+          <View>
+            <Text style={styles.metricLabel}>Post-ret. return</Text>
+            <Text style={styles.resultRowValue}>{formatPercent(postRetirementReturn)} p.a.</Text>
+          </View>
+          <View style={styles.rightMetric}>
+            <Text style={styles.metricLabel}>Withdrawal rate</Text>
+            <Text style={styles.resultRowValue}>{formatPercent(withdrawalRate)} p.a.</Text>
+          </View>
+        </View>
+      </ClearLensCard>
+    );
+  }
+
+  function renderWithdrawalPathNote() {
+    return (
+      <View style={styles.projectionNote}>
+        <Ionicons name="bulb-outline" size={16} color={ClearLensColors.emeraldDeep} />
+        <Text style={styles.infoBannerText}>
+          This path leaves <Text style={styles.inlineStrong}>{formatCurrency(withdrawalProjection.endCorpus)}</Text> after {retirementDurationYears} years.
+        </Text>
+      </View>
+    );
+  }
+
+  function renderWithdrawalSections() {
+    return (
+      <>
+        {renderWithdrawalSummaryCard()}
+        {renderWithdrawalDrawdownCard()}
+        {renderWithdrawalPathNote()}
+      </>
+    );
+  }
+
+  return (
+    <ClearLensScreen>
+      <ClearLensHeader
+        title={screenMode === 'home' ? undefined : screenMode === 'adjust' ? 'Adjust your plan' : 'Your results'}
+        showTagline={screenMode === 'home'}
+        onPressBack={screenMode === 'home' ? undefined : () => setScreenMode('home')}
+        onPressMenu={screenMode === 'home' ? () => setOverflowOpen(true) : undefined}
+      />
+      <AppOverflowMenu
+        visible={overflowOpen}
+        syncState={syncState}
+        onClose={() => setOverflowOpen(false)}
+        onSync={handleSync}
+        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onSettings={() => router.push('/(tabs)/settings')}
+      />
+
+      {portfolioLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {screenMode === 'home' && (
+            <>
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle}>Wealth Journey</Text>
+                <Text style={styles.heroSubtitle}>Plan today. See your future with clarity.</Text>
+              </View>
+
+              <ClearLensCard style={styles.snapshotCard}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.flexCopy}>
+                    <Text style={styles.sectionTitle}>Your portfolio today</Text>
+                    <Text style={styles.sectionSubtitle}>Started from your current portfolio. Edit assumptions anytime.</Text>
+                  </View>
+                </View>
+                <View style={styles.snapshotGrid}>
+                  <SnapshotMetric label="Corpus" value={formatCurrency(currentCorpus)} />
+                  <SnapshotMetric label="Monthly SIP" value={`${formatCurrency(currentSip)}/mo`} />
+                  <SnapshotMetric label="XIRR" value={summary ? `${(summary.xirr * 100).toFixed(2)}%` : '—'} tone="positive" />
+                </View>
+                <View style={styles.infoBanner}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={ClearLensColors.emeraldDeep} />
+                  <Text style={styles.infoBannerText}>
+                    {detectedSip > 0 ? 'Detected from recurring buys in the last 6 months.' : 'Add your SIP assumption to personalize projections.'}
+                  </Text>
+                  <TouchableOpacity onPress={openSipReview}>
+                    <Text style={styles.inlineLink}>Review / edit</Text>
+                  </TouchableOpacity>
+                </View>
+              </ClearLensCard>
+
+              <View style={styles.planHeader}>
+                <Text style={styles.sectionTitle}>Your plan at a glance</Text>
+                <ClearLensSegmentedControl
+                  options={[
+                    { value: 'growth', label: 'Wealth growth' },
+                    { value: 'withdrawal', label: 'Withdrawal income' },
+                  ]}
+                  selected={resultsView}
+                  onChange={setResultsView}
+                />
+              </View>
+
+              {resultsView === 'growth' ? renderGrowthCard(true) : renderWithdrawalSections()}
+
+              <TouchableOpacity style={styles.primaryButton} onPress={() => setScreenMode('adjust')}>
+                <Text style={styles.primaryButtonText}>Adjust your plan</Text>
+              </TouchableOpacity>
+              {renderProjectionDisclaimer()}
+            </>
+          )}
+
+          {screenMode === 'adjust' && (
+            <>
+              <Text style={styles.centerSubtitle}>Build your plan using simple inputs.</Text>
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>1 · Investment plan</Text>
+                <ValueField
+                  label="Monthly SIP (going forward)"
+                  value={adjustedSip}
+                  onChange={(value) =>
+                    markSaved({
+                      futureSipTarget: clamp(Math.round(value), 0, MAX_SIP),
+                      monthlySipIncrease: clamp(Math.round(value), 0, MAX_SIP) - currentSip,
+                    })
+                  }
+                  prefix="₹"
+                  chips={futureSipChips}
+                  max={MAX_SIP}
+                />
+                <ValueField
+                  label="Additional top-up"
+                  value={additionalTopUp}
+                  onChange={(value) => markSaved({ additionalTopUp: clamp(Math.round(value), 0, MAX_TOP_UP) })}
+                  prefix="₹"
+                  chips={[
+                    { label: '₹0', value: 0 },
+                    { label: '₹5L', value: 5_00_000 },
+                    { label: '₹10L', value: 10_00_000 },
+                    { label: '₹25L', value: 25_00_000 },
+                  ]}
+                  max={MAX_TOP_UP}
+                />
+                <ValueField
+                  label="Saving period"
+                  helperText="How long you keep investing before withdrawals begin"
+                  value={yearsToRetirement}
+                  onChange={(value) => markSaved({ yearsToRetirement: clamp(Math.round(value), 1, 40) })}
+                  suffix="years"
+                  chips={[
+                    { label: '10Y', value: 10 },
+                    { label: '15Y', value: 15 },
+                    { label: '20Y', value: 20 },
+                    { label: '25Y', value: 25 },
+                  ]}
+                />
+                <ReturnPresetPicker
+                  presets={returnProfile.presets}
+                  selectedPreset={selectedReturnPresetKey}
+                  value={expectedReturn}
+                  onPresetChange={(key, value) => markSaved({ expectedReturnPreset: key, expectedReturn: value })}
+                  onCustomChange={(value) => markSaved({ expectedReturnPreset: 'custom', expectedReturn: value })}
+                />
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>2 · Withdrawal plan</Text>
+                <ValueField
+                  label="Withdrawal rate (p.a.)"
+                  value={withdrawalRate}
+                  onChange={(value) => markSaved({ withdrawalRate: clamp(value, 1, 12) })}
+                  suffix="%"
+                  chips={[
+                    { label: '3%', value: 3 },
+                    { label: '4%', value: 4 },
+                    { label: '5%', value: 5 },
+                    { label: '6%', value: 6 },
+                  ]}
+                />
+                <ValueField
+                  label="Post-withdrawal return (p.a.)"
+                  value={postRetirementReturn}
+                  onChange={(value) => markSaved({ postRetirementReturn: clamp(value, 0, 20) })}
+                  suffix="%"
+                  chips={[
+                    { label: '5%', value: 5 },
+                    { label: '6%', value: 6 },
+                    { label: '7%', value: 7 },
+                    { label: '8%', value: 8 },
+                  ]}
+                />
+              </View>
+
+              <TouchableOpacity style={styles.primaryButton} onPress={() => setScreenMode('results')}>
+                <Text style={styles.primaryButtonText}>See your results</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {screenMode === 'results' && (
+            <>
+              <ClearLensSegmentedControl
+                options={[
+                  { value: 'growth', label: 'Wealth growth' },
+                  { value: 'withdrawal', label: 'Withdrawal income' },
+                ]}
+                selected={resultsView}
+                onChange={setResultsView}
+              />
+              {resultsView === 'growth' ? (
+                <>
+                  {renderGrowthCard()}
+                  <ClearLensCard style={styles.snapshotCard}>
+                    <Text style={styles.sectionTitle}>Withdrawal snapshot</Text>
+                    <View style={styles.twoColumnGrid}>
+                      <SnapshotMetric label="Monthly income" value={`${formatCurrency(withdrawalProjection.monthlyIncome)}/mo`} tone="positive" />
+                      <SnapshotMetric label="Lasts for" value={`${retirementDurationYears} years`} />
+                    </View>
+                    <View style={styles.resultRows}>
+                      <View style={styles.resultRow}>
+                        <Text style={styles.resultRowLabel}>Present value equivalent</Text>
+                        <Text style={styles.resultRowValue}>{formatCurrency(presentValueToday)}</Text>
+                      </View>
+                      <View style={styles.resultRow}>
+                        <Text style={styles.resultRowLabel}>Change vs current plan</Text>
+                        <Text style={[styles.resultRowValue, planDelta >= 0 ? styles.positiveText : styles.negativeText]}>
+                          {planDelta >= 0 ? '+' : '-'}{formatCurrency(Math.abs(planDelta))}
+                        </Text>
+                      </View>
+                    </View>
+                  </ClearLensCard>
+                </>
+              ) : (
+                renderWithdrawalSections()
+              )}
+              {renderProjectionDisclaimer()}
+            </>
+          )}
+        </ScrollView>
+      )}
+
+      <SipEditorModal
+        mode={sipEditorMode}
+        hasDetectedSip={detectedSip > 0}
+        detectedSip={detectedSip}
+        detectedDetails={reviewSipDetails}
+        detectedDetailsTitle={reviewSipDetailsTitle}
+        fundNameById={fundNameById}
+        currentSip={currentSip}
+        draft={sipDraft}
+        setDraft={setSipDraft}
+        onClose={() => setSipEditorMode(null)}
+        onUseDetected={() => {
+          if (detectedSip > 0) {
+            updateWealthJourney({ currentSipOverride: null });
+          }
+          setSipEditorMode(null);
+        }}
+        onManual={() => setSipEditorMode('manual')}
+        onSaveManual={saveSipDraft}
+      />
+    </ClearLensScreen>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: {
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingBottom: ClearLensSpacing.xxl,
+    gap: ClearLensSpacing.md,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCopy: {
+    gap: ClearLensSpacing.xs,
+  },
+  heroTitle: {
+    ...ClearLensTypography.h1,
+    color: ClearLensColors.navy,
+  },
+  heroSubtitle: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textSecondary,
+  },
+  snapshotCard: {
+    gap: ClearLensSpacing.md,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.sm,
+  },
+  flexCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  sectionTitle: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.navy,
+  },
+  sectionSubtitle: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+  },
+  editButton: {
+    minHeight: 32,
+    borderRadius: ClearLensRadii.full,
+    paddingHorizontal: ClearLensSpacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: ClearLensColors.mint50,
+  },
+  editButtonText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.emeraldDeep,
+    fontFamily: ClearLensFonts.bold,
+  },
+  snapshotGrid: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+    paddingTop: ClearLensSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+  },
+  snapshotMetric: {
+    flex: 1,
+    gap: 4,
+  },
+  metricLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  snapshotValue: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  positiveText: {
+    color: ClearLensSemanticColors.sentiment.positive,
+  },
+  negativeText: {
+    color: ClearLensSemanticColors.sentiment.negative,
+  },
+  infoBanner: {
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.mint50,
+    padding: ClearLensSpacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.xs,
+  },
+  infoBannerText: {
+    ...ClearLensTypography.caption,
+    flex: 1,
+    color: ClearLensColors.textSecondary,
+  },
+  inlineLink: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.emeraldDeep,
+    fontFamily: ClearLensFonts.bold,
+  },
+  planHeader: {
+    gap: ClearLensSpacing.sm,
+  },
+  resultCard: {
+    gap: ClearLensSpacing.md,
+    overflow: 'hidden',
+  },
+  resultHero: {
+    ...ClearLensTypography.hero,
+    color: ClearLensColors.navy,
+  },
+  badge: {
+    borderRadius: ClearLensRadii.full,
+    paddingHorizontal: ClearLensSpacing.sm,
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: ClearLensColors.mint50,
+  },
+  badgeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: ClearLensColors.emerald,
+  },
+  badgeText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.emeraldDeep,
+    fontFamily: ClearLensFonts.bold,
+  },
+  chartAxisText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  pointerLabel: {
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    padding: ClearLensSpacing.sm,
+    ...ClearLensShadow,
+  },
+  pointerDate: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  pointerSeriesText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textSecondary,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLine: {
+    width: 12,
+    height: 2,
+    borderRadius: 1,
+  },
+  legendText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  milestoneGrid: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+    paddingTop: ClearLensSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+  },
+  milestoneCell: {
+    flex: 1,
+    gap: 4,
+  },
+  milestoneValue: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  rightMetric: {
+    alignItems: 'flex-end',
+  },
+  largeMetric: {
+    ...ClearLensTypography.h2,
+    color: ClearLensColors.navy,
+  },
+  primaryButton: {
+    minHeight: 48,
+    borderRadius: ClearLensRadii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.emerald,
+    paddingHorizontal: ClearLensSpacing.md,
+  },
+  primaryButtonText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textOnDark,
+    fontFamily: ClearLensFonts.bold,
+  },
+  secondaryButton: {
+    minHeight: 44,
+    borderRadius: ClearLensRadii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    paddingHorizontal: ClearLensSpacing.md,
+  },
+  secondaryButtonText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  textButton: {
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  textButtonText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  centerSubtitle: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    textAlign: 'center',
+  },
+  formSection: {
+    gap: ClearLensSpacing.md,
+  },
+  formSectionTitle: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  fieldBlock: {
+    gap: ClearLensSpacing.sm,
+  },
+  fieldHeader: {
+    gap: 2,
+  },
+  fieldLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textSecondary,
+    fontFamily: ClearLensFonts.medium,
+  },
+  fieldHelper: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  fieldShell: {
+    minHeight: 48,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    paddingHorizontal: ClearLensSpacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.xs,
+  },
+  fieldInput: {
+    ...ClearLensTypography.h3,
+    flex: 1,
+    color: ClearLensColors.navy,
+    paddingVertical: 0,
+  },
+  fieldAffix: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: ClearLensSpacing.xs,
+  },
+  choiceChip: {
+    minHeight: 36,
+    borderRadius: ClearLensRadii.full,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    backgroundColor: ClearLensColors.surface,
+    paddingHorizontal: ClearLensSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choiceChipActive: {
+    backgroundColor: ClearLensColors.navy,
+    borderColor: ClearLensColors.navy,
+  },
+  choiceChipText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textSecondary,
+    fontFamily: ClearLensFonts.bold,
+  },
+  choiceChipTextActive: {
+    color: ClearLensColors.textOnDark,
+  },
+  returnGrid: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  returnCard: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: ClearLensRadii.md,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    backgroundColor: ClearLensColors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  returnCardActive: {
+    backgroundColor: ClearLensColors.navy,
+    borderColor: ClearLensColors.navy,
+  },
+  returnCardLabel: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  returnCardValue: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  returnCardLabelActive: {
+    color: ClearLensColors.textOnDark,
+  },
+  twoColumnGrid: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  resultRows: {
+    gap: ClearLensSpacing.sm,
+    paddingTop: ClearLensSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+  },
+  withdrawalMetricGrid: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  withdrawalMetricBox: {
+    flex: 1,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    padding: ClearLensSpacing.sm,
+    gap: 3,
+  },
+  withdrawalIncomeBox: {
+    backgroundColor: ClearLensColors.mint50,
+  },
+  withdrawalDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+    paddingTop: ClearLensSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+  },
+  resultRowLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textSecondary,
+  },
+  resultRowValue: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  disclaimer: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.xs,
+    alignItems: 'flex-start',
+    paddingHorizontal: ClearLensSpacing.xs,
+  },
+  disclaimerText: {
+    ...ClearLensTypography.caption,
+    flex: 1,
+    color: ClearLensColors.textTertiary,
+  },
+  projectionNote: {
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.mint50,
+    padding: ClearLensSpacing.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.sm,
+  },
+  inlineStrong: {
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: ClearLensSemanticColors.overlay.backdrop,
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: ClearLensRadii.xl,
+    borderTopRightRadius: ClearLensRadii.xl,
+    backgroundColor: ClearLensColors.surface,
+    paddingBottom: ClearLensSpacing.lg,
+    ...ClearLensShadow,
+  },
+  sheetHeader: {
+    minHeight: 56,
+    paddingHorizontal: ClearLensSpacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: ClearLensColors.borderLight,
+  },
+  sheetTitle: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.navy,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetBody: {
+    padding: ClearLensSpacing.md,
+    gap: ClearLensSpacing.md,
+  },
+  sheetCopy: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textSecondary,
+  },
+  sheetFinePrint: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  sheetSectionTitle: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  detectedBox: {
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    padding: ClearLensSpacing.md,
+    gap: ClearLensSpacing.xs,
+  },
+  detectedValue: {
+    ...ClearLensTypography.h2,
+    color: ClearLensColors.navy,
+  },
+  detectedToggleRow: {
+    minHeight: 48,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    paddingHorizontal: ClearLensSpacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detectedToggleText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  detectedToggleTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: ClearLensRadii.full,
+    backgroundColor: ClearLensColors.emerald,
+    padding: 3,
+    alignItems: 'flex-end',
+  },
+  detectedToggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: ClearLensRadii.full,
+    backgroundColor: ClearLensColors.surface,
+    ...ClearLensShadow,
+  },
+  recurringList: {
+    gap: ClearLensSpacing.xs,
+  },
+  recurringRow: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+  },
+  recurringRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: ClearLensColors.borderLight,
+  },
+  recurringName: {
+    ...ClearLensTypography.bodySmall,
+    flex: 1,
+    color: ClearLensColors.navy,
+  },
+  recurringValue: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  recurringMore: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  sheetActions: {
+    gap: ClearLensSpacing.sm,
+  },
+});

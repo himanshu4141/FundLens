@@ -10,9 +10,10 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart, BarChart, PieChart } from 'react-native-gifted-charts';
+import { LineChart, PieChart } from 'react-native-gifted-charts';
+import Svg, { G, Line as SvgLine, Rect as SvgRect, Text as SvgText } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
 import {
   useFundDetail,
@@ -22,11 +23,33 @@ import {
 } from '@/src/hooks/useFundDetail';
 import { useFundComposition } from '@/src/hooks/useFundComposition';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
+import { useSession } from '@/src/hooks/useSession';
+import { useInvestmentVsBenchmarkTimeline } from '@/src/hooks/useInvestmentVsBenchmarkTimeline';
+import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
 import { computeQuarterlyReturns } from '@/src/utils/quarterlyReturns';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import {
+  ClearLensCard,
+  ClearLensHeader,
+  ClearLensScreen,
+  ClearLensSegmentedControl,
+} from '@/src/components/clearLens/ClearLensPrimitives';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensSpacing,
+  ClearLensSemanticColors,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
+import {
+  formatClearLensCurrencyDelta,
+  formatClearLensPercentDelta,
+} from '@/src/utils/clearLensFormat';
 import type { AppColors } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
@@ -57,6 +80,9 @@ function formatChartDate(dateStr: string, window: TimeWindow): string {
     case '6M': return `${mon} '${yr2}`;                // "Sep '24"
     case '1Y': return `${mon} '${yr2}`;                // "Mar '25"
     case '3Y':
+    case '5Y':
+    case '10Y':
+    case '15Y':
     case 'All': return `${mon} '${yr2}`;               // "Jan '22"
   }
 }
@@ -69,13 +95,18 @@ function TimeWindowSelector({
   onChange: (w: TimeWindow) => void;
 }) {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={s.windowRow}>
       {TIME_WINDOWS.map((w) => (
         <TouchableOpacity
           key={w}
-          style={[s.windowPill, selected === w && s.windowPillActive]}
+          style={[
+            s.windowPill,
+            selected === w && s.windowPillActive,
+            selected === w && isClearLens && { backgroundColor: ClearLensColors.navy },
+          ]}
           onPress={() => onChange(w)}
           activeOpacity={0.75}
         >
@@ -91,17 +122,31 @@ function TimeWindowSelector({
 function PerformanceTab({
   navHistory,
   defaultBenchmarkSymbol,
+  fundRef,
+  userId,
 }: {
   navHistory: { date: string; value: number }[];
   defaultBenchmarkSymbol: string | null;
+  fundRef?: FundRef;
+  userId?: string;
 }) {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const benchmarkColor = isClearLens ? ClearLensColors.slate : colors.warning;
+  const positiveMetricColor = isClearLens ? ClearLensColors.emerald : colors.positive;
+  const negativeMetricColor = isClearLens ? ClearLensColors.negative : colors.negative;
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
     return valid && defaultBenchmarkSymbol ? defaultBenchmarkSymbol : '^NSEI';
   });
+  const investmentTimeline = useInvestmentVsBenchmarkTimeline(
+    fundRef ? [fundRef] : [],
+    userId,
+    selectedSymbol,
+    window,
+  );
   // Track crosshair position so the return summary below the chart stays in sync.
   // null = no active crosshair (show end-of-period values).
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -178,7 +223,7 @@ function PerformanceTab({
   // chart body width = total width passed to LineChart minus y-axis label area
   const PERF_Y_AXIS_W = 32;
   const perfChartBodyW = CHART_WIDTH - 32 - PERF_Y_AXIS_W; // 32 = card padding (16×2)
-  const perfSpacing = sampledNav.length > 1 ? perfChartBodyW / (sampledNav.length - 1) : 20;
+  const perfSpacing = sampledNav.length > 1 ? Math.max(8, (perfChartBodyW - 16) / (sampledNav.length - 1)) : 20;
 
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
   const xLabels = sampledNav.map((p, i) =>
@@ -201,6 +246,7 @@ function PerformanceTab({
   const latestBenchmark = indexedBenchmark[indexedBenchmark.length - 1]?.value ?? 100;
   const navReturn = ((latestNav - 100) / 100) * 100;
   const benchmarkReturn = ((latestBenchmark - 100) / 100) * 100;
+  const benchmarkReturnColor = benchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor;
   const isAhead = isFinite(navReturn) && isFinite(benchmarkReturn) && navReturn >= benchmarkReturn;
   const diff = navReturn - benchmarkReturn;
 
@@ -213,6 +259,248 @@ function PerformanceTab({
   const summaryBenchReturn = summaryBenchVal !== null ? ((summaryBenchVal - 100) / 100) * 100 : null;
   const summaryDate = sampledNav[summaryIdx]?.date;
 
+  const hasInvestmentTimeline = investmentTimeline.points.length > 1;
+  if (fundRef && userId && investmentTimeline.isLoading && !hasInvestmentTimeline) {
+    return (
+      <View style={s.tabContent}>
+        <TimeWindowSelector selected={window} onChange={setWindow} />
+        <View style={s.chartCard}>
+          <ActivityIndicator size="small" color={isClearLens ? ClearLensColors.emerald : colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  if (fundRef && userId && hasInvestmentTimeline) {
+    const points = investmentTimeline.points;
+    const actualActiveIdx = activeIdx !== null && activeIdx < points.length ? activeIdx : points.length - 1;
+    const latestPoint = points[points.length - 1];
+    const activePoint = points[actualActiveIdx] ?? latestPoint;
+    const investedData = points.map((point) => ({ value: point.investedValue }));
+    const fundValueData = points.map((point) => ({ value: point.portfolioValue }));
+    const benchmarkValueData = points.map((point) => ({ value: point.benchmarkValue }));
+    const actualValues = points.flatMap((point) => [
+      point.investedValue,
+      point.portfolioValue,
+      point.benchmarkValue,
+    ]);
+    const actualYMax = Math.max(...actualValues);
+    const actualYMin = Math.min(...actualValues);
+    const actualYPad = ((actualYMax - actualYMin) || actualYMax * 0.1 || 1) * 0.12;
+    const actualChartTop = actualYMax + actualYPad;
+    const actualChartBottom = Math.max(0, actualYMin - actualYPad);
+    const actualChartRange = Math.max(1, actualChartTop - actualChartBottom);
+    const ACTUAL_Y_AXIS_W = 54;
+    const actualChartW = CHART_WIDTH - 32 - ACTUAL_Y_AXIS_W - 8;
+    const actualSpacing =
+      points.length > 1 ? Math.max(8, (actualChartW - 16) / (points.length - 1)) : 20;
+    const actualLabelInterval = Math.max(1, Math.floor(points.length / 5));
+    const actualXLabels =
+      investmentTimeline.xAxisLabels.length === points.length
+        ? investmentTimeline.xAxisLabels
+        : points.map((point, index) =>
+            index % actualLabelInterval === 0 || index === points.length - 1
+              ? formatChartDate(point.date, window)
+              : '',
+          );
+    const fundReturn =
+      latestPoint.investedValue > 0
+        ? ((latestPoint.portfolioValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
+        : 0;
+    const simulatedBenchmarkReturn =
+      latestPoint.investedValue > 0
+        ? ((latestPoint.benchmarkValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
+        : 0;
+    const activeFundReturn =
+      activePoint.investedValue > 0
+        ? ((activePoint.portfolioValue - activePoint.investedValue) / activePoint.investedValue) * 100
+        : 0;
+    const activeBenchmarkReturn =
+      activePoint.investedValue > 0
+        ? ((activePoint.benchmarkValue - activePoint.investedValue) / activePoint.investedValue) * 100
+        : 0;
+
+    return (
+      <View style={s.tabContent}>
+        <View style={s.xirrCard}>
+          <View style={s.comparisonRow}>
+            <View style={s.comparisonCol}>
+              <Text style={s.statLabel}>Your fund ({window})</Text>
+              <Text
+                style={[s.xirrValue, { color: fundReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                numberOfLines={1}
+              >
+                {fundReturn >= 0 ? '+' : ''}{fundReturn.toFixed(1)}%
+              </Text>
+            </View>
+            <View style={s.xirrDivider} />
+            <View style={s.comparisonCol}>
+              <Text style={s.statLabel}>If invested in {selectedLabel} ({window})</Text>
+              <Text
+                style={[
+                  s.xirrValue,
+                  { color: simulatedBenchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor },
+                ]}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                numberOfLines={1}
+              >
+                {simulatedBenchmarkReturn >= 0 ? '+' : ''}{simulatedBenchmarkReturn.toFixed(1)}%
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <TimeWindowSelector selected={window} onChange={setWindow} />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.benchmarkSelectorContent}
+        >
+          {BENCHMARK_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.symbol}
+              style={[
+                s.benchmarkPill,
+                selectedSymbol === opt.symbol && s.benchmarkPillActive,
+                selectedSymbol === opt.symbol && isClearLens && { backgroundColor: ClearLensColors.navy },
+              ]}
+              onPress={() => setSelectedSymbol(opt.symbol)}
+              activeOpacity={0.75}
+            >
+              <Text style={[s.benchmarkPillText, selectedSymbol === opt.symbol && s.benchmarkPillTextActive]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={s.chartCard}>
+          <View style={s.chartLegendRow}>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: ClearLensSemanticColors.chart.invested }]} />
+              <Text style={s.legendLabel}>Amount invested</Text>
+            </View>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: colors.primary }]} />
+              <Text style={s.legendLabel}>Fund value</Text>
+            </View>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: benchmarkColor }]} />
+              <Text style={s.legendLabel}>If invested in {selectedLabel}</Text>
+            </View>
+          </View>
+
+          <View style={s.chartWrap}>
+            <LineChart
+              data={investedData}
+              data2={fundValueData}
+              data3={benchmarkValueData}
+              width={actualChartW}
+              height={196}
+              spacing={actualSpacing}
+              initialSpacing={8}
+              endSpacing={8}
+              hideDataPoints
+              color1={ClearLensSemanticColors.chart.invested}
+              color2={colors.primary}
+              color3={benchmarkColor}
+              thickness1={2.4}
+              thickness2={3}
+              thickness3={2.5}
+              curved
+              yAxisLabelWidth={ACTUAL_Y_AXIS_W}
+              formatYLabel={(v: string) => formatCurrency(Number(v))}
+              yAxisTextStyle={s.chartAxisLabel}
+              maxValue={actualChartRange}
+              yAxisOffset={actualChartBottom}
+              xAxisColor={colors.borderLight}
+              yAxisColor="transparent"
+              rulesColor={colors.borderLight}
+              rulesType="solid"
+              noOfSections={4}
+              xAxisLabelTexts={actualXLabels}
+              xAxisLabelTextStyle={s.chartAxisLabel}
+              xAxisLabelsHeight={16}
+              labelsExtraHeight={36}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 212,
+                pointerStripWidth: 1,
+                pointerStripColor: colors.textTertiary + '88',
+                pointerColor: colors.primary,
+                radius: 5,
+                pointerLabelWidth: 162,
+                pointerLabelHeight: 68,
+                activatePointersOnLongPress: false,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  requestAnimationFrame(() => setActiveIdx(pointerIndex));
+                  const point = points[pointerIndex];
+                  if (!point) return null;
+                  return (
+                    <View style={s.pointerLabel}>
+                      <Text style={s.pointerDate}>{formatChartDate(point.date, window)}</Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: ClearLensSemanticColors.chart.invested }}>● </Text>
+                        Invested: {formatCurrency(point.investedValue)}
+                      </Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: colors.primary }}>● </Text>
+                        Fund: {formatCurrency(point.portfolioValue)}
+                      </Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: benchmarkColor }}>● </Text>
+                        {selectedLabel}: {formatCurrency(point.benchmarkValue)}
+                      </Text>
+                    </View>
+                  );
+                },
+              }}
+            />
+          </View>
+
+          <View style={s.returnSummary}>
+            {activeIdx !== null && (
+              <Text style={s.summaryDateLabel}>as of {formatChartDate(activePoint.date, window)}</Text>
+            )}
+            <View style={s.returnRow}>
+              <Text style={s.returnLabel}>Amount invested</Text>
+              <Text style={s.returnVal}>{formatCurrency(activePoint.investedValue)}</Text>
+            </View>
+            <View style={s.returnRow}>
+              <Text style={s.returnLabel}>Fund value</Text>
+              <Text style={[s.returnVal, { color: activeFundReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}>
+                {formatCurrency(activePoint.portfolioValue)} · {activeFundReturn >= 0 ? '+' : ''}{activeFundReturn.toFixed(2)}%
+              </Text>
+            </View>
+            <View style={s.returnRow}>
+              <Text style={s.returnLabel}>{selectedLabel} value</Text>
+              <Text style={[s.returnVal, { color: activeBenchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}>
+                {formatCurrency(activePoint.benchmarkValue)} · {activeBenchmarkReturn >= 0 ? '+' : ''}{activeBenchmarkReturn.toFixed(2)}%
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (fundRef && userId) {
+    return (
+      <View style={s.tabContent}>
+        <TimeWindowSelector selected={window} onChange={setWindow} />
+        <View style={s.noData}>
+          <Ionicons name="bar-chart-outline" size={32} color={colors.textTertiary} />
+          <Text style={s.noDataText}>Investment timeline is not available for this window.</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={s.tabContent}>
       {/* Period return comparison card */}
@@ -221,7 +509,7 @@ function PerformanceTab({
           <View style={s.comparisonCol}>
             <Text style={s.statLabel}>Your Fund ({window})</Text>
             <Text
-              style={[s.xirrValue, { color: navReturn >= 0 ? colors.positive : colors.negative }]}
+              style={[s.xirrValue, { color: navReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
               adjustsFontSizeToFit
               minimumFontScale={0.75}
               numberOfLines={1}
@@ -235,7 +523,10 @@ function PerformanceTab({
               <View style={s.comparisonCol}>
                 <Text style={s.statLabel}>{selectedLabel} ({window})</Text>
                 <Text
-                  style={[s.xirrValue, { color: benchmarkReturn >= 0 ? colors.positive : colors.negative }]}
+                  style={[
+                    s.xirrValue,
+                    { color: benchmarkReturnColor },
+                  ]}
                   adjustsFontSizeToFit
                   minimumFontScale={0.75}
                   numberOfLines={1}
@@ -246,9 +537,23 @@ function PerformanceTab({
             </>
           )}
         </View>
-        {hasBenchmarkData && (
-          <View style={s.verdictRow}>
-            <Text style={[s.verdictText, { color: isAhead ? colors.positive : colors.negative }]}>
+        {hasBenchmarkData && !isClearLens && (
+          <View
+            style={[
+              s.verdictRow,
+              isClearLens && {
+                marginTop: 0,
+                paddingHorizontal: ClearLensSpacing.sm,
+                paddingVertical: ClearLensSpacing.sm,
+                borderTopWidth: 0,
+                borderRadius: ClearLensRadii.md,
+                backgroundColor: isAhead
+                  ? ClearLensSemanticColors.sentiment.positiveSurface
+                  : ClearLensSemanticColors.sentiment.negativeSurface,
+              },
+            ]}
+          >
+            <Text style={[s.verdictText, { color: isAhead ? positiveMetricColor : negativeMetricColor }]}>
               {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
               {' by '}{Math.abs(diff).toFixed(1)}% vs {selectedLabel}
             </Text>
@@ -267,7 +572,11 @@ function PerformanceTab({
         {BENCHMARK_OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.symbol}
-            style={[s.benchmarkPill, selectedSymbol === opt.symbol && s.benchmarkPillActive]}
+            style={[
+              s.benchmarkPill,
+              selectedSymbol === opt.symbol && s.benchmarkPillActive,
+              selectedSymbol === opt.symbol && isClearLens && { backgroundColor: ClearLensColors.navy },
+            ]}
             onPress={() => setSelectedSymbol(opt.symbol)}
             activeOpacity={0.75}
           >
@@ -287,30 +596,31 @@ function PerformanceTab({
             </View>
             {hasBenchmarkData && (
               <View style={s.legendItem}>
-                <View style={[s.legendDot, { backgroundColor: '#f59e0b' }]} />
+                <View style={[s.legendDot, { backgroundColor: benchmarkColor }]} />
                 <Text style={s.legendLabel}>{selectedLabel}</Text>
               </View>
             )}
           </View>
 
-          <LineChart
+          <View style={s.chartWrap}>
+            <LineChart
               data={navPoints}
               data2={hasBenchmarkData ? benchmarkPoints : undefined}
-              width={CHART_WIDTH - 32}
+              width={perfChartBodyW}
               height={180}
               spacing={perfSpacing}
-              initialSpacing={0}
-              endSpacing={32}
+              initialSpacing={8}
+              endSpacing={8}
               hideDataPoints
               color1={colors.primary}
-              color2="#f59e0b"
+              color2={benchmarkColor}
               thickness1={3}
               thickness2={2.5}
               curved
               yAxisLabelWidth={32}
               formatYLabel={(v: string) => Number(v).toFixed(0)}
               yAxisTextStyle={s.chartAxisLabel}
-              maxValue={chartMaxValue}
+              maxValue={chartMaxValue - chartMostNegative}
               yAxisOffset={chartMostNegative}
               xAxisColor={colors.borderLight}
               yAxisColor="transparent"
@@ -358,7 +668,7 @@ function PerformanceTab({
                       )}
                       {benchVal !== undefined && (
                         <Text style={s.pointerSeriesText}>
-                          <Text style={{ color: '#f59e0b' }}>● </Text>
+                          <Text style={{ color: benchmarkColor }}>● </Text>
                           {selectedLabel}: {benchVal.toFixed(1)}
                         </Text>
                       )}
@@ -367,6 +677,7 @@ function PerformanceTab({
                 },
               }}
             />
+          </View>
 
           {/* Explainer */}
           <Text style={s.chartExplainer}>
@@ -387,14 +698,19 @@ function PerformanceTab({
             )}
             <View style={s.returnRow}>
               <Text style={s.returnLabel}>Fund</Text>
-              <Text style={[s.returnVal, { color: summaryNavReturn >= 0 ? colors.positive : colors.negative }]}>
+              <Text style={[s.returnVal, { color: summaryNavReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}>
                 {summaryNavReturn >= 0 ? '+' : ''}{summaryNavReturn.toFixed(2)}%
               </Text>
             </View>
             {hasBenchmarkData && summaryBenchReturn !== null && (
               <View style={s.returnRow}>
                 <Text style={s.returnLabel}>{selectedLabel}</Text>
-                <Text style={[s.returnVal, { color: summaryBenchReturn >= 0 ? colors.positive : colors.negative }]}>
+                <Text
+                  style={[
+                    s.returnVal,
+                    { color: summaryBenchReturn >= 0 ? positiveMetricColor : negativeMetricColor },
+                  ]}
+                >
                   {summaryBenchReturn >= 0 ? '+' : ''}{summaryBenchReturn.toFixed(2)}%
                 </Text>
               </View>
@@ -446,7 +762,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
 
   const NAV_Y_AXIS_W = 44;
   const navChartBodyW = CHART_WIDTH - 32 - NAV_Y_AXIS_W;
-  const navSpacing = sampledFiltered.length > 1 ? navChartBodyW / (sampledFiltered.length - 1) : 20;
+  const navSpacing = sampledFiltered.length > 1 ? Math.max(8, (navChartBodyW - 16) / (sampledFiltered.length - 1)) : 20;
 
   return (
     <View style={s.tabContent}>
@@ -454,61 +770,63 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
 
       {points.length > 1 ? (
         <View style={s.chartCard}>
-          <LineChart
-            data={points}
-            width={CHART_WIDTH - 32}
-            height={200}
-            spacing={navSpacing}
-            initialSpacing={0}
-            endSpacing={32}
-            hideDataPoints
-            color1={colors.primary}
-            thickness1={2.5}
-            curved
-            yAxisLabelWidth={44}
-            formatYLabel={(v: string) => {
-              const n = Number(v);
-              if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
-              return `₹${n.toFixed(0)}`;
-            }}
-            yAxisTextStyle={s.chartAxisLabel}
-            maxValue={navChartMax}
-            yAxisOffset={navChartMin}
-            xAxisColor={colors.borderLight}
-            yAxisColor="transparent"
-            rulesColor={colors.borderLight}
-            rulesType="solid"
-            noOfSections={4}
-            xAxisLabelTexts={xLabels}
-            xAxisLabelTextStyle={s.chartAxisLabel}
-            xAxisLabelsHeight={16}
-            labelsExtraHeight={40}
-            pointerConfig={{
-              showPointerStrip: true,
-              pointerStripHeight: 220,
-              pointerStripWidth: 1,
-              pointerStripColor: colors.textTertiary + '88',
-              pointerColor: colors.primary,
-              radius: 5,
-              pointerLabelWidth: 110,
-              pointerLabelHeight: 36,
-              activatePointersOnLongPress: false,
-              autoAdjustPointerLabelPosition: true,
-              pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                const p = sampledFiltered[pointerIndex];
-                if (!p) return null;
-                return (
-                  <View style={s.pointerLabel}>
-                    <Text style={s.pointerDate}>{formatChartDate(p.date, window)}</Text>
-                    <Text style={s.pointerSeriesText}>
-                      <Text style={{ color: colors.primary }}>● </Text>
-                      ₹{p.value.toFixed(4)}
-                    </Text>
-                  </View>
-                );
-              },
-            }}
-          />
+          <View style={s.chartWrap}>
+            <LineChart
+              data={points}
+              width={navChartBodyW}
+              height={200}
+              spacing={navSpacing}
+              initialSpacing={8}
+              endSpacing={8}
+              hideDataPoints
+              color1={colors.primary}
+              thickness1={2.5}
+              curved
+              yAxisLabelWidth={44}
+              formatYLabel={(v: string) => {
+                const n = Number(v);
+                if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+                return `₹${n.toFixed(0)}`;
+              }}
+              yAxisTextStyle={s.chartAxisLabel}
+              maxValue={navChartMax - navChartMin}
+              yAxisOffset={navChartMin}
+              xAxisColor={colors.borderLight}
+              yAxisColor="transparent"
+              rulesColor={colors.borderLight}
+              rulesType="solid"
+              noOfSections={4}
+              xAxisLabelTexts={xLabels}
+              xAxisLabelTextStyle={s.chartAxisLabel}
+              xAxisLabelsHeight={16}
+              labelsExtraHeight={40}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 220,
+                pointerStripWidth: 1,
+                pointerStripColor: colors.textTertiary + '88',
+                pointerColor: colors.primary,
+                radius: 5,
+                pointerLabelWidth: 110,
+                pointerLabelHeight: 36,
+                activatePointersOnLongPress: false,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  const p = sampledFiltered[pointerIndex];
+                  if (!p) return null;
+                  return (
+                    <View style={s.pointerLabel}>
+                      <Text style={s.pointerDate}>{formatChartDate(p.date, window)}</Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: colors.primary }}>● </Text>
+                        ₹{p.value.toFixed(4)}
+                      </Text>
+                    </View>
+                  );
+                },
+              }}
+            />
+          </View>
 
           <View style={s.navStatsRow}>
             <View style={s.navStat}>
@@ -561,8 +879,11 @@ function TechnicalDetailsCard({
   isin: string | null;
 }) {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
   const ts = useMemo(() => makeTechStyles(colors), [colors]);
-  const unsynced = !fundMetaSyncedAt;
+  const metaStatus = fundMetaSyncedAt
+    ? `as of ${formatNavDate(fundMetaSyncedAt.split('T')[0] ?? fundMetaSyncedAt)}`
+    : 'latest available';
 
   function openFactsheet() {
     const url = isin
@@ -572,25 +893,26 @@ function TechnicalDetailsCard({
   }
 
   return (
-    <View style={ts.card}>
+    <View style={[ts.card, isClearLens && ts.clearLensCard]}>
       <Text style={ts.title}>Technical Details</Text>
+      <Text style={ts.metaStatus}>{metaStatus}</Text>
       <View style={ts.row}>
         <View style={ts.cell}>
           <Text style={ts.label}>Expense Ratio</Text>
           <Text style={ts.value}>
-            {unsynced || expenseRatio == null ? '—' : `${expenseRatio.toFixed(2)}%`}
+            {expenseRatio == null ? 'Unavailable' : `${expenseRatio.toFixed(2)}%`}
           </Text>
         </View>
         <View style={ts.cell}>
           <Text style={ts.label}>AUM</Text>
           <Text style={ts.value}>
-            {unsynced || aumCr == null ? '—' : `₹${Math.round(aumCr).toLocaleString('en-IN')} Cr`}
+            {aumCr == null ? 'Unavailable' : `₹${Math.round(aumCr).toLocaleString('en-IN')} Cr`}
           </Text>
         </View>
         <View style={ts.cell}>
           <Text style={ts.label}>Min SIP</Text>
           <Text style={ts.value}>
-            {unsynced || minSipAmount == null ? '—' : `₹${minSipAmount.toLocaleString('en-IN')}`}
+            {minSipAmount == null ? 'Unavailable' : `₹${minSipAmount.toLocaleString('en-IN')}`}
           </Text>
         </View>
       </View>
@@ -612,11 +934,23 @@ function makeTechStyles(colors: AppColors) {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    clearLensCard: {
+      marginHorizontal: 0,
+      marginTop: 0,
+      borderRadius: ClearLensRadii.lg,
+      borderColor: ClearLensColors.border,
+      backgroundColor: ClearLensColors.surface,
+    },
     title: {
       ...Typography.label,
       color: colors.textSecondary,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
+      marginBottom: 2,
+    },
+    metaStatus: {
+      ...Typography.caption,
+      color: colors.textTertiary,
       marginBottom: Spacing.sm,
     },
     row: {
@@ -659,53 +993,99 @@ function makeTechStyles(colors: AppColors) {
 function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const { colors } = useTheme();
   const gs = useMemo(() => makeGrowthStyles(colors), [colors]);
-  const bars = computeQuarterlyReturns(navHistory, '#16a34a', '#dc2626');
+  const bars = computeQuarterlyReturns(navHistory, colors.positive, colors.negative);
   if (bars.length < 2) return null;
 
   const vals = bars.map((b) => Math.abs(b.value));
   const maxAbs = Math.max(...vals, 1);
-  const chartMax = maxAbs * 1.3;
+  const chartMax = Math.ceil(maxAbs * 1.2);
+  const chartWidth = CHART_WIDTH - 64;
+  const chartHeight = 176;
+  const plotTop = 18;
+  const plotBottom = 34;
+  const plotLeft = 34;
+  const plotRight = 8;
+  const plotWidth = chartWidth - plotLeft - plotRight;
+  const plotHeight = chartHeight - plotTop - plotBottom;
+  const zeroY = plotTop + plotHeight / 2;
+  const barGap = 7;
+  const barWidth = Math.max(12, Math.min(20, (plotWidth - barGap * (bars.length - 1)) / bars.length));
 
-  const barWidth = Math.min(20, Math.floor((CHART_WIDTH - 64) / bars.length) - 6);
-  const spacing = Math.max(4, Math.floor((CHART_WIDTH - 64 - barWidth * bars.length) / (bars.length + 1)));
+  function yFor(value: number): number {
+    return zeroY - (value / chartMax) * (plotHeight / 2);
+  }
 
   return (
     <View style={gs.card}>
       <Text style={gs.title}>Growth Consistency</Text>
       <Text style={gs.subtitle}>Quarterly returns (%)</Text>
-      <View style={{ marginTop: Spacing.xs }}>
-        <BarChart
-          data={bars}
-          width={CHART_WIDTH - 64}
-          height={140}
-          barWidth={barWidth}
-          spacing={spacing}
-          barBorderRadius={4}
-          initialSpacing={spacing}
-          maxValue={chartMax}
-          mostNegativeValue={-chartMax}
-          noOfSections={4}
-          isAnimated
-          hideRules={false}
-          rulesColor={colors.borderLight}
-          rulesType="solid"
-          xAxisColor={colors.borderLight}
-          yAxisColor="transparent"
-          yAxisTextStyle={gs.axisLabel}
-          xAxisLabelTextStyle={gs.axisLabel}
-          formatYLabel={(v: string) => `${Number(v).toFixed(0)}%`}
-          yAxisLabelWidth={36}
-          showValuesAsTopLabel
-          topLabelTextStyle={{ ...gs.barTopLabel }}
-          showFractionalValues
-          referenceLine1Config={{
-            color: colors.textTertiary,
-            dashWidth: 4,
-            dashGap: 4,
-            thickness: 1,
-          }}
-          referenceLine1Position={0}
-        />
+      <View style={gs.svgWrap}>
+        <Svg width={chartWidth} height={chartHeight}>
+          {[-1, -0.5, 0, 0.5, 1].map((tick) => {
+            const value = tick * chartMax;
+            const y = yFor(value);
+            return (
+              <G key={`tick-${tick}`}>
+                <SvgLine
+                  x1={plotLeft}
+                  x2={plotLeft + plotWidth}
+                  y1={y}
+                  y2={y}
+                  stroke={tick === 0 ? colors.textTertiary : colors.borderLight}
+                  strokeWidth={tick === 0 ? 1.2 : 1}
+                  strokeDasharray={tick === 0 ? undefined : '4 5'}
+                />
+                <SvgText
+                  x={plotLeft - 8}
+                  y={y + 4}
+                  fill={colors.textTertiary}
+                  fontSize={10}
+                  textAnchor="end"
+                >
+                  {`${Math.round(value)}%`}
+                </SvgText>
+              </G>
+            );
+          })}
+          {bars.map((bar, index) => {
+            const x = plotLeft + index * (barWidth + barGap);
+            const positive = bar.value >= 0;
+            const y = positive ? yFor(bar.value) : zeroY;
+            const height = Math.max(3, Math.abs(yFor(bar.value) - zeroY));
+            const labelY = positive ? y - 5 : y + height + 12;
+            return (
+              <G key={bar.label}>
+                <SvgRect
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={height}
+                  rx={4}
+                  fill={bar.frontColor}
+                />
+                <SvgText
+                  x={x + barWidth / 2}
+                  y={labelY}
+                  fill={positive ? colors.positive : colors.negative}
+                  fontSize={9}
+                  fontWeight="600"
+                  textAnchor="middle"
+                >
+                  {bar.value.toFixed(Math.abs(bar.value) >= 10 ? 1 : 2)}
+                </SvgText>
+                <SvgText
+                  x={x + barWidth / 2}
+                  y={chartHeight - 10}
+                  fill={colors.textTertiary}
+                  fontSize={9}
+                  textAnchor="middle"
+                >
+                  {bar.label}
+                </SvgText>
+              </G>
+            );
+          })}
+        </Svg>
       </View>
       <View style={gs.legend}>
         <View style={gs.legendItem}>
@@ -742,6 +1122,11 @@ function makeGrowthStyles(colors: AppColors) {
     subtitle: {
       ...Typography.caption,
       color: colors.textTertiary,
+    },
+    svgWrap: {
+      marginTop: Spacing.xs,
+      alignItems: 'center',
+      overflow: 'hidden',
     },
     axisLabel: { fontSize: 10, color: colors.textTertiary },
     barTopLabel: { fontSize: 9, color: colors.textSecondary },
@@ -912,25 +1297,30 @@ function makeDonutStyles(colors: AppColors) {
 // Fund Composition Tab
 // ---------------------------------------------------------------------------
 
-const COMP_ASSET_COLORS = {
-  equity: '#ef4444',
-  debt: '#3b82f6',
-  cash: '#f97316',
-  other: '#a78bfa',
-};
-
-const COMP_CAP_COLORS = {
-  large: '#3b82f6',
-  mid: '#f97316',
-  small: '#ef4444',
-  other: '#a78bfa',
-};
-
 function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const cs = useMemo(() => makeCompStyles(colors), [colors]);
   const { composition, isLoading } = useFundComposition(schemeCode);
+  const compAssetColors = useMemo(
+    () => ({
+      equity: isClearLens ? ClearLensSemanticColors.asset.equity : colors.positive,
+      debt: isClearLens ? ClearLensSemanticColors.asset.debt : colors.primaryDark,
+      cash: isClearLens ? ClearLensSemanticColors.asset.cash : colors.primaryLight,
+      other: isClearLens ? ClearLensSemanticColors.asset.other : colors.borderLight,
+    }),
+    [colors.borderLight, colors.positive, colors.primaryDark, colors.primaryLight, isClearLens],
+  );
+  const compCapColors = useMemo(
+    () => ({
+      large: isClearLens ? ClearLensSemanticColors.marketCap.large : colors.primaryDark,
+      mid: isClearLens ? ClearLensSemanticColors.marketCap.mid : colors.positive,
+      small: isClearLens ? ClearLensSemanticColors.marketCap.small : colors.textSecondary,
+      other: isClearLens ? ClearLensSemanticColors.marketCap.other : colors.borderLight,
+    }),
+    [colors.borderLight, colors.positive, colors.primaryDark, colors.textSecondary, isClearLens],
+  );
 
   if (isLoading) {
     return (
@@ -964,43 +1354,43 @@ function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
         <Text style={cs.cardTitle}>Asset Mix</Text>
         <View style={cs.stackedBar}>
           {composition.equityPct > 0.5 && (
-            <View style={[cs.barSeg, { flex: composition.equityPct, backgroundColor: COMP_ASSET_COLORS.equity }]} />
+            <View style={[cs.barSeg, { flex: composition.equityPct, backgroundColor: compAssetColors.equity }]} />
           )}
           {composition.debtPct > 0.5 && (
-            <View style={[cs.barSeg, { flex: composition.debtPct, backgroundColor: COMP_ASSET_COLORS.debt }]} />
+            <View style={[cs.barSeg, { flex: composition.debtPct, backgroundColor: compAssetColors.debt }]} />
           )}
           {composition.cashPct > 0.5 && (
-            <View style={[cs.barSeg, { flex: composition.cashPct, backgroundColor: COMP_ASSET_COLORS.cash }]} />
+            <View style={[cs.barSeg, { flex: composition.cashPct, backgroundColor: compAssetColors.cash }]} />
           )}
           {composition.otherPct > 0.5 && (
-            <View style={[cs.barSeg, { flex: composition.otherPct, backgroundColor: COMP_ASSET_COLORS.other }]} />
+            <View style={[cs.barSeg, { flex: composition.otherPct, backgroundColor: compAssetColors.other }]} />
           )}
         </View>
         <View style={cs.assetRow}>
           {composition.equityPct > 0 && (
             <View style={cs.assetItem}>
-              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.equity }]} />
+              <View style={[cs.assetDot, { backgroundColor: compAssetColors.equity }]} />
               <Text style={cs.assetLabel}>Equity</Text>
               <Text style={cs.assetValue}>{composition.equityPct.toFixed(1)}%</Text>
             </View>
           )}
           {composition.debtPct > 0 && (
             <View style={cs.assetItem}>
-              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.debt }]} />
+              <View style={[cs.assetDot, { backgroundColor: compAssetColors.debt }]} />
               <Text style={cs.assetLabel}>Debt</Text>
               <Text style={cs.assetValue}>{composition.debtPct.toFixed(1)}%</Text>
             </View>
           )}
           {composition.cashPct > 0 && (
             <View style={cs.assetItem}>
-              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.cash }]} />
+              <View style={[cs.assetDot, { backgroundColor: compAssetColors.cash }]} />
               <Text style={cs.assetLabel}>Cash</Text>
               <Text style={cs.assetValue}>{composition.cashPct.toFixed(1)}%</Text>
             </View>
           )}
           {composition.otherPct > 0 && (
             <View style={cs.assetItem}>
-              <View style={[cs.assetDot, { backgroundColor: COMP_ASSET_COLORS.other }]} />
+              <View style={[cs.assetDot, { backgroundColor: compAssetColors.other }]} />
               <Text style={cs.assetLabel}>Other</Text>
               <Text style={cs.assetValue}>{composition.otherPct.toFixed(1)}%</Text>
             </View>
@@ -1014,36 +1404,36 @@ function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
           <Text style={cs.cardTitle}>Market Cap Mix</Text>
           <View style={cs.stackedBar}>
             {(composition.largeCapPct ?? 0) > 0.5 && (
-              <View style={[cs.barSeg, { flex: composition.largeCapPct!, backgroundColor: COMP_CAP_COLORS.large }]} />
+              <View style={[cs.barSeg, { flex: composition.largeCapPct!, backgroundColor: compCapColors.large }]} />
             )}
             {(composition.midCapPct ?? 0) > 0.5 && (
-              <View style={[cs.barSeg, { flex: composition.midCapPct!, backgroundColor: COMP_CAP_COLORS.mid }]} />
+              <View style={[cs.barSeg, { flex: composition.midCapPct!, backgroundColor: compCapColors.mid }]} />
             )}
             {(composition.smallCapPct ?? 0) > 0.5 && (
-              <View style={[cs.barSeg, { flex: composition.smallCapPct!, backgroundColor: COMP_CAP_COLORS.small }]} />
+              <View style={[cs.barSeg, { flex: composition.smallCapPct!, backgroundColor: compCapColors.small }]} />
             )}
             {(composition.notClassifiedPct ?? 0) > 0.5 && (
-              <View style={[cs.barSeg, { flex: composition.notClassifiedPct!, backgroundColor: COMP_CAP_COLORS.other }]} />
+              <View style={[cs.barSeg, { flex: composition.notClassifiedPct!, backgroundColor: compCapColors.other }]} />
             )}
           </View>
           <View style={cs.assetRow}>
             {(composition.largeCapPct ?? 0) > 0 && (
               <View style={cs.assetItem}>
-                <View style={[cs.assetDot, { backgroundColor: COMP_CAP_COLORS.large }]} />
+                <View style={[cs.assetDot, { backgroundColor: compCapColors.large }]} />
                 <Text style={cs.assetLabel}>Large</Text>
                 <Text style={cs.assetValue}>{composition.largeCapPct!.toFixed(1)}%</Text>
               </View>
             )}
             {(composition.midCapPct ?? 0) > 0 && (
               <View style={cs.assetItem}>
-                <View style={[cs.assetDot, { backgroundColor: COMP_CAP_COLORS.mid }]} />
+                <View style={[cs.assetDot, { backgroundColor: compCapColors.mid }]} />
                 <Text style={cs.assetLabel}>Mid</Text>
                 <Text style={cs.assetValue}>{composition.midCapPct!.toFixed(1)}%</Text>
               </View>
             )}
             {(composition.smallCapPct ?? 0) > 0 && (
               <View style={cs.assetItem}>
-                <View style={[cs.assetDot, { backgroundColor: COMP_CAP_COLORS.small }]} />
+                <View style={[cs.assetDot, { backgroundColor: compCapColors.small }]} />
                 <Text style={cs.assetLabel}>Small</Text>
                 <Text style={cs.assetValue}>{composition.smallCapPct!.toFixed(1)}%</Text>
               </View>
@@ -1191,7 +1581,7 @@ function makeCompStyles(colors: AppColors) {
 
 // ---------------------------------------------------------------------------
 
-export default function FundDetailScreen() {
+function ClassicFundDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
@@ -1329,6 +1719,315 @@ export default function FundDetailScreen() {
   );
 }
 
+type ClearLensFundTab = 'performance' | 'nav' | 'composition';
+
+function ClearLensFundDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<ClearLensFundTab>('performance');
+  const { data, isLoading, isError } = useFundDetail(id);
+  const { session } = useSession();
+  const userId = session?.user.id;
+
+  if (isLoading) {
+    return (
+      <ClearLensScreen>
+        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+        <View style={clearDetailStyles.centered}>
+          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+        </View>
+      </ClearLensScreen>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <ClearLensScreen>
+        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+        <View style={clearDetailStyles.centered}>
+          <Ionicons name="alert-circle-outline" size={40} color={ClearLensColors.textTertiary} />
+          <Text style={clearDetailStyles.errorText}>Couldn&apos;t load fund data</Text>
+        </View>
+      </ClearLensScreen>
+    );
+  }
+
+  const latestNavDate = data.navHistory[data.navHistory.length - 1]?.date ?? null;
+  const todayIso = new Date().toISOString().split('T')[0];
+  const navIsStale = latestNavDate !== null && latestNavDate !== todayIso;
+  const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
+  const gainPct = gain !== null && data.investedAmount > 0 ? (gain / data.investedAmount) * 100 : null;
+  const hasSignalRow = (gain !== null && gainPct !== null) || Number.isFinite(data.fundXirr);
+
+  return (
+    <ClearLensScreen>
+      <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+      <ScrollView contentContainerStyle={clearDetailStyles.scroll} showsVerticalScrollIndicator={false}>
+        <ClearLensCard style={clearDetailStyles.heroCard}>
+          <View style={clearDetailStyles.heroTitleRow}>
+            <View style={clearDetailStyles.heroTitleBlock}>
+              <Text style={clearDetailStyles.fundName}>{data.schemeName}</Text>
+              <Text style={clearDetailStyles.category}>{data.schemeCategory || 'Fund'}</Text>
+            </View>
+          </View>
+
+          <View style={clearDetailStyles.statsRow}>
+            <View style={clearDetailStyles.statCell}>
+              <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Current value</Text>
+              <Text style={clearDetailStyles.statValue}>
+                {data.currentValue !== null ? formatCurrency(data.currentValue) : 'NAV pending'}
+              </Text>
+              {navIsStale && latestNavDate && (
+                <Text style={clearDetailStyles.statHint}>as of {formatNavDate(latestNavDate)}</Text>
+              )}
+            </View>
+            <View style={clearDetailStyles.statCell}>
+              <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Invested</Text>
+              <Text style={clearDetailStyles.statValue}>{formatCurrency(data.investedAmount)}</Text>
+            </View>
+            <View style={clearDetailStyles.statCell}>
+              <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Units</Text>
+              <Text style={clearDetailStyles.statValue}>{data.currentUnits.toFixed(3)}</Text>
+            </View>
+          </View>
+
+          {hasSignalRow && (
+            <View style={clearDetailStyles.signalBox}>
+              {gain !== null && gainPct !== null && (
+                <View style={clearDetailStyles.signalCell}>
+                  <Text style={clearDetailStyles.statLabel}>Gain</Text>
+                  <Text style={[clearDetailStyles.signalValue, { color: gain >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative }]}>
+                    {formatClearLensCurrencyDelta(gain)}
+                    <Text style={clearDetailStyles.signalInline}> ({formatClearLensPercentDelta(gainPct, 1)})</Text>
+                  </Text>
+                </View>
+              )}
+              {gain !== null && gainPct !== null && Number.isFinite(data.fundXirr) && (
+                <View style={clearDetailStyles.signalDivider} />
+              )}
+              {Number.isFinite(data.fundXirr) && (
+                <View style={clearDetailStyles.signalCell}>
+                  <Text style={clearDetailStyles.statLabel}>XIRR</Text>
+                  <View style={clearDetailStyles.xirrSignalLine}>
+                    <Text style={[clearDetailStyles.signalValue, { color: data.fundXirr >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative }]}>
+                      {formatXirr(data.fundXirr)}
+                    </Text>
+                    <Text style={clearDetailStyles.xirrHint}>p.a.</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+        </ClearLensCard>
+
+        <ClearLensSegmentedControl
+          selected={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: 'performance', label: 'Performance' },
+            { value: 'nav', label: 'NAV History' },
+            { value: 'composition', label: 'Composition' },
+          ]}
+        />
+
+        {activeTab === 'performance' && (
+          <>
+            <PerformanceTab
+              navHistory={data.navHistory}
+              defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
+              fundRef={{ id: data.id, schemeCode: data.schemeCode }}
+              userId={userId}
+            />
+            <TechnicalDetailsCard
+              expenseRatio={data.expenseRatio}
+              aumCr={data.aumCr}
+              minSipAmount={data.minSipAmount}
+              fundMetaSyncedAt={data.fundMetaSyncedAt}
+              schemeCode={data.schemeCode}
+              isin={data.isin}
+            />
+            <GrowthConsistencyChart navHistory={data.navHistory} />
+            <PortfolioHealthDonut fundId={data.id} currentValue={data.currentValue} />
+          </>
+        )}
+
+        {activeTab === 'nav' && (
+          <>
+            <NavHistoryTab navHistory={data.navHistory} />
+            <TechnicalDetailsCard
+              expenseRatio={data.expenseRatio}
+              aumCr={data.aumCr}
+              minSipAmount={data.minSipAmount}
+              fundMetaSyncedAt={data.fundMetaSyncedAt}
+              schemeCode={data.schemeCode}
+              isin={data.isin}
+            />
+          </>
+        )}
+
+        {activeTab === 'composition' && (
+          <FundCompositionTab schemeCode={data.schemeCode} />
+        )}
+      </ScrollView>
+    </ClearLensScreen>
+  );
+}
+
+export default function FundDetailScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: !isClearLens, title: '' }} />
+      {isClearLens ? <ClearLensFundDetailScreen /> : <ClassicFundDetailScreen />}
+    </>
+  );
+}
+
+const clearDetailStyles = StyleSheet.create({
+  scroll: {
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingBottom: ClearLensSpacing.xxl,
+    gap: ClearLensSpacing.md,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.md,
+  },
+  errorText: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textSecondary,
+  },
+  heroCard: {
+    gap: ClearLensSpacing.md,
+  },
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.sm,
+  },
+  heroTitleBlock: {
+    flex: 1,
+    gap: 5,
+  },
+  fundName: {
+    ...ClearLensTypography.h2,
+    color: ClearLensColors.navy,
+  },
+  category: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  statCell: {
+    flex: 1,
+    gap: 4,
+  },
+  statLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+    fontSize: 10,
+    letterSpacing: 0.7,
+  },
+  statValue: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.navy,
+  },
+  statHint: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    fontStyle: 'italic',
+  },
+  gainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    flexWrap: 'wrap',
+  },
+  gainValue: {
+    ...ClearLensTypography.h3,
+  },
+  signalBox: {
+    minHeight: 56,
+    padding: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  signalCell: {
+    flex: 1,
+    gap: 3,
+  },
+  signalDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: ClearLensColors.mint,
+  },
+  signalValue: {
+    ...ClearLensTypography.h3,
+  },
+  signalInline: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.medium,
+  },
+  xirrSignalLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: ClearLensSpacing.xs,
+    flexWrap: 'wrap',
+  },
+  xirrRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.xs,
+    flexWrap: 'wrap',
+  },
+  xirrValue: {
+    ...ClearLensTypography.h3,
+  },
+  xirrHint: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+  },
+  benchmarkPill: {
+    minHeight: 40,
+    alignSelf: 'flex-end',
+    marginTop: -ClearLensSpacing.xs,
+    paddingHorizontal: ClearLensSpacing.md,
+    borderRadius: ClearLensRadii.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+  },
+  benchmarkPillNegative: {
+    backgroundColor: ClearLensSemanticColors.sentiment.negativeSurface,
+  },
+  benchmarkPillText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensSemanticColors.sentiment.positiveText,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  benchmarkPillTextNegative: {
+    color: ClearLensSemanticColors.sentiment.negativeText,
+  },
+  noteCard: {
+    marginHorizontal: ClearLensSpacing.md,
+  },
+  noteText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textSecondary,
+  },
+});
+
 function makeStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -1421,7 +2120,11 @@ function makeStyles(colors: AppColors) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    chartLegendRow: { flexDirection: 'row', gap: 16 },
+    chartWrap: {
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    chartLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 10, height: 10, borderRadius: 5 },
     legendLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const },
@@ -1448,7 +2151,7 @@ function makeStyles(colors: AppColors) {
     },
     windowPillActive: { backgroundColor: colors.primary },
     windowPillText: { fontSize: 12, fontWeight: '600' as const, color: colors.textTertiary },
-    windowPillTextActive: { color: '#fff' },
+    windowPillTextActive: { color: colors.textOnDark },
 
     chartAxisLabel: { fontSize: 9, color: colors.textTertiary },
 
@@ -1479,7 +2182,7 @@ function makeStyles(colors: AppColors) {
     },
     benchmarkPillActive: { backgroundColor: colors.primary },
     benchmarkPillText: { fontSize: 11, fontWeight: '600' as const, color: colors.textTertiary },
-    benchmarkPillTextActive: { color: '#fff' },
+    benchmarkPillTextActive: { color: colors.textOnDark },
 
     pointerLabel: {
       backgroundColor: colors.surface,
