@@ -37,12 +37,16 @@ export function ClearLensHeader({
   onPressBack,
   title,
   showTagline = false,
+  accountLabel,
 }: {
   onPressMenu?: () => void;
   onPressBack?: () => void;
   title?: string;
   showTagline?: boolean;
+  accountLabel?: string | null;
 }) {
+  const accountInitial = getAccountInitial(accountLabel);
+
   return (
     <View style={styles.header}>
       {onPressBack ? (
@@ -56,14 +60,29 @@ export function ClearLensHeader({
       {title ? <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text> : <View style={styles.headerSpacer} />}
 
       {onPressMenu ? (
-        <TouchableOpacity onPress={onPressMenu} style={styles.iconButton} activeOpacity={0.75}>
-          <Ionicons name="ellipsis-horizontal" size={22} color={ClearLensColors.navy} />
+        <TouchableOpacity
+          onPress={onPressMenu}
+          style={styles.accountButton}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel="Open account menu"
+        >
+          <Text style={styles.accountInitial}>{accountInitial}</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.iconButtonGhost} />
       )}
     </View>
   );
+}
+
+function getAccountInitial(label?: string | null): string {
+  const trimmed = label?.trim();
+  if (!trimmed) return '?';
+
+  const namePart = trimmed.includes('@') ? trimmed.split('@')[0] : trimmed;
+  const firstLetter = namePart.match(/[A-Za-z0-9]/)?.[0];
+  return firstLetter ? firstLetter.toUpperCase() : '?';
 }
 
 export function ClearLensSegmentedControl<T extends string>({
@@ -187,6 +206,21 @@ const styles = StyleSheet.create({
   iconButtonGhost: {
     width: 40,
     height: 40,
+  },
+  accountButton: {
+    width: 34,
+    height: 34,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.accountSurface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.accountBorder,
+  },
+  accountInitial: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.slate,
+    fontWeight: '700',
   },
   segmented: {
     flexDirection: 'row',

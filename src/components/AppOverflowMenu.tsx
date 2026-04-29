@@ -1,8 +1,9 @@
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/context/ThemeContext';
 import { Radii, Spacing } from '@/src/constants/theme';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { supabase } from '@/src/lib/supabase';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -34,6 +35,15 @@ export function AppOverflowMenu({
   const { colors } = useTheme();
   const { isClearLens } = useAppDesignMode();
   const activeColors = isClearLens ? ClearLensColors : colors;
+  const dangerColor = isClearLens ? ClearLensColors.negative : colors.negative;
+
+  async function handleSignOut() {
+    onClose();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert('Sign out failed', error.message);
+    }
+  }
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -91,6 +101,16 @@ export function AppOverflowMenu({
           >
             <Ionicons name="settings-outline" size={18} color={activeColors.textPrimary} />
             <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Settings</Text>
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
+
+          <TouchableOpacity
+            style={[styles.item, isClearLens && styles.clearItem]}
+            onPress={handleSignOut}
+          >
+            <Ionicons name="log-out-outline" size={18} color={dangerColor} />
+            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: dangerColor }]}>Log out</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>

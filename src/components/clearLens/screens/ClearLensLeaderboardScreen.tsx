@@ -217,6 +217,8 @@ export function ClearLensLeaderboardScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
+  const accountMetadata = session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
+  const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
   const [benchmarkSymbol, setBenchmarkSymbol] = useState(defaultBenchmarkSymbol);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -273,7 +275,11 @@ export function ClearLensLeaderboardScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader onPressMenu={() => setOverflowOpen(true)} showTagline />
+      <ClearLensHeader
+        onPressMenu={() => setOverflowOpen(true)}
+        showTagline
+        accountLabel={accountLabel}
+      />
       <AppOverflowMenu
         visible={overflowOpen}
         syncState={syncState}

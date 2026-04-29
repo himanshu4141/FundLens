@@ -558,6 +558,8 @@ export function ClearLensWealthJourneyScreen() {
   const { width: viewportWidth } = useWindowDimensions();
   const { session } = useSession();
   const userId = session?.user.id;
+  const accountMetadata = session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
+  const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [screenMode, setScreenMode] = useState<ScreenMode>('home');
@@ -996,6 +998,7 @@ export function ClearLensWealthJourneyScreen() {
         showTagline={screenMode === 'home'}
         onPressBack={screenMode === 'home' ? undefined : () => setScreenMode('home')}
         onPressMenu={screenMode === 'home' ? () => setOverflowOpen(true) : undefined}
+        accountLabel={accountLabel}
       />
       <AppOverflowMenu
         visible={overflowOpen}
