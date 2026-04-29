@@ -72,6 +72,7 @@ Primary screens should compose these primitives before adding screen-specific st
 ## Data Visualization
 
 - Portfolio chart: show amount invested, real portfolio worth, and benchmark worth in rupees.
+- Money Trail: show financial-year invested/withdrawn/net-invested summaries with compact bars; keep transaction rows minimal and place units, NAV, and calculation flags in detail.
 - Fund detail performance: fund vs benchmark, with period controls.
 - Composition: use semantic asset and market-cap colors.
 - Portfolio Insights holdings: show up to 30 holdings, 10 per page, with icon chevrons for paging.

@@ -160,6 +160,7 @@ function FundListItem({
   expanded,
   onToggle,
   onOpen,
+  onOpenTransactions,
   latestNavDate,
 }: {
   fund: FundCardData;
@@ -167,6 +168,7 @@ function FundListItem({
   expanded: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onOpenTransactions: () => void;
   latestNavDate: string | null;
 }) {
   const { base, planBadge } = parseFundName(fund.schemeName);
@@ -254,6 +256,16 @@ function FundListItem({
               <FundSparkline data={sparklineData} color={categoryColor} />
             </View>
           )}
+
+          <TouchableOpacity
+            style={styles.transactionsAction}
+            onPress={onOpenTransactions}
+            activeOpacity={0.76}
+          >
+            <Ionicons name="receipt-outline" size={18} color={ClearLensColors.emeraldDeep} />
+            <Text style={styles.transactionsActionText}>View transactions</Text>
+            <Ionicons name="arrow-forward" size={16} color={ClearLensColors.emeraldDeep} />
+          </TouchableOpacity>
         </View>
       )}
     </ClearLensCard>
@@ -586,6 +598,7 @@ export function ClearLensFundsScreen({ insideTab = false }: { insideTab?: boolea
               expanded={expandedFundId === fund.id}
               onToggle={() => setExpandedFundId((current) => current === fund.id ? null : fund.id)}
               onOpen={() => router.push(`/fund/${fund.id}`)}
+              onOpenTransactions={() => router.push(`/money-trail?fundId=${fund.id}`)}
             />
           ))}
         </ScrollView>
@@ -880,6 +893,23 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.md,
     backgroundColor: ClearLensColors.mint50,
     overflow: 'hidden',
+  },
+  transactionsAction: {
+    minHeight: 44,
+    paddingHorizontal: ClearLensSpacing.md,
+    borderRadius: ClearLensRadii.md,
+    borderWidth: 1,
+    borderColor: ClearLensColors.borderLight,
+    backgroundColor: ClearLensColors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  transactionsActionText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.emeraldDeep,
+    fontFamily: ClearLensFonts.bold,
   },
   backdrop: {
     flex: 1,

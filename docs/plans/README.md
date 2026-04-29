@@ -7,6 +7,7 @@
 | Plan | Branch | What it covers |
 |---|---|---|
 | `phase-3-clear-lens-design-mode/M1-clear-lens-design-mode.md` | `codex/clear-lens-design-mode` | Clear Lens default design mode; tokens and logo; redesigned Portfolio, Insights, Your Funds, Fund Detail, Leaderboard, Wealth Journey, and supporting screens |
+| `phase-3-clear-lens-design-mode/M2-money-trail.md` | `feature/money-trail` | Money Trail transaction history on Clear Lens; portfolio preview, entry points, transaction browsing, detail, filters, sorting, CSV export, and calculation alignment |
 
 ---
 

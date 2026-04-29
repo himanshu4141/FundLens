@@ -13,8 +13,9 @@ Primary bottom tabs:
 Secondary navigation:
 
 - `Settings` is hidden from the tab bar and opened from the shared header overflow menu.
-- `Portfolio Insights` and `Fund Detail` are stack routes from Portfolio and fund rows.
+- `Portfolio Insights`, `Your Funds`, and `Fund Detail` are stack routes from Portfolio and fund rows.
 - `Tools Hub` is a stack route reachable from the Portfolio entry rows and the Wealth Journey "Explore more tools" link. Clear Lens only.
+- `Money Trail` is a stack route from Portfolio preview, Quick Actions, Your Funds expanded rows, and Fund Detail.
 - `Leaderboard` is hidden legacy chrome in Clear Lens for now; classic keeps its tab.
 - `Onboarding / Import CAS` and `PDF Upload` are utility flows used for first-run import and later portfolio maintenance.
 - `Compare` remains a hidden legacy route for transition and deep-link safety.
@@ -38,6 +39,7 @@ Clear Lens includes:
 - `How your money grew` chart with invested, portfolio, and benchmark worth
 - range controls: `1M`, `3M`, `6M`, `1Y`, `3Y`, `All`
 - today's best and worst movers with arrowed signed deltas
+- Money Trail preview with Indian-financial-year invested, withdrawn, and net-invested summary
 - allocation preview when composition data is available
 - entries for `Portfolio Insights`, `Your Funds`, and the Wealth Journey teaser path
 - loading, empty, sync-requested, sync-error, and pull-to-refresh states
@@ -67,13 +69,14 @@ Includes:
 - search
 - sort bottom sheet with current value, invested amount, XIRR, benchmark lead, and alphabetical options
 - compact fund rows with value and portfolio share
-- expandable fund cards with Today, XIRR, invested, gain/loss, redeemed, booked P&L, NAV staleness, and filled sparkline when available
+- expandable fund cards with Today, XIRR, invested, gain/loss, redeemed, booked P&L, NAV staleness, filled sparkline when available, and `View transactions`
 
 ### 4. Fund Detail
 
 Clear Lens Fund Detail includes:
 
 - hero card with fund name, category, current value, invested amount, units, gain/loss, and XIRR
+- `View fund transactions` entry to Money Trail pre-filtered for the fund
 - tabs: `Performance`, `NAV History`, `Composition`
 - Performance chart and growth consistency
 - NAV History chart and period stats
@@ -82,7 +85,26 @@ Clear Lens Fund Detail includes:
 
 Classic Fund Detail remains available when the design switch is set to classic.
 
-### 5. Leaderboard
+### 5. Money Trail
+
+Accessible from Portfolio preview, Quick Actions, expanded fund rows, and Fund Detail.
+
+Shows CAS-derived transaction history:
+
+- header summary for total invested, withdrawn, net invested, and transaction count
+- annual summaries by Indian financial year
+- search by fund, type, amount, AMC, folio, and reference
+- sort bottom sheet for date, amount, and fund-name ordering
+- filter bottom sheet for date preset/custom range, transaction type, direction, AMC, fund, amount range, and hidden/reversed inclusion
+- active filter chips and clear-filters action
+- clean transaction rows with type, fund, date, amount, and status
+- full-screen transaction detail with folio, units, NAV, optional details, and how FundLens uses the transaction
+- CSV export for the currently visible filtered and sorted list
+- empty/no-results/error states
+
+Failed, reversed, and confidently matched reversal pairs are hidden by default. Switches and reinvested dividends are shown as internal movement so they do not inflate Money Trail net invested.
+
+### 6. Leaderboard
 
 The classic Leaderboard tab ranks existing holdings against the selected benchmark. Clear Lens keeps the screen implementation available for future iteration, but the bottom tab currently points to `Funds`.
 
@@ -94,7 +116,7 @@ Clear Lens includes:
 - ranked fund cards with current value, XIRR, alpha in percentage points, and daily delta
 - loading, empty, retry/error, and overflow-menu sync/import/settings states
 
-### 6. Wealth Journey
+### 7. Wealth Journey
 
 The Wealth Journey tab models future wealth and withdrawal-income scenarios from the real portfolio.
 
@@ -107,7 +129,7 @@ Clear Lens includes:
 - edit-SIP modal with detected and manual SIP paths
 - persisted Zustand `wealthJourney` state shared with classic mode
 
-### 7. Settings
+### 8. Settings
 
 Settings is hidden from tabs and opened from the overflow menu.
 
@@ -121,7 +143,7 @@ Includes:
 - import tools, CAS address, PAN management, PDF upload shortcut
 - sign out
 
-### 8. Tools Hub
+### 9. Tools Hub
 
 Stack route (`/tools`). Clear Lens only — not a bottom tab in this phase.
 
@@ -143,7 +165,7 @@ Includes:
 
 Feature flags live in `appStore.toolsFlags`. All flags default to `false`. Each is flipped to `true` when the corresponding tool milestone ships.
 
-### 9. Onboarding / Import CAS
+### 10. Onboarding / Import CAS
 
 Reusable for first-run onboarding and later imports.
 

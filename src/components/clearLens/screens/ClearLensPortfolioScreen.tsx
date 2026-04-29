@@ -27,11 +27,13 @@ import {
   useInvestmentVsBenchmarkTimeline,
   type InvestmentVsBenchmarkPoint,
 } from '@/src/hooks/useInvestmentVsBenchmarkTimeline';
+import { useMoneyTrail } from '@/src/hooks/useMoneyTrail';
 import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
 import type { TimeWindow } from '@/src/utils/navUtils';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
+import { MoneyTrailPreviewCard } from '@/src/components/clearLens/MoneyTrailPreviewCard';
 import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
@@ -867,6 +869,7 @@ export function ClearLensPortfolioScreen() {
     [fundCards],
   );
   const { insights, isLoading: insightsLoading } = usePortfolioInsights(fundCards);
+  const { data: moneyTrailData, isLoading: moneyTrailLoading } = useMoneyTrail();
 
   return (
     <ClearLensScreen>
@@ -881,6 +884,7 @@ export function ClearLensPortfolioScreen() {
         onClose={() => setOverflowOpen(false)}
         onSync={handleSync}
         onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onMoneyTrail={() => router.push('/money-trail')}
         onSettings={() => router.push('/(tabs)/settings')}
         onTools={() => router.push('/tools' as never)}
       />
@@ -941,6 +945,18 @@ export function ClearLensPortfolioScreen() {
             userId={userId}
             benchmarkSymbol={defaultBenchmarkSymbol}
           />
+
+          {moneyTrailData ? (
+            <MoneyTrailPreviewCard
+              annualFlows={moneyTrailData.annualFlows}
+              summary={moneyTrailData.summary}
+              onPress={() => router.push('/money-trail')}
+            />
+          ) : moneyTrailLoading ? (
+            <ClearLensCard style={styles.sectionCard}>
+              <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+            </ClearLensCard>
+          ) : null}
 
           <MoversRow fundCards={fundCards} />
 
