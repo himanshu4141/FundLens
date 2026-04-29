@@ -10,13 +10,117 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
-import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
+import {
+  FileSystemUploadType,
+  getInfoAsync,
+  uploadAsync,
+} from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
 import { Colors, Radii, Spacing, Typography } from '@/src/constants/theme';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
+type UploadResult = { funds: number; transactions: number };
+type UploadResponse = { funds?: number; transactions?: number; error?: string };
+
+function getParseCasPdfUrl() {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) throw new Error('Supabase URL is not configured.');
+  return `${supabaseUrl}/functions/v1/parse-cas-pdf`;
+}
+
+function getUploadHeaders(token: string, fileName: string): Record<string, string> {
+  const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!publishableKey) throw new Error('Supabase publishable key is not configured.');
+
+  return {
+    Authorization: `Bearer ${token}`,
+    apikey: publishableKey,
+    'Content-Type': 'application/octet-stream',
+    'x-file-name': fileName,
+  };
+}
+
+function parseUploadResponse(status: number, bodyText: string): UploadResult {
+  let body: UploadResponse = {};
+  try {
+    body = bodyText ? JSON.parse(bodyText) as UploadResponse : {};
+  } catch {
+    throw new Error(`Import failed (${status})`);
+  }
+
+  if (status >= 200 && status < 300) {
+    return { funds: body.funds ?? 0, transactions: body.transactions ?? 0 };
+  }
+
+  throw new Error(body.error ?? `Import failed (${status})`);
+}
+
+async function readWebPdfBytes(asset: DocumentPicker.DocumentPickerAsset) {
+  if (asset.file && typeof asset.file.arrayBuffer === 'function') {
+    return asset.file.arrayBuffer();
+  }
+
+  try {
+    const res = await fetch(asset.uri);
+    if (!res.ok) {
+      throw new Error(`Fetch read failed (status ${res.status})`);
+    }
+    return res.arrayBuffer();
+  } catch (err) {
+    throw new Error(`File read failed: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+async function uploadWebPdf(
+  asset: DocumentPicker.DocumentPickerAsset,
+  url: string,
+  headers: Record<string, string>,
+) {
+  const pdfBytes = await readWebPdfBytes(asset);
+  if (pdfBytes.byteLength === 0) {
+    throw new Error('Selected PDF file is empty');
+  }
+
+  return new Promise<UploadResult>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+    xhr.responseType = 'text';
+    xhr.onload = () => {
+      try {
+        resolve(parseUploadResponse(xhr.status, xhr.responseText));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    xhr.onerror = () => reject(new Error('Upload failed - could not reach server'));
+    xhr.send(pdfBytes);
+  });
+}
+
+async function uploadNativePdf(
+  asset: DocumentPicker.DocumentPickerAsset,
+  url: string,
+  headers: Record<string, string>,
+) {
+  const info = await getInfoAsync(asset.uri);
+  if (!info.exists || info.isDirectory) {
+    throw new Error('File read failed: selected PDF is not available');
+  }
+  if (info.size === 0) {
+    throw new Error('Selected PDF file is empty');
+  }
+
+  const response = await uploadAsync(url, asset.uri, {
+    httpMethod: 'POST',
+    uploadType: FileSystemUploadType.BINARY_CONTENT,
+    headers,
+  });
+
+  return parseUploadResponse(response.status, response.body);
+}
 
 export default function PDFScreen() {
   const router = useRouter();
@@ -38,6 +142,7 @@ export default function PDFScreen() {
       picked = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
         copyToCacheDirectory: true,
+        base64: false,
       });
     } catch {
       setState('idle');
@@ -53,89 +158,15 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      const readViaFileSystem = async () => {
-        // expo-file-system is the only reliable way to read local file:// URIs
-        // on React Native new-arch (RN 0.73+) — XHR and fetch both fail silently.
-        const base64 = await readAsStringAsync(asset.uri, {
-          encoding: EncodingType.Base64,
-        });
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes.buffer as ArrayBuffer;
-      };
-
-      const readViaFetch = async () => {
-        try {
-          const res = await fetch(asset.uri);
-          if (!res.ok) {
-            throw new Error(`Fetch read failed (status ${res.status})`);
-          }
-          return res.arrayBuffer();
-        } catch (err) {
-          // Wrap so the outer catch maps this to the friendly "Could not read" message
-          throw new Error(`File read failed: ${err instanceof Error ? err.message : err}`);
-        }
-      };
-
-      const pdfBytes = await (async () => {
-        // Web: File object has arrayBuffer() — use it directly
-        if (asset.file && typeof asset.file.arrayBuffer === 'function') {
-          return asset.file.arrayBuffer();
-        }
-
-        // Native: expo-file-system first, fetch as fallback
-        if (Platform.OS !== 'web') {
-          try {
-            return await readViaFileSystem();
-          } catch {
-            return readViaFetch();
-          }
-        }
-
-        return readViaFetch();
-      })();
-
-      if (pdfBytes.byteLength === 0) {
-        throw new Error('Selected PDF file is empty');
-      }
-
-      // On native (iOS/Android) React Native's new-arch fetch doesn't reliably
-      // handle ArrayBuffer request bodies — use XHR which works on all platforms.
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Session expired. Please sign in again.');
 
-      const uploadResult = await new Promise<{ funds: number; transactions: number }>(
-        (resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          const fnUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/parse-cas-pdf`;
-          xhr.open('POST', fnUrl);
-          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-          xhr.setRequestHeader('apikey', process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '');
-          xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-          xhr.setRequestHeader('x-file-name', asset.name ?? 'cas.pdf');
-          xhr.responseType = 'text';
-          xhr.onload = () => {
-            try {
-              const body = JSON.parse(xhr.responseText) as { funds?: number; transactions?: number; error?: string };
-              if (xhr.status >= 200 && xhr.status < 300) {
-                resolve({ funds: body.funds ?? 0, transactions: body.transactions ?? 0 });
-              } else {
-                reject(new Error(body.error ?? `Import failed (${xhr.status})`));
-              }
-            } catch {
-              reject(new Error(`Import failed (${xhr.status})`));
-            }
-          };
-          xhr.onerror = () => reject(new Error('Upload failed — could not reach server'));
-          // Send as Uint8Array: TypedArrays are more reliably handled by RN XHR
-          // than raw ArrayBuffer across new-arch and old-arch.
-          xhr.send(new Uint8Array(pdfBytes));
-        },
-      );
+      const fnUrl = getParseCasPdfUrl();
+      const headers = getUploadHeaders(token, asset.name ?? 'cas.pdf');
+      const uploadResult = Platform.OS === 'web'
+        ? await uploadWebPdf(asset, fnUrl, headers)
+        : await uploadNativePdf(asset, fnUrl, headers);
 
       setResult({ funds: uploadResult.funds, transactions: uploadResult.transactions });
       setState('success');
