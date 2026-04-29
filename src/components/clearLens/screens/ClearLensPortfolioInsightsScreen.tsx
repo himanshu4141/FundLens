@@ -364,7 +364,7 @@ export function ClearLensPortfolioInsightsScreen() {
             <View style={styles.heroCopy}>
               <Text style={styles.heroTitle}>What you own</Text>
               <Text style={styles.heroSubtitle}>
-                A beginner-friendly view of asset mix, market-cap tilt, sectors, and stock overlap.
+                See your portfolio mix, concentration, sectors, and top holdings in one place.
               </Text>
             </View>
 

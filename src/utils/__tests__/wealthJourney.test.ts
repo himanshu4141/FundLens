@@ -3,6 +3,7 @@ import {
   buildSipTargetChips,
   buildReturnProfile,
   buildWealthJourneyTeaser,
+  detectRecurringMonthlySipDetails,
   estimateRecurringMonthlySip,
   type WealthJourneyTransaction,
 } from '../wealthJourney';
@@ -36,6 +37,10 @@ describe('estimateRecurringMonthlySip', () => {
     ];
 
     expect(estimateRecurringMonthlySip(transactions, now)).toBe(100000);
+    expect(detectRecurringMonthlySipDetails(transactions, now)).toEqual([
+      { fundId: 'fund-b', amount: 50000, monthCount: 3, latestDate: '2026-04-10' },
+      { fundId: 'fund-a', amount: 50000, monthCount: 4, latestDate: '2026-04-05' },
+    ]);
   });
 
   it('allows small day-of-month drift but ignores one-off top-ups', () => {
@@ -86,9 +91,9 @@ describe('buildSipPresetChips', () => {
 });
 
 describe('buildSipTargetChips', () => {
-  it('offers stop, lower, keep, and higher targets', () => {
+  it('offers no SIP, lower, keep, and higher targets', () => {
     expect(buildSipTargetChips(100000)).toEqual([
-      { label: 'Stop', value: 0 },
+      { label: 'No SIP', value: 0 },
       { label: '₹75K', value: 75000 },
       { label: '₹1.0L', value: 100000 },
       { label: '₹1.25L', value: 125000 },

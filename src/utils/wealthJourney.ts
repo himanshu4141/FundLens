@@ -7,6 +7,13 @@ export interface WealthJourneyTransaction {
   fund_id: string | null;
 }
 
+export interface RecurringMonthlySipDetail {
+  fundId: string;
+  amount: number;
+  monthCount: number;
+  latestDate: string;
+}
+
 export type ReturnPresetKey = 'cautious' | 'balanced' | 'growth' | 'custom';
 
 export interface ReturnPreset {
@@ -42,8 +49,7 @@ export interface WealthJourneyTeaserInput {
 const CTA_LABEL = 'See possibilities' as const;
 const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 31;
 
-function getRecentCutoff(maxMonths: number): Date {
-  const now = new Date();
+function getRecentCutoff(now: Date, maxMonths: number): Date {
   return new Date(now.getTime() - maxMonths * ONE_MONTH_MS);
 }
 
@@ -65,7 +71,17 @@ export function estimateRecurringMonthlySip(
   transactions: WealthJourneyTransaction[],
   now = new Date(),
 ): number {
-  const cutoff = getRecentCutoff(6);
+  return detectRecurringMonthlySipDetails(transactions, now).reduce(
+    (sum, detail) => sum + detail.amount,
+    0,
+  );
+}
+
+export function detectRecurringMonthlySipDetails(
+  transactions: WealthJourneyTransaction[],
+  now = new Date(),
+): RecurringMonthlySipDetail[] {
+  const cutoff = getRecentCutoff(now, 6);
   const recurringGroups = new Map<
     string,
     {
@@ -104,10 +120,7 @@ export function estimateRecurringMonthlySip(
     });
   }
 
-  const bestByFund = new Map<
-    string,
-    { amountBucket: number; monthCount: number; latestDate: number }
-  >();
+  const bestByFund = new Map<string, RecurringMonthlySipDetail>();
 
   for (const group of recurringGroups.values()) {
     if (group.months.size < 3) continue;
@@ -115,17 +128,19 @@ export function estimateRecurringMonthlySip(
     if (
       !previous ||
       group.months.size > previous.monthCount ||
-      (group.months.size === previous.monthCount && group.latestDate > previous.latestDate)
+      (group.months.size === previous.monthCount &&
+        group.latestDate > new Date(previous.latestDate).getTime())
     ) {
       bestByFund.set(group.fundId, {
-        amountBucket: group.amountBucket,
+        fundId: group.fundId,
+        amount: group.amountBucket,
         monthCount: group.months.size,
-        latestDate: group.latestDate,
+        latestDate: new Date(group.latestDate).toISOString().split('T')[0],
       });
     }
   }
 
-  return [...bestByFund.values()].reduce((sum, group) => sum + group.amountBucket, 0);
+  return [...bestByFund.values()].sort((a, b) => b.latestDate.localeCompare(a.latestDate));
 }
 
 function clampReturnPercent(value: number): number {
@@ -184,7 +199,7 @@ export function buildSipTargetChips(currentSip: number): { label: string; value:
   );
 
   return values.map((value) => ({
-    label: value === 0 ? 'Stop' : formatSipPresetLabel(value),
+    label: value === 0 ? 'No SIP' : formatSipPresetLabel(value),
     value,
   }));
 }

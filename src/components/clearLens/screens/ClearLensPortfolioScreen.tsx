@@ -429,7 +429,7 @@ function InvestmentVsBenchmarkChart({
         <View>
           <Text style={styles.sectionTitle}>How your money grew</Text>
           <Text style={styles.journeySubtitle}>
-            Amount invested, current worth, and benchmark worth
+            See how your investments have grown.
           </Text>
         </View>
         <View style={styles.chartBenchmarkBadge}>
@@ -671,7 +671,7 @@ function MoverCard({
   const { base } = parseFundName(fund.schemeName);
   const pct = fund.dailyChangePct ?? 0;
   const amount = fund.dailyChangeAmount ?? 0;
-  const color = positive ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const color = toneColor(toneForValue(amount || pct));
 
   return (
     <ClearLensCard style={[
@@ -680,12 +680,14 @@ function MoverCard({
     ]}>
       <Text style={[styles.metricLabel, positive ? styles.moverPositiveLabel : styles.moverNegativeLabel]}>{title}</Text>
       <Text style={styles.moverName} numberOfLines={2}>{base}</Text>
-      <Text style={[styles.moverPct, { color }]}>
-        {formatClearLensPercentDelta(pct)}
-      </Text>
-      <Text style={[styles.moverAmount, { color }]}>
-        {formatClearLensCurrencyDelta(amount)}
-      </Text>
+      <View style={styles.moverStatsRow}>
+        <Text style={[styles.moverPct, { color }]}>
+          {formatClearLensPercentDelta(pct)}
+        </Text>
+        <Text style={[styles.moverAmount, { color }]}>
+          {formatClearLensCurrencyDelta(amount)}
+        </Text>
+      </View>
     </ClearLensCard>
   );
 }
@@ -1228,7 +1230,7 @@ const styles = StyleSheet.create({
   },
   moverCardNegative: {
     borderLeftColor: CLEAR_LENS_RED,
-    backgroundColor: ClearLensSemanticColors.sentiment.negativeSurface,
+    backgroundColor: ClearLensColors.surface,
   },
   moverPositiveLabel: {
     color: ClearLensSemanticColors.sentiment.positiveText,
@@ -1241,6 +1243,12 @@ const styles = StyleSheet.create({
     fontFamily: ClearLensFonts.semiBold,
     color: ClearLensColors.navy,
     minHeight: 42,
+  },
+  moverStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: ClearLensSpacing.sm,
+    flexWrap: 'wrap',
   },
   moverPct: {
     ...ClearLensTypography.h3,
