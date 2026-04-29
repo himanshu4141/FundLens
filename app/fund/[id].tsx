@@ -1825,8 +1825,8 @@ function ClearLensFundDetailScreen() {
           onChange={setActiveTab}
           options={[
             { value: 'performance', label: 'Performance' },
-            { value: 'nav', label: 'NAV History' },
-            { value: 'composition', label: 'Composition' },
+            { value: 'nav', label: 'NAV & Facts' },
+            { value: 'composition', label: 'Mix & Weight' },
           ]}
         />
 
@@ -1838,16 +1838,7 @@ function ClearLensFundDetailScreen() {
               fundRef={{ id: data.id, schemeCode: data.schemeCode }}
               userId={userId}
             />
-            <TechnicalDetailsCard
-              expenseRatio={data.expenseRatio}
-              aumCr={data.aumCr}
-              minSipAmount={data.minSipAmount}
-              fundMetaSyncedAt={data.fundMetaSyncedAt}
-              schemeCode={data.schemeCode}
-              isin={data.isin}
-            />
             <GrowthConsistencyChart navHistory={data.navHistory} />
-            <PortfolioHealthDonut fundId={data.id} currentValue={data.currentValue} />
           </>
         )}
 
@@ -1866,7 +1857,10 @@ function ClearLensFundDetailScreen() {
         )}
 
         {activeTab === 'composition' && (
-          <FundCompositionTab schemeCode={data.schemeCode} />
+          <>
+            <FundCompositionTab schemeCode={data.schemeCode} />
+            <PortfolioHealthDonut fundId={data.id} currentValue={data.currentValue} />
+          </>
         )}
       </ScrollView>
     </ClearLensScreen>
