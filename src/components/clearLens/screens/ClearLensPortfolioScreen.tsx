@@ -940,7 +940,7 @@ export function ClearLensPortfolioScreen() {
 
           <EntryRows
             onInsights={() => router.push('/portfolio-insights')}
-            onFunds={() => router.push('/funds')}
+            onFunds={() => router.push('/(tabs)/leaderboard')}
           />
         </ScrollView>
       )}

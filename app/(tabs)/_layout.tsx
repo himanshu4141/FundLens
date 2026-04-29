@@ -66,7 +66,6 @@ export default function TabLayout() {
         name="leaderboard"
         options={{
           title: isClearLens ? 'Funds' : 'Leaderboard',
-          href: isClearLens ? '/funds' : undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name={isClearLens ? 'list-outline' : 'trophy-outline'} size={size} color={color} />
           ),

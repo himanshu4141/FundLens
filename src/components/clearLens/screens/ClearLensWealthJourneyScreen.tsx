@@ -48,7 +48,6 @@ import {
   getMilestones,
   projectRetirementIncome,
   projectWealth,
-  toPresentValueEquivalent,
 } from '@/src/utils/simulatorCalc';
 import {
   buildReturnProfile,
@@ -59,12 +58,11 @@ import {
 } from '@/src/utils/wealthJourney';
 import { parseFundName } from '@/src/utils/fundName';
 
-const FIXED_INFLATION_RATE = 6;
 const MAX_SIP = 25_00_000;
 const MAX_TOP_UP = 10_00_00_000;
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
-type ScreenMode = 'home' | 'adjust' | 'results';
+type ScreenMode = 'home' | 'adjust';
 type ResultsView = 'growth' | 'withdrawal';
 type SipEditorMode = 'review' | 'manual' | null;
 
@@ -759,13 +757,6 @@ export function ClearLensWealthJourneyScreen() {
   );
 
   const projectedCorpus = adjustedPoints[adjustedPoints.length - 1]?.value ?? currentCorpus;
-  const baselineCorpus = baselinePoints[baselinePoints.length - 1]?.value ?? currentCorpus;
-  const planDelta = projectedCorpus - baselineCorpus;
-  const presentValueToday = toPresentValueEquivalent(
-    projectedCorpus,
-    FIXED_INFLATION_RATE,
-    yearsToRetirement,
-  );
   const withdrawalProjection = useMemo(
     () =>
       projectRetirementIncome(
@@ -1001,7 +992,7 @@ export function ClearLensWealthJourneyScreen() {
   return (
     <ClearLensScreen>
       <ClearLensHeader
-        title={screenMode === 'home' ? undefined : screenMode === 'adjust' ? 'Adjust your plan' : 'Your results'}
+        title={screenMode === 'home' ? undefined : 'Adjust your plan'}
         showTagline={screenMode === 'home'}
         onPressBack={screenMode === 'home' ? undefined : () => setScreenMode('home')}
         onPressMenu={screenMode === 'home' ? () => setOverflowOpen(true) : undefined}
@@ -1020,7 +1011,17 @@ export function ClearLensWealthJourneyScreen() {
           <ActivityIndicator size="large" color={ClearLensColors.emerald} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 72 : 0}
+          style={styles.keyboardScreen}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          >
           {screenMode === 'home' && (
             <>
               <View style={styles.heroCopy}>
@@ -1153,58 +1154,13 @@ export function ClearLensWealthJourneyScreen() {
                 />
               </View>
 
-              <TouchableOpacity style={styles.primaryButton} onPress={() => setScreenMode('results')}>
-                <Text style={styles.primaryButtonText}>See your results</Text>
+              <TouchableOpacity style={styles.primaryButton} onPress={() => setScreenMode('home')}>
+                <Text style={styles.primaryButtonText}>Apply plan</Text>
               </TouchableOpacity>
             </>
           )}
-
-          {screenMode === 'results' && (
-            <>
-              <ClearLensSegmentedControl
-                options={[
-                  { value: 'growth', label: 'Wealth growth' },
-                  { value: 'withdrawal', label: 'Withdrawal income' },
-                ]}
-                selected={resultsView}
-                onChange={setResultsView}
-              />
-              {resultsView === 'growth' ? (
-                <>
-                  {renderGrowthCard()}
-                  <ClearLensCard style={styles.snapshotCard}>
-                    <Text style={styles.sectionTitle}>Withdrawal snapshot</Text>
-                    <View style={styles.withdrawalMetricGrid}>
-                      <View style={[styles.withdrawalMetricBox, styles.withdrawalIncomeBox]}>
-                        <SnapshotMetric label="Monthly income" value={`${formatCurrency(withdrawalProjection.monthlyIncome)}/mo`} tone="positive" />
-                        <Text style={styles.sectionSubtitle}>{formatPercent(withdrawalRate)} withdrawal rate</Text>
-                      </View>
-                      <View style={styles.withdrawalMetricBox}>
-                        <SnapshotMetric label="Lasts for" value={`${retirementDurationYears} years`} />
-                        <Text style={styles.sectionSubtitle}>at {formatPercent(postRetirementReturn)} p.a. post-return</Text>
-                      </View>
-                    </View>
-                    <View style={styles.resultRows}>
-                      <View style={styles.resultRow}>
-                        <Text style={styles.resultRowLabel}>Present value equivalent</Text>
-                        <Text style={styles.resultRowValue}>{formatCurrency(presentValueToday)}</Text>
-                      </View>
-                      <View style={styles.resultRow}>
-                        <Text style={styles.resultRowLabel}>Change vs current plan</Text>
-                        <Text style={[styles.resultRowValue, planDelta >= 0 ? styles.positiveText : styles.negativeText]}>
-                          {planDelta >= 0 ? '+' : '-'}{formatCurrency(Math.abs(planDelta))}
-                        </Text>
-                      </View>
-                    </View>
-                  </ClearLensCard>
-                </>
-              ) : (
-                renderWithdrawalSections()
-              )}
-              {renderProjectionDisclaimer()}
-            </>
-          )}
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
 
       <SipEditorModal
@@ -1236,6 +1192,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
     gap: ClearLensSpacing.md,
+  },
+  keyboardScreen: {
+    flex: 1,
   },
   centered: {
     flex: 1,
@@ -1678,11 +1637,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    maxHeight: '90%',
+    maxHeight: '88%',
     borderTopLeftRadius: ClearLensRadii.xl,
     borderTopRightRadius: ClearLensRadii.xl,
     backgroundColor: ClearLensColors.surface,
-    paddingBottom: ClearLensSpacing.lg,
     ...ClearLensShadow,
   },
   sheetHeader: {
@@ -1707,7 +1665,7 @@ const styles = StyleSheet.create({
   },
   sheetBody: {
     padding: ClearLensSpacing.md,
-    gap: ClearLensSpacing.md,
+    gap: ClearLensSpacing.sm,
   },
   sheetScrollBody: {
     flexGrow: 0,
@@ -1729,7 +1687,7 @@ const styles = StyleSheet.create({
   detectedBox: {
     borderRadius: ClearLensRadii.md,
     backgroundColor: ClearLensColors.surfaceSoft,
-    padding: ClearLensSpacing.md,
+    padding: ClearLensSpacing.sm,
     gap: ClearLensSpacing.xs,
   },
   detectedValue: {
@@ -1740,7 +1698,7 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.xs,
   },
   recurringRow: {
-    minHeight: 40,
+    minHeight: 34,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

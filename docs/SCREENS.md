@@ -7,13 +7,14 @@ Clear Lens is the default app design. Classic remains available from Settings fo
 Primary bottom tabs:
 
 - `Portfolio`
-- `Leaderboard`
+- `Funds`
 - `Wealth Journey`
 
 Secondary navigation:
 
 - `Settings` is hidden from the tab bar and opened from the shared header overflow menu.
-- `Portfolio Insights`, `Your Funds`, and `Fund Detail` are stack routes from Portfolio and fund rows.
+- `Portfolio Insights` and `Fund Detail` are stack routes from Portfolio and fund rows.
+- `Leaderboard` is hidden legacy chrome in Clear Lens for now; classic keeps its tab.
 - `Onboarding / Import CAS` and `PDF Upload` are utility flows used for first-run import and later portfolio maintenance.
 - `Compare` remains a hidden legacy route for transition and deep-link safety.
 
@@ -57,7 +58,7 @@ Category-rule fallback renders immediately. AMFI-backed data upgrades the screen
 
 ### 3. Your Funds
 
-Accessible from Portfolio.
+Primary Clear Lens tab. Also accessible from Portfolio entry rows.
 
 Includes:
 
@@ -82,7 +83,7 @@ Classic Fund Detail remains available when the design switch is set to classic.
 
 ### 5. Leaderboard
 
-The Leaderboard tab ranks existing holdings against the selected benchmark.
+The classic Leaderboard tab ranks existing holdings against the selected benchmark. Clear Lens keeps the screen implementation available for future iteration, but the bottom tab currently points to `Funds`.
 
 Clear Lens includes:
 

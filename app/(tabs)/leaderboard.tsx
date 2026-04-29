@@ -19,7 +19,7 @@ import { parseFundName } from '@/src/utils/fundName';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
-import { ClearLensLeaderboardScreen } from '@/src/components/clearLens/screens/ClearLensLeaderboardScreen';
+import { ClearLensFundsScreen } from '@/src/components/clearLens/screens/ClearLensFundsScreen';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
@@ -331,7 +331,7 @@ function ClassicLeaderboardScreen() {
 
 export default function LeaderboardScreen() {
   const { isClearLens } = useAppDesignMode();
-  return isClearLens ? <ClearLensLeaderboardScreen /> : <ClassicLeaderboardScreen />;
+  return isClearLens ? <ClearLensFundsScreen insideTab /> : <ClassicLeaderboardScreen />;
 }
 
 // ---------------------------------------------------------------------------

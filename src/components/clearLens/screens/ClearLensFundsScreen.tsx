@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import Svg, { Polygon, Polyline } from 'react-native-svg';
+import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import {
   ClearLensCard,
   ClearLensHeader,
@@ -20,6 +22,8 @@ import {
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
+import { useSession } from '@/src/hooks/useSession';
+import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/appStore';
 import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
@@ -42,6 +46,7 @@ import {
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
 type AllocationSegment = { id: string; pct: number; color: string };
 type FundsBottomNavRoute = 'portfolio' | 'funds' | 'wealth';
+type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
 const CLEAR_LENS_DEBT = ClearLensSemanticColors.asset.debt;
@@ -393,14 +398,31 @@ function FundsBottomNav() {
   );
 }
 
-export function ClearLensFundsScreen() {
+export function ClearLensFundsScreen({ insideTab = false }: { insideTab?: boolean }) {
   const router = useRouter();
+  const { session } = useSession();
+  const userId = session?.user.id;
   const { defaultBenchmarkSymbol } = useAppStore();
   const [sortBy, setSortBy] = useState<SortOption>('currentValue');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
   const [expandedFundId, setExpandedFundId] = useState<string | null>(null);
   const didAutoExpand = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_profile')
+        .select('kfintech_email')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
 
   const { data, isLoading } = usePortfolio(defaultBenchmarkSymbol);
   const fundCards = useMemo(() => data?.fundCards ?? [], [data?.fundCards]);
@@ -483,15 +505,42 @@ export function ClearLensFundsScreen() {
     [allocationPctByFundId, valueSortedFunds],
   );
 
+  async function handleSync() {
+    if (!profile?.kfintech_email) {
+      router.push('/onboarding');
+      return;
+    }
+    setSyncState('syncing');
+    const { error } = await supabase.functions.invoke('request-cas', {
+      method: 'POST',
+      body: { email: profile.kfintech_email },
+    });
+    setSyncState(error ? 'error' : 'requested');
+    setTimeout(() => setSyncState('idle'), 4000);
+  }
+
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="Your Funds" />
+      <ClearLensHeader onPressMenu={() => setOverflowOpen(true)} showTagline />
+      <AppOverflowMenu
+        visible={overflowOpen}
+        syncState={syncState}
+        onClose={() => setOverflowOpen(false)}
+        onSync={handleSync}
+        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onSettings={() => router.push('/(tabs)/settings')}
+      />
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={ClearLensColors.emerald} />
         </View>
       ) : (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroTitle}>Your Funds</Text>
+            <Text style={styles.heroSubtitle}>Search, sort, and open every holding.</Text>
+          </View>
+
           <AllocationOverview
             fundCount={fundCards.length}
             topThreeShare={topThreeShare}
@@ -535,7 +584,7 @@ export function ClearLensFundsScreen() {
           ))}
         </ScrollView>
       )}
-      <FundsBottomNav />
+      {!insideTab && <FundsBottomNav />}
       <SortBottomSheet
         visible={sortMenuOpen}
         selected={sortBy}
@@ -554,6 +603,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.lg,
     gap: ClearLensSpacing.md,
+  },
+  heroCopy: {
+    gap: ClearLensSpacing.xs,
+  },
+  heroTitle: {
+    ...ClearLensTypography.h1,
+    color: ClearLensColors.navy,
+  },
+  heroSubtitle: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textSecondary,
   },
   overviewCard: {
     gap: ClearLensSpacing.sm,
