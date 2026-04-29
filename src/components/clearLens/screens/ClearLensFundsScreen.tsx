@@ -135,16 +135,14 @@ function AllocationOverview({
           <Text style={styles.overviewValue}>{topThreeShare.toFixed(1)}%</Text>
           <Text style={styles.metricCaption}>In top 3 funds</Text>
         </View>
-        <View style={styles.overviewDivider} />
-        <View style={styles.largestMetric}>
-          <Text style={styles.metricCaption}>Largest position</Text>
-          <View style={styles.largestInline}>
-            <Text style={styles.largestName} numberOfLines={1}>{largestPosition}</Text>
-            {largestPositionPct != null && (
-              <Text style={styles.largestPct}>{largestPositionPct.toFixed(1)}%</Text>
-            )}
-          </View>
-        </View>
+      </View>
+      <View style={styles.largestBox}>
+        <View style={[styles.allocationDot, { backgroundColor: ClearLensColors.emerald }]} />
+        <Text style={styles.largestPrefix}>Largest:</Text>
+        <Text style={styles.largestName} numberOfLines={1}>{largestPosition}</Text>
+        {largestPositionPct != null && (
+          <Text style={styles.largestPct}>{largestPositionPct.toFixed(1)}%</Text>
+        )}
       </View>
     </ClearLensCard>
   );
@@ -558,14 +556,24 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.h2,
     color: ClearLensColors.navy,
   },
-  largestMetric: {
-    flex: 1.25,
-    gap: 2,
-  },
-  largestInline: {
+  largestBox: {
+    minHeight: 44,
+    marginTop: ClearLensSpacing.xs,
+    paddingHorizontal: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ClearLensSpacing.xs,
+    gap: ClearLensSpacing.sm,
+    backgroundColor: ClearLensColors.mint50,
+  },
+  allocationDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  largestPrefix: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
   },
   largestName: {
     ...ClearLensTypography.bodySmall,

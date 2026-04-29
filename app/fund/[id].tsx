@@ -12,7 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart, BarChart, PieChart } from 'react-native-gifted-charts';
+import { LineChart, PieChart } from 'react-native-gifted-charts';
+import Svg, { G, Line as SvgLine, Rect as SvgRect, Text as SvgText } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
 import {
   useFundDetail,
@@ -22,6 +23,9 @@ import {
 } from '@/src/hooks/useFundDetail';
 import { useFundComposition } from '@/src/hooks/useFundComposition';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
+import { useSession } from '@/src/hooks/useSession';
+import { useInvestmentVsBenchmarkTimeline } from '@/src/hooks/useInvestmentVsBenchmarkTimeline';
+import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
 import { computeQuarterlyReturns } from '@/src/utils/quarterlyReturns';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
@@ -118,9 +122,13 @@ function TimeWindowSelector({
 function PerformanceTab({
   navHistory,
   defaultBenchmarkSymbol,
+  fundRef,
+  userId,
 }: {
   navHistory: { date: string; value: number }[];
   defaultBenchmarkSymbol: string | null;
+  fundRef?: FundRef;
+  userId?: string;
 }) {
   const { colors } = useTheme();
   const { isClearLens } = useAppDesignMode();
@@ -133,6 +141,12 @@ function PerformanceTab({
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
     return valid && defaultBenchmarkSymbol ? defaultBenchmarkSymbol : '^NSEI';
   });
+  const investmentTimeline = useInvestmentVsBenchmarkTimeline(
+    fundRef ? [fundRef] : [],
+    userId,
+    selectedSymbol,
+    window,
+  );
   // Track crosshair position so the return summary below the chart stays in sync.
   // null = no active crosshair (show end-of-period values).
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -209,7 +223,7 @@ function PerformanceTab({
   // chart body width = total width passed to LineChart minus y-axis label area
   const PERF_Y_AXIS_W = 32;
   const perfChartBodyW = CHART_WIDTH - 32 - PERF_Y_AXIS_W; // 32 = card padding (16×2)
-  const perfSpacing = sampledNav.length > 1 ? perfChartBodyW / (sampledNav.length - 1) : 20;
+  const perfSpacing = sampledNav.length > 1 ? Math.max(8, (perfChartBodyW - 16) / (sampledNav.length - 1)) : 20;
 
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
   const xLabels = sampledNav.map((p, i) =>
@@ -244,6 +258,248 @@ function PerformanceTab({
   const summaryNavReturn = ((summaryNavVal - 100) / 100) * 100;
   const summaryBenchReturn = summaryBenchVal !== null ? ((summaryBenchVal - 100) / 100) * 100 : null;
   const summaryDate = sampledNav[summaryIdx]?.date;
+
+  const hasInvestmentTimeline = investmentTimeline.points.length > 1;
+  if (fundRef && userId && investmentTimeline.isLoading && !hasInvestmentTimeline) {
+    return (
+      <View style={s.tabContent}>
+        <TimeWindowSelector selected={window} onChange={setWindow} />
+        <View style={s.chartCard}>
+          <ActivityIndicator size="small" color={isClearLens ? ClearLensColors.emerald : colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  if (fundRef && userId && hasInvestmentTimeline) {
+    const points = investmentTimeline.points;
+    const actualActiveIdx = activeIdx !== null && activeIdx < points.length ? activeIdx : points.length - 1;
+    const latestPoint = points[points.length - 1];
+    const activePoint = points[actualActiveIdx] ?? latestPoint;
+    const investedData = points.map((point) => ({ value: point.investedValue }));
+    const fundValueData = points.map((point) => ({ value: point.portfolioValue }));
+    const benchmarkValueData = points.map((point) => ({ value: point.benchmarkValue }));
+    const actualValues = points.flatMap((point) => [
+      point.investedValue,
+      point.portfolioValue,
+      point.benchmarkValue,
+    ]);
+    const actualYMax = Math.max(...actualValues);
+    const actualYMin = Math.min(...actualValues);
+    const actualYPad = ((actualYMax - actualYMin) || actualYMax * 0.1 || 1) * 0.12;
+    const actualChartTop = actualYMax + actualYPad;
+    const actualChartBottom = Math.max(0, actualYMin - actualYPad);
+    const actualChartRange = Math.max(1, actualChartTop - actualChartBottom);
+    const ACTUAL_Y_AXIS_W = 54;
+    const actualChartW = CHART_WIDTH - 32 - ACTUAL_Y_AXIS_W - 8;
+    const actualSpacing =
+      points.length > 1 ? Math.max(8, (actualChartW - 16) / (points.length - 1)) : 20;
+    const actualLabelInterval = Math.max(1, Math.floor(points.length / 5));
+    const actualXLabels =
+      investmentTimeline.xAxisLabels.length === points.length
+        ? investmentTimeline.xAxisLabels
+        : points.map((point, index) =>
+            index % actualLabelInterval === 0 || index === points.length - 1
+              ? formatChartDate(point.date, window)
+              : '',
+          );
+    const fundReturn =
+      latestPoint.investedValue > 0
+        ? ((latestPoint.portfolioValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
+        : 0;
+    const simulatedBenchmarkReturn =
+      latestPoint.investedValue > 0
+        ? ((latestPoint.benchmarkValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
+        : 0;
+    const activeFundReturn =
+      activePoint.investedValue > 0
+        ? ((activePoint.portfolioValue - activePoint.investedValue) / activePoint.investedValue) * 100
+        : 0;
+    const activeBenchmarkReturn =
+      activePoint.investedValue > 0
+        ? ((activePoint.benchmarkValue - activePoint.investedValue) / activePoint.investedValue) * 100
+        : 0;
+
+    return (
+      <View style={s.tabContent}>
+        <View style={s.xirrCard}>
+          <View style={s.comparisonRow}>
+            <View style={s.comparisonCol}>
+              <Text style={s.statLabel}>Your fund ({window})</Text>
+              <Text
+                style={[s.xirrValue, { color: fundReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                numberOfLines={1}
+              >
+                {fundReturn >= 0 ? '+' : ''}{fundReturn.toFixed(1)}%
+              </Text>
+            </View>
+            <View style={s.xirrDivider} />
+            <View style={s.comparisonCol}>
+              <Text style={s.statLabel}>If invested in {selectedLabel} ({window})</Text>
+              <Text
+                style={[
+                  s.xirrValue,
+                  { color: simulatedBenchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor },
+                ]}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                numberOfLines={1}
+              >
+                {simulatedBenchmarkReturn >= 0 ? '+' : ''}{simulatedBenchmarkReturn.toFixed(1)}%
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <TimeWindowSelector selected={window} onChange={setWindow} />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.benchmarkSelectorContent}
+        >
+          {BENCHMARK_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.symbol}
+              style={[
+                s.benchmarkPill,
+                selectedSymbol === opt.symbol && s.benchmarkPillActive,
+                selectedSymbol === opt.symbol && isClearLens && { backgroundColor: ClearLensColors.navy },
+              ]}
+              onPress={() => setSelectedSymbol(opt.symbol)}
+              activeOpacity={0.75}
+            >
+              <Text style={[s.benchmarkPillText, selectedSymbol === opt.symbol && s.benchmarkPillTextActive]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={s.chartCard}>
+          <View style={s.chartLegendRow}>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: ClearLensSemanticColors.chart.invested }]} />
+              <Text style={s.legendLabel}>Amount invested</Text>
+            </View>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: colors.primary }]} />
+              <Text style={s.legendLabel}>Fund value</Text>
+            </View>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: benchmarkColor }]} />
+              <Text style={s.legendLabel}>If invested in {selectedLabel}</Text>
+            </View>
+          </View>
+
+          <View style={s.chartWrap}>
+            <LineChart
+              data={investedData}
+              data2={fundValueData}
+              data3={benchmarkValueData}
+              width={actualChartW}
+              height={196}
+              spacing={actualSpacing}
+              initialSpacing={8}
+              endSpacing={8}
+              hideDataPoints
+              color1={ClearLensSemanticColors.chart.invested}
+              color2={colors.primary}
+              color3={benchmarkColor}
+              thickness1={2.4}
+              thickness2={3}
+              thickness3={2.5}
+              curved
+              yAxisLabelWidth={ACTUAL_Y_AXIS_W}
+              formatYLabel={(v: string) => formatCurrency(Number(v))}
+              yAxisTextStyle={s.chartAxisLabel}
+              maxValue={actualChartRange}
+              yAxisOffset={actualChartBottom}
+              xAxisColor={colors.borderLight}
+              yAxisColor="transparent"
+              rulesColor={colors.borderLight}
+              rulesType="solid"
+              noOfSections={4}
+              xAxisLabelTexts={actualXLabels}
+              xAxisLabelTextStyle={s.chartAxisLabel}
+              xAxisLabelsHeight={16}
+              labelsExtraHeight={36}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 212,
+                pointerStripWidth: 1,
+                pointerStripColor: colors.textTertiary + '88',
+                pointerColor: colors.primary,
+                radius: 5,
+                pointerLabelWidth: 162,
+                pointerLabelHeight: 68,
+                activatePointersOnLongPress: false,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  requestAnimationFrame(() => setActiveIdx(pointerIndex));
+                  const point = points[pointerIndex];
+                  if (!point) return null;
+                  return (
+                    <View style={s.pointerLabel}>
+                      <Text style={s.pointerDate}>{formatChartDate(point.date, window)}</Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: ClearLensSemanticColors.chart.invested }}>● </Text>
+                        Invested: {formatCurrency(point.investedValue)}
+                      </Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: colors.primary }}>● </Text>
+                        Fund: {formatCurrency(point.portfolioValue)}
+                      </Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: benchmarkColor }}>● </Text>
+                        {selectedLabel}: {formatCurrency(point.benchmarkValue)}
+                      </Text>
+                    </View>
+                  );
+                },
+              }}
+            />
+          </View>
+
+          <View style={s.returnSummary}>
+            {activeIdx !== null && (
+              <Text style={s.summaryDateLabel}>as of {formatChartDate(activePoint.date, window)}</Text>
+            )}
+            <View style={s.returnRow}>
+              <Text style={s.returnLabel}>Amount invested</Text>
+              <Text style={s.returnVal}>{formatCurrency(activePoint.investedValue)}</Text>
+            </View>
+            <View style={s.returnRow}>
+              <Text style={s.returnLabel}>Fund value</Text>
+              <Text style={[s.returnVal, { color: activeFundReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}>
+                {formatCurrency(activePoint.portfolioValue)} · {activeFundReturn >= 0 ? '+' : ''}{activeFundReturn.toFixed(2)}%
+              </Text>
+            </View>
+            <View style={s.returnRow}>
+              <Text style={s.returnLabel}>{selectedLabel} value</Text>
+              <Text style={[s.returnVal, { color: activeBenchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}>
+                {formatCurrency(activePoint.benchmarkValue)} · {activeBenchmarkReturn >= 0 ? '+' : ''}{activeBenchmarkReturn.toFixed(2)}%
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (fundRef && userId) {
+    return (
+      <View style={s.tabContent}>
+        <TimeWindowSelector selected={window} onChange={setWindow} />
+        <View style={s.noData}>
+          <Ionicons name="bar-chart-outline" size={32} color={colors.textTertiary} />
+          <Text style={s.noDataText}>Investment timeline is not available for this window.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={s.tabContent}>
@@ -281,7 +537,7 @@ function PerformanceTab({
             </>
           )}
         </View>
-        {hasBenchmarkData && (
+        {hasBenchmarkData && !isClearLens && (
           <View
             style={[
               s.verdictRow,
@@ -346,14 +602,15 @@ function PerformanceTab({
             )}
           </View>
 
-          <LineChart
+          <View style={s.chartWrap}>
+            <LineChart
               data={navPoints}
               data2={hasBenchmarkData ? benchmarkPoints : undefined}
-              width={CHART_WIDTH - 32}
+              width={perfChartBodyW}
               height={180}
               spacing={perfSpacing}
-              initialSpacing={0}
-              endSpacing={32}
+              initialSpacing={8}
+              endSpacing={8}
               hideDataPoints
               color1={colors.primary}
               color2={benchmarkColor}
@@ -363,7 +620,7 @@ function PerformanceTab({
               yAxisLabelWidth={32}
               formatYLabel={(v: string) => Number(v).toFixed(0)}
               yAxisTextStyle={s.chartAxisLabel}
-              maxValue={chartMaxValue}
+              maxValue={chartMaxValue - chartMostNegative}
               yAxisOffset={chartMostNegative}
               xAxisColor={colors.borderLight}
               yAxisColor="transparent"
@@ -420,6 +677,7 @@ function PerformanceTab({
                 },
               }}
             />
+          </View>
 
           {/* Explainer */}
           <Text style={s.chartExplainer}>
@@ -504,7 +762,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
 
   const NAV_Y_AXIS_W = 44;
   const navChartBodyW = CHART_WIDTH - 32 - NAV_Y_AXIS_W;
-  const navSpacing = sampledFiltered.length > 1 ? navChartBodyW / (sampledFiltered.length - 1) : 20;
+  const navSpacing = sampledFiltered.length > 1 ? Math.max(8, (navChartBodyW - 16) / (sampledFiltered.length - 1)) : 20;
 
   return (
     <View style={s.tabContent}>
@@ -512,61 +770,63 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
 
       {points.length > 1 ? (
         <View style={s.chartCard}>
-          <LineChart
-            data={points}
-            width={CHART_WIDTH - 32}
-            height={200}
-            spacing={navSpacing}
-            initialSpacing={0}
-            endSpacing={32}
-            hideDataPoints
-            color1={colors.primary}
-            thickness1={2.5}
-            curved
-            yAxisLabelWidth={44}
-            formatYLabel={(v: string) => {
-              const n = Number(v);
-              if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
-              return `₹${n.toFixed(0)}`;
-            }}
-            yAxisTextStyle={s.chartAxisLabel}
-            maxValue={navChartMax}
-            yAxisOffset={navChartMin}
-            xAxisColor={colors.borderLight}
-            yAxisColor="transparent"
-            rulesColor={colors.borderLight}
-            rulesType="solid"
-            noOfSections={4}
-            xAxisLabelTexts={xLabels}
-            xAxisLabelTextStyle={s.chartAxisLabel}
-            xAxisLabelsHeight={16}
-            labelsExtraHeight={40}
-            pointerConfig={{
-              showPointerStrip: true,
-              pointerStripHeight: 220,
-              pointerStripWidth: 1,
-              pointerStripColor: colors.textTertiary + '88',
-              pointerColor: colors.primary,
-              radius: 5,
-              pointerLabelWidth: 110,
-              pointerLabelHeight: 36,
-              activatePointersOnLongPress: false,
-              autoAdjustPointerLabelPosition: true,
-              pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                const p = sampledFiltered[pointerIndex];
-                if (!p) return null;
-                return (
-                  <View style={s.pointerLabel}>
-                    <Text style={s.pointerDate}>{formatChartDate(p.date, window)}</Text>
-                    <Text style={s.pointerSeriesText}>
-                      <Text style={{ color: colors.primary }}>● </Text>
-                      ₹{p.value.toFixed(4)}
-                    </Text>
-                  </View>
-                );
-              },
-            }}
-          />
+          <View style={s.chartWrap}>
+            <LineChart
+              data={points}
+              width={navChartBodyW}
+              height={200}
+              spacing={navSpacing}
+              initialSpacing={8}
+              endSpacing={8}
+              hideDataPoints
+              color1={colors.primary}
+              thickness1={2.5}
+              curved
+              yAxisLabelWidth={44}
+              formatYLabel={(v: string) => {
+                const n = Number(v);
+                if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+                return `₹${n.toFixed(0)}`;
+              }}
+              yAxisTextStyle={s.chartAxisLabel}
+              maxValue={navChartMax - navChartMin}
+              yAxisOffset={navChartMin}
+              xAxisColor={colors.borderLight}
+              yAxisColor="transparent"
+              rulesColor={colors.borderLight}
+              rulesType="solid"
+              noOfSections={4}
+              xAxisLabelTexts={xLabels}
+              xAxisLabelTextStyle={s.chartAxisLabel}
+              xAxisLabelsHeight={16}
+              labelsExtraHeight={40}
+              pointerConfig={{
+                showPointerStrip: true,
+                pointerStripHeight: 220,
+                pointerStripWidth: 1,
+                pointerStripColor: colors.textTertiary + '88',
+                pointerColor: colors.primary,
+                radius: 5,
+                pointerLabelWidth: 110,
+                pointerLabelHeight: 36,
+                activatePointersOnLongPress: false,
+                autoAdjustPointerLabelPosition: true,
+                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
+                  const p = sampledFiltered[pointerIndex];
+                  if (!p) return null;
+                  return (
+                    <View style={s.pointerLabel}>
+                      <Text style={s.pointerDate}>{formatChartDate(p.date, window)}</Text>
+                      <Text style={s.pointerSeriesText}>
+                        <Text style={{ color: colors.primary }}>● </Text>
+                        ₹{p.value.toFixed(4)}
+                      </Text>
+                    </View>
+                  );
+                },
+              }}
+            />
+          </View>
 
           <View style={s.navStatsRow}>
             <View style={s.navStat}>
@@ -738,48 +998,94 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
 
   const vals = bars.map((b) => Math.abs(b.value));
   const maxAbs = Math.max(...vals, 1);
-  const chartMax = maxAbs * 1.3;
+  const chartMax = Math.ceil(maxAbs * 1.2);
+  const chartWidth = CHART_WIDTH - 64;
+  const chartHeight = 176;
+  const plotTop = 18;
+  const plotBottom = 34;
+  const plotLeft = 34;
+  const plotRight = 8;
+  const plotWidth = chartWidth - plotLeft - plotRight;
+  const plotHeight = chartHeight - plotTop - plotBottom;
+  const zeroY = plotTop + plotHeight / 2;
+  const barGap = 7;
+  const barWidth = Math.max(12, Math.min(20, (plotWidth - barGap * (bars.length - 1)) / bars.length));
 
-  const barWidth = Math.min(20, Math.floor((CHART_WIDTH - 64) / bars.length) - 6);
-  const spacing = Math.max(4, Math.floor((CHART_WIDTH - 64 - barWidth * bars.length) / (bars.length + 1)));
+  function yFor(value: number): number {
+    return zeroY - (value / chartMax) * (plotHeight / 2);
+  }
 
   return (
     <View style={gs.card}>
       <Text style={gs.title}>Growth Consistency</Text>
       <Text style={gs.subtitle}>Quarterly returns (%)</Text>
-      <View style={{ marginTop: Spacing.xs }}>
-        <BarChart
-          data={bars}
-          width={CHART_WIDTH - 64}
-          height={140}
-          barWidth={barWidth}
-          spacing={spacing}
-          barBorderRadius={4}
-          initialSpacing={spacing}
-          maxValue={chartMax}
-          mostNegativeValue={-chartMax}
-          noOfSections={4}
-          isAnimated
-          hideRules={false}
-          rulesColor={colors.borderLight}
-          rulesType="solid"
-          xAxisColor={colors.borderLight}
-          yAxisColor="transparent"
-          yAxisTextStyle={gs.axisLabel}
-          xAxisLabelTextStyle={gs.axisLabel}
-          formatYLabel={(v: string) => `${Number(v).toFixed(0)}%`}
-          yAxisLabelWidth={36}
-          showValuesAsTopLabel
-          topLabelTextStyle={{ ...gs.barTopLabel }}
-          showFractionalValues
-          referenceLine1Config={{
-            color: colors.textTertiary,
-            dashWidth: 4,
-            dashGap: 4,
-            thickness: 1,
-          }}
-          referenceLine1Position={0}
-        />
+      <View style={gs.svgWrap}>
+        <Svg width={chartWidth} height={chartHeight}>
+          {[-1, -0.5, 0, 0.5, 1].map((tick) => {
+            const value = tick * chartMax;
+            const y = yFor(value);
+            return (
+              <G key={`tick-${tick}`}>
+                <SvgLine
+                  x1={plotLeft}
+                  x2={plotLeft + plotWidth}
+                  y1={y}
+                  y2={y}
+                  stroke={tick === 0 ? colors.textTertiary : colors.borderLight}
+                  strokeWidth={tick === 0 ? 1.2 : 1}
+                  strokeDasharray={tick === 0 ? undefined : '4 5'}
+                />
+                <SvgText
+                  x={plotLeft - 8}
+                  y={y + 4}
+                  fill={colors.textTertiary}
+                  fontSize={10}
+                  textAnchor="end"
+                >
+                  {`${Math.round(value)}%`}
+                </SvgText>
+              </G>
+            );
+          })}
+          {bars.map((bar, index) => {
+            const x = plotLeft + index * (barWidth + barGap);
+            const positive = bar.value >= 0;
+            const y = positive ? yFor(bar.value) : zeroY;
+            const height = Math.max(3, Math.abs(yFor(bar.value) - zeroY));
+            const labelY = positive ? y - 5 : y + height + 12;
+            return (
+              <G key={bar.label}>
+                <SvgRect
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={height}
+                  rx={4}
+                  fill={bar.frontColor}
+                />
+                <SvgText
+                  x={x + barWidth / 2}
+                  y={labelY}
+                  fill={positive ? colors.positive : colors.negative}
+                  fontSize={9}
+                  fontWeight="600"
+                  textAnchor="middle"
+                >
+                  {bar.value.toFixed(Math.abs(bar.value) >= 10 ? 1 : 2)}
+                </SvgText>
+                <SvgText
+                  x={x + barWidth / 2}
+                  y={chartHeight - 10}
+                  fill={colors.textTertiary}
+                  fontSize={9}
+                  textAnchor="middle"
+                >
+                  {bar.label}
+                </SvgText>
+              </G>
+            );
+          })}
+        </Svg>
       </View>
       <View style={gs.legend}>
         <View style={gs.legendItem}>
@@ -816,6 +1122,11 @@ function makeGrowthStyles(colors: AppColors) {
     subtitle: {
       ...Typography.caption,
       color: colors.textTertiary,
+    },
+    svgWrap: {
+      marginTop: Spacing.xs,
+      alignItems: 'center',
+      overflow: 'hidden',
     },
     axisLabel: { fontSize: 10, color: colors.textTertiary },
     barTopLabel: { fontSize: 9, color: colors.textSecondary },
@@ -1415,6 +1726,8 @@ function ClearLensFundDetailScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ClearLensFundTab>('performance');
   const { data, isLoading, isError } = useFundDetail(id);
+  const { session } = useSession();
+  const userId = session?.user.id;
 
   if (isLoading) {
     return (
@@ -1522,6 +1835,8 @@ function ClearLensFundDetailScreen() {
             <PerformanceTab
               navHistory={data.navHistory}
               defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
+              fundRef={{ id: data.id, schemeCode: data.schemeCode }}
+              userId={userId}
             />
             <TechnicalDetailsCard
               expenseRatio={data.expenseRatio}
@@ -1529,6 +1844,7 @@ function ClearLensFundDetailScreen() {
               minSipAmount={data.minSipAmount}
               fundMetaSyncedAt={data.fundMetaSyncedAt}
               schemeCode={data.schemeCode}
+              isin={data.isin}
             />
             <GrowthConsistencyChart navHistory={data.navHistory} />
             <PortfolioHealthDonut fundId={data.id} currentValue={data.currentValue} />
@@ -1544,6 +1860,7 @@ function ClearLensFundDetailScreen() {
               minSipAmount={data.minSipAmount}
               fundMetaSyncedAt={data.fundMetaSyncedAt}
               schemeCode={data.schemeCode}
+              isin={data.isin}
             />
           </>
         )}
@@ -1803,7 +2120,11 @@ function makeStyles(colors: AppColors) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    chartLegendRow: { flexDirection: 'row', gap: 16 },
+    chartWrap: {
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    chartLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 10, height: 10, borderRadius: 5 },
     legendLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const },

@@ -203,9 +203,9 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.sm,
   },
   segmentActive: {
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: ClearLensColors.navy,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: ClearLensColors.navy,
     ...ClearLensShadow,
     shadowOpacity: 0.04,
     elevation: 1,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
   },
   segmentTextActive: {
-    color: ClearLensColors.navy,
+    color: ClearLensColors.textOnDark,
   },
   metricCard: {
     flex: 1,
