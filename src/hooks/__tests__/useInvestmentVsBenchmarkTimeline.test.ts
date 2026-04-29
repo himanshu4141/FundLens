@@ -63,6 +63,26 @@ describe('computeInvestmentVsBenchmarkTimeline', () => {
     expect(last.benchmarkValue).toBe(600);
   });
 
+  it('excludes failed-payment reversal pairs from invested and benchmark history', () => {
+    const navRows = [
+      { scheme_code: 100, nav_date: '2025-10-09', nav: 230 },
+      { scheme_code: 100, nav_date: '2025-10-10', nav: 229 },
+    ];
+    const txRows = [
+      { fund_id: 'fund-1', transaction_date: '2025-10-09', transaction_type: 'redemption', units: 0, amount: 25000 },
+      { fund_id: 'fund-1', transaction_date: '2025-10-09', transaction_type: 'purchase', units: 101.12, amount: 25000 },
+    ];
+    const idxRows = [
+      { index_date: '2025-10-09', close_value: 100 },
+      { index_date: '2025-10-10', close_value: 101 },
+    ];
+
+    const result = computeInvestmentVsBenchmarkTimeline(navRows, txRows, idxRows, [FUND], 'All');
+
+    expect(result.points).toHaveLength(0);
+    expect(result.xAxisLabels).toHaveLength(0);
+  });
+
   it('uses the latest available benchmark value when a transaction falls on a missing benchmark date', () => {
     const navRows = [
       { scheme_code: 100, nav_date: '2025-01-01', nav: 10 },

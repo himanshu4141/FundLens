@@ -1,3 +1,5 @@
+import { findReversedTransactionPairIndexes } from '@/src/utils/xirr';
+
 export type MoneyTrailTransactionType =
   | 'sip_purchase'
   | 'purchase'
@@ -279,15 +281,36 @@ export function buildPortfolioTransaction(raw: RawMoneyTrailTransaction): Portfo
 }
 
 export function hideReversalPairs(transactions: PortfolioTransaction[]): PortfolioTransaction[] {
+  const matchedPairIndexes = findReversedTransactionPairIndexes(
+    transactions.map((tx) => ({
+      fund_id: tx.fundId,
+      transaction_date: tx.date,
+      transaction_type: tx.type,
+      units: tx.units,
+      amount: tx.amount,
+    })),
+  );
   const reversalKeys = new Set(
     transactions
       .filter((tx) => tx.type === 'reversal' || tx.status === 'reversed')
       .map((tx) => reversalPairKey(tx)),
   );
 
-  if (reversalKeys.size === 0) return transactions;
+  if (reversalKeys.size === 0 && matchedPairIndexes.size === 0) return transactions;
 
-  return transactions.map((tx) => {
+  return transactions.map((tx, index) => {
+    if (matchedPairIndexes.has(index)) {
+      return {
+        ...tx,
+        status: 'hidden',
+        userFacingType: tx.direction === 'money_out' ? 'Reversal' : 'Cancelled',
+        hiddenByDefault: true,
+        hiddenReason: 'Matched reversal',
+        includedInInvestedAmount: false,
+        includedInXirr: false,
+        includedInCurrentHoldings: false,
+      };
+    }
     if (tx.hiddenByDefault) return tx;
     if (!['purchase', 'sip_purchase', 'redemption'].includes(tx.type)) return tx;
     if (!reversalKeys.has(reversalPairKey(tx))) return tx;
@@ -434,6 +457,13 @@ export function applyMoneyTrailControls(
   );
 }
 
+export function parseMoneyTrailAmountInput(value: string): number | undefined {
+  const trimmed = value.replace(/,/g, '').trim();
+  if (!trimmed) return undefined;
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined;
+}
+
 export function getDatePresetRange(
   preset: MoneyTrailDatePreset,
   now = new Date(),
@@ -538,7 +568,7 @@ export function statusLabel(status: MoneyTrailStatus): string {
     case 'reversed':
       return 'Reversed';
     case 'hidden':
-      return 'Hidden';
+      return 'Cancelled';
     default:
       return 'Success';
   }

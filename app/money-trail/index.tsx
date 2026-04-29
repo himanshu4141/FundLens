@@ -38,6 +38,7 @@ import {
   directionLabel,
   formatMoneyTrailDate,
   getFinancialYearShortLabel,
+  parseMoneyTrailAmountInput,
   statusLabel,
   type MoneyTrailDatePreset,
   type MoneyTrailDirection,
@@ -375,8 +376,8 @@ function FilterSheet({
   function applyDraft() {
     onApply({
       ...draft,
-      minAmount: parseOptionalAmount(minAmountText),
-      maxAmount: parseOptionalAmount(maxAmountText),
+      minAmount: parseMoneyTrailAmountInput(minAmountText),
+      maxAmount: parseMoneyTrailAmountInput(maxAmountText),
     });
     onClose();
   }
@@ -650,11 +651,6 @@ function ChoiceChip({
   );
 }
 
-function parseOptionalAmount(value: string): number | undefined {
-  const numeric = Number(value.replace(/,/g, '').trim());
-  return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined;
-}
-
 function EmptyTransactions({ filtered, onPrimary }: { filtered: boolean; onPrimary: () => void }) {
   return (
     <ClearLensCard style={styles.emptyCard}>
@@ -720,7 +716,7 @@ export default function MoneyTrailScreen() {
     setExportError(null);
     try {
       const result = await exportMoneyTrailCsv(visibleTransactions);
-      setExportResult(`Exported ${visibleTransactions.length} transactions to ${result}.`);
+      setExportResult(`Exported ${visibleTransactions.length} transactions. ${result.message}`);
     } catch (error) {
       setExportError(error instanceof Error ? error.message : 'Please try again.');
     }

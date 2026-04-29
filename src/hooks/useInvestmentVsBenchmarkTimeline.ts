@@ -3,6 +3,7 @@ import { supabase } from '@/src/lib/supabase';
 import { buildXAxisLabels } from '@/src/hooks/usePerformanceTimeline';
 import { filterToWindow, type NavPoint, type TimeWindow } from '@/src/utils/navUtils';
 import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
+import { filterReversedTransactionPairs } from '@/src/utils/xirr';
 
 export interface InvestmentVsBenchmarkPoint {
   date: string;
@@ -136,7 +137,7 @@ export function computeInvestmentVsBenchmarkTimeline(
     return getLatestAt(benchmarkHistory, date)?.value ?? null;
   }
 
-  const sortedTransactions = [...txRows]
+  const sortedTransactions = filterReversedTransactionPairs(txRows)
     .filter((tx) => fundIds.has(tx.fund_id))
     .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
 

@@ -11,6 +11,7 @@ import {
   getIndianFinancialYear,
   mapMoneyTrailType,
   normalizeMoneyTrailType,
+  parseMoneyTrailAmountInput,
   searchMoneyTrailTransactions,
   sortMoneyTrailTransactions,
   transactionUseExplanation,
@@ -144,6 +145,49 @@ describe('moneyTrail hidden and internal transaction handling', () => {
     expect(filterMoneyTrailTransactions(transactions, DEFAULT_MONEY_TRAIL_FILTERS)).toHaveLength(0);
   });
 
+  it('hides purchase and redemption pairs imported from failed payments', () => {
+    const transactions = buildMoneyTrailTransactions([
+      raw({
+        id: 'payment-reversal',
+        fund_id: 'hdfc-small-cap',
+        fund_name: 'HDFC Small Cap Fund - Direct Growth',
+        transaction_date: '2025-10-09',
+        transaction_type: 'redemption',
+        amount: 25000,
+        units: 0,
+      }),
+      raw({
+        id: 'failed-purchase',
+        fund_id: 'hdfc-small-cap',
+        fund_name: 'HDFC Small Cap Fund - Direct Growth',
+        transaction_date: '2025-10-09',
+        transaction_type: 'purchase',
+        amount: 25000,
+        units: 101.12,
+      }),
+    ]);
+
+    expect(filterMoneyTrailTransactions(transactions, DEFAULT_MONEY_TRAIL_FILTERS)).toHaveLength(0);
+    expect(buildMoneyTrailSummary(transactions)).toEqual({
+      totalInvested: 0,
+      totalWithdrawn: 0,
+      netInvested: 0,
+      transactionCount: 0,
+    });
+    expect(transactions.find((tx) => tx.id === 'payment-reversal')).toMatchObject({
+      userFacingType: 'Reversal',
+      status: 'hidden',
+      hiddenByDefault: true,
+      includedInCurrentHoldings: false,
+    });
+    expect(transactions.find((tx) => tx.id === 'failed-purchase')).toMatchObject({
+      userFacingType: 'Cancelled',
+      status: 'hidden',
+      hiddenByDefault: true,
+      includedInInvestedAmount: false,
+    });
+  });
+
   it('treats switches as internal movement rather than external net investment', () => {
     const switchIn = buildPortfolioTransaction(raw({ transaction_type: 'switch_in', amount: 5000 }));
     const switchOut = buildPortfolioTransaction(raw({ transaction_type: 'switch_out', amount: 5000 }));
@@ -215,6 +259,13 @@ describe('moneyTrail controls and export', () => {
       ...DEFAULT_MONEY_TRAIL_FILTERS,
       includeHidden: true,
     }).map((tx) => tx.id)).toContain('failed');
+  });
+
+  it('parses blank amount filter inputs as unset', () => {
+    expect(parseMoneyTrailAmountInput('')).toBeUndefined();
+    expect(parseMoneyTrailAmountInput('   ')).toBeUndefined();
+    expect(parseMoneyTrailAmountInput('1,00,000')).toBe(100000);
+    expect(parseMoneyTrailAmountInput('abc')).toBeUndefined();
   });
 
   it('searches by fund, AMC, amount, type, folio, and reference', () => {

@@ -98,6 +98,33 @@ describe('computePortfolioTimeline', () => {
     expect(lastPt.value).toBeCloseTo(50);
   });
 
+  it('excludes failed-payment reversal pairs from portfolio value history', () => {
+    const dates = navDates('2025-10-09', 3);
+    const navRows = dates.map((d) => ({ scheme_code: 100, nav_date: d, nav: 230 }));
+    const txRows = [
+      {
+        fund_id: 'fund-1',
+        transaction_date: '2025-10-09',
+        transaction_type: 'redemption',
+        units: 0,
+        amount: 25000,
+      },
+      {
+        fund_id: 'fund-1',
+        transaction_date: '2025-10-09',
+        transaction_type: 'purchase',
+        units: 101.12,
+        amount: 25000,
+      },
+    ];
+    const idxRows = dates.map((d) => ({ index_date: d, close_value: 1000 }));
+
+    const result = computePortfolioTimeline(navRows, txRows, idxRows, [FUND], 'All');
+
+    expect(result.portfolioPoints).toHaveLength(0);
+    expect(result.benchmarkPoints).toHaveLength(0);
+  });
+
   it('no portfolio value before first purchase', () => {
     const dates = navDates('2024-01-01', 5);
     const navRows = dates.map((d, i) => ({ scheme_code: 100, nav_date: d, nav: 10 + i }));

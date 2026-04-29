@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { filterToWindow, indexTo100, type TimeWindow, type NavPoint } from '@/src/utils/navUtils';
 import { buildXAxisLabels } from '@/src/hooks/usePerformanceTimeline';
+import { filterReversedTransactionPairs } from '@/src/utils/xirr';
 
 export interface FundRef {
   id: string;         // fund table UUID
@@ -35,7 +36,13 @@ export interface PortfolioTimelineResult {
 // ---------------------------------------------------------------------------
 
 interface RawNavRow { scheme_code: number; nav_date: string; nav: number }
-interface RawTxRow { fund_id: string; transaction_date: string; transaction_type: string; units: number }
+interface RawTxRow {
+  fund_id: string;
+  transaction_date: string;
+  transaction_type: string;
+  units: number;
+  amount?: number;
+}
 interface RawIdxRow { index_date: string; close_value: number }
 
 /** Binary-search last step-function entry with date ≤ target */
@@ -88,7 +95,7 @@ export function computePortfolioTimeline(
     unitHistory.set(fund.id, []);
     cumUnits.set(fund.id, 0);
   }
-  for (const tx of txRows) {
+  for (const tx of filterReversedTransactionPairs(txRows)) {
     const fid = tx.fund_id;
     if (!unitHistory.has(fid)) continue; // skip transactions for funds not in our list
     const prev = cumUnits.get(fid) ?? 0;
@@ -185,7 +192,7 @@ export async function fetchPortfolioTimeline(
       .limit(10000),
     supabase
       .from('transaction')
-      .select('fund_id, transaction_date, transaction_type, units')
+      .select('fund_id, transaction_date, transaction_type, units, amount')
       .eq('user_id', userId)
       .in('fund_id', fundIds)
       .order('transaction_date', { ascending: true }),

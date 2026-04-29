@@ -485,7 +485,7 @@ If Money Trail needs to be disabled after merge:
 
 - Resolved: PR #64 reads CAS rows from the `transaction` table and fund names from the `fund` view. Available fields are transaction id, fund id, date, type, units, amount, NAV, folio number, CAS import id, and created timestamp.
 - Resolved: existing XIRR logic in `src/utils/xirr.ts` treats `purchase`, `switch_in`, and `dividend_reinvest` as negative cashflows, and `redemption` plus `switch_out` as positive cashflows. It also reports invested amount as remaining cost basis after average-cost deductions, not lifetime money-in.
-- Resolved: current app dependencies include `expo-file-system`. CSV export uses browser download on web and writes a CSV file into Expo `documentDirectory` on native. The app does not currently include `expo-sharing`, so native export returns the saved file path instead of opening a system share sheet.
+- Resolved: current app dependencies include `expo-file-system`. CSV export uses browser download on web, Android Storage Access Framework folder selection on Android, and a native share-sheet fallback after writing to Expo app storage when folder selection is unavailable or cancelled.
 - Limitation: the current database enum has `purchase`, `redemption`, `switch_in`, `switch_out`, and `dividend_reinvest`. Dividend payout, STP, SWP, failed, and reversal rows are supported by the view model for forward compatibility, but current import code skips or normalizes some of these before storage.
 - Limitation: AMC name is not stored on the `transaction` table or `fund` view. Money Trail infers common AMC names from the fund name when possible and otherwise marks AMC as unavailable.
 - Assumption: folio numbers can be displayed unmasked per PRD.
@@ -500,6 +500,13 @@ If Money Trail needs to be disabled after merge:
 - 2026-04-29: Kept Money Trail lifetime external cashflow totals separate from the app's existing `investedAmount`, because existing `investedAmount` is remaining cost basis and powers portfolio/fund calculations.
 - 2026-04-29: Kept existing XIRR behavior unchanged. Money Trail marks switch and dividend-reinvestment records as used in XIRR when the current shared XIRR helper uses them, while Money Trail net-invested summaries treat them as internal movement.
 - 2026-04-29: Implemented CSV export without a new dependency by using web downloads and native `expo-file-system/legacy` file writes.
+- 2026-04-29: After device testing, changed native CSV export to open an Android folder picker before writing the CSV, with share-sheet fallback instead of showing app-private `file://` paths in the UI.
+
+
+## Amendments
+
+- 2026-04-29: Blank amount filter inputs must remain unset. `Number('')` produced `0`, which made an untouched max-amount field exclude all positive-amount transactions after applying filters.
+- 2026-04-29: Failed-payment reversals can arrive in the current database as a same-day `purchase` plus `redemption` pair because earlier CAS import behavior mapped `REVERSAL` to `redemption`. Money Trail now hides those pairs by default, and shared portfolio/XIRR/timeline helpers remove the pair before calculating holdings, current value, invested amount, realized gains, and benchmark comparisons.
 
 
 ## Progress
@@ -518,4 +525,4 @@ If Money Trail needs to be disabled after merge:
 - [x] Add Money Trail screen and transaction detail.
 - [x] Add filter, sort, search, and CSV export.
 - [x] Update README and screen docs.
-- [ ] Run full validation and capture screenshots.
+- [x] Run full validation and capture screenshots.

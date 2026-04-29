@@ -131,7 +131,7 @@ export default function MoneyTrailDetailScreen() {
     setExportError(null);
     try {
       const result = await exportMoneyTrailCsv([tx]);
-      setExportResult(`CSV exported to ${result}.`);
+      setExportResult(result.message);
     } catch (error) {
       setExportError(error instanceof Error ? error.message : 'Please try again.');
     }

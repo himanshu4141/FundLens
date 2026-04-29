@@ -3,6 +3,7 @@ import {
   formatXirr,
   computeRealizedGains,
   buildCashflowsFromTransactions,
+  filterReversedTransactionPairs,
   type Cashflow,
   type Transaction,
 } from '../xirr';
@@ -343,6 +344,20 @@ describe('computeRealizedGains()', () => {
     const result = computeRealizedGains(txs);
     expect(result.realizedGain).toBeCloseTo(700, 5);
   });
+
+  it('excludes same-day purchase/redemption pairs created by failed payment reversals', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-10-09', transaction_type: 'redemption', units: 0, amount: 25000 },
+      { transaction_date: '2025-10-09', transaction_type: 'purchase', units: 101.12, amount: 25000 },
+    ];
+
+    expect(filterReversedTransactionPairs(txs)).toEqual([]);
+    expect(computeRealizedGains(txs)).toEqual({
+      realizedGain: 0,
+      realizedAmount: 0,
+      redeemedUnits: 0,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -458,5 +473,17 @@ describe('buildCashflowsFromTransactions()', () => {
     expect(result.netUnits).toBe(175);
     expect(result.investedAmount).toBe(18500);
     expect(result.historicalCashflows).toHaveLength(3);
+  });
+
+  it('does not leave phantom units or cost basis for failed payment reversal pairs', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-10-09', transaction_type: 'redemption', units: 0, amount: 25000 },
+      { transaction_date: '2025-10-09', transaction_type: 'purchase', units: 101.12, amount: 25000 },
+    ];
+    const result = buildCashflowsFromTransactions(txs, 0, today);
+
+    expect(result.netUnits).toBe(0);
+    expect(result.investedAmount).toBe(0);
+    expect(result.historicalCashflows).toEqual([]);
   });
 });
