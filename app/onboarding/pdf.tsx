@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
@@ -56,8 +56,8 @@ export default function PDFScreen() {
       const readViaFileSystem = async () => {
         // expo-file-system is the only reliable way to read local file:// URIs
         // on React Native new-arch (RN 0.73+) — XHR and fetch both fail silently.
-        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-          encoding: 'base64',
+        const base64 = await readAsStringAsync(asset.uri, {
+          encoding: EncodingType.Base64,
         });
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
