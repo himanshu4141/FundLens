@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
@@ -51,22 +53,19 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      const readViaXHR = async () =>
-        new Promise<ArrayBuffer>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', asset.uri);
-          xhr.responseType = 'arraybuffer';
-          xhr.onload = () => {
-            // XHR status is 0 for local file:// reads (no HTTP status)
-            if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
-              resolve(xhr.response as ArrayBuffer);
-            } else {
-              reject(new Error(`Failed to read file (status ${xhr.status})`));
-            }
-          };
-          xhr.onerror = () => reject(new Error('XHR read failed'));
-          xhr.send();
+      const readViaFileSystem = async () => {
+        // expo-file-system is the only reliable way to read local file:// URIs
+        // on React Native new-arch (RN 0.73+) — XHR and fetch both fail silently.
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: 'base64',
         });
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer as ArrayBuffer;
+      };
 
       const readViaFetch = async () => {
         try {
@@ -82,15 +81,21 @@ export default function PDFScreen() {
       };
 
       const pdfBytes = await (async () => {
+        // Web: File object has arrayBuffer() — use it directly
         if (asset.file && typeof asset.file.arrayBuffer === 'function') {
           return asset.file.arrayBuffer();
         }
 
-        try {
-          return await readViaXHR();
-        } catch {
-          return readViaFetch();
+        // Native: expo-file-system first, fetch as fallback
+        if (Platform.OS !== 'web') {
+          try {
+            return await readViaFileSystem();
+          } catch {
+            return readViaFetch();
+          }
         }
+
+        return readViaFetch();
       })();
 
       if (pdfBytes.byteLength === 0) {
