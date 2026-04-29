@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,7 +16,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { LineChart } from 'react-native-gifted-charts';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { G, Line as SvgLine, Path as SvgPath, Text as SvgText } from 'react-native-svg';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import {
   ClearLensCard,
@@ -104,10 +105,6 @@ function buildVisibleYears(horizonYears: number): number[] {
 
 function formatCheckpointLabel(year: number, startLabel: string): string {
   return year === 0 ? startLabel : `${year}Y`;
-}
-
-function spacingFor(width: number, pointCount: number): number {
-  return Math.max(28, Math.floor((width - 84) / Math.max(pointCount - 1, 1)));
 }
 
 function ValueField({
@@ -263,8 +260,6 @@ function JourneyLineChart({
   compact,
   labels,
   pointerHeight,
-  primaryLabel,
-  secondaryLabel,
 }: {
   data: { value: number; label: string }[];
   data2?: { value: number; label: string }[];
@@ -272,87 +267,105 @@ function JourneyLineChart({
   compact: boolean;
   labels: string[];
   pointerHeight: number;
-  primaryLabel: string;
-  secondaryLabel?: string;
 }) {
-  const hasSecondSeries = !!data2;
-  const spacing = useMemo(() => spacingFor(chartWidth, data.length), [chartWidth, data.length]);
-  const formatChartYLabel = useCallback((value: string) => formatAxisValue(Number(value)), []);
-  const pointerLabelComponent = useCallback(
-    (_items: unknown, _sec: unknown, pointerIndex: number) => {
-      const first = data[pointerIndex];
-      const second = data2?.[pointerIndex];
-      if (!first) return null;
+  const hasSecondSeries = !!data2 && data2.length > 0;
+  const chartHeight = compact ? 210 : pointerHeight;
+  const plotTop = 12;
+  const plotBottom = 30;
+  const plotLeft = 56;
+  const plotRight = 8;
+  const plotWidth = Math.max(1, chartWidth - plotLeft - plotRight);
+  const plotHeight = Math.max(1, chartHeight - plotTop - plotBottom);
+  const allValues = [
+    ...data.map((point) => point.value),
+    ...(data2 ?? []).map((point) => point.value),
+  ].filter((value) => Number.isFinite(value));
+  const yMax = Math.max(1, Math.max(...allValues) * 1.08);
+  const labelEvery = data.length <= 6 ? 1 : Math.ceil(data.length / 5);
 
-      return (
-        <View style={styles.pointerLabel}>
-          <Text style={styles.pointerDate}>{first.label}</Text>
-          <Text style={styles.pointerSeriesText}>
-            <Text style={{ color: hasSecondSeries ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio }}>● </Text>
-            {primaryLabel}: {formatCurrency(first.value)}
-          </Text>
-          {second ? (
-            <Text style={styles.pointerSeriesText}>
-              <Text style={{ color: ClearLensSemanticColors.chart.portfolio }}>● </Text>
-              {secondaryLabel}: {formatCurrency(second.value)}
-            </Text>
-          ) : null}
-        </View>
-      );
-    },
-    [data, data2, hasSecondSeries, primaryLabel, secondaryLabel],
-  );
-  const pointerConfig = useMemo(
-    () => ({
-      showPointerStrip: true,
-      pointerStripHeight: pointerHeight,
-      pointerStripWidth: 1,
-      pointerStripColor: `${ClearLensColors.textTertiary}88`,
-      pointerColor: ClearLensColors.emerald,
-      radius: 4,
-      pointerLabelWidth: hasSecondSeries ? 158 : 146,
-      pointerLabelHeight: hasSecondSeries ? 58 : 42,
-      activatePointersOnLongPress: true,
-      autoAdjustPointerLabelPosition: true,
-      pointerLabelComponent,
-    }),
-    [hasSecondSeries, pointerHeight, pointerLabelComponent],
-  );
+  function xFor(index: number, pointCount: number): number {
+    return plotLeft + (pointCount <= 1 ? 0 : (index / (pointCount - 1)) * plotWidth);
+  }
+
+  function yFor(value: number): number {
+    return plotTop + plotHeight - (Math.max(0, value) / yMax) * plotHeight;
+  }
+
+  function pathFor(points: { value: number }[]): string {
+    return points
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${xFor(index, points.length).toFixed(1)} ${yFor(point.value).toFixed(1)}`)
+      .join(' ');
+  }
 
   return (
-    <LineChart
-      data={data}
-      data2={data2}
-      width={chartWidth}
-      parentWidth={chartWidth}
-      adjustToWidth
-      disableScroll
-      bounces={false}
-      height={compact ? 210 : 226}
-      curved
-      hideDataPoints
-      color1={hasSecondSeries ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio}
-      color2={ClearLensSemanticColors.chart.portfolio}
-      thickness1={hasSecondSeries ? 2.3 : 3}
-      thickness2={3}
-      yAxisLabelWidth={56}
-      noOfSections={4}
-      spacing={spacing}
-      initialSpacing={10}
-      endSpacing={10}
-      xAxisLabelTexts={labels}
-      xAxisLabelTextStyle={styles.chartAxisText}
-      yAxisTextStyle={styles.chartAxisText}
-      xAxisLabelsHeight={24}
-      labelsExtraHeight={34}
-      xAxisLabelsVerticalShift={8}
-      xAxisColor={ClearLensColors.borderLight}
-      yAxisColor="transparent"
-      hideRules={false}
-      rulesColor={ClearLensColors.borderLight}
-      formatYLabel={formatChartYLabel}
-      pointerConfig={pointerConfig}
-    />
+    <Svg width={chartWidth} height={chartHeight}>
+      {[4, 3, 2, 1, 0].map((tick) => {
+        const value = (yMax / 4) * tick;
+        const y = yFor(value);
+        return (
+          <G key={`tick-${tick}`}>
+            <SvgLine
+              x1={plotLeft}
+              x2={plotLeft + plotWidth}
+              y1={y}
+              y2={y}
+              stroke={tick === 0 ? ClearLensColors.border : ClearLensColors.borderLight}
+              strokeWidth={1}
+              strokeDasharray={tick === 0 ? undefined : '4 8'}
+            />
+            <SvgText
+              x={plotLeft - 10}
+              y={y + 4}
+              fill={ClearLensColors.textTertiary}
+              fontSize={11}
+              fontWeight="600"
+              textAnchor="end"
+            >
+              {formatAxisValue(value)}
+            </SvgText>
+          </G>
+        );
+      })}
+
+      {data.length > 0 && (
+        <SvgPath
+          d={pathFor(data)}
+          fill="none"
+          stroke={hasSecondSeries ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio}
+          strokeWidth={hasSecondSeries ? 2.5 : 3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {hasSecondSeries && data2 && (
+        <SvgPath
+          d={pathFor(data2)}
+          fill="none"
+          stroke={ClearLensSemanticColors.chart.portfolio}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+
+      {data.map((point, index) => {
+        const showLabel = index === 0 || index === data.length - 1 || index % labelEvery === 0;
+        if (!showLabel) return null;
+        return (
+          <SvgText
+            key={`${point.label}-${index}`}
+            x={xFor(index, data.length)}
+            y={chartHeight - 8}
+            fill={ClearLensColors.textTertiary}
+            fontSize={11}
+            fontWeight="600"
+            textAnchor={index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'middle'}
+          >
+            {labels[index] ?? point.label}
+          </SvgText>
+        );
+      })}
+    </Svg>
   );
 }
 
@@ -402,7 +415,12 @@ function SipEditorModal({
   onManual: () => void;
   onSaveManual: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const manualDraftValue = parseFloat(draft.replace(/[^0-9.]/g, ''));
+  const sheetBodyStyle = [
+    styles.sheetBody,
+    { paddingBottom: ClearLensSpacing.lg + insets.bottom },
+  ];
 
   return (
     <Modal visible={mode !== null} transparent animationType="slide" onRequestClose={onClose}>
@@ -431,7 +449,7 @@ function SipEditorModal({
               bounces={false}
               keyboardShouldPersistTaps="handled"
               style={styles.sheetScrollBody}
-              contentContainerStyle={styles.sheetBody}
+              contentContainerStyle={sheetBodyStyle}
             >
               <Text style={styles.sheetCopy}>Set the monthly SIP you want to use for projections.</Text>
               <Text style={styles.fieldLabel}>Monthly SIP for projections</Text>
@@ -475,7 +493,7 @@ function SipEditorModal({
               bounces={false}
               keyboardShouldPersistTaps="handled"
               style={styles.sheetScrollBody}
-              contentContainerStyle={styles.sheetBody}
+              contentContainerStyle={sheetBodyStyle}
             >
               <Text style={styles.sheetCopy}>
                 {hasDetectedSip
@@ -485,12 +503,6 @@ function SipEditorModal({
               <View style={styles.detectedBox}>
                 <Text style={styles.metricLabel}>{hasDetectedSip ? 'Detected SIP' : 'Monthly SIP'}</Text>
                 <Text style={styles.detectedValue}>{formatCurrency(detectedSip || currentSip)}</Text>
-              </View>
-              <View style={styles.detectedToggleRow}>
-                <Text style={styles.detectedToggleText}>Use this for projections</Text>
-                <View style={styles.detectedToggleTrack}>
-                  <View style={styles.detectedToggleThumb} />
-                </View>
               </View>
               {detectedDetails.length > 0 && (
                 <View style={styles.recurringList}>
@@ -834,8 +846,6 @@ export function ClearLensWealthJourneyScreen() {
           compact={compact}
           labels={baselineChartData.map((point) => point.label)}
           pointerHeight={compact ? 210 : 226}
-          primaryLabel="Current"
-          secondaryLabel="Adjusted"
         />
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
@@ -911,7 +921,6 @@ export function ClearLensWealthJourneyScreen() {
           compact={compact}
           labels={withdrawalChartData.map((point) => point.label)}
           pointerHeight={compact ? 210 : 226}
-          primaryLabel="Corpus"
         />
         <View style={styles.withdrawalDetailRow}>
           <View>
@@ -1681,35 +1690,6 @@ const styles = StyleSheet.create({
   detectedValue: {
     ...ClearLensTypography.h2,
     color: ClearLensColors.navy,
-  },
-  detectedToggleRow: {
-    minHeight: 48,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-    paddingHorizontal: ClearLensSpacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  detectedToggleText: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
-    fontFamily: ClearLensFonts.semiBold,
-  },
-  detectedToggleTrack: {
-    width: 44,
-    height: 26,
-    borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.emerald,
-    padding: 3,
-    alignItems: 'flex-end',
-  },
-  detectedToggleThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.surface,
-    ...ClearLensShadow,
   },
   recurringList: {
     gap: ClearLensSpacing.xs,

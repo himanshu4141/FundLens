@@ -678,13 +678,25 @@ function MoverCard({
       styles.moverCard,
       positive ? styles.moverCardPositive : styles.moverCardNegative,
     ]}>
-      <Text style={[styles.metricLabel, positive ? styles.moverPositiveLabel : styles.moverNegativeLabel]}>{title}</Text>
-      <Text style={styles.moverName} numberOfLines={2}>{base}</Text>
+      <View style={styles.moverCopyBlock}>
+        <Text style={[styles.metricLabel, positive ? styles.moverPositiveLabel : styles.moverNegativeLabel]}>{title}</Text>
+        <Text style={styles.moverName} numberOfLines={2}>{base}</Text>
+      </View>
       <View style={styles.moverStatsRow}>
-        <Text style={[styles.moverPct, { color }]}>
+        <Text
+          style={[styles.moverPct, { color }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
           {formatClearLensPercentDelta(pct)}
         </Text>
-        <Text style={[styles.moverAmount, { color }]}>
+        <Text
+          style={[styles.moverAmount, { color }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
           {formatClearLensCurrencyDelta(amount)}
         </Text>
       </View>
@@ -1220,8 +1232,9 @@ const styles = StyleSheet.create({
   },
   moverCard: {
     flex: 1,
-    minHeight: 148,
-    gap: ClearLensSpacing.xs,
+    minHeight: 132,
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.sm,
     borderLeftWidth: 3,
   },
   moverCardPositive: {
@@ -1238,24 +1251,31 @@ const styles = StyleSheet.create({
   moverNegativeLabel: {
     color: ClearLensSemanticColors.sentiment.negativeText,
   },
+  moverCopyBlock: {
+    gap: ClearLensSpacing.xs,
+  },
   moverName: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.semiBold,
     color: ClearLensColors.navy,
-    minHeight: 42,
+    minHeight: 40,
   },
   moverStatsRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: ClearLensSpacing.sm,
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.xs,
   },
   moverPct: {
-    ...ClearLensTypography.h3,
+    ...ClearLensTypography.body,
+    fontFamily: ClearLensFonts.bold,
+    flexShrink: 1,
   },
   moverAmount: {
     ...ClearLensTypography.bodySmall,
-    fontFamily: ClearLensFonts.semiBold,
+    fontFamily: ClearLensFonts.bold,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   allocationBar: {
     height: 12,

@@ -295,7 +295,7 @@ function PerformanceTab({
           <Text style={s.pointerDate}>{formatChartDate(point.date, window)}</Text>
           <Text style={s.pointerSeriesText}>
             <Text style={{ color: ClearLensSemanticColors.chart.invested }}>● </Text>
-            Invested: {formatCurrency(point.investedValue)}
+            Net invested: {formatCurrency(point.investedValue)}
           </Text>
           <Text style={s.pointerSeriesText}>
             <Text style={{ color: colors.primary }}>● </Text>
@@ -438,13 +438,14 @@ function PerformanceTab({
       activePoint.investedValue > 0
         ? ((activePoint.benchmarkValue - activePoint.investedValue) / activePoint.investedValue) * 100
         : 0;
+    const windowContext = window === 'All' ? 'since first transaction' : `past ${window}`;
 
     return (
       <View style={s.tabContent}>
         <View style={s.xirrCard}>
           <View style={s.comparisonRow}>
             <View style={s.comparisonCol}>
-              <Text style={s.statLabel}>Your fund ({window})</Text>
+              <Text style={s.statLabel}>This fund</Text>
               <Text
                 style={[s.xirrValue, { color: fundReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
                 adjustsFontSizeToFit
@@ -456,7 +457,7 @@ function PerformanceTab({
             </View>
             <View style={s.xirrDivider} />
             <View style={s.comparisonCol}>
-              <Text style={s.statLabel}>If invested in {selectedLabel} ({window})</Text>
+              <Text style={s.statLabel}>Same cashflows in {selectedLabel}</Text>
               <Text
                 style={[
                   s.xirrValue,
@@ -470,6 +471,7 @@ function PerformanceTab({
               </Text>
             </View>
           </View>
+          <Text style={s.comparisonHint}>Using your buys, redemptions, and switches · {windowContext}</Text>
         </View>
 
         <TimeWindowSelector selected={window} onChange={setWindow} />
@@ -501,7 +503,7 @@ function PerformanceTab({
           <View style={s.chartLegendRow}>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: ClearLensSemanticColors.chart.invested }]} />
-              <Text style={s.legendLabel}>Amount invested</Text>
+              <Text style={s.legendLabel}>Net invested</Text>
             </View>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: colors.primary }]} />
@@ -509,7 +511,7 @@ function PerformanceTab({
             </View>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: benchmarkColor }]} />
-              <Text style={s.legendLabel}>If invested in {selectedLabel}</Text>
+              <Text style={s.legendLabel}>{selectedLabel} value</Text>
             </View>
           </View>
 
@@ -549,12 +551,16 @@ function PerformanceTab({
             />
           </View>
 
+          <Text style={s.chartExplainer}>
+            Net invested is the remaining cost basis after redemptions and switches.
+          </Text>
+
           <View style={s.returnSummary}>
             {activeIdx !== null && (
               <Text style={s.summaryDateLabel}>as of {formatChartDate(activePoint.date, window)}</Text>
             )}
             <View style={s.returnRow}>
-              <Text style={s.returnLabel}>Amount invested</Text>
+              <Text style={s.returnLabel}>Net invested</Text>
               <Text style={s.returnVal}>{formatCurrency(activePoint.investedValue)}</Text>
             </View>
             <View style={s.returnRow}>
@@ -593,7 +599,7 @@ function PerformanceTab({
       <View style={s.xirrCard}>
         <View style={s.comparisonRow}>
           <View style={s.comparisonCol}>
-            <Text style={s.statLabel}>Your Fund ({window})</Text>
+            <Text style={s.statLabel}>Fund NAV</Text>
             <Text
               style={[s.xirrValue, { color: navReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
               adjustsFontSizeToFit
@@ -607,7 +613,7 @@ function PerformanceTab({
             <>
               <View style={s.xirrDivider} />
               <View style={s.comparisonCol}>
-                <Text style={s.statLabel}>{selectedLabel} ({window})</Text>
+                <Text style={s.statLabel}>{selectedLabel} NAV</Text>
                 <Text
                   style={[
                     s.xirrValue,
@@ -1063,6 +1069,7 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
   const zeroY = plotTop + plotHeight / 2;
   const barGap = 7;
   const barWidth = Math.max(12, Math.min(20, (plotWidth - barGap * (bars.length - 1)) / bars.length));
+  const xLabelEvery = bars.length <= 8 ? 1 : 2;
 
   function yFor(value: number): number {
     return zeroY - (value / chartMax) * (plotHeight / 2);
@@ -1106,6 +1113,7 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
             const y = positive ? yFor(bar.value) : zeroY;
             const height = Math.max(3, Math.abs(yFor(bar.value) - zeroY));
             const labelY = positive ? y - 5 : y + height + 12;
+            const showXAxisLabel = index === 0 || index === bars.length - 1 || index % xLabelEvery === 0;
             return (
               <G key={bar.label}>
                 <SvgRect
@@ -1126,15 +1134,17 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
                 >
                   {bar.value.toFixed(Math.abs(bar.value) >= 10 ? 1 : 2)}
                 </SvgText>
-                <SvgText
-                  x={x + barWidth / 2}
-                  y={chartHeight - 10}
-                  fill={colors.textTertiary}
-                  fontSize={9}
-                  textAnchor="middle"
-                >
-                  {bar.label}
-                </SvgText>
+                {showXAxisLabel && (
+                  <SvgText
+                    x={x + barWidth / 2}
+                    y={chartHeight - 10}
+                    fill={colors.textTertiary}
+                    fontSize={9}
+                    textAnchor="middle"
+                  >
+                    {bar.label}
+                  </SvgText>
+                )}
               </G>
             );
           })}
@@ -1687,7 +1697,7 @@ function ClassicFundDetailScreen() {
                     )}
                   </View>
                   <View style={s.holdingStat}>
-                    <Text style={s.statLabel}>Invested</Text>
+                    <Text style={s.statLabel}>Cost basis</Text>
                     <Text style={s.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
                   </View>
                   <View style={s.holdingStat}>
@@ -1811,6 +1821,7 @@ function ClearLensFundDetailScreen() {
   const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
   const gainPct = gain !== null && data.investedAmount > 0 ? (gain / data.investedAmount) * 100 : null;
   const hasSignalRow = (gain !== null && gainPct !== null) || Number.isFinite(data.fundXirr);
+  const hasRealizedActivity = data.realizedAmount > 0 || data.redeemedUnits > 0;
 
   return (
     <ClearLensScreen>
@@ -1835,8 +1846,11 @@ function ClearLensFundDetailScreen() {
               )}
             </View>
             <View style={clearDetailStyles.statCell}>
-              <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Invested</Text>
+              <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Cost basis</Text>
               <Text style={clearDetailStyles.statValue}>{formatCurrency(data.investedAmount)}</Text>
+              {hasRealizedActivity && (
+                <Text style={clearDetailStyles.statHint}>after redemptions</Text>
+              )}
             </View>
             <View style={clearDetailStyles.statCell}>
               <Text style={clearDetailStyles.statLabel} numberOfLines={1}>Units</Text>
@@ -1869,6 +1883,27 @@ function ClearLensFundDetailScreen() {
                   </View>
                 </View>
               )}
+            </View>
+          )}
+
+          {hasRealizedActivity && (
+            <View style={clearDetailStyles.realizedBox}>
+              <View style={clearDetailStyles.realizedCell}>
+                <Text style={clearDetailStyles.statLabel}>Redeemed</Text>
+                <Text style={clearDetailStyles.realizedValue}>{formatCurrency(data.realizedAmount)}</Text>
+              </View>
+              <View style={clearDetailStyles.signalDivider} />
+              <View style={clearDetailStyles.realizedCell}>
+                <Text style={clearDetailStyles.statLabel}>Booked P&amp;L</Text>
+                <Text
+                  style={[
+                    clearDetailStyles.realizedValue,
+                    { color: data.realizedGain >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative },
+                  ]}
+                >
+                  {formatClearLensCurrencyDelta(data.realizedGain)}
+                </Text>
+              </View>
             </View>
           )}
         </ClearLensCard>
@@ -2025,6 +2060,23 @@ const clearDetailStyles = StyleSheet.create({
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.medium,
   },
+  realizedBox: {
+    minHeight: 56,
+    padding: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.md,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  realizedCell: {
+    flex: 1,
+    gap: 3,
+  },
+  realizedValue: {
+    ...ClearLensTypography.h3,
+    color: ClearLensColors.navy,
+  },
   xirrSignalLine: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -2147,6 +2199,12 @@ function makeStyles(colors: AppColors) {
     },
     comparisonRow: { flexDirection: 'row', alignItems: 'flex-start' },
     comparisonCol: { flex: 1, gap: 4 },
+    comparisonHint: {
+      fontSize: 11,
+      lineHeight: 16,
+      color: colors.textTertiary,
+      fontWeight: '600' as const,
+    },
     xirrDivider: { width: 1, backgroundColor: colors.borderLight, marginHorizontal: 12 },
     xirrValue: { fontSize: 22, fontWeight: '800' as const, color: colors.textPrimary, letterSpacing: -0.5 },
     verdictRow: {
