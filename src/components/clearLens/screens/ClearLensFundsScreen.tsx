@@ -41,6 +41,7 @@ import {
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
 type AllocationSegment = { id: string; pct: number; color: string };
+type FundsBottomNavRoute = 'portfolio' | 'funds' | 'wealth';
 
 const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
 const CLEAR_LENS_DEBT = ClearLensSemanticColors.asset.debt;
@@ -352,6 +353,46 @@ function SortBottomSheet({
   );
 }
 
+function FundsBottomNav() {
+  const router = useRouter();
+  const items: {
+    route: FundsBottomNavRoute;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    onPress: () => void;
+  }[] = [
+    { route: 'portfolio', label: 'Portfolio', icon: 'pie-chart-outline', onPress: () => router.replace('/(tabs)') },
+    { route: 'funds', label: 'Funds', icon: 'list-outline', onPress: () => {} },
+    { route: 'wealth', label: 'Wealth Journey', icon: 'calculator-outline', onPress: () => router.replace('/(tabs)/wealth-journey') },
+  ];
+
+  return (
+    <View style={styles.bottomNav}>
+      {items.map((item) => {
+        const active = item.route === 'funds';
+        return (
+          <TouchableOpacity
+            key={item.route}
+            style={styles.bottomNavItem}
+            onPress={item.onPress}
+            disabled={active}
+            activeOpacity={0.75}
+          >
+            <Ionicons
+              name={item.icon}
+              size={24}
+              color={active ? ClearLensColors.emerald : ClearLensColors.textTertiary}
+            />
+            <Text style={[styles.bottomNavLabel, active && styles.bottomNavLabelActive]} numberOfLines={1}>
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 export function ClearLensFundsScreen() {
   const router = useRouter();
   const { defaultBenchmarkSymbol } = useAppStore();
@@ -444,13 +485,13 @@ export function ClearLensFundsScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="Your Funds" onPressBack={() => router.back()} />
+      <ClearLensHeader title="Your Funds" />
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={ClearLensColors.emerald} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <AllocationOverview
             fundCount={fundCards.length}
             topThreeShare={topThreeShare}
@@ -494,6 +535,7 @@ export function ClearLensFundsScreen() {
           ))}
         </ScrollView>
       )}
+      <FundsBottomNav />
       <SortBottomSheet
         visible={sortMenuOpen}
         selected={sortBy}
@@ -505,9 +547,12 @@ export function ClearLensFundsScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
   scroll: {
     paddingHorizontal: ClearLensSpacing.md,
-    paddingBottom: ClearLensSpacing.xxl,
+    paddingBottom: ClearLensSpacing.lg,
     gap: ClearLensSpacing.md,
   },
   overviewCard: {
@@ -866,5 +911,29 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bottomNav: {
+    minHeight: 76,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+    backgroundColor: ClearLensColors.surface,
+    paddingTop: 7,
+    paddingBottom: 10,
+    paddingHorizontal: ClearLensSpacing.sm,
+    flexDirection: 'row',
+  },
+  bottomNavItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  bottomNavLabel: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  bottomNavLabelActive: {
+    color: ClearLensColors.emerald,
   },
 });

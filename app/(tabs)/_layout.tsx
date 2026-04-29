@@ -65,9 +65,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: 'Leaderboard',
+          title: isClearLens ? 'Funds' : 'Leaderboard',
+          href: isClearLens ? '/funds' : undefined,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy-outline" size={size} color={color} />
+            <Ionicons name={isClearLens ? 'list-outline' : 'trophy-outline'} size={size} color={color} />
           ),
         }}
       />

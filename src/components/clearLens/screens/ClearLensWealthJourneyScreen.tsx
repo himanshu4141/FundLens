@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -396,22 +398,32 @@ function SipEditorModal({
   return (
     <Modal visible={mode !== null} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalSheet} onPress={(event) => event.stopPropagation()}>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>
-              {mode === 'manual'
-                ? 'Enter monthly SIP'
-                : hasDetectedSip
-                  ? 'Review detected SIP'
-                  : 'Review monthly SIP'}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-              <Ionicons name="close" size={20} color={ClearLensColors.slate} />
-            </TouchableOpacity>
-          </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+          style={styles.modalKeyboardView}
+        >
+          <Pressable style={styles.modalSheet} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>
+                {mode === 'manual'
+                  ? 'Enter monthly SIP'
+                  : hasDetectedSip
+                    ? 'Review detected SIP'
+                    : 'Review monthly SIP'}
+              </Text>
+              <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+                <Ionicons name="close" size={20} color={ClearLensColors.slate} />
+              </TouchableOpacity>
+            </View>
 
           {mode === 'manual' ? (
-            <View style={styles.sheetBody}>
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              style={styles.sheetScrollBody}
+              contentContainerStyle={styles.sheetBody}
+            >
               <Text style={styles.sheetCopy}>Set the monthly SIP you want to use for projections.</Text>
               <Text style={styles.fieldLabel}>Monthly SIP for projections</Text>
               <View style={styles.fieldShell}>
@@ -433,24 +445,29 @@ function SipEditorModal({
                 {buildSipTargetChips(currentSip || 100000).map((chip) => {
                   const active = Number.isFinite(manualDraftValue) && Math.abs(manualDraftValue - chip.value) < 1;
                   return (
-                  <TouchableOpacity
-                    key={chip.label}
-                    style={[styles.choiceChip, active && styles.choiceChipActive]}
-                    onPress={() => setDraft(String(chip.value))}
-                  >
-                    <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
-                      {chip.label}
-                    </Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      key={chip.label}
+                      style={[styles.choiceChip, active && styles.choiceChipActive]}
+                      onPress={() => setDraft(String(chip.value))}
+                    >
+                      <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                        {chip.label}
+                      </Text>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
               <TouchableOpacity style={styles.primaryButton} onPress={onSaveManual}>
                 <Text style={styles.primaryButtonText}>Save</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           ) : (
-            <View style={styles.sheetBody}>
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              style={styles.sheetScrollBody}
+              contentContainerStyle={styles.sheetBody}
+            >
               <Text style={styles.sheetCopy}>
                 {hasDetectedSip
                   ? 'We estimated this from recurring investments in the last 6 months.'
@@ -498,9 +515,10 @@ function SipEditorModal({
                   <Text style={styles.secondaryButtonText}>Enter manually</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </ScrollView>
           )}
-        </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Pressable>
     </Modal>
   );
@@ -848,13 +866,13 @@ export function ClearLensWealthJourneyScreen() {
   function renderWithdrawalSummaryCard() {
     return (
       <ClearLensCard style={styles.resultCard}>
-        <View style={styles.withdrawalMetricGrid}>
-          <View style={[styles.withdrawalMetricBox, styles.withdrawalIncomeBox]}>
+        <View style={styles.withdrawalSummaryTop}>
+          <View style={styles.withdrawalSummaryMetric}>
             <Text style={styles.metricLabel}>Monthly income</Text>
             <Text style={[styles.largeMetric, styles.positiveText]}>{formatCurrency(withdrawalProjection.monthlyIncome)}/mo</Text>
             <Text style={styles.sectionSubtitle}>{formatPercent(withdrawalRate)} withdrawal rate</Text>
           </View>
-          <View style={styles.withdrawalMetricBox}>
+          <View style={[styles.withdrawalSummaryMetric, styles.withdrawalSummaryMetricRight]}>
             <Text style={styles.metricLabel}>Lasts for</Text>
             <Text style={styles.largeMetric}>{retirementDurationYears} years</Text>
             <Text style={styles.sectionSubtitle}>at {formatPercent(postRetirementReturn)} p.a. post-return</Text>
@@ -1097,9 +1115,15 @@ export function ClearLensWealthJourneyScreen() {
                   {renderGrowthCard()}
                   <ClearLensCard style={styles.snapshotCard}>
                     <Text style={styles.sectionTitle}>Withdrawal snapshot</Text>
-                    <View style={styles.twoColumnGrid}>
-                      <SnapshotMetric label="Monthly income" value={`${formatCurrency(withdrawalProjection.monthlyIncome)}/mo`} tone="positive" />
-                      <SnapshotMetric label="Lasts for" value={`${retirementDurationYears} years`} />
+                    <View style={styles.withdrawalMetricGrid}>
+                      <View style={[styles.withdrawalMetricBox, styles.withdrawalIncomeBox]}>
+                        <SnapshotMetric label="Monthly income" value={`${formatCurrency(withdrawalProjection.monthlyIncome)}/mo`} tone="positive" />
+                        <Text style={styles.sectionSubtitle}>{formatPercent(withdrawalRate)} withdrawal rate</Text>
+                      </View>
+                      <View style={styles.withdrawalMetricBox}>
+                        <SnapshotMetric label="Lasts for" value={`${retirementDurationYears} years`} />
+                        <Text style={styles.sectionSubtitle}>at {formatPercent(postRetirementReturn)} p.a. post-return</Text>
+                      </View>
                     </View>
                     <View style={styles.resultRows}>
                       <View style={styles.resultRow}>
@@ -1511,6 +1535,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: ClearLensSpacing.sm,
   },
+  withdrawalSummaryTop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.md,
+  },
+  withdrawalSummaryMetric: {
+    flex: 1,
+    minWidth: 140,
+    gap: 3,
+  },
+  withdrawalSummaryMetricRight: {
+    alignItems: 'flex-end',
+  },
   withdrawalMetricBox: {
     flex: 1,
     borderRadius: ClearLensRadii.md,
@@ -1571,7 +1610,12 @@ const styles = StyleSheet.create({
     backgroundColor: ClearLensSemanticColors.overlay.backdrop,
     justifyContent: 'flex-end',
   },
+  modalKeyboardView: {
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
   modalSheet: {
+    maxHeight: '90%',
     borderTopLeftRadius: ClearLensRadii.xl,
     borderTopRightRadius: ClearLensRadii.xl,
     backgroundColor: ClearLensColors.surface,
@@ -1601,6 +1645,10 @@ const styles = StyleSheet.create({
   sheetBody: {
     padding: ClearLensSpacing.md,
     gap: ClearLensSpacing.md,
+  },
+  sheetScrollBody: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   sheetCopy: {
     ...ClearLensTypography.bodySmall,
