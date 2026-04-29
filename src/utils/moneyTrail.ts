@@ -245,7 +245,8 @@ export function buildPortfolioTransaction(raw: RawMoneyTrailTransaction): Portfo
   const type = normalizeMoneyTrailType(raw.transaction_type);
   const mapping = mapMoneyTrailType(type);
   const status = normalizeStatus(raw.status) ?? mapping.status;
-  const hiddenByDefault = mapping.hiddenByDefault || status === 'failed' || status === 'reversed';
+  const hiddenByDefault =
+    mapping.hiddenByDefault || status === 'failed' || status === 'reversed' || status === 'hidden';
   const fundName = raw.fund_name ?? raw.scheme_name ?? 'Unknown fund';
   const amount = Math.abs(Number(raw.amount ?? 0));
   const units = finiteOrUndefined(raw.units);
@@ -616,7 +617,7 @@ function normalizeStatus(rawStatus?: string | null): MoneyTrailStatus | null {
   const status = rawStatus.toLowerCase();
   if (status.includes('fail') || status.includes('reject')) return 'failed';
   if (status.includes('reverse') || status.includes('cancel')) return 'reversed';
-  if (status.includes('hide')) return 'hidden';
+  if (status.includes('hide') || status.includes('hidden')) return 'hidden';
   if (status.includes('success') || status.includes('complete')) return 'success';
   return null;
 }
