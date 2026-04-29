@@ -69,11 +69,16 @@ export default function PDFScreen() {
         });
 
       const readViaFetch = async () => {
-        const res = await fetch(asset.uri);
-        if (!res.ok) {
-          throw new Error(`Fetch read failed (status ${res.status})`);
+        try {
+          const res = await fetch(asset.uri);
+          if (!res.ok) {
+            throw new Error(`Fetch read failed (status ${res.status})`);
+          }
+          return res.arrayBuffer();
+        } catch (err) {
+          // Wrap so the outer catch maps this to the friendly "Could not read" message
+          throw new Error(`File read failed: ${err instanceof Error ? err.message : err}`);
         }
-        return res.arrayBuffer();
       };
 
       const pdfBytes = await (async () => {
@@ -120,8 +125,10 @@ export default function PDFScreen() {
               reject(new Error(`Import failed (${xhr.status})`));
             }
           };
-          xhr.onerror = () => reject(new Error('Network request failed'));
-          xhr.send(pdfBytes);
+          xhr.onerror = () => reject(new Error('Upload failed — could not reach server'));
+          // Send as Uint8Array: TypedArrays are more reliably handled by RN XHR
+          // than raw ArrayBuffer across new-arch and old-arch.
+          xhr.send(new Uint8Array(pdfBytes));
         },
       );
 
