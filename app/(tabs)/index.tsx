@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -273,6 +273,11 @@ function PortfolioChartSection({
   const chartYPad = ((chartYMax - chartYMin) || chartYMax * 0.1 || 1) * 0.15;
   const chartMaxValue = Math.ceil((chartYMax + chartYPad) / 10) * 10;
   const chartMinValue = Math.floor((chartYMin - chartYPad) / 10) * 10;
+  const chartSpacing = useMemo(
+    () => Math.max(8, (CHART_WIDTH - 56) / Math.max(chartData.length - 1, 1)),
+    [chartData.length],
+  );
+  const formatPortfolioYLabel = useCallback((v: string) => `${Math.round(Number(v))}`, []);
 
   if (!isLoading && chartData.length === 0) return null;
 
@@ -319,13 +324,13 @@ function PortfolioChartSection({
             hideRules
             xAxisColor={colors.borderLight}
             yAxisColor="transparent"
-            formatYLabel={(v) => `${Math.round(Number(v))}`}
+            formatYLabel={formatPortfolioYLabel}
             maxValue={chartMaxValue - chartMinValue}
             yAxisOffset={chartMinValue}
             noOfSections={4}
             initialSpacing={0}
             endSpacing={32}
-            spacing={Math.max(8, (CHART_WIDTH - 56) / Math.max(chartData.length - 1, 1))}
+            spacing={chartSpacing}
           />
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>

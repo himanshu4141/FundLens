@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -150,6 +150,16 @@ function PerformanceTab({
   // Track crosshair position so the return summary below the chart stays in sync.
   // null = no active crosshair (show end-of-period values).
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const activeIdxFrameRef = useRef<number | null>(null);
+  const updateActiveIdxFromPointer = useCallback((pointerIndex: number) => {
+    if (activeIdxFrameRef.current !== null) {
+      cancelAnimationFrame(activeIdxFrameRef.current);
+    }
+    activeIdxFrameRef.current = requestAnimationFrame(() => {
+      activeIdxFrameRef.current = null;
+      setActiveIdx((current) => (current === pointerIndex ? current : pointerIndex));
+    });
+  }, []);
 
   const { data: indexRows } = useQuery({
     queryKey: ['index-history', selectedSymbol],
@@ -173,6 +183,13 @@ function PerformanceTab({
 
   // Reset crosshair when window or benchmark changes so summary resets to period-end values.
   useEffect(() => { setActiveIdx(null); }, [window, selectedSymbol]);
+  useEffect(() => (
+    () => {
+      if (activeIdxFrameRef.current !== null) {
+        cancelAnimationFrame(activeIdxFrameRef.current);
+      }
+    }
+  ), []);
 
   const filteredNav = filterToWindow(navHistory, window);
   const navStartDate = filteredNav[0]?.date ?? '';
@@ -215,9 +232,14 @@ function PerformanceTab({
   const navPoints = sampledNav.map((p) => ({ value: p.value }));
   const hasNavData = navPoints.length > 1;
   const hasBenchmarkData = indexedBenchmark.length > 1;
-  const benchmarkPoints = hasBenchmarkData
-    ? sampledNav.map((p) => ({ value: nearestBenchmarkValue(indexedBenchmark, p.date) }))
-    : [];
+  const benchmarkPoints = useMemo(
+    () => (
+      hasBenchmarkData
+        ? sampledNav.map((p) => ({ value: nearestBenchmarkValue(indexedBenchmark, p.date) }))
+        : []
+    ),
+    [hasBenchmarkData, indexedBenchmark, sampledNav],
+  );
 
   // Spacing: fit all sampled points exactly within the chart body (no overflow / no scroll).
   // chart body width = total width passed to LineChart minus y-axis label area
@@ -259,7 +281,104 @@ function PerformanceTab({
   const summaryBenchReturn = summaryBenchVal !== null ? ((summaryBenchVal - 100) / 100) * 100 : null;
   const summaryDate = sampledNav[summaryIdx]?.date;
 
-  const hasInvestmentTimeline = investmentTimeline.points.length > 1;
+  const timelinePoints = investmentTimeline.points;
+  const hasInvestmentTimeline = timelinePoints.length > 1;
+  const formatActualYLabel = useCallback((v: string) => formatCurrency(Number(v)), []);
+  const formatPerformanceYLabel = useCallback((v: string) => Number(v).toFixed(0), []);
+  const actualPointerLabelComponent = useCallback(
+    (_items: unknown, _sec: unknown, pointerIndex: number) => {
+      updateActiveIdxFromPointer(pointerIndex);
+      const point = timelinePoints[pointerIndex];
+      if (!point) return null;
+      return (
+        <View style={s.pointerLabel}>
+          <Text style={s.pointerDate}>{formatChartDate(point.date, window)}</Text>
+          <Text style={s.pointerSeriesText}>
+            <Text style={{ color: ClearLensSemanticColors.chart.invested }}>● </Text>
+            Invested: {formatCurrency(point.investedValue)}
+          </Text>
+          <Text style={s.pointerSeriesText}>
+            <Text style={{ color: colors.primary }}>● </Text>
+            Fund: {formatCurrency(point.portfolioValue)}
+          </Text>
+          <Text style={s.pointerSeriesText}>
+            <Text style={{ color: benchmarkColor }}>● </Text>
+            {selectedLabel}: {formatCurrency(point.benchmarkValue)}
+          </Text>
+        </View>
+      );
+    },
+    [benchmarkColor, colors.primary, s, selectedLabel, timelinePoints, updateActiveIdxFromPointer, window],
+  );
+  const actualPointerConfig = useMemo(
+    () => ({
+      showPointerStrip: true,
+      pointerStripHeight: 212,
+      pointerStripWidth: 1,
+      pointerStripColor: colors.textTertiary + '88',
+      pointerColor: colors.primary,
+      radius: 5,
+      pointerLabelWidth: 162,
+      pointerLabelHeight: 68,
+      activatePointersOnLongPress: false,
+      autoAdjustPointerLabelPosition: true,
+      pointerLabelComponent: actualPointerLabelComponent,
+    }),
+    [actualPointerLabelComponent, colors.primary, colors.textTertiary],
+  );
+  const performancePointerLabelComponent = useCallback(
+    (_items: unknown, _sec: unknown, pointerIndex: number) => {
+      updateActiveIdxFromPointer(pointerIndex);
+      const navVal = sampledNav[pointerIndex]?.value;
+      const benchVal = hasBenchmarkData ? benchmarkPoints[pointerIndex]?.value : undefined;
+      const date = sampledNav[pointerIndex]?.date;
+      return (
+        <View style={s.pointerLabel}>
+          {date !== undefined && (
+            <Text style={s.pointerDate}>{formatChartDate(date, window)}</Text>
+          )}
+          {navVal !== undefined && (
+            <Text style={s.pointerSeriesText}>
+              <Text style={{ color: colors.primary }}>● </Text>
+              Fund: {navVal.toFixed(1)}
+            </Text>
+          )}
+          {benchVal !== undefined && (
+            <Text style={s.pointerSeriesText}>
+              <Text style={{ color: benchmarkColor }}>● </Text>
+              {selectedLabel}: {benchVal.toFixed(1)}
+            </Text>
+          )}
+        </View>
+      );
+    },
+    [benchmarkColor, benchmarkPoints, colors.primary, hasBenchmarkData, s, sampledNav, selectedLabel, updateActiveIdxFromPointer, window],
+  );
+  const performancePointerConfig = useMemo(
+    () => ({
+      showPointerStrip: true,
+      pointerStripHeight: 200,
+      pointerStripWidth: 1,
+      pointerStripColor: colors.textTertiary + '88',
+      pointerColor: colors.primary,
+      radius: 5,
+      pointerLabelWidth: 140,
+      pointerLabelHeight: hasBenchmarkData ? 52 : 36,
+      activatePointersOnLongPress: false,
+      autoAdjustPointerLabelPosition: true,
+      pointerLabelComponent: performancePointerLabelComponent,
+    }),
+    [colors.primary, colors.textTertiary, hasBenchmarkData, performancePointerLabelComponent],
+  );
+  const performanceReferenceLineConfig = useMemo(
+    () => ({
+      color: colors.textTertiary + '66',
+      dashWidth: 4,
+      dashGap: 4,
+      thickness: 1,
+    }),
+    [colors.textTertiary],
+  );
   if (fundRef && userId && investmentTimeline.isLoading && !hasInvestmentTimeline) {
     return (
       <View style={s.tabContent}>
@@ -272,7 +391,7 @@ function PerformanceTab({
   }
 
   if (fundRef && userId && hasInvestmentTimeline) {
-    const points = investmentTimeline.points;
+    const points = timelinePoints;
     const actualActiveIdx = activeIdx !== null && activeIdx < points.length ? activeIdx : points.length - 1;
     const latestPoint = points[points.length - 1];
     const activePoint = points[actualActiveIdx] ?? latestPoint;
@@ -413,7 +532,7 @@ function PerformanceTab({
               thickness3={2.5}
               curved
               yAxisLabelWidth={ACTUAL_Y_AXIS_W}
-              formatYLabel={(v: string) => formatCurrency(Number(v))}
+              formatYLabel={formatActualYLabel}
               yAxisTextStyle={s.chartAxisLabel}
               maxValue={actualChartRange}
               yAxisOffset={actualChartBottom}
@@ -426,40 +545,7 @@ function PerformanceTab({
               xAxisLabelTextStyle={s.chartAxisLabel}
               xAxisLabelsHeight={16}
               labelsExtraHeight={36}
-              pointerConfig={{
-                showPointerStrip: true,
-                pointerStripHeight: 212,
-                pointerStripWidth: 1,
-                pointerStripColor: colors.textTertiary + '88',
-                pointerColor: colors.primary,
-                radius: 5,
-                pointerLabelWidth: 162,
-                pointerLabelHeight: 68,
-                activatePointersOnLongPress: false,
-                autoAdjustPointerLabelPosition: true,
-                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                  requestAnimationFrame(() => setActiveIdx(pointerIndex));
-                  const point = points[pointerIndex];
-                  if (!point) return null;
-                  return (
-                    <View style={s.pointerLabel}>
-                      <Text style={s.pointerDate}>{formatChartDate(point.date, window)}</Text>
-                      <Text style={s.pointerSeriesText}>
-                        <Text style={{ color: ClearLensSemanticColors.chart.invested }}>● </Text>
-                        Invested: {formatCurrency(point.investedValue)}
-                      </Text>
-                      <Text style={s.pointerSeriesText}>
-                        <Text style={{ color: colors.primary }}>● </Text>
-                        Fund: {formatCurrency(point.portfolioValue)}
-                      </Text>
-                      <Text style={s.pointerSeriesText}>
-                        <Text style={{ color: benchmarkColor }}>● </Text>
-                        {selectedLabel}: {formatCurrency(point.benchmarkValue)}
-                      </Text>
-                    </View>
-                  );
-                },
-              }}
+              pointerConfig={actualPointerConfig}
             />
           </View>
 
@@ -618,7 +704,7 @@ function PerformanceTab({
               thickness2={2.5}
               curved
               yAxisLabelWidth={32}
-              formatYLabel={(v: string) => Number(v).toFixed(0)}
+              formatYLabel={formatPerformanceYLabel}
               yAxisTextStyle={s.chartAxisLabel}
               maxValue={chartMaxValue - chartMostNegative}
               yAxisOffset={chartMostNegative}
@@ -627,55 +713,13 @@ function PerformanceTab({
               rulesColor={colors.borderLight}
               rulesType="solid"
               noOfSections={4}
-              referenceLine1Config={{
-                color: colors.textTertiary + '66',
-                dashWidth: 4,
-                dashGap: 4,
-                thickness: 1,
-              }}
+              referenceLine1Config={performanceReferenceLineConfig}
               referenceLine1Position={100}
               xAxisLabelTexts={xLabels}
               xAxisLabelTextStyle={s.chartAxisLabel}
               xAxisLabelsHeight={16}
               labelsExtraHeight={40}
-              pointerConfig={{
-                showPointerStrip: true,
-                pointerStripHeight: 200,
-                pointerStripWidth: 1,
-                pointerStripColor: colors.textTertiary + '88',
-                pointerColor: colors.primary,
-                radius: 5,
-                pointerLabelWidth: 140,
-                pointerLabelHeight: hasBenchmarkData ? 52 : 36,
-                activatePointersOnLongPress: false,
-                autoAdjustPointerLabelPosition: true,
-                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                  // Schedule summary update outside of render to avoid setState-in-render.
-                  requestAnimationFrame(() => setActiveIdx(pointerIndex));
-                  const navVal = sampledNav[pointerIndex]?.value;
-                  const benchVal = hasBenchmarkData ? benchmarkPoints[pointerIndex]?.value : undefined;
-                  const date = sampledNav[pointerIndex]?.date;
-                  return (
-                    <View style={s.pointerLabel}>
-                      {date !== undefined && (
-                        <Text style={s.pointerDate}>{formatChartDate(date, window)}</Text>
-                      )}
-                      {navVal !== undefined && (
-                        <Text style={s.pointerSeriesText}>
-                          <Text style={{ color: colors.primary }}>● </Text>
-                          Fund: {navVal.toFixed(1)}
-                        </Text>
-                      )}
-                      {benchVal !== undefined && (
-                        <Text style={s.pointerSeriesText}>
-                          <Text style={{ color: benchmarkColor }}>● </Text>
-                          {selectedLabel}: {benchVal.toFixed(1)}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                },
-              }}
+              pointerConfig={performancePointerConfig}
             />
           </View>
 
@@ -763,6 +807,43 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   const NAV_Y_AXIS_W = 44;
   const navChartBodyW = CHART_WIDTH - 32 - NAV_Y_AXIS_W;
   const navSpacing = sampledFiltered.length > 1 ? Math.max(8, (navChartBodyW - 16) / (sampledFiltered.length - 1)) : 20;
+  const formatNavYLabel = useCallback((v: string) => {
+    const n = Number(v);
+    if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+    return `₹${n.toFixed(0)}`;
+  }, []);
+  const navPointerLabelComponent = useCallback(
+    (_items: unknown, _sec: unknown, pointerIndex: number) => {
+      const p = sampledFiltered[pointerIndex];
+      if (!p) return null;
+      return (
+        <View style={s.pointerLabel}>
+          <Text style={s.pointerDate}>{formatChartDate(p.date, window)}</Text>
+          <Text style={s.pointerSeriesText}>
+            <Text style={{ color: colors.primary }}>● </Text>
+            ₹{p.value.toFixed(4)}
+          </Text>
+        </View>
+      );
+    },
+    [colors.primary, s, sampledFiltered, window],
+  );
+  const navPointerConfig = useMemo(
+    () => ({
+      showPointerStrip: true,
+      pointerStripHeight: 220,
+      pointerStripWidth: 1,
+      pointerStripColor: colors.textTertiary + '88',
+      pointerColor: colors.primary,
+      radius: 5,
+      pointerLabelWidth: 110,
+      pointerLabelHeight: 36,
+      activatePointersOnLongPress: false,
+      autoAdjustPointerLabelPosition: true,
+      pointerLabelComponent: navPointerLabelComponent,
+    }),
+    [colors.primary, colors.textTertiary, navPointerLabelComponent],
+  );
 
   return (
     <View style={s.tabContent}>
@@ -783,11 +864,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
               thickness1={2.5}
               curved
               yAxisLabelWidth={44}
-              formatYLabel={(v: string) => {
-                const n = Number(v);
-                if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
-                return `₹${n.toFixed(0)}`;
-              }}
+              formatYLabel={formatNavYLabel}
               yAxisTextStyle={s.chartAxisLabel}
               maxValue={navChartMax - navChartMin}
               yAxisOffset={navChartMin}
@@ -800,31 +877,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
               xAxisLabelTextStyle={s.chartAxisLabel}
               xAxisLabelsHeight={16}
               labelsExtraHeight={40}
-              pointerConfig={{
-                showPointerStrip: true,
-                pointerStripHeight: 220,
-                pointerStripWidth: 1,
-                pointerStripColor: colors.textTertiary + '88',
-                pointerColor: colors.primary,
-                radius: 5,
-                pointerLabelWidth: 110,
-                pointerLabelHeight: 36,
-                activatePointersOnLongPress: false,
-                autoAdjustPointerLabelPosition: true,
-                pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-                  const p = sampledFiltered[pointerIndex];
-                  if (!p) return null;
-                  return (
-                    <View style={s.pointerLabel}>
-                      <Text style={s.pointerDate}>{formatChartDate(p.date, window)}</Text>
-                      <Text style={s.pointerSeriesText}>
-                        <Text style={{ color: colors.primary }}>● </Text>
-                        ₹{p.value.toFixed(4)}
-                      </Text>
-                    </View>
-                  );
-                },
-              }}
+              pointerConfig={navPointerConfig}
             />
           </View>
 

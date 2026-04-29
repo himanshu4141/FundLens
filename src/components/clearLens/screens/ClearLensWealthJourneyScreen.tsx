@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -275,7 +275,49 @@ function JourneyLineChart({
   primaryLabel: string;
   secondaryLabel?: string;
 }) {
-  const spacing = spacingFor(chartWidth, data.length);
+  const hasSecondSeries = !!data2;
+  const spacing = useMemo(() => spacingFor(chartWidth, data.length), [chartWidth, data.length]);
+  const formatChartYLabel = useCallback((value: string) => formatAxisValue(Number(value)), []);
+  const pointerLabelComponent = useCallback(
+    (_items: unknown, _sec: unknown, pointerIndex: number) => {
+      const first = data[pointerIndex];
+      const second = data2?.[pointerIndex];
+      if (!first) return null;
+
+      return (
+        <View style={styles.pointerLabel}>
+          <Text style={styles.pointerDate}>{first.label}</Text>
+          <Text style={styles.pointerSeriesText}>
+            <Text style={{ color: hasSecondSeries ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio }}>● </Text>
+            {primaryLabel}: {formatCurrency(first.value)}
+          </Text>
+          {second ? (
+            <Text style={styles.pointerSeriesText}>
+              <Text style={{ color: ClearLensSemanticColors.chart.portfolio }}>● </Text>
+              {secondaryLabel}: {formatCurrency(second.value)}
+            </Text>
+          ) : null}
+        </View>
+      );
+    },
+    [data, data2, hasSecondSeries, primaryLabel, secondaryLabel],
+  );
+  const pointerConfig = useMemo(
+    () => ({
+      showPointerStrip: true,
+      pointerStripHeight: pointerHeight,
+      pointerStripWidth: 1,
+      pointerStripColor: `${ClearLensColors.textTertiary}88`,
+      pointerColor: ClearLensColors.emerald,
+      radius: 4,
+      pointerLabelWidth: hasSecondSeries ? 158 : 146,
+      pointerLabelHeight: hasSecondSeries ? 58 : 42,
+      activatePointersOnLongPress: true,
+      autoAdjustPointerLabelPosition: true,
+      pointerLabelComponent,
+    }),
+    [hasSecondSeries, pointerHeight, pointerLabelComponent],
+  );
 
   return (
     <LineChart
@@ -288,11 +330,10 @@ function JourneyLineChart({
       bounces={false}
       height={compact ? 210 : 226}
       curved
-      isAnimated
       hideDataPoints
-      color1={data2 ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio}
+      color1={hasSecondSeries ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio}
       color2={ClearLensSemanticColors.chart.portfolio}
-      thickness1={data2 ? 2.3 : 3}
+      thickness1={hasSecondSeries ? 2.3 : 3}
       thickness2={3}
       yAxisLabelWidth={56}
       noOfSections={4}
@@ -309,40 +350,8 @@ function JourneyLineChart({
       yAxisColor="transparent"
       hideRules={false}
       rulesColor={ClearLensColors.borderLight}
-      formatYLabel={(value) => formatAxisValue(Number(value))}
-      pointerConfig={{
-        showPointerStrip: true,
-        pointerStripHeight: pointerHeight,
-        pointerStripWidth: 1,
-        pointerStripColor: `${ClearLensColors.textTertiary}88`,
-        pointerColor: ClearLensColors.emerald,
-        radius: 4,
-        pointerLabelWidth: data2 ? 158 : 146,
-        pointerLabelHeight: data2 ? 58 : 42,
-        activatePointersOnLongPress: true,
-        autoAdjustPointerLabelPosition: true,
-        pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-          const first = data[pointerIndex];
-          const second = data2?.[pointerIndex];
-          if (!first) return null;
-
-          return (
-            <View style={styles.pointerLabel}>
-              <Text style={styles.pointerDate}>{first.label}</Text>
-              <Text style={styles.pointerSeriesText}>
-                <Text style={{ color: data2 ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio }}>● </Text>
-                {primaryLabel}: {formatCurrency(first.value)}
-              </Text>
-              {second ? (
-                <Text style={styles.pointerSeriesText}>
-                  <Text style={{ color: ClearLensSemanticColors.chart.portfolio }}>● </Text>
-                  {secondaryLabel}: {formatCurrency(second.value)}
-                </Text>
-              ) : null}
-            </View>
-          );
-        },
-      }}
+      formatYLabel={formatChartYLabel}
+      pointerConfig={pointerConfig}
     />
   );
 }
