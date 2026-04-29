@@ -16,6 +16,7 @@ const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
 const VERCEL_PROTECTION_BYPASS_TOKEN = Deno.env.get('VERCEL_PROTECTION_BYPASS_TOKEN') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const DEFAULT_CAS_PARSER_URL = 'https://fund-lens.vercel.app/api/parse-cas-pdf';
 
 function resolveParserUrl(req: Request): string {
   // Prefer explicit env configuration when available. This keeps parser routing
@@ -40,7 +41,9 @@ function resolveParserUrl(req: Request): string {
     }
   }
 
-  return '';
+  // Native clients do not send Origin/Referer, so keep a stable production
+  // parser fallback for mobile imports when no explicit env override exists.
+  return DEFAULT_CAS_PARSER_URL;
 }
 
 Deno.serve(async (req) => {
@@ -119,12 +122,10 @@ Deno.serve(async (req) => {
   let parsed: CASParseResult;
   try {
     const parserUrl = resolveParserUrl(req);
-    if (!parserUrl) {
-      throw new Error('CAS parser URL is not configured');
-    }
     if (!CAS_PARSER_SHARED_SECRET) {
       throw new Error('CAS parser secret is not configured');
     }
+    console.log('[parse-cas-pdf] parser_url=%s', parserUrl);
 
     const parserRes = await fetch(parserUrl, {
       method: 'POST',
@@ -207,6 +208,11 @@ Deno.serve(async (req) => {
     '[parse-cas-pdf] done, import_id=%s, status=%s, funds=%d, txns=%d, errors=%d',
     importId, status, fundsUpdated, transactionsAdded, errors.length,
   );
+
+  if (fundsUpdated === 0 && errors.length > 0) {
+    console.error('[parse-cas-pdf] all scheme upserts failed; first error: %s', errors[0]);
+    return json({ error: 'Import failed — no funds could be saved. Please try again.' }, { status: 500 });
+  }
 
   if (fundsUpdated > 0) {
     const headers = { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` };
