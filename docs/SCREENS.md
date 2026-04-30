@@ -1,164 +1,133 @@
 # FundLens — Screens & Navigation
 
+Clear Lens is the default app design. Classic remains available from Settings for fallback and comparison.
+
 ## Navigation Structure
 
-Primary tabs:
+Primary bottom tabs:
 
 - `Portfolio`
-- `Leaderboard`
+- `Funds`
 - `Wealth Journey`
 
 Secondary navigation:
 
-- `Settings` is hidden from the tab bar and opened from the shared header/menu
-- `Fund Detail`, `Portfolio Insights`, and `Your Funds` are stack routes
-- `Compare` still exists as a hidden legacy route for transition / deep-link safety, but it is no longer part of the intended primary IA
+- `Settings` is hidden from the tab bar and opened from the shared header overflow menu.
+- `Portfolio Insights` and `Fund Detail` are stack routes from Portfolio and fund rows.
+- `Leaderboard` is hidden legacy chrome in Clear Lens for now; classic keeps its tab.
+- `Onboarding / Import CAS` and `PDF Upload` are utility flows used for first-run import and later portfolio maintenance.
+- `Compare` remains a hidden legacy route for transition and deep-link safety.
 
 Screen families:
 
-- `Portfolio`, `Leaderboard`, and `Wealth Journey` use the shared primary-shell header: logo on the left, one `...` action sheet on the right
-- `Settings`, `Your Funds`, and CAS import screens use a lighter utility header with one back action and one title
-- `Fund Detail` uses the native stack back behavior and does not hardcode an origin label
+- Clear Lens primary tabs use the FundLens focus-ring header, restrained bottom tabs, Inter typography, and tokenized card surfaces.
+- Utility screens use a back-title header, Clear Lens cards, and plain-language import/status copy.
+- Classic screens remain behind the Settings design switch and should not inherit Clear Lens-only composition colors.
 
 ## Screen Map
 
 ### 1. Portfolio
 
-The Portfolio tab is the main landing screen.
+The Portfolio tab is the default landing screen.
 
-It includes:
+Clear Lens includes:
 
-- total portfolio value
-- unrealised gain / loss
-- portfolio XIRR vs the selected benchmark
-- weekend-aware NAV staleness messaging
-- portfolio-vs-market chart
-- top gainers / losers
-- `Portfolio Insights` entry card
-- `Wealth Journey` teaser card
-- `Your Funds` entry card
-
-The benchmark selector is configurable and reused across the app.
+- dark value hero with total value, today's move, overall gain/loss, and SIP-aware XIRR
+- benchmark comparison chip and benchmark selector
+- `How your money grew` chart with invested, portfolio, and benchmark worth
+- range controls: `1M`, `3M`, `6M`, `1Y`, `3Y`, `All`
+- today's best and worst movers with arrowed signed deltas
+- allocation preview when composition data is available
+- entries for `Portfolio Insights`, `Your Funds`, and the Wealth Journey teaser path
+- loading, empty, sync-requested, sync-error, and pull-to-refresh states
 
 ### 2. Portfolio Insights
 
-Accessible from the Portfolio screen.
+Accessible from Portfolio.
 
-Shows portfolio-level composition derived from `fund_portfolio_composition`:
+Shows portfolio-level composition derived from shared scheme composition data:
 
-- asset mix
-- debt / cash summary when relevant
-- market-cap mix
-- sector breakdown when disclosure data exists
-- top holdings when disclosure data exists
+- asset allocation donut card
+- debt and cash details when relevant
+- market-cap donut card
+- sector exposure
+- top holdings, paginated 10 per page up to the top 30 names
+- AMFI disclosure date, stale state, bootstrap sync, and missing-data states
 
-Behavior:
-
-- category-rule fallback means the screen can render immediately
-- AMFI-backed data progressively upgrades the experience
-- stale / missing composition can trigger a sync path
-- the UI clearly marks estimated data vs disclosure-backed data
+Category-rule fallback renders immediately. AMFI-backed data upgrades the screen when available.
 
 ### 3. Your Funds
 
-Accessible from the Portfolio screen.
-
-Purpose:
-
-- show the full holdings list in one dedicated place
-- keep the home screen focused on summary and insights
+Primary Clear Lens tab. Also accessible from Portfolio entry rows.
 
 Includes:
 
-- fund-allocation overview
-- count of all active funds
-- lightweight sorting by current value, invested amount, XIRR, lead vs benchmark, or alphabetical via a bottom sheet
-- one shared `FundCard` per holding
+- allocation overview with active fund count, top-three share, and largest position
+- search
+- sort bottom sheet with current value, invested amount, XIRR, benchmark lead, and alphabetical options
+- compact fund rows with value and portfolio share
+- expandable fund cards with Today, XIRR, invested, gain/loss, redeemed, booked P&L, NAV staleness, and filled sparkline when available
 
 ### 4. Fund Detail
 
-Header:
+Clear Lens Fund Detail includes:
 
-- current value
-- invested amount
-- units
-- gain / loss
-- XIRR
-- stale-date labeling when relevant
-- one history-aware back path via the stack header
-- polished composition cards with aligned labels / numeric columns
+- hero card with fund name, category, current value, invested amount, units, gain/loss, and XIRR
+- tabs: `Performance`, `NAV History`, `Composition`
+- Performance chart and growth consistency
+- NAV History chart and period stats
+- Composition asset mix, market-cap mix, sectors, top holdings, and disclosure footer
+- Portfolio Weight card
 
-Tabs:
-
-`Performance`
-- fund vs benchmark return summary
-- benchmark selector pills
-- interactive line chart with crosshair
-- growth-consistency / composition-related enhancements from later milestones
-
-`NAV History`
-- historical NAV chart
-- period filters
-- current and start-of-window NAV values at AMFI precision
-
-Where available, fund composition data also surfaces here.
+Classic Fund Detail remains available when the design switch is set to classic.
 
 ### 5. Leaderboard
 
-Purpose:
+The classic Leaderboard tab ranks existing holdings against the selected benchmark. Clear Lens keeps the screen implementation available for future iteration, but the bottom tab currently points to `Funds`.
 
-- rank portfolio holdings into leaders / laggards
-- compare holdings against a selected benchmark
+Clear Lens includes:
 
-Includes:
-
-- leaders / laggards counts
 - benchmark selector
-- ranked holding list
-- insight card explaining ranking mode / benchmark fallback behavior when needed
+- portfolio-vs-benchmark alpha card
+- leaders and laggards sections
+- ranked fund cards with current value, XIRR, alpha in percentage points, and daily delta
+- loading, empty, retry/error, and overflow-menu sync/import/settings states
 
 ### 6. Wealth Journey
 
-Purpose:
+The Wealth Journey tab models future wealth and withdrawal-income scenarios from the real portfolio.
 
-- help users model future wealth creation and withdrawal-income scenarios from their
-  actual portfolio rather than from generic defaults
+Clear Lens includes:
 
-Includes:
-
-- summary-first flow with:
-  - `Your portfolio today`
-  - `Your plan at a glance`
-  - segmented results: `Wealth growth` / `Withdrawal income`
-- dedicated `Adjust your plan` step instead of one long stacked calculator
-- detected SIP review/edit flow that is separate from future plan changes
-- current corpus and current XIRR context
-- accumulation projection from today’s corpus
-- fixed 6% inflation note to translate future nominal values into today-value context
-- withdrawal-income view with withdrawal rate, withdrawal duration, and post-withdrawal return
-- mobile-first charts showing visible checkpoint years only
+- home screen with `Your portfolio today`, detected SIP review/edit, and `Your plan at a glance`
+- segmented home preview for `Wealth growth` and `Withdrawal income`
+- `Adjust your plan` step for future SIP, top-up, saving period, return preset/custom return, withdrawal rate, and post-withdrawal return
+- results screen with growth chart, current-vs-adjusted path, milestones, present-value context, withdrawal snapshot, and drawdown view
+- edit-SIP modal with detected and manual SIP paths
+- persisted Zustand `wealthJourney` state shared with classic mode
 
 ### 7. Settings
 
-Accessible from the shared header/menu, not as a visible bottom tab.
+Settings is hidden from tabs and opened from the overflow menu.
 
 Includes:
 
 - account details
-- connected accounts / Google linking
-- benchmark preference
-- design theme preference
+- connected accounts and Google linking
+- default benchmark preference
+- design switch: Clear Lens default, classic selectable
 - sync controls
-- import tools / CAS address / PAN management
+- import tools, CAS address, PAN management, PDF upload shortcut
 - sign out
 
 ### 8. Onboarding / Import CAS
 
-Reusable both for first-run onboarding and later portfolio management.
+Reusable for first-run onboarding and later imports.
 
 Main import paths:
 
 - dedicated CAS forwarding address
+- CAS request via registered email
 - direct PDF upload flow
 
-Related account-maintenance screens also live in this flow, including PAN / import-address management.
+Clear Lens mode uses the same behavior with Clear Lens header, cards, status chips, shadows, radii, and button treatment.

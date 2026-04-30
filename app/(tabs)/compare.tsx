@@ -278,6 +278,11 @@ export default function CompareScreen() {
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const focusedIndexRef = useRef<number | null>(null);
+  const handleChartFocus = useCallback((_item: unknown, index: number) => {
+    if (focusedIndexRef.current === index) return;
+    focusedIndexRef.current = index;
+    setFocusedIndex(index);
+  }, []);
 
   const selectedFundItems = selectedItems
     .filter((i) => i.type === 'fund')
@@ -476,10 +481,7 @@ export default function CompareScreen() {
                       stripOpacity={0.2}
                       stripWidth={1}
                       focusedDataPointColor={visibleItems[0]?.color ?? SERIES_COLORS[0]}
-                      onFocus={(_item: unknown, index: number) => {
-                        focusedIndexRef.current = index;
-                        setFocusedIndex(index);
-                      }}
+                      onFocus={handleChartFocus}
                       color1={visibleItems[0]?.type === 'index' ? INDEX_LINE_COLORS[0] : (visibleItems[0]?.color ?? SERIES_COLORS[0])}
                       color2={visibleItems[1]?.type === 'index' ? INDEX_LINE_COLORS[1] : (visibleItems[1]?.color ?? SERIES_COLORS[1])}
                       color3={visibleItems[2]?.type === 'index' ? INDEX_LINE_COLORS[2] : (visibleItems[2]?.color ?? SERIES_COLORS[2])}

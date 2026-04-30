@@ -2,27 +2,34 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { ClearLensColors, ClearLensFonts } from '@/src/constants/clearLensTheme';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
   const insets = useSafeAreaInsets();
+  const activeTint = isClearLens ? ClearLensColors.emerald : colors.primary;
+  const inactiveTint = isClearLens ? ClearLensColors.textTertiary : colors.textTertiary;
+  const borderTopColor = isClearLens ? ClearLensColors.borderLight : colors.borderLight;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarActiveTintColor: activeTint,
+        tabBarInactiveTintColor: inactiveTint,
         headerShown: false,
         tabBarStyle: {
-          borderTopColor: colors.borderLight,
+          backgroundColor: isClearLens ? ClearLensColors.surface : undefined,
+          borderTopColor,
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
           // Give the icon + label stack enough vertical room on phone-sized
           // viewports where font metrics tend to clip label descenders.
-          paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom, 14),
-          height: 76 + Math.max(insets.bottom, 14),
+          paddingTop: isClearLens ? 6 : 8,
+          paddingBottom: Math.max(insets.bottom, isClearLens ? 10 : 14),
+          height: (isClearLens ? 68 : 76) + Math.max(insets.bottom, isClearLens ? 10 : 14),
         },
         // Force each visible tab item to fill its fair share of the bar width
         // and center content so icons don't bunch left on wider screens / web
@@ -39,9 +46,10 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
+          fontFamily: isClearLens ? ClearLensFonts.semiBold : undefined,
           lineHeight: 16,
-          marginTop: 2,
-          marginBottom: 2,
+          marginTop: isClearLens ? 1 : 2,
+          marginBottom: isClearLens ? 0 : 2,
         },
       }}
     >
@@ -57,9 +65,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: 'Leaderboard',
+          title: isClearLens ? 'Funds' : 'Leaderboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy-outline" size={size} color={color} />
+            <Ionicons name={isClearLens ? 'list-outline' : 'trophy-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -67,6 +75,7 @@ export default function TabLayout() {
         name="wealth-journey"
         options={{
           title: 'Wealth Journey',
+          freezeOnBlur: isClearLens,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calculator-outline" size={size} color={color} />
           ),

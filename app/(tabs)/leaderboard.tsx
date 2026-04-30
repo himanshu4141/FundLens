@@ -19,9 +19,11 @@ import { parseFundName } from '@/src/utils/fundName';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
+import { ClearLensFundsScreen } from '@/src/components/clearLens/screens/ClearLensFundsScreen';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 
 // ---------------------------------------------------------------------------
 // Benchmark Selector (same pattern as Home)
@@ -178,7 +180,7 @@ function SkeletonCard() {
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
-export default function LeaderboardScreen() {
+function ClassicLeaderboardScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -325,6 +327,11 @@ export default function LeaderboardScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+export default function LeaderboardScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return isClearLens ? <ClearLensFundsScreen insideTab /> : <ClassicLeaderboardScreen />;
 }
 
 // ---------------------------------------------------------------------------

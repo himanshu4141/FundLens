@@ -60,6 +60,7 @@ module.exports = ({ config }) => {
         backgroundColor: '#ffffff',
       },
       package: variantConfig.androidPackage,
+      softwareKeyboardLayoutMode: 'resize',
     },
     web: {
       bundler: 'metro',

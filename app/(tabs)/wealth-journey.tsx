@@ -18,10 +18,12 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart } from 'react-native-gifted-charts';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
+import { ClearLensWealthJourneyScreen } from '@/src/components/clearLens/screens/ClearLensWealthJourneyScreen';
 import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
 import { Radii, Spacing, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { AppColors } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -267,7 +269,58 @@ function JourneyLineChart({
   secondaryLabel,
 }: JourneyLineChartProps) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const hasSecondSeries = !!data2;
   const spacing = useMemo(() => spacingFor(chartWidth, data.length), [chartWidth, data.length]);
+  const formatChartYLabel = useCallback((value: string) => formatAxisValue(Number(value)), []);
+  const pointerLabelComponent = useCallback(
+    (_items: unknown, _sec: unknown, pointerIndex: number) => {
+      const first = data[pointerIndex];
+      const second = data2?.[pointerIndex];
+      if (!first) return null;
+
+      return (
+        <View style={styles.pointerLabel}>
+          <Text style={styles.pointerDate}>{first.label}</Text>
+          {hasSecondSeries ? (
+            <>
+              <Text style={styles.pointerSeriesText}>
+                <Text style={{ color: colors.textTertiary }}>● </Text>
+                {primaryLabel}: {formatCurrency(first.value)}
+              </Text>
+              {second ? (
+                <Text style={styles.pointerSeriesText}>
+                  <Text style={{ color: colors.primary }}>● </Text>
+                  {secondaryLabel}: {formatCurrency(second.value)}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.pointerSeriesText}>
+              <Text style={{ color: colors.primary }}>● </Text>
+              {primaryLabel}: {formatCurrency(first.value)}
+            </Text>
+          )}
+        </View>
+      );
+    },
+    [colors.primary, colors.textTertiary, data, data2, hasSecondSeries, primaryLabel, secondaryLabel, styles],
+  );
+  const pointerConfig = useMemo(
+    () => ({
+      showPointerStrip: true,
+      pointerStripHeight: pointerHeight,
+      pointerStripWidth: 1,
+      pointerStripColor: `${colors.textTertiary}88`,
+      pointerColor: colors.primary,
+      radius: 4,
+      pointerLabelWidth: hasSecondSeries ? 152 : 144,
+      pointerLabelHeight: hasSecondSeries ? 56 : 40,
+      activatePointersOnLongPress: true,
+      autoAdjustPointerLabelPosition: true,
+      pointerLabelComponent,
+    }),
+    [colors.primary, colors.textTertiary, hasSecondSeries, pointerHeight, pointerLabelComponent],
+  );
 
   return (
     <LineChart
@@ -280,11 +333,10 @@ function JourneyLineChart({
       bounces={false}
       height={compact ? 220 : 236}
       curved
-      isAnimated
       hideDataPoints
-      color1={data2 ? colors.textTertiary : colors.primary}
+      color1={hasSecondSeries ? colors.textTertiary : colors.primary}
       color2={colors.primary}
-      thickness1={data2 ? 2.5 : 3}
+      thickness1={hasSecondSeries ? 2.5 : 3}
       thickness2={3}
       yAxisLabelWidth={56}
       noOfSections={4}
@@ -301,54 +353,13 @@ function JourneyLineChart({
       yAxisColor="transparent"
       hideRules={false}
       rulesColor={colors.borderLight}
-      formatYLabel={(value) => formatAxisValue(Number(value))}
-      pointerConfig={{
-        showPointerStrip: true,
-        pointerStripHeight: pointerHeight,
-        pointerStripWidth: 1,
-        pointerStripColor: `${colors.textTertiary}88`,
-        pointerColor: colors.primary,
-        radius: 4,
-        pointerLabelWidth: data2 ? 152 : 144,
-        pointerLabelHeight: data2 ? 56 : 40,
-        activatePointersOnLongPress: true,
-        autoAdjustPointerLabelPosition: true,
-        pointerLabelComponent: (_items: unknown, _sec: unknown, pointerIndex: number) => {
-          const first = data[pointerIndex];
-          const second = data2?.[pointerIndex];
-          if (!first) return null;
-
-          return (
-            <View style={styles.pointerLabel}>
-              <Text style={styles.pointerDate}>{first.label}</Text>
-              {data2 ? (
-                <>
-                  <Text style={styles.pointerSeriesText}>
-                    <Text style={{ color: colors.textTertiary }}>● </Text>
-                    {primaryLabel}: {formatCurrency(first.value)}
-                  </Text>
-                  {second ? (
-                    <Text style={styles.pointerSeriesText}>
-                      <Text style={{ color: colors.primary }}>● </Text>
-                      {secondaryLabel}: {formatCurrency(second.value)}
-                    </Text>
-                  ) : null}
-                </>
-              ) : (
-                <Text style={styles.pointerSeriesText}>
-                  <Text style={{ color: colors.primary }}>● </Text>
-                  {primaryLabel}: {formatCurrency(first.value)}
-                </Text>
-              )}
-            </View>
-          );
-        },
-      }}
+      formatYLabel={formatChartYLabel}
+      pointerConfig={pointerConfig}
     />
   );
 }
 
-export default function WealthJourneyScreen() {
+function ClassicWealthJourneyScreen() {
   const router = useRouter();
   const { width: viewportWidth } = useWindowDimensions();
   const { colors } = useTheme();
@@ -1107,6 +1118,11 @@ export default function WealthJourneyScreen() {
       </Modal>
     </SafeAreaView>
   );
+}
+
+export default function WealthJourneyScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return isClearLens ? <ClearLensWealthJourneyScreen /> : <ClassicWealthJourneyScreen />;
 }
 
 function makeStyles(colors: AppColors) {

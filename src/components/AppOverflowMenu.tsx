@@ -1,7 +1,17 @@
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/context/ThemeContext';
 import { Radii, Spacing } from '@/src/constants/theme';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { supabase } from '@/src/lib/supabase';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensShadow,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
@@ -23,19 +33,36 @@ export function AppOverflowMenu({
   onSettings,
 }: AppOverflowMenuProps) {
   const { colors } = useTheme();
+  const { isClearLens } = useAppDesignMode();
+  const activeColors = isClearLens ? ClearLensColors : colors;
+  const dangerColor = isClearLens ? ClearLensColors.negative : colors.negative;
+
+  async function handleSignOut() {
+    onClose();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert('Sign out failed', error.message);
+    }
+  }
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={[styles.backdrop, isClearLens && styles.clearBackdrop]} onPress={onClose}>
         <Pressable
-          style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[
+            styles.sheet,
+            isClearLens && styles.clearSheet,
+            { backgroundColor: activeColors.surface, borderColor: activeColors.border },
+          ]}
           onPress={(event) => event.stopPropagation()}
         >
-          <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-          <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Quick actions</Text>
+          <View style={[styles.sheetHandle, { backgroundColor: activeColors.border }]} />
+          <Text style={[styles.sheetTitle, isClearLens && styles.clearSheetTitle, { color: activeColors.textPrimary }]}>
+            Quick actions
+          </Text>
 
           <TouchableOpacity
-            style={styles.item}
+            style={[styles.item, isClearLens && styles.clearItem]}
             onPress={() => {
               onClose();
               onSync();
@@ -43,37 +70,47 @@ export function AppOverflowMenu({
             disabled={syncState === 'syncing'}
           >
             {syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color={isClearLens ? ClearLensColors.emerald : colors.primary} />
             ) : (
-              <Ionicons name="sync-outline" size={18} color={colors.textPrimary} />
+              <Ionicons name="sync-outline" size={18} color={activeColors.textPrimary} />
             )}
-            <Text style={[styles.itemText, { color: colors.textPrimary }]}>Sync Portfolio</Text>
+            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Sync Portfolio</Text>
           </TouchableOpacity>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
 
           <TouchableOpacity
-            style={styles.item}
+            style={[styles.item, isClearLens && styles.clearItem]}
             onPress={() => {
               onClose();
               onImport();
             }}
           >
-            <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
-            <Text style={[styles.itemText, { color: colors.textPrimary }]}>Import CAS</Text>
+            <Ionicons name="cloud-upload-outline" size={18} color={activeColors.textPrimary} />
+            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Import CAS</Text>
           </TouchableOpacity>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
 
           <TouchableOpacity
-            style={styles.item}
+            style={[styles.item, isClearLens && styles.clearItem]}
             onPress={() => {
               onClose();
               onSettings();
             }}
           >
-            <Ionicons name="settings-outline" size={18} color={colors.textPrimary} />
-            <Text style={[styles.itemText, { color: colors.textPrimary }]}>Settings</Text>
+            <Ionicons name="settings-outline" size={18} color={activeColors.textPrimary} />
+            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Settings</Text>
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
+
+          <TouchableOpacity
+            style={[styles.item, isClearLens && styles.clearItem]}
+            onPress={handleSignOut}
+          >
+            <Ionicons name="log-out-outline" size={18} color={dangerColor} />
+            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: dangerColor }]}>Log out</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
@@ -86,6 +123,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(15, 23, 42, 0.28)',
+  },
+  clearBackdrop: {
+    backgroundColor: 'rgba(10, 20, 48, 0.28)',
   },
   sheet: {
     borderWidth: 1,
@@ -100,6 +140,13 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  clearSheet: {
+    borderTopLeftRadius: ClearLensRadii.xl,
+    borderTopRightRadius: ClearLensRadii.xl,
+    paddingTop: ClearLensSpacing.sm,
+    paddingBottom: ClearLensSpacing.lg,
+    ...ClearLensShadow,
+  },
   sheetHandle: {
     width: 44,
     height: 4,
@@ -113,6 +160,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
   },
+  clearSheetTitle: {
+    ...ClearLensTypography.h2,
+    fontFamily: ClearLensFonts.bold,
+  },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -120,9 +171,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
   },
+  clearItem: {
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingVertical: ClearLensSpacing.md,
+  },
   itemText: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  clearItemText: {
+    ...ClearLensTypography.body,
+    fontFamily: ClearLensFonts.medium,
   },
   divider: {
     height: 1,

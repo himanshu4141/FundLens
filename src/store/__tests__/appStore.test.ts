@@ -1,4 +1,19 @@
-import { BENCHMARK_OPTIONS } from '../appStore';
+import { BENCHMARK_OPTIONS, migratePersistedAppState } from '../appStore';
+
+const DEFAULT_WEALTH_JOURNEY = {
+  hasOpened: false,
+  hasSavedPlan: false,
+  currentSipOverride: null,
+  futureSipTarget: null,
+  monthlySipIncrease: 0,
+  additionalTopUp: 0,
+  yearsToRetirement: 15,
+  expectedReturn: null,
+  expectedReturnPreset: null,
+  retirementDurationYears: 25,
+  withdrawalRate: 4,
+  postRetirementReturn: null,
+};
 
 describe('BENCHMARK_OPTIONS', () => {
   it('contains exactly 3 entries — Nifty 50, Nifty 100, BSE Sensex', () => {
@@ -18,6 +33,114 @@ describe('BENCHMARK_OPTIONS', () => {
     for (const opt of BENCHMARK_OPTIONS) {
       expect(opt.label.trim().length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('appDesignMode persistence migration', () => {
+  it('defaults missing persisted state to Clear Lens and initializes Wealth Journey state', () => {
+    expect(migratePersistedAppState(null)).toEqual({
+      appDesignMode: 'clearLens',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+    });
+  });
+
+  it('preserves clearLens mode when already stored', () => {
+    expect(migratePersistedAppState({ appDesignMode: 'clearLens' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+    });
+  });
+
+  it('migrates old Editorial v1/v2 designVariant values to Clear Lens', () => {
+    expect(migratePersistedAppState({ designVariant: 'v1' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+    });
+    expect(migratePersistedAppState({ designVariant: 'v2' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+    });
+  });
+
+  it('preserves explicit classic mode when stored', () => {
+    expect(migratePersistedAppState({ appDesignMode: 'classic' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'classic',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+    });
+  });
+
+  it('preserves benchmark preference during migration', () => {
+    expect(migratePersistedAppState({ defaultBenchmarkSymbol: '^BSESN', designVariant: 'v2' })).toEqual({
+      defaultBenchmarkSymbol: '^BSESN',
+      appDesignMode: 'clearLens',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+    });
+  });
+
+  it('preserves existing Wealth Journey state during migration', () => {
+    expect(migratePersistedAppState({
+      appDesignMode: 'clearLens',
+      wealthJourney: {
+        hasOpened: true,
+        hasSavedPlan: true,
+        currentSipOverride: 75000,
+        futureSipTarget: 125000,
+        yearsToRetirement: 20,
+      },
+    })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+      wealthJourney: {
+        ...DEFAULT_WEALTH_JOURNEY,
+        hasOpened: true,
+        hasSavedPlan: true,
+        currentSipOverride: 75000,
+        futureSipTarget: 125000,
+        yearsToRetirement: 20,
+      },
+    });
+  });
+
+  it('sanitizes out-of-range Wealth Journey values during migration', () => {
+    expect(migratePersistedAppState({
+      appDesignMode: 'clearLens',
+      wealthJourney: {
+        hasOpened: true,
+        hasSavedPlan: true,
+        currentSipOverride: 99_00_00_000,
+        futureSipTarget: -100,
+        monthlySipIncrease: -99_00_00_000,
+        additionalTopUp: 99_00_00_000,
+        yearsToRetirement: 1000,
+        expectedReturn: 100,
+        expectedReturnPreset: 'balanced',
+        retirementDurationYears: 1000,
+        withdrawalRate: 100,
+        postRetirementReturn: 100,
+      },
+    })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appDesignMode: 'clearLens',
+      wealthJourney: {
+        ...DEFAULT_WEALTH_JOURNEY,
+        hasOpened: true,
+        hasSavedPlan: true,
+        currentSipOverride: 25_00_000,
+        futureSipTarget: 0,
+        monthlySipIncrease: -25_00_000,
+        additionalTopUp: 10_00_00_000,
+        yearsToRetirement: 40,
+        expectedReturn: 30,
+        expectedReturnPreset: 'balanced',
+        retirementDurationYears: 40,
+        withdrawalRate: 12,
+        postRetirementReturn: 20,
+      },
+    });
   });
 });
 

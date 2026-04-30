@@ -71,6 +71,8 @@ async function main() {
     const user = await getOrCreateDemoUserWithServiceRole();
     await resetDemoPortfolio(serviceSupabase, user.id);
     await seedProfile(serviceSupabase, user.id);
+    await seedDemoMarketData(serviceSupabase);
+    await seedDemoCompositionData(serviceSupabase);
     const realFunds = await buildSeedFunds(serviceSupabase);
     const funds = await seedFunds(serviceSupabase, user.id, realFunds);
     await seedTransactions(serviceSupabase, user.id, funds);
@@ -88,6 +90,8 @@ async function main() {
     const user = await getOrCreateDemoUserWithPublicClient(publicSupabase);
     await resetDemoPortfolio(publicSupabase, user.id);
     await seedProfile(publicSupabase, user.id);
+    await seedDemoMarketData(publicSupabase);
+    await seedDemoCompositionData(publicSupabase);
 
     const liveDemoFunds = await buildSeedFunds(publicSupabase);
     const funds = await seedFunds(publicSupabase, user.id, liveDemoFunds);
@@ -189,7 +193,7 @@ async function getOrCreateDemoUserWithPublicClient(client) {
 
 async function resetDemoPortfolio(client, userId) {
   await mustSucceed(client.from('transaction').delete().eq('user_id', userId));
-  await mustSucceed(client.from('fund').delete().eq('user_id', userId));
+  await mustSucceed(client.from('user_fund').delete().eq('user_id', userId));
   await mustSucceed(client.from('cas_import').delete().eq('user_id', userId));
   await mustSucceed(client.from('cas_inbound_session').delete().eq('user_id', userId));
   await mustSucceed(client.from('user_profile').delete().eq('user_id', userId));
@@ -217,6 +221,148 @@ async function seedProfile(client, userId) {
       { onConflict: 'user_id' },
     ),
   );
+}
+
+async function seedDemoCompositionData(client) {
+  const sectorAllocation = {
+    'Financial Services': 29.1,
+    'Consumer Cyclical': 13.0,
+    Healthcare: 8.2,
+    'Basic Materials': 7.2,
+    Technology: 5.7,
+    Industrials: 5.0,
+    Energy: 4.2,
+    'Communication Services': 3.1,
+  };
+
+  const topHoldings = [
+    {
+      name: 'HDFC Bank Ltd',
+      isin: 'INE040A01034',
+      sector: 'Financial Services',
+      marketCap: 'Large Cap',
+      pctOfNav: 5.4,
+    },
+    {
+      name: 'ICICI Bank Ltd',
+      isin: 'INE090A01021',
+      sector: 'Financial Services',
+      marketCap: 'Large Cap',
+      pctOfNav: 4.7,
+    },
+    {
+      name: 'Axis Bank Ltd',
+      isin: 'INE238A01034',
+      sector: 'Financial Services',
+      marketCap: 'Large Cap',
+      pctOfNav: 3.3,
+    },
+    {
+      name: 'Kotak Mahindra Bank Ltd',
+      isin: 'INE237A01028',
+      sector: 'Financial Services',
+      marketCap: 'Large Cap',
+      pctOfNav: 2.0,
+    },
+    {
+      name: 'Infosys Ltd',
+      isin: 'INE009A01021',
+      sector: 'Technology',
+      marketCap: 'Large Cap',
+      pctOfNav: 2.0,
+    },
+  ];
+
+  const rows = REAL_FUNDS.map((fund, index) => ({
+    scheme_code: fund.schemeCode,
+    portfolio_date: '2026-03-31',
+    equity_pct: round2(81.8 + index * 1.6),
+    debt_pct: index === 1 ? 9.2 : 6.8,
+    cash_pct: round2(index === 1 ? 7.4 : 11.4 - index * 1.1),
+    other_pct: 0,
+    large_cap_pct: 38,
+    mid_cap_pct: 33,
+    small_cap_pct: 29,
+    not_classified_pct: 0,
+    sector_allocation: sectorAllocation,
+    top_holdings: topHoldings,
+    source: 'amfi',
+  }));
+
+  await mustSucceed(
+    client
+      .from('fund_portfolio_composition')
+      .upsert(rows, { onConflict: 'scheme_code,portfolio_date,source' }),
+  );
+}
+
+async function seedDemoMarketData(client) {
+  const navRows = [];
+  for (const [fundIndex, fund] of REAL_FUNDS.entries()) {
+    navRows.push(...buildDemoNavRows(fund.schemeCode, fundIndex));
+  }
+
+  for (const chunk of chunkRows(navRows, 500)) {
+    await mustSucceed(client.from('nav_history').upsert(chunk, { onConflict: 'scheme_code,nav_date' }));
+  }
+
+  const indexes = [
+    { symbol: '^NSEI', name: 'Nifty 50', start: 17800, strength: 0.88 },
+    { symbol: '^NIFTY100', name: 'Nifty 100', start: 18500, strength: 0.82 },
+    { symbol: '^BSESN', name: 'BSE Sensex', start: 60200, strength: 0.86 },
+    { symbol: '^NIFTY500', name: 'Nifty 500 TRI', start: 15100, strength: 0.84 },
+    { symbol: '^NIFTYLMI250', name: 'Nifty LargeMidcap 250 TRI', start: 14300, strength: 0.8 },
+  ];
+
+  const indexRows = indexes.flatMap((index) => buildDemoIndexRows(index));
+  for (const chunk of chunkRows(indexRows, 500)) {
+    await mustSucceed(client.from('index_history').upsert(chunk, { onConflict: 'index_symbol,index_date' }));
+  }
+}
+
+function buildDemoNavRows(schemeCode, fundIndex) {
+  return buildDailyRows((date, day) => {
+    const base = 92 + fundIndex * 24;
+    const trend = day * (0.045 + fundIndex * 0.006);
+    const seasonal = Math.sin(day / 31 + fundIndex) * 2.2 + Math.cos(day / 77) * 1.4;
+    const correction = day > 820 && day < 910 ? -((day - 820) / 90) * (6 + fundIndex * 1.2) : 0;
+    const rebound = day >= 910 ? Math.min((day - 910) / 120, 1) * (4.2 + fundIndex) : 0;
+
+    return {
+      scheme_code: schemeCode,
+      nav_date: toIsoDate(date),
+      nav: round4(base + trend + seasonal + correction + rebound),
+    };
+  });
+}
+
+function buildDemoIndexRows(index) {
+  return buildDailyRows((date, day) => {
+    const trend = day * (5.2 * index.strength);
+    const seasonal = Math.sin(day / 37) * 240 * index.strength + Math.cos(day / 89) * 130;
+    const correction = day > 820 && day < 910 ? -((day - 820) / 90) * 950 * index.strength : 0;
+    const rebound = day >= 910 ? Math.min((day - 910) / 120, 1) * 680 * index.strength : 0;
+
+    return {
+      index_symbol: index.symbol,
+      index_name: index.name,
+      index_date: toIsoDate(date),
+      close_value: round4(index.start + trend + seasonal + correction + rebound),
+    };
+  });
+}
+
+function buildDailyRows(factory) {
+  const rows = [];
+  const start = new Date(Date.UTC(2023, 0, 1));
+  const end = new Date();
+
+  for (let cursor = new Date(start), day = 0; cursor <= end; day += 1) {
+    rows.push(factory(new Date(cursor), day));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return rows;
 }
 
 async function buildSeedFunds(client) {
@@ -248,16 +394,25 @@ async function seedFunds(client, userId, fundsToSeed) {
   const inserted = [];
 
   for (const fund of fundsToSeed) {
-    const { data, error } = await client
-      .from('fund')
-      .upsert(
+    await mustSucceed(
+      client.from('scheme_master').upsert(
         {
-          user_id: userId,
           scheme_code: fund.schemeCode,
           scheme_name: fund.schemeName,
           scheme_category: fund.schemeCategory,
           benchmark_index: fund.benchmarkIndex,
           benchmark_index_symbol: fund.benchmarkSymbol,
+        },
+        { onConflict: 'scheme_code' },
+      ),
+    );
+
+    const { data, error } = await client
+      .from('user_fund')
+      .upsert(
+        {
+          user_id: userId,
+          scheme_code: fund.schemeCode,
           is_active: true,
         },
         { onConflict: 'user_id,scheme_code' },
@@ -354,6 +509,14 @@ function round2(value) {
 
 function round4(value) {
   return Number(value.toFixed(4));
+}
+
+function chunkRows(rows, size) {
+  const chunks = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
 }
 
 async function mustSucceed(promise) {

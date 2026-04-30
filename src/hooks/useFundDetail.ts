@@ -14,7 +14,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { xirr, buildCashflowsFromTransactions } from '@/src/utils/xirr';
+import { xirr, buildCashflowsFromTransactions, computeRealizedGains } from '@/src/utils/xirr';
 import type { NavPoint } from '@/src/utils/navUtils';
 
 // Pure windowing utils live in navUtils so they can be unit-tested without
@@ -33,6 +33,9 @@ export interface FundDetailData {
   currentUnits: number;
   currentValue: number | null; // null when currentNav is null — never assumed or zeroed
   investedAmount: number;
+  realizedGain: number;
+  realizedAmount: number;
+  redeemedUnits: number;
   fundXirr: number;
   navHistory: NavPoint[];      // ascending by date
   indexHistory: NavPoint[];    // ascending by date (benchmark)
@@ -98,6 +101,7 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
   // Compute net units and cashflows
   const { historicalCashflows: cashflows, netUnits, investedAmount } =
     buildCashflowsFromTransactions(txs ?? [], 0, new Date());
+  const { realizedGain, realizedAmount, redeemedUnits } = computeRealizedGains(txs ?? []);
 
   // Load NAV history descending so the most-recent rows always fall within
   // Supabase's default 1000-row API limit. Then reverse to ascending for charting.
@@ -128,6 +132,9 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
       currentUnits: netUnits,
       currentValue: null,
       investedAmount,
+      realizedGain,
+      realizedAmount,
+      redeemedUnits,
       fundXirr: NaN,
       navHistory: [],
       indexHistory: [],
@@ -171,6 +178,9 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
     currentUnits: netUnits,
     currentValue,
     investedAmount,
+    realizedGain,
+    realizedAmount,
+    redeemedUnits,
     fundXirr,
     navHistory,
     indexHistory,

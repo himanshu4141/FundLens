@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -30,8 +30,10 @@ import { useSession } from '@/src/hooks/useSession';
 import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
 import { PrimaryShellHeader } from '@/src/components/PrimaryShellHeader';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
+import { ClearLensPortfolioScreen } from '@/src/components/clearLens/screens/ClearLensPortfolioScreen';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import type { AppColors } from '@/src/context/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -271,6 +273,11 @@ function PortfolioChartSection({
   const chartYPad = ((chartYMax - chartYMin) || chartYMax * 0.1 || 1) * 0.15;
   const chartMaxValue = Math.ceil((chartYMax + chartYPad) / 10) * 10;
   const chartMinValue = Math.floor((chartYMin - chartYPad) / 10) * 10;
+  const chartSpacing = useMemo(
+    () => Math.max(8, (CHART_WIDTH - 56) / Math.max(chartData.length - 1, 1)),
+    [chartData.length],
+  );
+  const formatPortfolioYLabel = useCallback((v: string) => `${Math.round(Number(v))}`, []);
 
   if (!isLoading && chartData.length === 0) return null;
 
@@ -317,13 +324,13 @@ function PortfolioChartSection({
             hideRules
             xAxisColor={colors.borderLight}
             yAxisColor="transparent"
-            formatYLabel={(v) => `${Math.round(Number(v))}`}
+            formatYLabel={formatPortfolioYLabel}
             maxValue={chartMaxValue - chartMinValue}
             yAxisOffset={chartMinValue}
             noOfSections={4}
             initialSpacing={0}
             endSpacing={32}
-            spacing={Math.max(8, (CHART_WIDTH - 56) / Math.max(chartData.length - 1, 1))}
+            spacing={chartSpacing}
           />
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
@@ -405,7 +412,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
-export default function HomeScreen() {
+function ClassicHomeScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -542,6 +549,11 @@ export default function HomeScreen() {
       )}
     </SafeAreaView>
   );
+}
+
+export default function HomeScreen() {
+  const { isClearLens } = useAppDesignMode();
+  return isClearLens ? <ClearLensPortfolioScreen /> : <ClassicHomeScreen />;
 }
 
 function makeStyles(colors: AppColors) {
