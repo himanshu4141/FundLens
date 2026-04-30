@@ -4,7 +4,7 @@
 
 The visual handoff is stored at `docs/design/assets/money-trail-clear-lens-handoff.png`.
 
-This design extends the Clear Lens / Focus Ring system already introduced by PR #64. The app name remains FundLens and the feature name remains Money Trail.
+This design extends the Clear Lens / Focus Ring system now available on `main`. The app name remains FundLens and the feature name remains Money Trail.
 
 ## Main Screens
 
@@ -25,7 +25,7 @@ This design extends the Clear Lens / Focus Ring system already introduced by PR 
 
 ## Components
 
-- Reuse Clear Lens cards, headers, button treatment, shadows, typography, and bottom sheet styling from PR #64.
+- Reuse Clear Lens cards, headers, button treatment, shadows, typography, and bottom sheet styling from the mainline Clear Lens system.
 - Use small rounded icon chips for transaction direction.
 - Use compact bar charts for yearly financial-year summaries instead of dense tables.
 - Keep list rows focused on transaction type, fund name, date, amount, and status/direction only.
@@ -61,6 +61,6 @@ This design extends the Clear Lens / Focus Ring system already introduced by PR 
 ## Validation Expectations
 
 - Compare Portfolio preview, Money Trail index, transaction list, detail, filter sheet, sort sheet, export sheet, quick action entry, fund-row entry, and fund-detail entry against the handoff image.
-- Confirm the implementation uses PR #64 Clear Lens tokens and primitives instead of creating another token set.
+- Confirm the implementation uses mainline Clear Lens tokens and primitives instead of creating another token set.
 - Confirm the Money Trail UI remains beginner-friendly and avoids dense finance-table layouts.
 - Confirm transactions hidden by default are visually muted and clearly labelled when shown.

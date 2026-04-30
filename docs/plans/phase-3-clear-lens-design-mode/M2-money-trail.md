@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build Money Trail on top of PR #64 Clear Lens so a FundLens user can understand every CAS-derived investment, withdrawal, switch, and dividend that shaped their portfolio.
+Build Money Trail on top of mainline Clear Lens so a FundLens user can understand every CAS-derived investment, withdrawal, switch, and dividend that shaped their portfolio.
 
 The observable result is:
 
@@ -19,9 +19,9 @@ FundLens already answers whether the user is doing well. Money Trail answers how
 
 ## Context
 
-This work is intentionally based on PR #64, fetched locally as `pr-64-clear-lens`, and implemented in the isolated worktree `/Users/hyadav/code/personal/FundLens-money-trail` on branch `feature/money-trail`.
+This work started on PR #64 while Clear Lens was still stacked, then moved onto `main` after Clear Lens merged. It is implemented in the isolated worktree `/Users/hyadav/code/personal/FundLens-money-trail` on branch `feature/money-trail`.
 
-PR #64 introduces Clear Lens as the default app design, with:
+Mainline Clear Lens provides:
 
 - `src/constants/clearLensTheme.ts` for tokens.
 - `src/components/clearLens/ClearLensPrimitives.tsx` for reusable Clear Lens surfaces.
@@ -268,14 +268,14 @@ Implement:
 
 ### Clear Lens Design System Reuse
 
-Use `ClearLensColors`, `ClearLensTypography`, `ClearLensSpacing`, `ClearLensCard`, `ClearLensScreen`, `ClearLensHeader`, and related PR #64 primitives. Add only feature-specific components, not a new token system.
+Use `ClearLensColors`, `ClearLensTypography`, `ClearLensSpacing`, `ClearLensCard`, `ClearLensScreen`, `ClearLensHeader`, and related mainline Clear Lens primitives. Add only feature-specific components, not a new token system.
 
 
 ## Alternatives Considered
 
-1. Build Money Trail from `main`.
+1. Build Money Trail from classic pre-Clear Lens UI.
 
-   Rejected because Clear Lens is not merged into mainline yet and the feature must integrate with PR #64.
+   Rejected because Clear Lens is now the default interface and Money Trail should extend that system instead of reviving older screen patterns.
 
 2. Create a new transaction table or migration.
 
@@ -466,8 +466,8 @@ Screenshot list:
 - Risk: The feature becomes a dense transaction ledger.
   Mitigation: keep rows minimal, move details into the detail screen, and use Clear Lens cards/charts instead of tables.
 
-- Risk: PR #64 changes while this work is underway.
-  Mitigation: keep the Money Trail branch based on the fetched PR #64 branch and rebase onto updated PR #64 before PR if needed.
+- Risk: Clear Lens mainline changes while this work is underway.
+  Mitigation: keep the Money Trail branch rebased onto `origin/main` before PR review.
 
 
 ## Rollback Plan
@@ -483,7 +483,7 @@ If Money Trail needs to be disabled after merge:
 
 ## Open Questions / Assumptions
 
-- Resolved: PR #64 reads CAS rows from the `transaction` table and fund names from the `fund` view. Available fields are transaction id, fund id, date, type, units, amount, NAV, folio number, CAS import id, and created timestamp.
+- Resolved: mainline Clear Lens reads CAS rows from the `transaction` table and fund names from the `fund` view. Available fields are transaction id, fund id, date, type, units, amount, NAV, folio number, CAS import id, and created timestamp.
 - Resolved: existing XIRR logic in `src/utils/xirr.ts` treats `purchase`, `switch_in`, and `dividend_reinvest` as negative cashflows, and `redemption` plus `switch_out` as positive cashflows. It also reports invested amount as remaining cost basis after average-cost deductions, not lifetime money-in.
 - Resolved: current app dependencies include `expo-file-system`. CSV export uses browser download on web, Android Storage Access Framework folder selection on Android, and a native share-sheet fallback after writing to Expo app storage when folder selection is unavailable or cancelled.
 - Limitation: the current database enum has `purchase`, `redemption`, `switch_in`, `switch_out`, and `dividend_reinvest`. Dividend payout, STP, SWP, failed, and reversal rows are supported by the view model for forward compatibility, but current import code skips or normalizes some of these before storage.
@@ -495,12 +495,13 @@ If Money Trail needs to be disabled after merge:
 ## Decision Log
 
 - 2026-04-29: Based Money Trail on fetched PR #64 branch `pr-64-clear-lens` and created isolated worktree `/Users/hyadav/code/personal/FundLens-money-trail` on `feature/money-trail`.
-- 2026-04-29: Chose `docs/plans/phase-3-clear-lens-design-mode/M2-money-trail.md` because the feature must extend the Clear Lens phase rather than start from mainline classic UI.
+- 2026-04-29: Chose `docs/plans/phase-3-clear-lens-design-mode/M2-money-trail.md` because the feature must extend the Clear Lens phase rather than start from the older classic UI.
 - 2026-04-29: Chose no database migration for the initial plan until existing transaction data is inspected.
 - 2026-04-29: Kept Money Trail lifetime external cashflow totals separate from the app's existing `investedAmount`, because existing `investedAmount` is remaining cost basis and powers portfolio/fund calculations.
 - 2026-04-29: Kept existing XIRR behavior unchanged. Money Trail marks switch and dividend-reinvestment records as used in XIRR when the current shared XIRR helper uses them, while Money Trail net-invested summaries treat them as internal movement.
 - 2026-04-29: Implemented CSV export without a new dependency by using web downloads and native `expo-file-system/legacy` file writes.
 - 2026-04-29: After device testing, changed native CSV export to open an Android folder picker before writing the CSV, with share-sheet fallback instead of showing app-private `file://` paths in the UI.
+- 2026-04-30: After Clear Lens merged to `main`, rebased Money Trail onto `origin/main` using only the Money Trail commits and archived the shipped Clear Lens M1 ExecPlan in the plan index.
 
 
 ## Amendments
@@ -512,7 +513,7 @@ If Money Trail needs to be disabled after merge:
 ## Progress
 
 - [x] Read `VISION.md`.
-- [x] Fetched PR #64 into `pr-64-clear-lens`.
+- [x] Originally fetched PR #64 into `pr-64-clear-lens`; rebased onto `origin/main` after Clear Lens merged.
 - [x] Created isolated Money Trail worktree on `feature/money-trail`.
 - [x] Stored supplied Money Trail PRD in `docs/product/money-trail-prd.md`.
 - [x] Stored supplied Clear Lens design handoff image in `docs/design/assets/money-trail-clear-lens-handoff.png`.
