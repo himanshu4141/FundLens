@@ -747,7 +747,15 @@ function AssetAllocationPreview({
   );
 }
 
-function EntryRows({ onInsights, onFunds }: { onInsights: () => void; onFunds: () => void }) {
+function EntryRows({
+  onInsights,
+  onFunds,
+  onTools,
+}: {
+  onInsights: () => void;
+  onFunds: () => void;
+  onTools: () => void;
+}) {
   return (
     <View style={styles.entryRows}>
       <EntryRow
@@ -761,6 +769,12 @@ function EntryRows({ onInsights, onFunds }: { onInsights: () => void; onFunds: (
         title="Your Funds"
         subtitle="Search, sort, and open every holding"
         onPress={onFunds}
+      />
+      <EntryRow
+        icon="construct-outline"
+        title="Tools"
+        subtitle="Plan, compare, and explore your funds"
+        onPress={onTools}
       />
     </View>
   );
@@ -947,6 +961,7 @@ export function ClearLensPortfolioScreen() {
           <EntryRows
             onInsights={() => router.push('/portfolio-insights')}
             onFunds={() => router.push('/(tabs)/leaderboard')}
+            onTools={() => router.push('/tools' as never)}
           />
         </ScrollView>
       )}

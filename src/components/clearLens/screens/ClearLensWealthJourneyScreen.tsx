@@ -1073,6 +1073,17 @@ export function ClearLensWealthJourneyScreen() {
                 <Text style={styles.primaryButtonText}>Adjust your plan</Text>
               </TouchableOpacity>
               {renderProjectionDisclaimer()}
+
+              <TouchableOpacity
+                style={styles.exploreToolsRow}
+                onPress={() => router.push('/tools' as never)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Explore more tools"
+              >
+                <Text style={styles.exploreToolsLabel}>Explore more tools</Text>
+                <Ionicons name="chevron-forward" size={16} color={ClearLensColors.emerald} />
+              </TouchableOpacity>
             </>
           )}
 
@@ -1410,6 +1421,18 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.textOnDark,
     fontFamily: ClearLensFonts.bold,
+  },
+  exploreToolsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.xs,
+    paddingVertical: ClearLensSpacing.sm,
+  },
+  exploreToolsLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
   },
   secondaryButton: {
     minHeight: 44,

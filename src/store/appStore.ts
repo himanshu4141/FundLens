@@ -5,6 +5,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type WealthJourneyReturnPreset = 'cautious' | 'balanced' | 'growth' | 'custom';
 export type AppDesignMode = 'classic' | 'clearLens';
 
+export interface ToolsFlags {
+  goalPlanner: boolean;
+  pastSipCheck: boolean;
+  compareFunds: boolean;
+  directVsRegular: boolean;
+}
+
+const DEFAULT_TOOLS_FLAGS: ToolsFlags = {
+  goalPlanner: false,
+  pastSipCheck: false,
+  compareFunds: false,
+  directVsRegular: false,
+};
+
 export interface BenchmarkOption {
   symbol: string;
   label: string;
@@ -155,7 +169,7 @@ const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
   postRetirementReturn: null,
 };
 
-interface AppStore {
+export interface AppStore {
   defaultBenchmarkSymbol: string;
   setDefaultBenchmarkSymbol: (symbol: string) => void;
   appDesignMode: AppDesignMode;
@@ -163,6 +177,7 @@ interface AppStore {
   wealthJourney: WealthJourneyState;
   updateWealthJourney: (patch: Partial<WealthJourneyState>) => void;
   resetWealthJourney: () => void;
+  toolsFlags: ToolsFlags;
 }
 
 type PersistedAppStore = Partial<AppStore> & {
@@ -205,6 +220,7 @@ export const useAppStore = create<AppStore>()(
           return wealthJourney === state.wealthJourney ? state : { wealthJourney };
         }),
       resetWealthJourney: () => set({ wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE }),
+      toolsFlags: DEFAULT_TOOLS_FLAGS,
     }),
     {
       name: 'fundlens-app-store',

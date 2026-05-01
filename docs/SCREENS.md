@@ -14,6 +14,7 @@ Secondary navigation:
 
 - `Settings` is hidden from the tab bar and opened from the shared header overflow menu.
 - `Portfolio Insights` and `Fund Detail` are stack routes from Portfolio and fund rows.
+- `Tools Hub` is a stack route reachable from the Portfolio entry rows and the Wealth Journey "Explore more tools" link. Clear Lens only.
 - `Leaderboard` is hidden legacy chrome in Clear Lens for now; classic keeps its tab.
 - `Onboarding / Import CAS` and `PDF Upload` are utility flows used for first-run import and later portfolio maintenance.
 - `Compare` remains a hidden legacy route for transition and deep-link safety.
@@ -120,7 +121,29 @@ Includes:
 - import tools, CAS address, PAN management, PDF upload shortcut
 - sign out
 
-### 8. Onboarding / Import CAS
+### 8. Tools Hub
+
+Stack route (`/tools`). Clear Lens only — not a bottom tab in this phase.
+
+Entry points:
+
+- Portfolio screen → entry rows → "Tools"
+- Wealth Journey screen → "Explore more tools" link (home mode only)
+
+Includes:
+
+- Featured section — Wealth Journey card (always available, navigates to `/(tabs)/wealth-journey`)
+- Plan section — Goal Planner card (coming soon, behind `toolsFlags.goalPlanner`)
+- Compare section — Compare Funds card (coming soon, behind `toolsFlags.compareFunds`)
+- Explore section — Past SIP Check card (coming soon, behind `toolsFlags.pastSipCheck`)
+- Cost & Fees section — Direct vs Regular Impact card (coming soon, behind `toolsFlags.directVsRegular`)
+- Coming-soon cards are visually muted and non-tappable
+- Available tool cards navigate to their respective routes (routes added per milestone)
+- Disclaimer footer — "All results are estimates…"
+
+Feature flags live in `appStore.toolsFlags`. All flags default to `false`. Each is flipped to `true` when the corresponding tool milestone ships.
+
+### 9. Onboarding / Import CAS
 
 Reusable for first-run onboarding and later imports.
 
