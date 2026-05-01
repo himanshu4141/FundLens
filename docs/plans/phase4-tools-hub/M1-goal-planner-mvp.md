@@ -198,11 +198,18 @@ gap = requiredSip - currentMonthlyInvestment
 
 ## Progress
 
-- [ ] Branch `feat/tools-hub-m1` created off `feat/tools-hub-m0`
-- [ ] M1 ExecPlan written
-- [ ] `goalPlanner.ts` calculation functions + tests
-- [ ] `ClearLensGoalPlannerScreen` implemented
-- [ ] `app/tools/goal-planner.tsx` route created
-- [ ] `toolsFlags.goalPlanner` set to `true`
-- [ ] typecheck + lint + tests green
-- [ ] PR raised against `feat/tools-hub-m0`
+- [x] Branch `feat/tools-hub-m1` rebased onto `main` after M0 squash-merge
+- [x] M1 ExecPlan written
+- [x] `goalPlanner.ts` calculation functions + tests (24 tests, 97% coverage)
+- [x] `ClearLensGoalPlannerScreen` implemented (input card, result card, SVG projection chart)
+- [x] `app/tools/` directory restructured: `_layout.tsx` + `index.tsx` + `goal-planner.tsx`
+- [x] `app/tools.tsx` removed (replaced by directory layout)
+- [x] `toolsFlags.goalPlanner` set to `true`
+- [x] typecheck ✓ lint ✓ 496 tests ✓ src/utils 96% ✓
+- [x] PR #78 raised against `main`
+
+## Amendments
+
+- `app/tools.tsx` was moved to `app/tools/index.tsx` + `app/tools/_layout.tsx` to support nested routes (`/tools/goal-planner`). The root `app/_layout.tsx` received a `<Stack.Screen name="tools" />` entry.
+- `GoalResultCard` uses inline Ionicons checkmark for the on-track state rather than a separate metric card.
+- Projection chart built with `react-native-svg` (same pattern as WealthJourneyScreen), not `react-native-gifted-charts`.

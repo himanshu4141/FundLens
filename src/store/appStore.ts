@@ -13,7 +13,7 @@ export interface ToolsFlags {
 }
 
 const DEFAULT_TOOLS_FLAGS: ToolsFlags = {
-  goalPlanner: false,
+  goalPlanner: true,
   pastSipCheck: false,
   compareFunds: false,
   directVsRegular: false,
