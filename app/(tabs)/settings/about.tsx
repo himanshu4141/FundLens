@@ -83,6 +83,12 @@ export default function AboutScreen() {
     : updateId
       ? updateId.slice(0, 12) + '…'
       : '—';
+  const updateCreatedAt = Updates.createdAt;
+  const updateDateDisplay = isEmbedded || !updateCreatedAt
+    ? '—'
+    : updateCreatedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      + ' · '
+      + updateCreatedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
   async function handleCopyUpdateId() {
     if (!updateId) return;
@@ -118,6 +124,10 @@ export default function AboutScreen() {
             label="OTA update"
             value={copiedUpdateId ? 'Copied!' : updateIdDisplay}
             onPress={updateId && !isEmbedded ? handleCopyUpdateId : undefined}
+          />
+          <InfoRow
+            label="OTA date"
+            value={updateDateDisplay}
             isLast
           />
         </View>
