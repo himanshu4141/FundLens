@@ -228,8 +228,7 @@ function makeStyles() {
       textTransform: 'uppercase',
     },
     rowValue: {
-      ...ClearLensTypography.body,
-      fontFamily: ClearLensFonts.semiBold,
+      ...ClearLensTypography.h3,
       color: ClearLensColors.navy,
     },
     rowSub: {

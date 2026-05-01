@@ -190,8 +190,7 @@ function makeStyles() {
     borderTop: { borderTopWidth: 1, borderTopColor: ClearLensColors.borderLight },
     rowLeft: { flex: 1, gap: 3 },
     rowValue: {
-      ...ClearLensTypography.body,
-      fontFamily: ClearLensFonts.semiBold,
+      ...ClearLensTypography.h3,
       color: ClearLensColors.navy,
     },
     rowSub: {
