@@ -14,8 +14,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
-import * as Updates from 'expo-updates';
-import ExpoConstants from 'expo-constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
@@ -27,7 +25,18 @@ import { GoogleIcon } from '@/src/components/GoogleIcon';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensShadow,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
 import type { AppColors } from '@/src/context/ThemeContext';
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
 
 async function fetchProfile(userId: string) {
   const { data } = await supabase
@@ -38,9 +47,26 @@ async function fetchProfile(userId: string) {
   return data ?? null;
 }
 
+export function maskPan(pan: string): string {
+  if (pan.length !== 10) return pan;
+  return pan.slice(0, 2) + '•'.repeat(6) + pan.slice(8);
+}
+
+export function navStatusBadge(navDate: string | null | undefined, colors: AppColors) {
+  if (!navDate) return { color: colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
+  const today = new Date().toISOString().split('T')[0];
+  const diffMs = new Date(today).getTime() - new Date(navDate).getTime();
+  const diffDays = Math.round(diffMs / 86_400_000);
+  const d = new Date(navDate);
+  const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  if (diffDays <= 1) return { color: colors.positive, dot: colors.positive, label: 'Live' };
+  if (diffDays <= 3) return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${dateLabel}` };
+  return { color: colors.negative, dot: colors.negative, label: `Outdated · ${dateLabel}` };
+}
+
 function CopyRow({ label, value, sublabel }: { label: string; value: string; sublabel?: string }) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeClassicStyles(colors), [colors]);
   const [copied, setCopied] = useState(false);
   async function handleCopy() {
     await Clipboard.setStringAsync(value);
@@ -51,9 +77,7 @@ function CopyRow({ label, value, sublabel }: { label: string; value: string; sub
     <View style={styles.row}>
       <View style={styles.rowLeft}>
         <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue} numberOfLines={1} selectable>
-          {value}
-        </Text>
+        <Text style={styles.rowValue} numberOfLines={1} selectable>{value}</Text>
         {sublabel && <Text style={styles.rowSubLabel}>{sublabel}</Text>}
       </View>
       <TouchableOpacity onPress={handleCopy} style={[styles.actionBtn, copied && styles.actionBtnDone]}>
@@ -66,29 +90,186 @@ function CopyRow({ label, value, sublabel }: { label: string; value: string; sub
   );
 }
 
-function maskPan(pan: string): string {
-  if (pan.length !== 10) return pan;
-  return pan.slice(0, 2) + '•'.repeat(6) + pan.slice(8);
-}
-
-function SectionHeader({ title }: { title: string }) {
+function ClassicSectionHeader({ title }: { title: string }) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeClassicStyles(colors), [colors]);
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
-export default function SettingsScreen() {
+// ── ClearLens Hub ─────────────────────────────────────────────────────────────
+
+type HubRowProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  statusLabel?: string;
+  statusColor?: string;
+  onPress: () => void;
+  isLast?: boolean;
+};
+
+function HubRow({ icon, title, subtitle, statusLabel, statusColor, onPress, isLast }: HubRowProps) {
+  return (
+    <TouchableOpacity
+      style={[hubStyles.row, !isLast && hubStyles.rowBorder]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={hubStyles.iconCircle}>
+        <Ionicons name={icon} size={20} color={ClearLensColors.emerald} />
+      </View>
+      <View style={hubStyles.rowContent}>
+        <Text style={hubStyles.rowTitle}>{title}</Text>
+        <Text style={hubStyles.rowSubtitle} numberOfLines={1}>{subtitle}</Text>
+        {statusLabel ? (
+          <View style={hubStyles.statusRow}>
+            <View style={[hubStyles.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[hubStyles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
+        ) : null}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
+    </TouchableOpacity>
+  );
+}
+
+function ClearLensHub() {
+  const router = useRouter();
+  const { colors } = useTheme();
+
+  const { data: latestNavRow } = useQuery({
+    queryKey: ['latest-nav-date'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('nav_history')
+        .select('nav_date')
+        .order('nav_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data?.nav_date as string | null ?? null;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const navBadge = navStatusBadge(latestNavRow, colors);
+
+  return (
+    <SafeAreaView style={hubStyles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={hubStyles.content}>
+        <View style={hubStyles.header}>
+          <Text style={hubStyles.heading}>Settings</Text>
+          <Text style={hubStyles.subheading}>Manage your account, data and preferences</Text>
+        </View>
+
+        <View style={hubStyles.card}>
+          <HubRow
+            icon="person-outline"
+            title="Account"
+            subtitle="Email, PAN, connected accounts"
+            onPress={() => router.push('/settings/account')}
+          />
+          <HubRow
+            icon="cloud-upload-outline"
+            title="Portfolio import"
+            subtitle="CAS email, import address, upload"
+            onPress={() => router.push('/settings/portfolio-import')}
+          />
+          <HubRow
+            icon="refresh-outline"
+            title="Data sync"
+            subtitle="NAV data status and manual sync"
+            statusLabel={navBadge.label}
+            statusColor={navBadge.dot}
+            onPress={() => router.push('/settings/data-sync')}
+          />
+          <HubRow
+            icon="options-outline"
+            title="Preferences"
+            subtitle="Benchmark, app design"
+            onPress={() => router.push('/settings/preferences')}
+          />
+          <HubRow
+            icon="information-circle-outline"
+            title="About & support"
+            subtitle="Version, updates and sign out"
+            onPress={() => router.push('/settings/about')}
+            isLast
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const hubStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: ClearLensColors.background },
+  content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.md },
+  header: { gap: ClearLensSpacing.xs, paddingVertical: ClearLensSpacing.sm },
+  heading: {
+    ...ClearLensTypography.h1,
+    fontFamily: ClearLensFonts.extraBold,
+    color: ClearLensColors.navy,
+  },
+  subheading: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textTertiary,
+  },
+  card: {
+    backgroundColor: ClearLensColors.surface,
+    borderRadius: ClearLensRadii.lg,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    overflow: 'hidden',
+    ...ClearLensShadow,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingVertical: ClearLensSpacing.md,
+    gap: ClearLensSpacing.md,
+  },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: ClearLensColors.borderLight,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: ClearLensRadii.full,
+    backgroundColor: ClearLensColors.mint50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  rowContent: { flex: 1, gap: 2 },
+  rowTitle: {
+    ...ClearLensTypography.h3,
+    fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.navy,
+  },
+  rowSubtitle: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+  },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { ...ClearLensTypography.caption, fontFamily: ClearLensFonts.semiBold },
+});
+
+// ── Classic settings (unchanged) ──────────────────────────────────────────────
+
+function ClassicSettings() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
   const queryClient = useQueryClient();
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeClassicStyles(colors), [colors]);
 
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol, appDesignMode, setAppDesignMode } = useAppStore();
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
 
-  // ── Connected accounts ────────────────────────────────────────────────────
   const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   const identities = session?.user?.identities ?? [];
@@ -108,11 +289,7 @@ export default function SettingsScreen() {
       options: { redirectTo, skipBrowserRedirect: Platform.OS !== 'web' },
     });
 
-    if (error) {
-      setLinkError(error.message);
-      setLinkingGoogle(false);
-      return;
-    }
+    if (error) { setLinkError(error.message); setLinkingGoogle(false); return; }
 
     if (Platform.OS === 'web') {
       if (data?.url) window.location.href = data.url;
@@ -125,9 +302,7 @@ export default function SettingsScreen() {
     if (result.type === 'success') {
       const code = parseOAuthCode(result.url);
       if (code) {
-        router.push(
-          `/auth/callback?code=${encodeURIComponent(code)}&callbackUrl=${encodeURIComponent(result.url)}`,
-        );
+        router.push(`/auth/callback?code=${encodeURIComponent(code)}&callbackUrl=${encodeURIComponent(result.url)}`);
       }
     }
   }
@@ -137,9 +312,6 @@ export default function SettingsScreen() {
 
   async function handleSync() {
     setSyncState('syncing');
-    // Portfolio composition and fund meta have staleness guards — they return
-    // fast when data is fresh and are covered by their own crons. Fire them in
-    // the background so they don't block the button response.
     supabase.functions.invoke('sync-fund-portfolios').catch(() => {});
     supabase.functions.invoke('sync-fund-meta').catch(() => {});
     const [navResult, idxResult] = await Promise.allSettled([
@@ -149,7 +321,6 @@ export default function SettingsScreen() {
     const navOk = navResult.status === 'fulfilled' && !navResult.value.error;
     const idxOk = idxResult.status === 'fulfilled' && !idxResult.value.error;
     if (navOk || idxOk) {
-      // Invalidate the NAV badge so it re-fetches the new latest date.
       await queryClient.invalidateQueries({ queryKey: ['latest-nav-date'] });
       setSyncState('done');
       setTimeout(() => setSyncState('idle'), 3000);
@@ -182,26 +353,13 @@ export default function SettingsScreen() {
     staleTime: 10 * 60 * 1000,
   });
 
-  function navStatusBadge(navDate: string | null | undefined) {
-    if (!navDate) return { color: colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
-    const today = new Date().toISOString().split('T')[0];
-    const diffMs = new Date(today).getTime() - new Date(navDate).getTime();
-    const diffDays = Math.round(diffMs / 86_400_000);
-    const d = new Date(navDate);
-    const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-    if (diffDays <= 1) return { color: colors.positive, dot: colors.positive, label: 'Live' };
-    if (diffDays <= 3) return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${dateLabel}` };
-    return { color: colors.negative, dot: colors.negative, label: `Outdated · ${dateLabel}` };
-  }
-
-  const navBadge = navStatusBadge(latestNavRow);
+  const navBadge = navStatusBadge(latestNavRow, colors);
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign out',
-        style: 'destructive',
+        text: 'Sign out', style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.auth.signOut();
           if (error) Alert.alert('Error', error.message);
@@ -213,10 +371,8 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <UtilityHeader title="Settings" />
-
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* ── Account ── */}
-        <SectionHeader title="Account" />
+        <ClassicSectionHeader title="Account" />
         <View style={styles.card}>
           <View style={styles.accountBadge}>
             <View style={styles.avatarCircle}>
@@ -243,9 +399,7 @@ export default function SettingsScreen() {
             <View style={[styles.row, styles.borderTop]}>
               <View style={styles.rowLeft}>
                 <Text style={styles.rowLabel}>CAS registrar email</Text>
-                <Text style={styles.rowValue} numberOfLines={1}>
-                  {profile.kfintech_email}
-                </Text>
+                <Text style={styles.rowValue} numberOfLines={1}>{profile.kfintech_email}</Text>
               </View>
               <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
                 <Text style={styles.actionBtnText}>Edit</Text>
@@ -254,10 +408,8 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* ── Connected Accounts ── */}
-        <SectionHeader title="Connected Accounts" />
+        <ClassicSectionHeader title="Connected Accounts" />
         <View style={styles.card}>
-          {/* Email / magic link — always present */}
           <View style={styles.row}>
             <View style={styles.providerIconWrap}>
               <Ionicons name="mail-outline" size={18} color={colors.textSecondary} />
@@ -271,17 +423,12 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* Google */}
           <View style={[styles.row, styles.borderTop]}>
-            <View style={styles.providerIconWrap}>
-              <GoogleIcon size={18} />
-            </View>
+            <View style={styles.providerIconWrap}><GoogleIcon size={18} /></View>
             <View style={styles.rowLeft}>
               <Text style={styles.rowValue}>Google</Text>
               {isGoogleLinked && (googleIdentity?.identity_data?.['email'] as string | undefined) ? (
-                <Text style={styles.rowSubLabel}>
-                  {googleIdentity?.identity_data?.['email'] as string}
-                </Text>
+                <Text style={styles.rowSubLabel}>{googleIdentity?.identity_data?.['email'] as string}</Text>
               ) : null}
             </View>
             {isGoogleLinked ? (
@@ -297,25 +444,21 @@ export default function SettingsScreen() {
               >
                 {linkingGoogle
                   ? <ActivityIndicator size="small" color={colors.primary} />
-                  : <Text style={styles.actionBtnText}>Connect</Text>
-                }
+                  : <Text style={styles.actionBtnText}>Connect</Text>}
               </TouchableOpacity>
             )}
           </View>
 
           {linkError && (
             <View style={[styles.row, styles.borderTop]}>
-              <Text style={[styles.rowSubLabel, { color: colors.negative, flex: 1 }]}>
-                {linkError}
-              </Text>
+              <Text style={[styles.rowSubLabel, { color: colors.negative, flex: 1 }]}>{linkError}</Text>
             </View>
           )}
         </View>
 
-        {/* ── Import ── */}
         {inboundEmail && (
           <>
-            <SectionHeader title="Portfolio Import" />
+            <ClassicSectionHeader title="Portfolio Import" />
             <View style={styles.card}>
               <CopyRow
                 label="Your import address"
@@ -327,10 +470,7 @@ export default function SettingsScreen() {
                   <Text style={styles.rowLabel}>Upload a CAS PDF</Text>
                   <Text style={styles.rowSubLabel}>Manually import from a downloaded PDF</Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() => router.push('/onboarding/pdf')}
-                  style={styles.actionBtn}
-                >
+                <TouchableOpacity onPress={() => router.push('/onboarding/pdf')} style={styles.actionBtn}>
                   <Ionicons name="cloud-upload-outline" size={14} color={colors.primary} />
                   <Text style={styles.actionBtnText}>Upload</Text>
                 </TouchableOpacity>
@@ -339,8 +479,7 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {/* ── Data ── */}
-        <SectionHeader title="Data" />
+        <ClassicSectionHeader title="Data" />
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
@@ -393,12 +532,9 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* ── Preferences ── */}
         <View style={styles.sectionHeaderRow}>
-          <SectionHeader title="Preferences" />
-          {benchmarkSaved && (
-            <Text style={styles.savedFeedback}>✓ Saved</Text>
-          )}
+          <ClassicSectionHeader title="Preferences" />
+          {benchmarkSaved && <Text style={styles.savedFeedback}>✓ Saved</Text>}
         </View>
         <View style={styles.card}>
           <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
@@ -424,8 +560,7 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* ── App Design ── */}
-        <SectionHeader title="App Design" />
+        <ClassicSectionHeader title="App Design" />
         <View style={styles.card}>
           {([
             { value: 'classic' as const, label: 'Current design' },
@@ -437,9 +572,7 @@ export default function SettingsScreen() {
               onPress={() => setAppDesignMode(option.value)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.rowValue, { flex: 1 }]}>
-                {option.label}
-              </Text>
+              <Text style={[styles.rowValue, { flex: 1 }]}>{option.label}</Text>
               <Ionicons
                 name={appDesignMode === option.value ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
@@ -449,44 +582,12 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* ── Account actions ── */}
-        <SectionHeader title="Account Actions" />
+        <ClassicSectionHeader title="Account Actions" />
         <View style={styles.card}>
           <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
             <Ionicons name="log-out-outline" size={18} color={colors.negative} />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* ── About ── */}
-        <SectionHeader title="About" />
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowLabel}>Version</Text>
-              <Text style={styles.rowValue}>
-                {ExpoConstants.expoConfig?.version ?? '—'}
-              </Text>
-            </View>
-          </View>
-          <View style={[styles.row, styles.borderTop]}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowLabel}>Update channel</Text>
-              <Text style={styles.rowValue}>{Updates.channel ?? '—'}</Text>
-            </View>
-          </View>
-          <View style={[styles.row, styles.borderTop]}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowLabel}>OTA update</Text>
-              <Text style={styles.rowValue}>
-                {Updates.isEmbeddedLaunch
-                  ? 'Embedded (no OTA)'
-                  : Updates.updateId
-                    ? Updates.updateId.slice(0, 12) + '…'
-                    : '—'}
-              </Text>
-            </View>
-          </View>
         </View>
 
         <View style={styles.bottomPad} />
@@ -495,10 +596,9 @@ export default function SettingsScreen() {
   );
 }
 
-function makeStyles(colors: AppColors) {
+function makeClassicStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-
     sectionHeader: {
       ...Typography.label,
       color: colors.textTertiary,
@@ -513,13 +613,7 @@ function makeStyles(colors: AppColors) {
       justifyContent: 'space-between',
       paddingRight: Spacing.md,
     },
-    savedFeedback: {
-      fontSize: 12,
-      color: colors.positive,
-      fontWeight: '600',
-      marginTop: Spacing.lg,
-    },
-
+    savedFeedback: { fontSize: 12, color: colors.positive, fontWeight: '600', marginTop: Spacing.lg },
     card: {
       backgroundColor: colors.surface,
       borderRadius: Radii.lg,
@@ -528,87 +622,53 @@ function makeStyles(colors: AppColors) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-
-    // Account badge row
     accountBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.md,
-      paddingVertical: 14,
-      gap: 12,
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: Spacing.md, paddingVertical: 14, gap: 12,
     },
     avatarCircle: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
     },
     accountInfo: { flex: 1, gap: 2 },
     accountEmail: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
     accountMeta: { fontSize: 12, color: colors.textTertiary },
     editIconBtn: { padding: 6 },
-
-    // Generic row
     row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: Spacing.md,
-      paddingVertical: 13,
-      gap: 12,
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: Spacing.md, paddingVertical: 13, gap: 12,
     },
-    borderTop: {
-      borderTopWidth: 1,
-      borderTopColor: colors.borderLight,
-    },
+    borderTop: { borderTopWidth: 1, borderTopColor: colors.borderLight },
     rowLeft: { flex: 1, gap: 3 },
     rowLabel: { ...Typography.label, color: colors.textTertiary, textTransform: 'uppercase' },
     rowValue: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     rowSubLabel: { ...Typography.bodySmall, color: colors.textTertiary, marginTop: 1 },
-
     actionBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      backgroundColor: colors.primaryLight,
-      borderRadius: Radii.sm,
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 10, paddingVertical: 6,
+      backgroundColor: colors.primaryLight, borderRadius: Radii.sm,
     },
     actionBtnDone: { backgroundColor: '#f0fdf4' },
     actionBtnError: { backgroundColor: '#fef2f2' },
     actionBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
-
-    // Provider icon wrapper
-    providerIconWrap: {
-      width: 32,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    connectedBadge: {
-      backgroundColor: '#f0fdf4',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: Radii.sm,
-    },
-
-    // Status badge
+    providerIconWrap: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    connectedBadge: { backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radii.sm },
     statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.positive },
     statusText: { fontSize: 12, fontWeight: '600', color: colors.positive },
-
-    // Sign out
     signOutRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: 15,
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: Spacing.md, paddingVertical: 15,
     },
     signOutText: { color: colors.negative, fontSize: 15, fontWeight: '600' },
-
     bottomPad: { height: 40 },
   });
+}
+
+// ── Default export ─────────────────────────────────────────────────────────────
+
+export default function SettingsScreen() {
+  const { isClearLens } = useAppDesignMode();
+  if (isClearLens) return <ClearLensHub />;
+  return <ClassicSettings />;
 }

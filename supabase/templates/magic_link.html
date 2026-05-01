@@ -18,47 +18,43 @@
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background-color:#FAFBFD;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 
   <!-- Pre-header (preview text in inbox) -->
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
     Your secure sign-in link for FundLens — tap to open your portfolio. Expires in 10 minutes.&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌
   </div>
 
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAFBFD;">
     <tr>
       <td align="center" style="padding:40px 16px;">
 
         <!-- Card -->
         <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0"
-               style="background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+               style="background-color:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #DDE5EE;">
 
-          <!-- ── Header gradient bar ── -->
+          <!-- ── Header ── -->
           <tr>
-            <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:32px 48px 28px;" class="content-pad">
+            <td style="background:#0A1430;padding:32px 48px 28px;" class="content-pad">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td>
-                    <!-- Logo: SVG lens + sparkline (inline for email compatibility) -->
+                    <!-- FocusRing logo mark + wordmark -->
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td valign="middle" style="padding-right:12px;">
-                          <svg width="44" height="44" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                            <!-- Outer lens -->
-                            <circle cx="20" cy="20" r="18" fill="rgba(255,255,255,0.12)" />
-                            <circle cx="20" cy="20" r="18" fill="none" stroke="#ffffff" stroke-width="2.5" />
-                            <!-- Baseline -->
-                            <path d="M8 26 L32 26" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.4" />
-                            <!-- Trend line -->
-                            <path d="M8 23 L14 20 L20 22 L26 15 L32 12"
-                                  fill="none" stroke="#ffffff" stroke-width="2.2"
-                                  stroke-linecap="round" stroke-linejoin="round" />
-                            <!-- Peak dot -->
-                            <circle cx="32" cy="12" r="2.5" fill="#ffffff" />
+                          <!-- Focus ring: 4 arc segments + emerald sparkline -->
+                          <svg width="44" height="44" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 52 A24 24 0 0 1 12 22" stroke="#ffffff" stroke-width="6" stroke-linecap="round" fill="none"/>
+                            <path d="M19 12 A24 24 0 0 1 42 10" stroke="#ffffff" stroke-width="6" stroke-linecap="round" fill="none"/>
+                            <path d="M52 25 A24 24 0 0 1 47 49" stroke="#ffffff" stroke-width="6" stroke-linecap="round" fill="none"/>
+                            <path d="M37 55 A24 24 0 0 1 27 56" stroke="#ffffff" stroke-width="6" stroke-linecap="round" fill="none"/>
+                            <path d="M16 39 L27 28 L35 35 L49 20" stroke="#10B981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            <circle cx="52" cy="16" r="4" fill="#10B981"/>
                           </svg>
                         </td>
                         <td valign="middle">
-                          <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">Fund</span><span style="font-size:22px;font-weight:800;color:#5fd0b4;letter-spacing:-0.5px;">Lens</span>
+                          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">FundLens</span>
                         </td>
                       </tr>
                     </table>
@@ -72,20 +68,20 @@
           <tr>
             <td style="padding:40px 48px 16px;" class="content-pad">
 
-              <!-- Heading -->
-              <p style="margin:0 0 8px;font-size:24px;font-weight:700;color:#0f172a;letter-spacing:-0.5px;line-height:1.3;">
+              <p style="margin:0 0 8px;font-size:24px;font-weight:700;color:#0A1430;letter-spacing:-0.4px;line-height:1.3;">
                 Your sign-in link is ready
               </p>
-              <p style="margin:0 0 32px;font-size:15px;color:#475569;line-height:1.6;">
-                Tap the button below to open FundLens. No password needed, no extra steps, and the link is unique to you.
+              <p style="margin:0 0 32px;font-size:15px;color:#263248;line-height:1.6;">
+                Tap the button below to open FundLens. No password needed, no extra steps,
+                and the link is unique to you.
               </p>
 
               <!-- CTA button -->
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="border-radius:12px;background:#0f6b57;">
+                  <td style="border-radius:14px;background:#10B981;">
                     <a href="{{ .ConfirmationURL }}" class="btn"
-                       style="display:inline-block;padding:16px 40px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;letter-spacing:-0.2px;mso-padding-alt:0;">
+                       style="display:inline-block;padding:16px 40px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;letter-spacing:-0.2px;mso-padding-alt:0;">
                       Open FundLens &rarr;
                     </a>
                   </td>
@@ -99,26 +95,26 @@
           <tr>
             <td style="padding:24px 48px 0;" class="content-pad">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                     style="background-color:#edfaf6;border-radius:10px;border:1px solid #c7eadf;">
+                     style="background-color:#ECFDF5;border-radius:12px;border:1px solid #A7F3D0;">
                 <tr>
                   <td style="padding:20px 24px;">
-                    <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:#0f6b57;letter-spacing:0.6px;text-transform:uppercase;">
+                    <p style="margin:0 0 14px;font-size:11px;font-weight:700;color:#10B981;letter-spacing:1px;text-transform:uppercase;">
                       Good to know
                     </p>
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                       <tr>
-                        <td style="padding:5px 0;font-size:13px;color:#0a4a3c;line-height:1.5;">
-                          ⏱&nbsp; This link expires in <strong style="color:#0f172a;">10 minutes</strong>.
+                        <td style="padding:5px 0;font-size:13px;color:#0A1430;line-height:1.6;">
+                          &#x23F1;&nbsp; This link expires in <strong>10 minutes</strong>.
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:5px 0;font-size:13px;color:#0a4a3c;line-height:1.5;">
-                          📱&nbsp; For the best experience, open it on the <strong style="color:#0f172a;">same device</strong> where you requested it.
+                        <td style="padding:5px 0;font-size:13px;color:#0A1430;line-height:1.6;">
+                          &#x1F4F1;&nbsp; For the best experience, open it on the <strong>same device</strong> where you requested it.
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:5px 0;font-size:13px;color:#0a4a3c;line-height:1.5;">
-                          🔒&nbsp; If you didn&rsquo;t request this, you can safely <strong style="color:#0f172a;">ignore this email</strong>.
+                        <td style="padding:5px 0;font-size:13px;color:#0A1430;line-height:1.6;">
+                          &#x1F512;&nbsp; If you didn&rsquo;t request this, you can safely <strong>ignore this email</strong>.
                         </td>
                       </tr>
                     </table>
@@ -131,10 +127,10 @@
           <!-- ── Fallback link ── -->
           <tr>
             <td style="padding:24px 48px 0;" class="content-pad">
-              <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.7;">
+              <p style="margin:0;font-size:12px;color:#7B8AA3;line-height:1.7;">
                 Button not working? Copy and paste this link into your browser:<br />
                 <a href="{{ .ConfirmationURL }}"
-                   style="color:#0f6b57;word-break:break-all;font-size:11px;">{{ .ConfirmationURL }}</a>
+                   style="color:#10B981;word-break:break-all;font-size:11px;">{{ .ConfirmationURL }}</a>
               </p>
             </td>
           </tr>
@@ -143,14 +139,14 @@
           <tr>
             <td style="padding:32px 48px;" class="content-pad">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                     style="border-top:1px solid #e2e8f0;">
+                     style="border-top:1px solid #DDE5EE;">
                 <tr>
                   <td style="padding-top:24px;">
-                    <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;line-height:1.6;">
+                    <p style="margin:0 0 4px;font-size:12px;color:#7B8AA3;line-height:1.6;">
                       You&rsquo;re receiving this because a sign-in was requested for your FundLens account.
                     </p>
-                    <p style="margin:0;font-size:12px;color:#cbd5e1;line-height:1.6;">
-                      &copy; FundLens &mdash; Know if you&rsquo;re doing well without the noise.
+                    <p style="margin:0;font-size:12px;color:#DDE5EE;line-height:1.6;">
+                      &copy; FundLens &mdash; Focus. Compare. Grow.
                     </p>
                   </td>
                 </tr>

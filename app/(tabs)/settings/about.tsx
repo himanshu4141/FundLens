@@ -1,0 +1,214 @@
+import { useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as Updates from 'expo-updates';
+import ExpoConstants from 'expo-constants';
+import * as Clipboard from 'expo-clipboard';
+import { supabase } from '@/src/lib/supabase';
+import { UtilityHeader } from '@/src/components/UtilityHeader';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensShadow,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
+
+type InfoRowProps = {
+  label: string;
+  value: string;
+  onPress?: () => void;
+  isLast?: boolean;
+};
+
+function InfoRow({ label, value, onPress, isLast }: InfoRowProps) {
+  const styles = makeStyles();
+  const Row = onPress ? TouchableOpacity : View;
+  return (
+    <Row
+      style={[styles.row, !isLast && styles.borderBottom]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.rowLeft}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowValue}>{value}</Text>
+      </View>
+      {onPress && <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />}
+    </Row>
+  );
+}
+
+type LinkRowProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress?: () => void;
+  isLast?: boolean;
+};
+
+function LinkRow({ icon, label, onPress, isLast }: LinkRowProps) {
+  const styles = makeStyles();
+  return (
+    <TouchableOpacity
+      style={[styles.linkRow, !isLast && styles.borderBottom]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Ionicons name={icon} size={18} color={ClearLensColors.textSecondary} />
+      <Text style={styles.linkLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
+    </TouchableOpacity>
+  );
+}
+
+export default function AboutScreen() {
+  const styles = useMemo(() => makeStyles(), []);
+  const [copiedUpdateId, setCopiedUpdateId] = useState(false);
+
+  const appVersion = ExpoConstants.expoConfig?.version ?? '—';
+  const updateChannel = Updates.channel ?? '—';
+  const isEmbedded = Updates.isEmbeddedLaunch;
+  const updateId = Updates.updateId;
+  const updateIdDisplay = isEmbedded
+    ? 'Embedded (no OTA)'
+    : updateId
+      ? updateId.slice(0, 12) + '…'
+      : '—';
+  const updateCreatedAt = Updates.createdAt;
+  const updateDateDisplay = isEmbedded || !updateCreatedAt
+    ? '—'
+    : updateCreatedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      + ' · '
+      + updateCreatedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+  async function handleCopyUpdateId() {
+    if (!updateId) return;
+    await Clipboard.setStringAsync(updateId);
+    setCopiedUpdateId(true);
+    setTimeout(() => setCopiedUpdateId(false), 2000);
+  }
+
+  async function handleSignOut() {
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.auth.signOut();
+          if (error) Alert.alert('Error', error.message);
+        },
+      },
+    ]);
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <UtilityHeader title="About & support" />
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {/* Version info */}
+        <View style={styles.card}>
+          <InfoRow label="Version" value={appVersion} />
+          <InfoRow label="Update channel" value={updateChannel} />
+          <InfoRow
+            label="OTA update"
+            value={copiedUpdateId ? 'Copied!' : updateIdDisplay}
+            onPress={updateId && !isEmbedded ? handleCopyUpdateId : undefined}
+          />
+          <InfoRow
+            label="OTA date"
+            value={updateDateDisplay}
+            isLast
+          />
+        </View>
+
+        {/* Support links */}
+        <View style={styles.card}>
+          <LinkRow icon="help-circle-outline" label="Help & FAQs" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} />
+          <LinkRow icon="bulb-outline" label="Request a feature" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} />
+          <LinkRow icon="alert-circle-outline" label="Report an issue" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} isLast />
+        </View>
+
+        {/* Sign out */}
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
+            <Ionicons name="log-out-outline" size={18} color={ClearLensColors.negative} />
+            <Text style={styles.signOutText}>Sign out</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function makeStyles() {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: ClearLensColors.background },
+    content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.sm, paddingBottom: ClearLensSpacing.xxl },
+
+    card: {
+      backgroundColor: ClearLensColors.surface,
+      borderRadius: ClearLensRadii.lg,
+      borderWidth: 1,
+      borderColor: ClearLensColors.border,
+      overflow: 'hidden',
+      ...ClearLensShadow,
+    },
+
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingVertical: 14,
+      gap: ClearLensSpacing.md,
+    },
+    borderBottom: { borderBottomWidth: 1, borderBottomColor: ClearLensColors.borderLight },
+    rowLeft: { flex: 1, gap: 3 },
+    rowLabel: {
+      ...ClearLensTypography.label,
+      color: ClearLensColors.textTertiary,
+      textTransform: 'uppercase',
+    },
+    rowValue: {
+      ...ClearLensTypography.h3,
+      color: ClearLensColors.navy,
+    },
+
+    linkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingVertical: 15,
+      gap: ClearLensSpacing.md,
+    },
+    linkLabel: {
+      ...ClearLensTypography.body,
+      fontFamily: ClearLensFonts.semiBold,
+      color: ClearLensColors.navy,
+      flex: 1,
+    },
+
+    signOutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingVertical: 15,
+    },
+    signOutText: {
+      ...ClearLensTypography.body,
+      fontFamily: ClearLensFonts.semiBold,
+      color: ClearLensColors.negative,
+    },
+  });
+}
