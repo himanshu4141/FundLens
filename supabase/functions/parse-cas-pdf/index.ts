@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
       {
         error: isPasswordError
           ? 'Wrong PDF password. Make sure your PAN is correct.'
-          : 'Failed to parse CAS PDF. Please try again.',
+          : `Failed to parse CAS PDF: ${msg}`,
       },
       { status: 422 },
     );

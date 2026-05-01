@@ -14,6 +14,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
+import * as Updates from 'expo-updates';
+import ExpoConstants from 'expo-constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
@@ -454,6 +456,37 @@ export default function SettingsScreen() {
             <Ionicons name="log-out-outline" size={18} color={colors.negative} />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* ── About ── */}
+        <SectionHeader title="About" />
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowLabel}>Version</Text>
+              <Text style={styles.rowValue}>
+                {ExpoConstants.expoConfig?.version ?? '—'}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.row, styles.borderTop]}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowLabel}>Update channel</Text>
+              <Text style={styles.rowValue}>{Updates.channel ?? '—'}</Text>
+            </View>
+          </View>
+          <View style={[styles.row, styles.borderTop]}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowLabel}>OTA update</Text>
+              <Text style={styles.rowValue}>
+                {Updates.isEmbeddedLaunch
+                  ? 'Embedded (no OTA)'
+                  : Updates.updateId
+                    ? Updates.updateId.slice(0, 12) + '…'
+                    : '—'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.bottomPad} />
