@@ -1,50 +1,120 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/src/components/Logo';
+import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { getAppScheme } from '@/src/utils/appScheme';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
+
+const CL_TIPS = [
+  { icon: 'time-outline' as const,           text: 'The link expires in 10 minutes.' },
+  { icon: 'mail-outline' as const,           text: 'Check your spam folder if you don\'t see it.' },
+  { icon: 'phone-portrait-outline' as const, text: 'Open the link on this device for the best experience.' },
+];
 
 export default function ConfirmScreen() {
   const router = useRouter();
-  const { scheme } = useLocalSearchParams<{ scheme?: string }>();
+  const { isClearLens } = useAppDesignMode();
+  const { scheme, email } = useLocalSearchParams<{ scheme?: string; email?: string }>();
   const targetScheme = typeof scheme === 'string' && scheme.length > 0 ? scheme : getAppScheme();
+  const displayEmail = typeof email === 'string' && email.length > 0 ? email : null;
 
-  /**
-   * Web-only: bridge magic-link tokens back into the native app.
-   *
-   * When a native user clicks the magic link, the email client opens
-   * https://fund-lens.vercel.app/auth/confirm?scheme=fundlens-pr#access_token=...
-   * in its browser. We immediately redirect to the active app scheme with
-   * the same hash so the native app can pick up the session via Linking.
-   *
-   * If no native app is installed (web user on desktop), the scheme redirect
-   * attempt silently fails and the Supabase client's detectSessionInUrl
-   * handles the web session from the hash instead — AuthGate then navigates
-   * to /(tabs) normally.
-   */
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const hash = window.location.hash;
     if (!hash || hash.length <= 1) return;
 
-    // Only bridge to the native app from mobile browsers AND when running at the
-    // production native-bridge host. Preview deployments serve the web app on a
-    // different hostname — their mobile visitors should get a web session, not a
-    // native-app redirect.
     const ua = window.navigator.userAgent.toLowerCase();
     const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
     if (!/iphone|ipad|ipod|android/.test(ua) || !isNativeBridgeHost) return;
 
-    // Attempt to hand off to native app; browser ignores this if no app is installed.
     window.location.replace(`${targetScheme}://auth/confirm${hash}`);
   }, [targetScheme]);
 
   async function handleResend() {
-    // We don't have the email on this screen — route back to sign-in to re-enter it.
     router.replace('/auth');
   }
 
+  // ── ClearLens design ──
+  if (isClearLens) {
+    return (
+      <View style={clStyles.container}>
+        {/* Logo bar */}
+        <View style={clStyles.logoBar}>
+          <FundLensLogo size={30} showWordmark />
+        </View>
+
+        <ScrollView
+          contentContainerStyle={clStyles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Envelope illustration */}
+          <View style={clStyles.illustrationWrap}>
+            <View style={clStyles.envelope}>
+              <View style={clStyles.envelopeFlap} />
+              <View style={clStyles.envelopeBody}>
+                <View style={clStyles.envelopeLine} />
+                <View style={[clStyles.envelopeLine, clStyles.envelopeLineShort]} />
+              </View>
+              <View style={clStyles.badge}>
+                <Ionicons name="checkmark" size={14} color="#fff" />
+              </View>
+            </View>
+          </View>
+
+          <Text style={clStyles.title}>Check your inbox</Text>
+
+          <Text style={clStyles.body}>
+            We sent a secure sign-in link to{'\n'}
+            {displayEmail ? (
+              <Text style={clStyles.emailHighlight}>{displayEmail}</Text>
+            ) : (
+              'your email address'
+            )}
+          </Text>
+
+          {/* Tips card */}
+          <View style={clStyles.tipsCard}>
+            <Text style={clStyles.tipsLabel}>Good to know</Text>
+            {CL_TIPS.map(({ icon, text }) => (
+              <View key={text} style={clStyles.tipRow}>
+                <Ionicons name={icon} size={15} color={ClearLensColors.emerald} />
+                <Text style={clStyles.tipText}>{text}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={clStyles.actions}>
+            <TouchableOpacity
+              style={clStyles.secondaryBtn}
+              onPress={handleResend}
+              activeOpacity={0.75}
+            >
+              <Text style={clStyles.secondaryBtnText}>Use a different email</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ── Classic design ──
   return (
     <View style={styles.container}>
       {/* Logo at top */}
@@ -52,7 +122,7 @@ export default function ConfirmScreen() {
         <Logo size={44} showWordmark />
       </View>
 
-      {/* Envelope illustration — built from primitives, no emoji dependency */}
+      {/* Envelope illustration */}
       <View style={styles.illustrationWrap}>
         <View style={styles.envelope}>
           <View style={styles.envelopeFlap} />
@@ -60,7 +130,6 @@ export default function ConfirmScreen() {
             <View style={styles.envelopeLine} />
             <View style={[styles.envelopeLine, styles.envelopeLineShort]} />
           </View>
-          {/* Animated dot — subtle activity signal */}
           <View style={styles.badge}>
             <Text style={styles.badgeText}>✓</Text>
           </View>
@@ -93,6 +162,7 @@ export default function ConfirmScreen() {
   );
 }
 
+// ── Classic styles ──
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -109,7 +179,6 @@ const styles = StyleSheet.create({
     left: Spacing.lg,
   },
 
-  // ── Illustration ──
   illustrationWrap: {
     marginBottom: Spacing.sm,
   },
@@ -171,7 +240,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ── Text ──
   title: {
     ...Typography.h1,
     color: Colors.textPrimary,
@@ -216,5 +284,143 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
+  },
+});
+
+// ── ClearLens styles ──
+const clStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: ClearLensColors.background,
+  },
+  logoBar: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+    paddingHorizontal: ClearLensSpacing.lg,
+    paddingBottom: ClearLensSpacing.sm,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: ClearLensSpacing.lg,
+    paddingTop: ClearLensSpacing.xl,
+    paddingBottom: ClearLensSpacing.xxl,
+    gap: ClearLensSpacing.md,
+  },
+
+  illustrationWrap: {
+    marginBottom: ClearLensSpacing.sm,
+  },
+  envelope: {
+    width: 96,
+    height: 72,
+    position: 'relative',
+  },
+  envelopeFlap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 38,
+    backgroundColor: ClearLensColors.mint50,
+    borderTopLeftRadius: ClearLensRadii.sm,
+    borderTopRightRadius: ClearLensRadii.sm,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderColor: ClearLensColors.mint,
+  },
+  envelopeBody: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 52,
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1.5,
+    borderColor: ClearLensColors.mint,
+    borderRadius: ClearLensRadii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  envelopeLine: {
+    height: 3,
+    width: 48,
+    backgroundColor: ClearLensColors.borderLight,
+    borderRadius: 2,
+  },
+  envelopeLineShort: { width: 32 },
+  badge: {
+    position: 'absolute',
+    top: -12,
+    right: -12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: ClearLensColors.emerald,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  title: {
+    ...ClearLensTypography.h1,
+    color: ClearLensColors.navy,
+    textAlign: 'center',
+  },
+  body: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  emailHighlight: {
+    fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.navy,
+  },
+
+  tipsCard: {
+    backgroundColor: ClearLensColors.mint50,
+    borderRadius: ClearLensRadii.lg,
+    borderWidth: 1,
+    borderColor: ClearLensColors.mint,
+    padding: ClearLensSpacing.md,
+    gap: ClearLensSpacing.sm,
+    width: '100%',
+  },
+  tipsLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.sm,
+  },
+  tipText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    flex: 1,
+    lineHeight: 20,
+  },
+
+  actions: {
+    marginTop: ClearLensSpacing.sm,
+    width: '100%',
+    alignItems: 'center',
+  },
+  secondaryBtn: {
+    paddingVertical: ClearLensSpacing.sm + 2,
+    paddingHorizontal: ClearLensSpacing.lg,
+    borderWidth: 1.5,
+    borderColor: ClearLensColors.border,
+    borderRadius: ClearLensRadii.md,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  secondaryBtnText: {
+    ...ClearLensTypography.body,
+    fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.textSecondary,
   },
 });

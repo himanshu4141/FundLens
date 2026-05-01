@@ -13,25 +13,24 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/src/lib/supabase';
 import { canShowDevAuthShortcut, getDevAuthCredentials } from '@/src/lib/devAuth';
 import Logo from '@/src/components/Logo';
+import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
 import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
+import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
 
-/**
- * On web, use window.location.origin so the redirect works on any domain
- * (local dev, Vercel preview, production) without hardcoding anything.
- *
- * On native, use the production HTTPS URL instead of a custom scheme directly.
- * In-app browsers (Gmail WKWebView, etc.) reliably follow HTTPS redirects but
- * may silently drop custom scheme redirects. The /auth/confirm web page acts
- * as a bridge: it reads the tokens from the URL hash and immediately tries to
- * open the active app scheme with the same hash, handing control back to the
- * native app. The web session is set as a fallback if the native app can't open.
- */
 function getRedirectUrl(): string {
   if (Platform.OS !== 'web') return getNativeBridgeUrl('/auth/confirm');
   return `${window.location.origin}/auth/confirm`;
@@ -43,8 +42,15 @@ const VALUE_PROPS = [
   { icon: '🔍', text: 'Fund vs. benchmark, the honest way' },
 ];
 
+const CL_VALUE_PROPS = [
+  { icon: 'trending-up-outline' as const, text: 'Your actual SIP returns, not misleading averages' },
+  { icon: 'scale-outline' as const, text: 'Beat the market? Know in one glance' },
+  { icon: 'search-outline' as const, text: 'Fund vs. benchmark, the honest way' },
+];
+
 export default function SignInScreen() {
   const router = useRouter();
+  const { isClearLens } = useAppDesignMode();
   const [email, setEmail] = useState('');
   const [loadingMode, setLoadingMode] = useState<'magic' | 'google' | 'demo' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +80,7 @@ export default function SignInScreen() {
       return;
     }
 
-    router.push('/auth/confirm');
+    router.push(`/auth/confirm?email=${encodeURIComponent(email.trim())}`);
   }
 
   async function handleGoogleSignIn() {
@@ -112,7 +118,6 @@ export default function SignInScreen() {
         );
       }
     }
-    // type 'cancel' or 'dismiss': user abandoned, stay on sign-in screen
   }
 
   async function handleDevSignIn() {
@@ -140,6 +145,163 @@ export default function SignInScreen() {
     }
   }
 
+  // ── ClearLens design ──
+  if (isClearLens) {
+    return (
+      <KeyboardAvoidingView
+        style={clStyles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={clStyles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero */}
+          <LinearGradient
+            colors={[ClearLensColors.navy, ClearLensColors.slate]}
+            style={clStyles.hero}
+          >
+            <FundLensLogo size={36} light showWordmark />
+
+            <View style={clStyles.heroTextBlock}>
+              <Text style={clStyles.heroHeadline}>
+                Know if you&apos;re{'\n'}beating the market.
+              </Text>
+              <Text style={clStyles.heroAccent}>No jargon. No noise.</Text>
+            </View>
+
+            <View style={clStyles.valueProps}>
+              {CL_VALUE_PROPS.map(({ icon, text }) => (
+                <View key={text} style={clStyles.valuePropRow}>
+                  <View style={clStyles.valuePropIconWrap}>
+                    <Ionicons name={icon} size={15} color={ClearLensColors.mint} />
+                  </View>
+                  <Text style={clStyles.valuePropText}>{text}</Text>
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
+
+          {/* Form panel */}
+          <View style={clStyles.formPanel}>
+            <Text style={clStyles.formTitle}>Sign in</Text>
+            <Text style={clStyles.formSubtitle}>
+              Enter your email — we&apos;ll send a secure link. No password needed.
+            </Text>
+
+            <TextInput
+              style={[clStyles.input, error ? clStyles.inputError : null]}
+              placeholder="you@example.com"
+              placeholderTextColor={ClearLensColors.textTertiary}
+              value={email}
+              onChangeText={(v) => { setEmail(v); setError(null); }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              editable={!loadingMode}
+              returnKeyType="send"
+              onSubmitEditing={handleSendMagicLink}
+            />
+
+            {error && <Text style={clStyles.errorText}>{error}</Text>}
+
+            <TouchableOpacity
+              style={[clStyles.button, loadingMode !== null && clStyles.buttonDisabled]}
+              onPress={handleSendMagicLink}
+              disabled={loadingMode !== null}
+              activeOpacity={0.85}
+            >
+              {loadingMode === 'magic' ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={clStyles.buttonText}>Send secure link →</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={clStyles.dividerRow}>
+              <View style={clStyles.divider} />
+              <Text style={clStyles.dividerText}>or</Text>
+              <View style={clStyles.divider} />
+            </View>
+
+            <TouchableOpacity
+              style={[clStyles.googleButton, loadingMode !== null && clStyles.buttonDisabled]}
+              onPress={handleGoogleSignIn}
+              disabled={loadingMode !== null}
+              activeOpacity={0.85}
+            >
+              {loadingMode === 'google' ? (
+                <ActivityIndicator color={ClearLensColors.textSecondary} />
+              ) : (
+                <>
+                  <GoogleIcon size={20} />
+                  <Text style={clStyles.googleButtonText}>Continue with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {showDevAuthShortcut && (
+              <>
+                <View style={clStyles.devDividerRow}>
+                  <View style={clStyles.devDivider} />
+                  <Text style={clStyles.devDividerText}>Local development only</Text>
+                  <View style={clStyles.devDivider} />
+                </View>
+
+                <TouchableOpacity
+                  style={[clStyles.devButton, loadingMode !== null && clStyles.buttonDisabled]}
+                  onPress={handleDevSignIn}
+                  disabled={loadingMode !== null}
+                  activeOpacity={0.85}
+                >
+                  {loadingMode === 'demo' ? (
+                    <ActivityIndicator color={ClearLensColors.emerald} />
+                  ) : (
+                    <Text style={clStyles.devButtonText}>Continue as demo user</Text>
+                  )}
+                </TouchableOpacity>
+
+                <Text style={clStyles.devHint}>
+                  Uses locally configured demo credentials. Keep this disabled outside local development.
+                </Text>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={clStyles.infoToggle}
+              onPress={() => setShowMagicLinkInfo((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={clStyles.infoToggleText}>
+                {showMagicLinkInfo ? '▲' : '▼'} What is a magic link?
+              </Text>
+            </TouchableOpacity>
+
+            {showMagicLinkInfo && (
+              <View style={clStyles.infoBox}>
+                <Text style={clStyles.infoBoxText}>
+                  A magic link is a one-time, expiring link we email you. Tap it to sign in
+                  instantly — no password to remember, nothing to forget. The link expires in
+                  10 minutes and can only be used once.
+                </Text>
+              </View>
+            )}
+
+            <View style={clStyles.securityNote}>
+              <Ionicons name="lock-closed-outline" size={12} color={ClearLensColors.textTertiary} />
+              <Text style={clStyles.securityNoteText}>
+                Your data is private and encrypted. We never share it.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // ── Classic design ──
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -287,6 +449,7 @@ export default function SignInScreen() {
   );
 }
 
+// ── Classic styles ──
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -296,7 +459,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 
-  // ── Hero ──
   hero: {
     paddingTop: Platform.OS === 'ios' ? 64 : 48,
     paddingBottom: Spacing.xxl,
@@ -329,7 +491,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // ── Form ──
   formPanel: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radii.xl,
@@ -340,7 +501,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.xxl,
     gap: Spacing.md,
-    // Subtle top shadow to lift panel over hero
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06,
@@ -485,5 +645,223 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     textAlign: 'center',
     marginTop: Spacing.sm,
+  },
+});
+
+// ── ClearLens styles ──
+const clStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: ClearLensColors.navy,
+  },
+  scroll: {
+    flexGrow: 1,
+  },
+
+  hero: {
+    paddingTop: Platform.OS === 'ios' ? 64 : 48,
+    paddingBottom: ClearLensSpacing.xl + ClearLensRadii.xl,
+    paddingHorizontal: ClearLensSpacing.lg,
+    gap: ClearLensSpacing.lg,
+  },
+  heroTextBlock: {
+    gap: ClearLensSpacing.xs,
+    marginTop: ClearLensSpacing.sm,
+  },
+  heroHeadline: {
+    fontFamily: ClearLensFonts.extraBold,
+    fontSize: 28,
+    lineHeight: 34,
+    color: ClearLensColors.textOnDark,
+    letterSpacing: 0,
+  },
+  heroAccent: {
+    fontFamily: ClearLensFonts.bold,
+    fontSize: 22,
+    lineHeight: 28,
+    color: ClearLensColors.emerald,
+    letterSpacing: 0,
+  },
+  valueProps: {
+    gap: ClearLensSpacing.sm,
+    marginTop: ClearLensSpacing.xs,
+  },
+  valuePropRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  valuePropIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: ClearLensRadii.sm,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  valuePropText: {
+    ...ClearLensTypography.bodySmall,
+    color: 'rgba(255,255,255,0.78)',
+    flex: 1,
+  },
+
+  formPanel: {
+    backgroundColor: ClearLensColors.surface,
+    borderTopLeftRadius: ClearLensRadii.xl,
+    borderTopRightRadius: ClearLensRadii.xl,
+    marginTop: -ClearLensRadii.xl,
+    flex: 1,
+    paddingHorizontal: ClearLensSpacing.lg,
+    paddingTop: ClearLensSpacing.xl,
+    paddingBottom: ClearLensSpacing.xxl,
+    gap: ClearLensSpacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  formTitle: {
+    ...ClearLensTypography.h2,
+    color: ClearLensColors.navy,
+  },
+  formSubtitle: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textTertiary,
+    marginTop: -ClearLensSpacing.sm,
+  },
+
+  input: {
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: ClearLensColors.border,
+    borderRadius: ClearLensRadii.md,
+    paddingHorizontal: ClearLensSpacing.md,
+    fontSize: 16,
+    color: ClearLensColors.textPrimary,
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  inputError: {
+    borderColor: ClearLensColors.negative,
+  },
+  errorText: {
+    color: ClearLensColors.negative,
+    fontSize: 13,
+    marginTop: -ClearLensSpacing.sm,
+  },
+
+  button: {
+    height: 54,
+    backgroundColor: ClearLensColors.emerald,
+    borderRadius: ClearLensRadii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: {
+    ...ClearLensTypography.h3,
+    color: '#ffffff',
+    letterSpacing: 0.2,
+  },
+
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: ClearLensColors.border,
+  },
+  dividerText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+
+  googleButton: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.sm,
+    backgroundColor: ClearLensColors.surface,
+    borderRadius: ClearLensRadii.md,
+    borderWidth: 1.5,
+    borderColor: ClearLensColors.border,
+  },
+  googleButtonText: {
+    ...ClearLensTypography.body,
+    fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.navy,
+  },
+
+  devDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    marginTop: ClearLensSpacing.xs,
+  },
+  devDivider: { flex: 1, height: 1, backgroundColor: ClearLensColors.border },
+  devDividerText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  devButton: {
+    height: 48,
+    borderRadius: ClearLensRadii.md,
+    borderWidth: 1,
+    borderColor: ClearLensColors.emerald,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.mint50,
+  },
+  devButtonText: {
+    ...ClearLensTypography.body,
+    fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.emerald,
+  },
+  devHint: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.textTertiary,
+    marginTop: -ClearLensSpacing.xs,
+  },
+
+  infoToggle: {
+    alignSelf: 'center',
+    paddingVertical: ClearLensSpacing.xs,
+  },
+  infoToggleText: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.semiBold,
+    color: ClearLensColors.emerald,
+  },
+  infoBox: {
+    backgroundColor: ClearLensColors.mint50,
+    borderRadius: ClearLensRadii.md,
+    padding: ClearLensSpacing.md,
+    marginTop: -ClearLensSpacing.sm,
+    borderWidth: 1,
+    borderColor: ClearLensColors.mint,
+  },
+  infoBoxText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    lineHeight: 20,
+  },
+
+  securityNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: ClearLensSpacing.sm,
+  },
+  securityNoteText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    textAlign: 'center',
   },
 });
