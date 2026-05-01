@@ -107,7 +107,7 @@ function GoalCard({
               {plan.onTrack ? 'On track' : 'Needs attention'}
             </Text>
           </View>
-          <Text style={styles.metaText}>{presetLabel} · {years > 0 ? `${years}y` : 'Overdue'}</Text>
+          <Text style={styles.metaText}>{presetLabel} · {years > 0 ? `${Math.round(years)}y` : 'Overdue'}</Text>
         </View>
       </View>
 
