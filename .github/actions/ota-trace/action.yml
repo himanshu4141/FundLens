@@ -1,0 +1,39 @@
+name: OTA Update Trace
+description: Logs OTA update IDs to the job summary and optionally updates a PR comment for traceability.
+
+inputs:
+  update_json:
+    description: JSON output from eas-update.py (array of update objects)
+    required: true
+  channel:
+    description: EAS channel name (e.g. production, main, pr-builds)
+    required: true
+  commit_sha:
+    description: Git commit SHA that triggered the update
+    required: true
+  pr_number:
+    description: PR number to update comment on (leave empty for non-PR runs)
+    required: false
+    default: ''
+  github_token:
+    description: GitHub token for writing PR comments (required when pr_number is set)
+    required: false
+    default: ''
+  repo:
+    description: Repository in owner/name format (defaults to GITHUB_REPOSITORY)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Trace OTA update IDs
+      shell: bash
+      run: python3 "${{ github.action_path }}/trace.py"
+      env:
+        UPDATE_JSON: ${{ inputs.update_json }}
+        CHANNEL: ${{ inputs.channel }}
+        COMMIT_SHA: ${{ inputs.commit_sha }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        GH_TOKEN: ${{ inputs.github_token }}
+        REPO: ${{ inputs.repo }}
