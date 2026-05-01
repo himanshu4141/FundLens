@@ -568,7 +568,7 @@ export function ClearLensWealthJourneyScreen() {
   const [sipDraft, setSipDraft] = useState('');
   const [chartsReady, setChartsReady] = useState(false);
 
-  const { wealthJourney, updateWealthJourney } = useAppStore();
+  const { wealthJourney, updateWealthJourney, returnAssumptions } = useAppStore();
 
   useEffect(() => {
     if (!isFocused) {
@@ -608,7 +608,10 @@ export function ClearLensWealthJourneyScreen() {
   const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio();
   const summary = portfolioData?.summary ?? null;
   const currentCorpus = summary?.totalValue ?? 0;
-  const returnProfile = useMemo(() => buildReturnProfile(summary?.xirr), [summary?.xirr]);
+  const returnProfile = useMemo(
+    () => buildReturnProfile(summary?.xirr, returnAssumptions),
+    [summary?.xirr, returnAssumptions],
+  );
   const fundNameById = useMemo(
     () =>
       new Map(

@@ -5,10 +5,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
+import {
+  useAppStore,
+  BENCHMARK_OPTIONS,
+  DEFAULT_RETURN_ASSUMPTIONS,
+  type ReturnAssumptions,
+} from '@/src/store/appStore';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import {
   ClearLensColors,
@@ -24,15 +30,66 @@ const DESIGN_OPTIONS = [
   { value: 'clearLens' as const, label: 'Clear Lens design', desc: 'New clean and minimal design' },
 ];
 
+const PRESET_KEYS: { key: keyof ReturnAssumptions; label: string }[] = [
+  { key: 'cautious', label: 'Cautious' },
+  { key: 'balanced', label: 'Balanced' },
+  { key: 'growth', label: 'Growth' },
+];
+
 export default function PreferencesScreen() {
   const styles = useMemo(() => makeStyles(), []);
-  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol, appDesignMode, setAppDesignMode } = useAppStore();
+  const {
+    defaultBenchmarkSymbol,
+    setDefaultBenchmarkSymbol,
+    appDesignMode,
+    setAppDesignMode,
+    returnAssumptions,
+    setReturnAssumption,
+  } = useAppStore();
   const [saved, setSaved] = useState(false);
+
+  // Draft state for return assumption inputs (string to allow mid-edit values)
+  const [assumptionDrafts, setAssumptionDrafts] = useState<Record<keyof ReturnAssumptions, string>>(
+    {
+      cautious: String(returnAssumptions.cautious),
+      balanced: String(returnAssumptions.balanced),
+      growth: String(returnAssumptions.growth),
+    },
+  );
 
   function selectBenchmark(symbol: string) {
     setDefaultBenchmarkSymbol(symbol);
+    showSaved();
+  }
+
+  function showSaved() {
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+  }
+
+  function commitAssumption(key: keyof ReturnAssumptions, draft: string) {
+    const value = parseFloat(draft);
+    if (Number.isFinite(value) && value >= 1 && value <= 30) {
+      setReturnAssumption(key, Number(value.toFixed(1)));
+      setAssumptionDrafts((prev) => ({ ...prev, [key]: String(Number(value.toFixed(1))) }));
+      showSaved();
+    } else {
+      // Revert to stored value on invalid input
+      setAssumptionDrafts((prev) => ({ ...prev, [key]: String(returnAssumptions[key]) }));
+    }
+  }
+
+  function resetAssumptions() {
+    const d = DEFAULT_RETURN_ASSUMPTIONS;
+    setReturnAssumption('cautious', d.cautious);
+    setReturnAssumption('balanced', d.balanced);
+    setReturnAssumption('growth', d.growth);
+    setAssumptionDrafts({
+      cautious: String(d.cautious),
+      balanced: String(d.balanced),
+      growth: String(d.growth),
+    });
+    showSaved();
   }
 
   return (
@@ -62,6 +119,37 @@ export default function PreferencesScreen() {
                 <Ionicons name="checkmark" size={18} color={ClearLensColors.emerald} />
               )}
             </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Return assumptions */}
+        <View style={[styles.sectionHeaderRow, { marginTop: ClearLensSpacing.md }]}>
+          <Text style={styles.sectionLabel}>Return Assumptions</Text>
+          <TouchableOpacity onPress={resetAssumptions}>
+            <Text style={styles.resetLink}>Reset</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.sectionDesc}>
+          Annual return % used by Goal Planner, Wealth Journey, and other tools.
+        </Text>
+        <View style={styles.card}>
+          {PRESET_KEYS.map(({ key, label }, idx) => (
+            <View key={key} style={[styles.row, idx > 0 && styles.borderTop]}>
+              <Text style={[styles.rowValue, { flex: 1 }]}>{label}</Text>
+              <View style={styles.assumptionInputWrap}>
+                <TextInput
+                  style={styles.assumptionInput}
+                  value={assumptionDrafts[key]}
+                  onChangeText={(t) => setAssumptionDrafts((prev) => ({ ...prev, [key]: t }))}
+                  onBlur={() => commitAssumption(key, assumptionDrafts[key])}
+                  onSubmitEditing={() => commitAssumption(key, assumptionDrafts[key])}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  maxLength={4}
+                />
+                <Text style={styles.assumptionUnit}>%</Text>
+              </View>
+            </View>
           ))}
         </View>
 
@@ -119,6 +207,11 @@ function makeStyles() {
       fontFamily: ClearLensFonts.semiBold,
       color: ClearLensColors.emerald,
     },
+    resetLink: {
+      ...ClearLensTypography.bodySmall,
+      color: ClearLensColors.emerald,
+      fontFamily: ClearLensFonts.semiBold,
+    },
 
     card: {
       backgroundColor: ClearLensColors.surface,
@@ -145,6 +238,30 @@ function makeStyles() {
     rowSub: {
       ...ClearLensTypography.bodySmall,
       color: ClearLensColors.textTertiary,
+    },
+
+    assumptionInputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    assumptionInput: {
+      fontFamily: ClearLensFonts.semiBold,
+      fontSize: 15,
+      color: ClearLensColors.navy,
+      borderWidth: 1,
+      borderColor: ClearLensColors.borderLight,
+      borderRadius: ClearLensRadii.sm,
+      paddingHorizontal: ClearLensSpacing.sm,
+      paddingVertical: 6,
+      width: 52,
+      textAlign: 'right',
+      backgroundColor: ClearLensColors.surfaceSoft,
+    },
+    assumptionUnit: {
+      fontFamily: ClearLensFonts.semiBold,
+      fontSize: 15,
+      color: ClearLensColors.textSecondary,
     },
   });
 }

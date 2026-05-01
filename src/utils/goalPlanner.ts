@@ -1,10 +1,23 @@
-export type GoalReturnPreset = 'cautious' | 'balanced' | 'growth';
+import type { GoalReturnPreset, ReturnAssumptions } from '@/src/store/appStore';
 
+export type { GoalReturnPreset };
+
+// Default rates match DEFAULT_RETURN_ASSUMPTIONS in appStore (percentages → decimals)
 export const GOAL_RETURN_PRESET_RATES: Record<GoalReturnPreset, number> = {
   cautious: 0.08,
-  balanced: 0.10,
-  growth: 0.12,
+  balanced: 0.12,
+  growth: 0.15,
 };
+
+export function assumptionsToRates(
+  assumptions: ReturnAssumptions,
+): Record<GoalReturnPreset, number> {
+  return {
+    cautious: assumptions.cautious / 100,
+    balanced: assumptions.balanced / 100,
+    growth: assumptions.growth / 100,
+  };
+}
 
 export interface GoalPlanInput {
   targetAmount: number;
@@ -28,10 +41,13 @@ export interface ProjectionPoint {
   corpus: number;
 }
 
-export function computeGoalPlan(input: GoalPlanInput): GoalPlanResult {
+export function computeGoalPlan(
+  input: GoalPlanInput,
+  rates = GOAL_RETURN_PRESET_RATES,
+): GoalPlanResult {
   const { targetAmount, years, lumpSum, currentMonthly, returnPreset } = input;
   const months = Math.round(Math.max(0, years) * 12);
-  const monthlyRate = GOAL_RETURN_PRESET_RATES[returnPreset] / 12;
+  const monthlyRate = rates[returnPreset] / 12;
   const safeLumpSum = Math.max(0, lumpSum);
   const safeCurrentMonthly = Math.max(0, currentMonthly);
   const safeTarget = Math.max(0, targetAmount);
@@ -75,13 +91,21 @@ export function computeGoalPlan(input: GoalPlanInput): GoalPlanResult {
   };
 }
 
+export function yearsFromNow(targetDate: string, now = new Date()): number {
+  const target = new Date(targetDate);
+  if (Number.isNaN(target.getTime())) return 0;
+  const ms = target.getTime() - now.getTime();
+  return Math.max(0, ms / (1000 * 60 * 60 * 24 * 365.25));
+}
+
 export function buildGoalProjectionSeries(
   input: GoalPlanInput,
   requiredMonthly: number,
+  rates = GOAL_RETURN_PRESET_RATES,
 ): ProjectionPoint[] {
   const { years, lumpSum, returnPreset } = input;
   const months = Math.round(Math.max(0, years) * 12);
-  const monthlyRate = GOAL_RETURN_PRESET_RATES[returnPreset] / 12;
+  const monthlyRate = rates[returnPreset] / 12;
   const safeLumpSum = Math.max(0, lumpSum);
   const safeRequired = Math.max(0, requiredMonthly);
 

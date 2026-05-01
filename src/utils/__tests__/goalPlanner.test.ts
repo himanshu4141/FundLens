@@ -1,6 +1,8 @@
 import {
   computeGoalPlan,
   buildGoalProjectionSeries,
+  assumptionsToRates,
+  yearsFromNow,
   GOAL_RETURN_PRESET_RATES,
   type GoalPlanInput,
 } from '../goalPlanner';
@@ -179,5 +181,59 @@ describe('buildGoalProjectionSeries', () => {
     );
     const last = series[series.length - 1];
     expect(last.invested).toBeCloseTo(10_00_000, 0);
+  });
+
+  it('last point is exactly the target month even when step does not divide evenly', () => {
+    // 130 months: step = ceil(130/60) = 3, last loop m = 129 ≠ 130 → end-point inserted
+    const input: GoalPlanInput = { ...BASE_INPUT, years: 130 / 12 };
+    const result = computeGoalPlan(input);
+    const series = buildGoalProjectionSeries(input, result.requiredMonthly);
+    expect(series[series.length - 1].month).toBe(130);
+  });
+});
+
+describe('assumptionsToRates', () => {
+  it('converts percentage values to decimal rates', () => {
+    const rates = assumptionsToRates({ cautious: 8, balanced: 12, growth: 15 });
+    expect(rates.cautious).toBeCloseTo(0.08, 10);
+    expect(rates.balanced).toBeCloseTo(0.12, 10);
+    expect(rates.growth).toBeCloseTo(0.15, 10);
+  });
+
+  it('matches GOAL_RETURN_PRESET_RATES for default assumptions', () => {
+    const rates = assumptionsToRates({ cautious: 8, balanced: 12, growth: 15 });
+    expect(rates.cautious).toBeCloseTo(GOAL_RETURN_PRESET_RATES.cautious, 10);
+    expect(rates.balanced).toBeCloseTo(GOAL_RETURN_PRESET_RATES.balanced, 10);
+    expect(rates.growth).toBeCloseTo(GOAL_RETURN_PRESET_RATES.growth, 10);
+  });
+
+  it('handles custom assumption values', () => {
+    const rates = assumptionsToRates({ cautious: 6, balanced: 10, growth: 14 });
+    expect(rates.cautious).toBeCloseTo(0.06, 10);
+    expect(rates.balanced).toBeCloseTo(0.10, 10);
+    expect(rates.growth).toBeCloseTo(0.14, 10);
+  });
+});
+
+describe('yearsFromNow', () => {
+  const now = new Date('2025-01-01T00:00:00Z');
+
+  it('returns approximately the right number of years for a future date', () => {
+    const years = yearsFromNow('2035-01-01', now);
+    expect(years).toBeCloseTo(10, 0);
+  });
+
+  it('returns 0 for a past date', () => {
+    expect(yearsFromNow('2020-01-01', now)).toBe(0);
+  });
+
+  it('returns 0 for an invalid date string', () => {
+    expect(yearsFromNow('not-a-date', now)).toBe(0);
+  });
+
+  it('returns a positive fractional value for a date 6 months away', () => {
+    const years = yearsFromNow('2025-07-01', now);
+    expect(years).toBeGreaterThan(0);
+    expect(years).toBeLessThan(1);
   });
 });

@@ -4,6 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type WealthJourneyReturnPreset = 'cautious' | 'balanced' | 'growth' | 'custom';
 export type AppDesignMode = 'classic' | 'clearLens';
+export type GoalReturnPreset = 'cautious' | 'balanced' | 'growth';
+
+// ---------------------------------------------------------------------------
+// Tools flags
+// ---------------------------------------------------------------------------
 
 export interface ToolsFlags {
   goalPlanner: boolean;
@@ -19,6 +24,85 @@ const DEFAULT_TOOLS_FLAGS: ToolsFlags = {
   directVsRegular: false,
 };
 
+// ---------------------------------------------------------------------------
+// Return assumptions (shared across all tools)
+// ---------------------------------------------------------------------------
+
+export interface ReturnAssumptions {
+  cautious: number; // annual %, e.g. 8
+  balanced: number;
+  growth: number;
+}
+
+export const DEFAULT_RETURN_ASSUMPTIONS: ReturnAssumptions = {
+  cautious: 8,
+  balanced: 12,
+  growth: 15,
+};
+
+function sanitizeReturnAssumptions(raw: unknown): ReturnAssumptions {
+  if (!raw || typeof raw !== 'object') return DEFAULT_RETURN_ASSUMPTIONS;
+  const s = raw as Partial<ReturnAssumptions>;
+  return {
+    cautious: clampReturn(s.cautious, DEFAULT_RETURN_ASSUMPTIONS.cautious),
+    balanced: clampReturn(s.balanced, DEFAULT_RETURN_ASSUMPTIONS.balanced),
+    growth: clampReturn(s.growth, DEFAULT_RETURN_ASSUMPTIONS.growth),
+  };
+}
+
+function clampReturn(value: unknown, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(30, Math.max(1, n));
+}
+
+// ---------------------------------------------------------------------------
+// Saved goals
+// ---------------------------------------------------------------------------
+
+export interface SavedGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  targetDate: string; // 'YYYY-MM-DD'
+  lumpSum: number;
+  currentMonthly: number;
+  returnPreset: GoalReturnPreset;
+  createdAt: string;
+}
+
+function makeGoalId(): string {
+  return `g-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function sanitizeGoal(raw: unknown): SavedGoal | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const g = raw as Partial<SavedGoal>;
+  if (typeof g.id !== 'string' || !g.id) return null;
+  if (typeof g.name !== 'string') return null;
+  const preset: GoalReturnPreset =
+    g.returnPreset === 'cautious' || g.returnPreset === 'growth' ? g.returnPreset : 'balanced';
+  return {
+    id: g.id,
+    name: g.name,
+    targetAmount: clampReturn(g.targetAmount, 0),
+    targetDate: typeof g.targetDate === 'string' ? g.targetDate : '',
+    lumpSum: clampReturn(g.lumpSum, 0),
+    currentMonthly: clampReturn(g.currentMonthly, 0),
+    returnPreset: preset,
+    createdAt: typeof g.createdAt === 'string' ? g.createdAt : new Date().toISOString(),
+  };
+}
+
+function sanitizeGoals(raw: unknown): SavedGoal[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(sanitizeGoal).filter((g): g is SavedGoal => g !== null);
+}
+
+// ---------------------------------------------------------------------------
+// Benchmark
+// ---------------------------------------------------------------------------
+
 export interface BenchmarkOption {
   symbol: string;
   label: string;
@@ -29,6 +113,10 @@ export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
   { symbol: '^NIFTY100', label: 'Nifty 100' },
   { symbol: '^BSESN',    label: 'BSE Sensex' },
 ];
+
+// ---------------------------------------------------------------------------
+// Wealth Journey
+// ---------------------------------------------------------------------------
 
 export interface WealthJourneyState {
   hasOpened: boolean;
@@ -169,6 +257,10 @@ const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
   postRetirementReturn: null,
 };
 
+// ---------------------------------------------------------------------------
+// Store interface
+// ---------------------------------------------------------------------------
+
 export interface AppStore {
   defaultBenchmarkSymbol: string;
   setDefaultBenchmarkSymbol: (symbol: string) => void;
@@ -178,6 +270,12 @@ export interface AppStore {
   updateWealthJourney: (patch: Partial<WealthJourneyState>) => void;
   resetWealthJourney: () => void;
   toolsFlags: ToolsFlags;
+  returnAssumptions: ReturnAssumptions;
+  setReturnAssumption: (key: keyof ReturnAssumptions, value: number) => void;
+  goals: SavedGoal[];
+  addGoal: (goal: Omit<SavedGoal, 'id' | 'createdAt'>) => void;
+  updateGoal: (id: string, updates: Partial<Omit<SavedGoal, 'id' | 'createdAt'>>) => void;
+  deleteGoal: (id: string) => void;
 }
 
 type PersistedAppStore = Partial<AppStore> & {
@@ -189,6 +287,8 @@ export function migratePersistedAppState(persistedState: unknown): Partial<AppSt
     return {
       appDesignMode: 'clearLens',
       wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     };
   }
 
@@ -203,6 +303,8 @@ export function migratePersistedAppState(persistedState: unknown): Partial<AppSt
       ...DEFAULT_WEALTH_JOURNEY_STATE,
       ...(state.wealthJourney ?? {}),
     }),
+    returnAssumptions: sanitizeReturnAssumptions(state.returnAssumptions),
+    goals: sanitizeGoals(state.goals),
   };
 }
 
@@ -221,11 +323,33 @@ export const useAppStore = create<AppStore>()(
         }),
       resetWealthJourney: () => set({ wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE }),
       toolsFlags: DEFAULT_TOOLS_FLAGS,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      setReturnAssumption: (key, value) =>
+        set((state) => ({
+          returnAssumptions: {
+            ...state.returnAssumptions,
+            [key]: clampReturn(value, DEFAULT_RETURN_ASSUMPTIONS[key]),
+          },
+        })),
+      goals: [],
+      addGoal: (goal) =>
+        set((state) => ({
+          goals: [
+            ...state.goals,
+            { ...goal, id: makeGoalId(), createdAt: new Date().toISOString() },
+          ],
+        })),
+      updateGoal: (id, updates) =>
+        set((state) => ({
+          goals: state.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
+        })),
+      deleteGoal: (id) =>
+        set((state) => ({ goals: state.goals.filter((g) => g.id !== id) })),
     }),
     {
       name: 'fundlens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 3,
+      version: 4,
       migrate: migratePersistedAppState,
       merge: (persistedState, currentState) => {
         const state =
@@ -240,12 +364,16 @@ export const useAppStore = create<AppStore>()(
             ...DEFAULT_WEALTH_JOURNEY_STATE,
             ...(state.wealthJourney ?? {}),
           }),
+          returnAssumptions: sanitizeReturnAssumptions(state.returnAssumptions),
+          goals: sanitizeGoals(state.goals),
         };
       },
       partialize: (state) => ({
         defaultBenchmarkSymbol: state.defaultBenchmarkSymbol,
         appDesignMode: state.appDesignMode,
         wealthJourney: state.wealthJourney,
+        returnAssumptions: state.returnAssumptions,
+        goals: state.goals,
       }),
     },
   ),
