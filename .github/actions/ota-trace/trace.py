@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Parse EAS update JSON, write job summary, optionally update the PR comment.
 
+PR comment behaviour: the UUID table accumulates across pushes. On each run,
+new rows are prepended so the latest UUIDs are at the top and every UUID from
+every push on the PR stays searchable.
+
 Reads from env vars set by action.yml:
   UPDATE_JSON  — raw JSON string from eas-update.py stdout
   CHANNEL      — EAS channel name
@@ -17,6 +21,11 @@ import json
 import os
 import urllib.error
 import urllib.request
+
+# Markers delimit the accumulated data rows inside the PR comment.
+# Only raw table rows (no header/separator) are stored between them.
+_HISTORY_START = "<!-- ota-trace:history-start -->"
+_HISTORY_END = "<!-- ota-trace:history-end -->"
 
 
 def main() -> None:
@@ -56,9 +65,11 @@ def main() -> None:
     print(summary_md, flush=True)
 
     if pr_number and gh_token and repo:
-        comment_body = _build_pr_comment(channel, commit_sha, ios, android, eas_url)
-        _upsert_pr_comment(gh_token, repo, pr_number, comment_body)
+        _upsert_pr_comment(gh_token, repo, pr_number, channel, commit_sha,
+                           short_sha, ios, android, eas_url)
 
+
+# ── Job summary (no history needed — each run is its own summary) ──────────
 
 def _build_summary(channel: str, commit_sha: str, short_sha: str,
                    ios: dict | None, android: dict | None, eas_url: str) -> str:
@@ -85,37 +96,53 @@ def _build_summary(channel: str, commit_sha: str, short_sha: str,
     )
 
 
-def _build_pr_comment(channel: str, commit_sha: str,
-                      ios: dict | None, android: dict | None, eas_url: str) -> str:
+# ── PR comment (accumulates rows across pushes) ─────────────────────────────
+
+def _new_rows(ios: dict | None, android: dict | None, short_sha: str) -> str:
     rows = []
     if ios:
-        rows.append(f"| iOS | `{ios['id']}` |")
+        rows.append(f"| iOS | `{ios['id']}` | `{short_sha}` |")
     if android:
-        rows.append(f"| Android | `{android['id']}` |")
+        rows.append(f"| Android | `{android['id']}` | `{short_sha}` |")
+    return "\n".join(rows)
 
-    uuid_section = (
-        "\n**OTA Update IDs** — find these in the app's About screen to trace back to this PR:\n\n"
-        "| Platform | Update ID |\n"
-        "|----------|-----------|\n"
-        + "\n".join(rows)
-        + f"\n\n**Commit:** `{commit_sha}`\n"
-        if rows
-        else ""
+
+def _extract_prev_rows(body: str) -> str:
+    """Return the raw accumulated data rows from a previous comment, or ''."""
+    if _HISTORY_START not in body or _HISTORY_END not in body:
+        return ""
+    start = body.index(_HISTORY_START) + len(_HISTORY_START)
+    end = body.index(_HISTORY_END)
+    return body[start:end].strip()
+
+
+def _build_pr_comment(channel: str, ios: dict | None, android: dict | None,
+                      short_sha: str, eas_url: str, all_rows: str) -> str:
+    table = (
+        "| Platform | Update ID | Commit |\n"
+        "|----------|-----------|--------|\n"
+        + all_rows
+        if all_rows
+        else "_No update IDs available._"
     )
     url_line = f"\n[View on EAS Dashboard]({eas_url})\n" if eas_url else ""
 
     return (
         f"### EAS Preview Update\n\n"
         f"Published to the shared **{channel}** stream for the installed **FundLens PR** preview app "
-        f"(not Expo Go — native auth flows require a real build).\n"
-        f"{uuid_section}"
+        f"(not Expo Go — native auth flows require a real build).\n\n"
+        f"**OTA Update IDs** (latest first — search any ID in the app's About screen to "
+        f"trace back to this PR):\n\n"
+        f"{_HISTORY_START}\n{table}\n{_HISTORY_END}\n"
         f"{url_line}"
         f"\n> **Web preview:** use the Vercel preview URL in the Vercel bot comment below "
         f"to test browser-based flows."
     )
 
 
-def _upsert_pr_comment(token: str, repo: str, pr_number: str, body: str) -> None:
+def _upsert_pr_comment(token: str, repo: str, pr_number: str, channel: str,
+                       commit_sha: str, short_sha: str,
+                       ios: dict | None, android: dict | None, eas_url: str) -> None:
     api = "https://api.github.com"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -138,6 +165,13 @@ def _upsert_pr_comment(token: str, repo: str, pr_number: str, body: str) -> None
         (c for c in comments if c.get("body", "").startswith("### EAS Preview")),
         None,
     )
+
+    # Prepend new rows; keep all previous rows so every UUID stays searchable.
+    prev_rows = _extract_prev_rows(existing["body"]) if existing else ""
+    this_rows = _new_rows(ios, android, short_sha)
+    all_rows = this_rows + ("\n" + prev_rows if prev_rows else "")
+
+    body = _build_pr_comment(channel, ios, android, short_sha, eas_url, all_rows)
     payload = json.dumps({"body": body}).encode()
 
     if existing:
