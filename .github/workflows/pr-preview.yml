@@ -57,7 +57,7 @@ jobs:
         with:
           update_json: ${{ steps.eas-update.outputs.update_json }}
           channel: pr-builds
-          commit_sha: ${{ github.sha }}
+          commit_sha: ${{ github.event.pull_request.head.sha }}
           pr_number: ${{ github.event.number }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
