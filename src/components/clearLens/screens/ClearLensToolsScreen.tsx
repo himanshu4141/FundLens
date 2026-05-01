@@ -40,7 +40,7 @@ interface ToolSection {
 // Screen
 // ---------------------------------------------------------------------------
 
-export function ClearLensToolsScreen() {
+export function ClearLensToolsScreen({ isTab = false }: { isTab?: boolean }) {
   const router = useRouter();
   const flags = useToolsFeatureFlags();
 
@@ -120,7 +120,7 @@ export function ClearLensToolsScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="Tools" onPressBack={() => router.back()} />
+      <ClearLensHeader title="Tools" onPressBack={isTab ? undefined : () => router.back()} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
