@@ -294,12 +294,12 @@ After implementing all steps:
 - [x] Branch `feat/tools-hub-m0` created off `main`
 - [x] Store product docs in `docs/product/`
 - [x] M0 ExecPlan written (`docs/plans/phase4-tools-hub/M0-tools-foundation.md`)
-- [ ] Feature flags added to `appStore`
-- [ ] `useToolsFeatureFlags` hook + test
-- [ ] `ClearLensToolsScreen` implemented
-- [ ] `app/tools.tsx` route created
-- [ ] Wealth Journey entry point added
-- [ ] Portfolio entry point added
-- [ ] `docs/SCREENS.md` updated
-- [ ] typecheck + lint + tests green
-- [ ] PR raised against `main`
+- [x] Feature flags added to `appStore` (`toolsFlags` shape, `AppStore` interface exported)
+- [x] `useToolsFeatureFlags` hook + test (100% coverage)
+- [x] `ClearLensToolsScreen` implemented (Featured/Plan/Compare/Explore/Cost sections)
+- [x] `app/tools.tsx` route created
+- [x] Wealth Journey entry point added ("Explore more tools →" in home mode)
+- [x] Portfolio entry point added ("Tools" entry row in EntryRows)
+- [x] `docs/SCREENS.md` updated (Tools Hub entry added, section 8)
+- [x] typecheck ✓ lint ✓ 472 tests ✓ src/utils 96% ✓
+- [x] PR #77 raised against `main`
