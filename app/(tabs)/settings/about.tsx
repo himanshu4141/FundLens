@@ -134,9 +134,9 @@ export default function AboutScreen() {
 
         {/* Support links */}
         <View style={styles.card}>
-          <LinkRow icon="help-circle-outline" label="Help & FAQs" />
-          <LinkRow icon="bulb-outline" label="Request a feature" />
-          <LinkRow icon="alert-circle-outline" label="Report an issue" isLast />
+          <LinkRow icon="help-circle-outline" label="Help & FAQs" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} />
+          <LinkRow icon="bulb-outline" label="Request a feature" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} />
+          <LinkRow icon="alert-circle-outline" label="Report an issue" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} isLast />
         </View>
 
         {/* Sign out */}
