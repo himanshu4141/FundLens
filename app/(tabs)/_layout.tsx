@@ -81,6 +81,17 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="tools"
+        options={{
+          title: 'Tools',
+          tabBarButton: isClearLens ? undefined : () => null,
+          tabBarItemStyle: isClearLens ? undefined : { display: 'none' },
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="construct-outline" size={size} color={color} />
+          ),
+        }}
+      />
       {/* Settings hidden from tab bar — accessible via the shared overflow menu */}
       <Tabs.Screen
         name="settings"
