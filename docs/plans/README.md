@@ -55,6 +55,13 @@ All shipped work is in `docs/plans/archive/`. These are read-only historical rec
 |---|---|
 | `M1-clear-lens-design-mode.md` | Clear Lens default design mode; tokens and logo; redesigned Portfolio, Insights, Your Funds, Fund Detail, Leaderboard, Wealth Journey, and supporting screens |
 
+**Phase 4 — Tools Hub** (`archive/phase4-tools-hub/`)
+
+| Plan | What it covers |
+|---|---|
+| `M0-tools-foundation.md` | Tools Hub shell, feature flags, and Portfolio / Wealth Journey entry points |
+| `M1-goal-planner-mvp.md` | Goal Planner MVP with Clear Lens calculator screens, projection chart, and tool route structure |
+
 **Bug Fixes** (`archive/bug-fixes/`)
 
 | Plan | What it covers |

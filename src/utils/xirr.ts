@@ -130,9 +130,11 @@ type ReversalPairCandidate = {
 };
 
 /**
- * CAS failed-payment reversals are currently stored as a purchase plus a
- * same-day redemption. Remove both sides before portfolio accounting so a
- * cancelled allocation cannot leave phantom units or cost basis behind.
+ * Older imports stored failed-payment reversals as a purchase plus a same-day
+ * redemption. Current imports skip reversal rows, but a re-import can still
+ * leave behind the old zero-unit redemption after deleting the paired purchase.
+ * Treat both shapes as non-portfolio transactions so cancelled allocations
+ * cannot leave phantom units, cost basis, or cashflows behind.
  */
 export function findReversedTransactionPairIndexes<T extends ReversalPairCandidate>(
   transactions: T[],
@@ -167,6 +169,10 @@ export function findReversedTransactionPairIndexes<T extends ReversalPairCandida
     }
   }
 
+  transactions.forEach((tx, index) => {
+    if (isStandaloneZeroUnitReversal(tx)) paired.add(index);
+  });
+
   return paired;
 }
 
@@ -185,6 +191,14 @@ function isReversalPairPurchase(type: string): boolean {
 function isReversalPairRedemption(type: string): boolean {
   return ['redemption', 'reversal', 'reversed', 'cancelled', 'canceled'].includes(
     normalizeTransactionType(type),
+  );
+}
+
+function isStandaloneZeroUnitReversal(tx: ReversalPairCandidate): boolean {
+  return (
+    isReversalPairRedemption(tx.transaction_type) &&
+    positiveNumber(tx.amount) != null &&
+    positiveNumber(tx.units) == null
   );
 }
 

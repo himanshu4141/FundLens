@@ -326,6 +326,36 @@ describe('moneyTrail hidden and internal transaction handling', () => {
     });
   });
 
+  it('hides stale zero-unit reversal rows left after parser-side cleanup', () => {
+    const transactions = buildMoneyTrailTransactions([
+      raw({
+        id: 'stale-reversal',
+        fund_id: 'hdfc-small-cap',
+        fund_name: 'HDFC Small Cap Fund - Direct Growth',
+        transaction_date: '2025-10-09',
+        transaction_type: 'redemption',
+        amount: 25000,
+        units: 0,
+      }),
+    ]);
+
+    expect(filterMoneyTrailTransactions(transactions, DEFAULT_MONEY_TRAIL_FILTERS)).toHaveLength(0);
+    expect(buildMoneyTrailSummary(transactions)).toEqual({
+      totalInvested: 0,
+      totalWithdrawn: 0,
+      netInvested: 0,
+      transactionCount: 0,
+    });
+    expect(transactions[0]).toMatchObject({
+      userFacingType: 'Reversal',
+      status: 'hidden',
+      hiddenByDefault: true,
+      includedInInvestedAmount: false,
+      includedInXirr: false,
+      includedInCurrentHoldings: false,
+    });
+  });
+
   it('treats switches as internal movement rather than external net investment', () => {
     const switchIn = buildPortfolioTransaction(raw({ transaction_type: 'switch_in', amount: 5000 }));
     const switchOut = buildPortfolioTransaction(raw({ transaction_type: 'switch_out', amount: 5000 }));

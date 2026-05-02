@@ -486,6 +486,7 @@ If Money Trail needs to be disabled after merge:
 - Resolved: mainline Clear Lens reads CAS rows from the `transaction` table and fund names from the `fund` view. Available fields are transaction id, fund id, date, type, units, amount, NAV, folio number, CAS import id, and created timestamp.
 - Resolved: existing XIRR logic in `src/utils/xirr.ts` treats `purchase`, `switch_in`, and `dividend_reinvest` as negative cashflows, and `redemption` plus `switch_out` as positive cashflows. It also reports invested amount as remaining cost basis after average-cost deductions, not lifetime money-in.
 - Resolved: current app dependencies include `expo-file-system`. CSV export uses browser download on web, Android Storage Access Framework folder selection on Android, and a native share-sheet fallback after writing to Expo app storage when folder selection is unavailable or cancelled.
+- Resolved: mainline CAS import now skips `REVERSAL` rows, deletes paired failed purchases on re-import, and marks zero-closing-unit failed-only funds inactive. Money Trail still defensively hides legacy same-day failed purchase/redemption pairs and stale zero-unit reversal redemptions because existing databases may contain rows from the older parser behavior.
 - Limitation: the current database enum has `purchase`, `redemption`, `switch_in`, `switch_out`, and `dividend_reinvest`. Dividend payout, STP, SWP, failed, and reversal rows are supported by the view model for forward compatibility, but current import code skips or normalizes some of these before storage.
 - Limitation: AMC name is not stored on the `transaction` table or `fund` view. Money Trail infers common AMC names from the fund name when possible and otherwise marks AMC as unavailable.
 - Assumption: folio numbers can be displayed unmasked per PRD.
@@ -502,12 +503,14 @@ If Money Trail needs to be disabled after merge:
 - 2026-04-29: Implemented CSV export without a new dependency by using web downloads and native `expo-file-system/legacy` file writes.
 - 2026-04-29: After device testing, changed native CSV export to open an Android folder picker before writing the CSV, with share-sheet fallback instead of showing app-private `file://` paths in the UI.
 - 2026-04-30: After Clear Lens merged to `main`, rebased Money Trail onto `origin/main` using only the Money Trail commits and archived the shipped Clear Lens M1 ExecPlan in the plan index.
+- 2026-05-03: Rebasing onto current `main` brought in the CDSL/NSDL CAS import and parser-side failed-payment reversal fix. Kept Money Trail's defensive legacy cleanup and added stale zero-unit reversal handling for databases that already contain old reversal rows.
 
 
 ## Amendments
 
 - 2026-04-29: Blank amount filter inputs must remain unset. `Number('')` produced `0`, which made an untouched max-amount field exclude all positive-amount transactions after applying filters.
 - 2026-04-29: Failed-payment reversals can arrive in the current database as a same-day `purchase` plus `redemption` pair because earlier CAS import behavior mapped `REVERSAL` to `redemption`. Money Trail now hides those pairs by default, and shared portfolio/XIRR/timeline helpers remove the pair before calculating holdings, current value, invested amount, realized gains, and benchmark comparisons.
+- 2026-05-03: Current imports no longer add `REVERSAL` rows, but a re-import can delete the old purchase side while leaving an old zero-unit redemption reversal behind. Shared calculation helpers and Money Trail now drop those stale zero-unit reversal rows as well.
 
 
 ## Progress
@@ -521,6 +524,7 @@ If Money Trail needs to be disabled after merge:
 - [x] Added this Money Trail execution-plan phase.
 - [x] Update plan index.
 - [x] Inspect existing data and calculation logic.
+- [x] Rebased onto current `main` after CDSL/NSDL import and parser-side reversal fixes landed.
 - [x] Add Money Trail view-model helpers and tests.
 - [x] Add Portfolio preview and entry points.
 - [x] Add Money Trail screen and transaction detail.

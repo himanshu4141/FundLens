@@ -102,7 +102,7 @@ Shows CAS-derived transaction history:
 - CSV export for the currently visible filtered and sorted list
 - empty/no-results/error states
 
-Failed, reversed, and confidently matched reversal pairs are hidden by default. Switches and reinvested dividends are shown as internal movement so they do not inflate Money Trail net invested.
+Failed, reversed, stale zero-unit reversal rows, and confidently matched reversal pairs are hidden by default. Switches and reinvested dividends are shown as internal movement so they do not inflate Money Trail net invested.
 
 ### 6. Leaderboard
 

@@ -358,6 +358,19 @@ describe('computeRealizedGains()', () => {
       redeemedUnits: 0,
     });
   });
+
+  it('excludes stale zero-unit redemption reversals even after the paired purchase was deleted', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-10-09', transaction_type: 'redemption', units: 0, amount: 25000 },
+    ];
+
+    expect(filterReversedTransactionPairs(txs)).toEqual([]);
+    expect(computeRealizedGains(txs)).toEqual({
+      realizedGain: 0,
+      realizedAmount: 0,
+      redeemedUnits: 0,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -479,6 +492,17 @@ describe('buildCashflowsFromTransactions()', () => {
     const txs: Transaction[] = [
       { transaction_date: '2025-10-09', transaction_type: 'redemption', units: 0, amount: 25000 },
       { transaction_date: '2025-10-09', transaction_type: 'purchase', units: 101.12, amount: 25000 },
+    ];
+    const result = buildCashflowsFromTransactions(txs, 0, today);
+
+    expect(result.netUnits).toBe(0);
+    expect(result.investedAmount).toBe(0);
+    expect(result.historicalCashflows).toEqual([]);
+  });
+
+  it('does not keep cashflows for stale zero-unit reversal rows after parser cleanup', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-10-09', transaction_type: 'redemption', units: 0, amount: 25000 },
     ];
     const result = buildCashflowsFromTransactions(txs, 0, today);
 
