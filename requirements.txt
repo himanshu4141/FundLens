@@ -1,1 +1,2 @@
 casparser==0.8.1
+pdfplumber==0.11.4

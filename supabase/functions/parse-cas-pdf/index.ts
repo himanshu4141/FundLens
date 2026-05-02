@@ -81,15 +81,25 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('pan')
+    .select('pan, dob')
     .eq('user_id', user.id)
     .maybeSingle();
 
   const password = profile?.pan ?? '';
 
+  function computeCdslPassword(pan: string, dob: string): string {
+    // dob is ISO YYYY-MM-DD; CDSL/NSDL password format is PAN + DDMMYYYY
+    const [yyyy, mm, dd] = dob.split('-');
+    return `${pan.toUpperCase()}${dd}${mm}${yyyy}`;
+  }
+
+  const cdslPassword = (profile?.pan && profile?.dob)
+    ? computeCdslPassword(profile.pan, profile.dob)
+    : null;
+
   console.log(
-    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, password_source=pan',
-    user.id, fileName, pdfBytesRaw.byteLength,
+    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, has_dob=%s',
+    user.id, fileName, pdfBytesRaw.byteLength, !!profile?.dob,
   );
 
   if (!password) {
@@ -134,6 +144,7 @@ Deno.serve(async (req) => {
         'x-file-name': fileName,
         'x-password': password,
         'x-parser-secret': CAS_PARSER_SHARED_SECRET,
+        ...(cdslPassword ? { 'x-password-cdsl': cdslPassword } : {}),
         ...(VERCEL_PROTECTION_BYPASS_TOKEN
           ? { 'x-vercel-protection-bypass': VERCEL_PROTECTION_BYPASS_TOKEN }
           : {}),
@@ -160,12 +171,16 @@ Deno.serve(async (req) => {
       .update({ import_status: 'failed', error_message: msg })
       .eq('id', importId);
 
-    const isPasswordError = msg.toLowerCase().includes('password') || msg.toLowerCase().includes('decrypt');
+    const msgLower = msg.toLowerCase();
+    const isPasswordError = msgLower.includes('password') || msgLower.includes('decrypt');
+    const isHoldingsOnly = msgLower.includes('holdings-only') || msgLower.includes('detailed cas');
     return json(
       {
-        error: isPasswordError
-          ? 'Wrong PDF password. Make sure your PAN is correct.'
-          : `Failed to parse CAS PDF: ${msg}`,
+        error: isHoldingsOnly
+          ? msg
+          : isPasswordError
+            ? 'Wrong PDF password. For CAMS/KFintech/MFCentral PDFs, the password is your PAN. For CDSL/NSDL PDFs, set your date of birth in Settings → Account.'
+            : `Failed to parse CAS PDF: ${msg}`,
       },
       { status: 422 },
     );

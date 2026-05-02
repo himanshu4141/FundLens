@@ -396,6 +396,7 @@ export type Database = {
       user_profile: {
         Row: {
           created_at: string
+          dob: string | null
           kfintech_email: string | null
           pan: string
           updated_at: string
@@ -403,6 +404,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dob?: string | null
           kfintech_email?: string | null
           pan: string
           updated_at?: string
@@ -410,6 +412,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dob?: string | null
           kfintech_email?: string | null
           pan?: string
           updated_at?: string

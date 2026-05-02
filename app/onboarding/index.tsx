@@ -44,10 +44,30 @@ type OnboardingStyles = ReturnType<typeof makeStyles>;
 async function fetchProfile(userId: string) {
   const { data } = await supabase
     .from('user_profile')
-    .select('pan, kfintech_email')
+    .select('pan, kfintech_email, dob')
     .eq('user_id', userId)
     .maybeSingle();
   return data ?? null;
+}
+
+const DOB_REGEX = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+function parseDobInput(value: string): string | null {
+  const m = DOB_REGEX.exec(value);
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  const d = new Date(`${yyyy}-${mm}-${dd}`);
+  if (isNaN(d.getTime())) return null;
+  // Must be ≥ 18 years old
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 18);
+  if (d > cutoff) return null;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatDobForDisplay(iso: string): string {
+  const [yyyy, mm, dd] = iso.split('-');
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 async function requestCAS(email: string): Promise<void> {
@@ -289,6 +309,12 @@ export default function OnboardingScreen() {
   const [panState, setPanState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [panError, setPanError] = useState<string | null>(null);
 
+  // ── DOB step (optional, for CDSL/NSDL CAS) ──────────────────────────────────
+  const [dob, setDob] = useState('');
+  const [dobError, setDobError] = useState<string | null>(null);
+  const [dobSaving, setDobSaving] = useState(false);
+  const [dobSaved, setDobSaved] = useState(false);
+
   // ── CAS request step ────────────────────────────────────────────────────────
   const [casEmail, setCasEmail] = useState(session?.user.email ?? '');
 
@@ -296,6 +322,9 @@ export default function OnboardingScreen() {
   useEffect(() => {
     if (profile?.pan && !pan) setPan(profile.pan);
   }, [profile?.pan, pan]);
+  useEffect(() => {
+    if (profile?.dob && !dob) setDob(formatDobForDisplay(profile.dob));
+  }, [profile?.dob, dob]);
   useEffect(() => {
     if (profile?.kfintech_email) setCasEmail(profile.kfintech_email);
   }, [profile?.kfintech_email]);
@@ -325,6 +354,27 @@ export default function OnboardingScreen() {
     } else {
       setPan(upper);
       setPanState('saved');
+      queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
+    }
+  }
+
+  async function handleSaveDOB() {
+    const iso = parseDobInput(dob.trim());
+    if (!iso) {
+      setDobError('Enter a valid date of birth (DD/MM/YYYY) — must be 18+');
+      return;
+    }
+    setDobError(null);
+    setDobSaving(true);
+    const { error } = await supabase.from('user_profile').upsert(
+      { user_id: session!.user.id, pan: pan.trim().toUpperCase() || (profile?.pan ?? ''), dob: iso },
+      { onConflict: 'user_id' },
+    );
+    setDobSaving(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      setDobSaved(true);
       queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
     }
   }
@@ -426,6 +476,47 @@ export default function OnboardingScreen() {
               </TouchableOpacity>
             </>
           )}
+
+          {/* DOB — optional, used for CDSL/NSDL CAS */}
+          <View style={styles.dobSection}>
+            <Text style={styles.dobLabel}>Date of Birth (optional)</Text>
+            <Text style={styles.dobHint}>
+              Required to unlock CDSL/NSDL CAS PDFs. Not shared with anyone.
+            </Text>
+            {dobSaved || !!profile?.dob ? (
+              <View style={styles.savedRow}>
+                <Text style={styles.savedText}>
+                  DOB saved: {profile?.dob ? formatDobForDisplay(profile.dob) : dob}
+                </Text>
+                <TouchableOpacity onPress={() => setDobSaved(false)}>
+                  <Text style={styles.changeLink}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.panInput}
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor="#999"
+                  value={dob}
+                  onChangeText={(t) => { setDob(t); setDobError(null); }}
+                  keyboardType="numeric"
+                  maxLength={10}
+                  editable={!dobSaving}
+                />
+                {dobError && <Text style={styles.errorText}>{dobError}</Text>}
+                <TouchableOpacity
+                  style={[styles.secondaryBtn, dobSaving && styles.btnDisabled]}
+                  onPress={handleSaveDOB}
+                  disabled={dobSaving}
+                >
+                  {dobSaving
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.primaryBtnText}>Save Date of Birth</Text>}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
       </View>
 
@@ -703,6 +794,22 @@ function makeStyles(Colors: AppColors, isClearLens: boolean) {
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   savedText: { fontSize: 14, color: Colors.positive, fontWeight: '600', flex: 1 },
   changeLink: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
+
+  dobSection: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: 12,
+    gap: 6,
+    marginTop: 4,
+  },
+  dobLabel: { ...(isClearLens ? ClearLensTypography.label : Typography.label), color: Colors.textSecondary, textTransform: 'uppercase' },
+  dobHint: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.textTertiary },
+  secondaryBtn: {
+    backgroundColor: Colors.primaryDark,
+    borderRadius: isClearLens ? ClearLensRadii.full : Radii.md,
+    paddingVertical: 12,
+    alignItems: 'center' as const,
+  },
 
   copyBox: {
     marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,

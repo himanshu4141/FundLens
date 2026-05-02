@@ -5,6 +5,7 @@ import os
 from http.server import BaseHTTPRequestHandler
 
 from api._cas_parser import parse_cas_pdf_bytes
+from api._cdsl_nsdl_parser import HoldingsOnlyError
 
 
 PARSER_SECRET = os.environ.get("CAS_PARSER_SHARED_SECRET", "")
@@ -30,6 +31,8 @@ class handler(BaseHTTPRequestHandler):
             _json(self, 400, {"error": "Missing PDF password"})
             return
 
+        cdsl_password = self.headers.get("x-password-cdsl", "").strip() or None
+
         content_length = int(self.headers.get("content-length", "0"))
         pdf_bytes = self.rfile.read(content_length)
         if not pdf_bytes:
@@ -37,7 +40,10 @@ class handler(BaseHTTPRequestHandler):
             return
 
         try:
-            parsed = parse_cas_pdf_bytes(pdf_bytes, password)
+            parsed = parse_cas_pdf_bytes(pdf_bytes, password, cdsl_password)
+        except HoldingsOnlyError as exc:
+            _json(self, 422, {"error": str(exc)})
+            return
         except Exception as exc:
             message = str(exc)
             lowered = message.lower()
