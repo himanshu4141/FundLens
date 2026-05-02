@@ -42,7 +42,6 @@ export function ClearLensCreateGoalScreen() {
     if (!editGoal?.targetDate) return '10';
     return String(Math.max(1, Math.round(yearsFromNow(editGoal.targetDate))));
   });
-  const [lumpSumStr, setLumpSumStr] = useState(() => editGoal?.lumpSum ? String(editGoal.lumpSum) : '');
   const [currentMonthlyStr, setCurrentMonthlyStr] = useState(() => editGoal?.currentMonthly ? String(editGoal.currentMonthly) : '');
   const [returnPreset, setReturnPreset] = useState<GoalReturnPreset>(() => editGoal?.returnPreset ?? 'balanced');
 
@@ -61,7 +60,7 @@ export function ClearLensCreateGoalScreen() {
       name: name.trim(),
       targetAmount,
       targetDate,
-      lumpSum: parseRupees(lumpSumStr),
+      lumpSum: 0,
       currentMonthly: parseRupees(currentMonthlyStr),
       returnPreset,
     };
@@ -124,20 +123,6 @@ export function ClearLensCreateGoalScreen() {
                 placeholderTextColor={ClearLensColors.textTertiary}
                 value={yearsStr}
                 onChangeText={setYearsStr}
-                keyboardType="numeric"
-                returnKeyType="next"
-              />
-            </InputRow>
-
-            <Separator />
-
-            <InputRow label="Amount already saved (₹)">
-              <TextInput
-                style={styles.textInput}
-                placeholder="0"
-                placeholderTextColor={ClearLensColors.textTertiary}
-                value={lumpSumStr}
-                onChangeText={setLumpSumStr}
                 keyboardType="numeric"
                 returnKeyType="next"
               />

@@ -100,10 +100,6 @@ export function ClearLensGoalSummaryScreen() {
       <ClearLensHeader
         title={goal.name}
         onPressBack={() => router.back()}
-        rightAction={{
-          icon: 'pencil-outline',
-          onPress: () => router.push({ pathname: '/tools/goal-planner/create', params: { editId: goal.id } }),
-        }}
       />
 
       <ScrollView
@@ -137,10 +133,20 @@ export function ClearLensGoalSummaryScreen() {
           />
         )}
 
-        <TouchableOpacity style={styles.deleteRow} onPress={confirmDelete} activeOpacity={0.75}>
-          <Ionicons name="trash-outline" size={16} color={ClearLensColors.negative} />
-          <Text style={styles.deleteText}>Delete goal</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRows}>
+          <TouchableOpacity
+            style={styles.editRow}
+            onPress={() => router.push({ pathname: '/tools/goal-planner/create', params: { editId: goal.id } })}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.editText}>Edit goal</Text>
+            <Ionicons name="chevron-forward" size={14} color={ClearLensColors.emerald} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteRow} onPress={confirmDelete} activeOpacity={0.75}>
+            <Ionicons name="trash-outline" size={14} color={ClearLensColors.negative} />
+            <Text style={styles.deleteText}>Delete goal</Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.disclaimer}>
           Results are estimates only. Assumed return: {returnAssumptions[goal.returnPreset]}% p.a. ({presetLabel}). Past performance is not indicative of future returns.
@@ -180,7 +186,7 @@ function EstimateTab({
         <Ionicons
           name={plan.onTrack ? 'checkmark-circle' : 'alert-circle'}
           size={20}
-          color={plan.onTrack ? ClearLensColors.positive : '#b45309'}
+          color={plan.onTrack ? ClearLensColors.positive : ClearLensColors.warning}
         />
         <Text style={[styles.bannerText, plan.onTrack ? styles.bannerTextGreen : styles.bannerTextAmber]}>
           {plan.onTrack
@@ -196,8 +202,6 @@ function EstimateTab({
         <Row label="Timeline" value={years > 0 ? `${Math.round(years)} years` : 'Overdue'} />
         <RowDivider />
         <Row label="Return assumed" value={`${presetRate}% p.a. (${presetLabel})`} />
-        <RowDivider />
-        <Row label="Lump sum today" value={plan.fvLumpSum > 0 ? `${formatCurrency(plan.fvLumpSum)} (FV)` : '—'} />
         <RowDivider />
         <Row label="Required monthly" value={formatCurrency(plan.requiredMonthly)} highlight />
         <RowDivider />
@@ -257,7 +261,6 @@ function ScenariosTab({
                 label={label}
                 rate={rate}
                 requiredMonthly={result.requiredMonthly}
-                onTrack={result.onTrack}
                 isSelected={preset === planInput.returnPreset}
               />
             </View>
@@ -276,13 +279,11 @@ function ScenarioRow({
   label,
   rate,
   requiredMonthly,
-  onTrack,
   isSelected,
 }: {
   label: string;
   rate: number;
   requiredMonthly: number;
-  onTrack: boolean;
   isSelected: boolean;
 }) {
   return (
@@ -298,11 +299,6 @@ function ScenarioRow({
             <Text style={styles.selectedBadgeText}>Your plan</Text>
           </View>
         )}
-        <Ionicons
-          name={onTrack ? 'checkmark-circle' : 'ellipse-outline'}
-          size={16}
-          color={onTrack ? ClearLensColors.positive : ClearLensColors.textTertiary}
-        />
       </View>
     </View>
   );
@@ -541,8 +537,8 @@ const styles = StyleSheet.create({
     borderColor: ClearLensColors.positive,
   },
   bannerAmber: {
-    backgroundColor: '#fff8e6',
-    borderColor: '#f59e0b',
+    backgroundColor: ClearLensColors.warningBg,
+    borderColor: ClearLensColors.amber,
   },
   bannerText: {
     ...ClearLensTypography.bodySmall,
@@ -550,7 +546,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   bannerTextGreen: { color: ClearLensColors.positive },
-  bannerTextAmber: { color: '#b45309' },
+  bannerTextAmber: { color: ClearLensColors.warning },
 
   card: {
     backgroundColor: ClearLensColors.surface,
@@ -663,6 +659,21 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
   },
 
+  actionRows: {
+    gap: ClearLensSpacing.xs,
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.xs,
+    paddingVertical: ClearLensSpacing.sm,
+  },
+  editText: {
+    fontFamily: ClearLensFonts.semiBold,
+    fontSize: 14,
+    color: ClearLensColors.emerald,
+  },
   deleteRow: {
     flexDirection: 'row',
     alignItems: 'center',

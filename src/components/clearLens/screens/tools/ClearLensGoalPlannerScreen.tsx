@@ -221,18 +221,18 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
   },
   tag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: ClearLensSpacing.xs,
     paddingVertical: 2,
     borderRadius: ClearLensRadii.sm,
   },
   tagGreen: { backgroundColor: ClearLensColors.positiveBg },
-  tagAmber: { backgroundColor: '#fff8e6' },
+  tagAmber: { backgroundColor: ClearLensColors.warningBg },
   tagText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 11,
   },
   tagTextGreen: { color: ClearLensColors.positive },
-  tagTextAmber: { color: '#b45309' },
+  tagTextAmber: { color: ClearLensColors.warning },
   metaText: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
