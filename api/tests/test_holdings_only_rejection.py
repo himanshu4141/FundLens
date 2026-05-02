@@ -36,7 +36,7 @@ def test_holdings_only_raises_error():
     )
 
     # Patch pdfplumber.open and AMFI map
-    isin_map = {"INF846K01VD5": (119551, "Equity")}
+    isin_map = {"INF846K01VD5": (119551, "Equity", "Axis Bluechip Fund - Direct Growth")}
     parser_module._isin_cache = isin_map
 
     with patch("pdfplumber.open", return_value=pdf_mock):
@@ -49,7 +49,7 @@ def test_holdings_only_raises_error():
 def test_not_cdsl_raises_value_error():
     """A PDF that decrypts fine but has no CDSL/NSDL marker → ValueError."""
     pdf_mock = _make_pdf_mock(
-        "CAMS Consolidated Account Statement — no CDSL/NSDL here",
+        "CAMS Consolidated Account Statement — standard CAMS format",
         [],
     )
 

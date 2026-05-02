@@ -12,6 +12,9 @@ from api._cdsl_nsdl_parser import normalise_cdsl_tx_type
     ("NFO Purchase", "PURCHASE"),
     ("SIP", "PURCHASE"),
     ("SIP Installment", "PURCHASE"),
+    ("Systematic Investment 7403179", "PURCHASE"),
+    ("Sys. Investment 8264682", "PURCHASE"),
+    ("Purchase Systematic Instalment No - 12/600", "PURCHASE"),
     # English — redemption variants
     ("Redemption", "REDEMPTION"),
     ("REDEMPTION", "REDEMPTION"),

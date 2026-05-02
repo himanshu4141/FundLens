@@ -11,6 +11,14 @@ Key design decisions:
 - "CDSL" and "NSDL" are acronyms that always appear as ASCII — used for detection.
 - Dates and transaction descriptions may appear in Hindi (Devanagari) — handled
   via explicit mapping tables with re.UNICODE patterns.
+
+Real CDSL CAS table structure (per scheme):
+  Row: [Folio No : <folio> Mode of Holding : Single ...]   ← single merged cell
+  Row: [ISIN : INF... UCC : ... Mobile : ... Email : ...]  ← single merged cell
+  Row: [Hindi/English column headers]                       ← skipped
+  Row: [Opening Balance  <units>]                          ← balance row
+  Row: [DD-MM-YYYY  SIP Purchase ...  amount nav price units stamp ...]
+  Row: [Closing Balance  <units>]                          ← balance row
 """
 
 from __future__ import annotations
@@ -27,11 +35,11 @@ logger = logging.getLogger(__name__)
 
 # ── AMFI ISIN → scheme_code cache ─────────────────────────────────────────────
 
-_isin_cache: dict[str, tuple[int, str]] | None = None
+# tuple: (scheme_code, broad_category, scheme_name)
+_isin_cache: dict[str, tuple[int, str, str]] | None = None
 
 AMFI_NAV_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
 
-# Map AMFI broad-category prefixes → our scheme type labels
 _CATEGORY_MAP = [
     ("equity", "Equity"),
     ("debt", "Debt"),
@@ -44,16 +52,21 @@ _CATEGORY_MAP = [
 ]
 
 
-def _broad_category(header: str) -> str:
+def _broad_category(header: str) -> str | None:
+    """Return category label if header matches a known keyword, else None.
+
+    Returns None (not "Other") when no keyword matches so that AMC name lines
+    like 'HDFC Mutual Fund' do not accidentally reset the current category.
+    """
     low = header.lower()
     for keyword, label in _CATEGORY_MAP:
         if keyword in low:
             return label
-    return "Other"
+    return None
 
 
-def fetch_amfi_isin_map() -> dict[str, tuple[int, str]]:
-    """Return { isin: (scheme_code, broad_category) } for all MF ISINs.
+def fetch_amfi_isin_map() -> dict[str, tuple[int, str, str]]:
+    """Return { isin: (scheme_code, broad_category, scheme_name) } for all MF ISINs.
 
     Result is cached module-level so warm Vercel invocations skip the network
     round-trip.
@@ -71,7 +84,7 @@ def fetch_amfi_isin_map() -> dict[str, tuple[int, str]]:
         _isin_cache = {}
         return _isin_cache
 
-    result: dict[str, tuple[int, str]] = {}
+    result: dict[str, tuple[int, str, str]] = {}
     current_category = "Other"
 
     for line in text.splitlines():
@@ -79,10 +92,14 @@ def fetch_amfi_isin_map() -> dict[str, tuple[int, str]]:
         if not line:
             continue
 
-        # Section header lines contain no semicolons and look like
-        # "Equity Scheme - Multi Cap Fund"
+        # Section header lines (no semicolons) may be category headers like
+        # "Open Ended Schemes(Equity Scheme - Multi Cap Fund)" or AMC name lines
+        # like "HDFC Mutual Fund". Only update current_category if a keyword
+        # matches — AMC name lines must not reset the category to "Other".
         if ";" not in line:
-            current_category = _broad_category(line)
+            cat = _broad_category(line)
+            if cat is not None:
+                current_category = cat
             continue
 
         parts = line.split(";")
@@ -90,16 +107,18 @@ def fetch_amfi_isin_map() -> dict[str, tuple[int, str]]:
             continue
 
         # NAVAll.txt columns:
-        # scheme_code;ISIN_growth;ISIN_div_reinvest;scheme_name;nav_date;nav
+        # scheme_code ; ISIN_growth ; ISIN_div_reinvest ; scheme_name ; nav ; date
         try:
             code = int(parts[0].strip())
         except ValueError:
             continue
 
+        scheme_name = parts[3].strip() if len(parts) > 3 else ""
+
         for col in (1, 2):
             isin = parts[col].strip()
             if re.match(r"^INF[A-Z0-9]{9}$", isin):
-                result[isin] = (code, current_category)
+                result[isin] = (code, current_category, scheme_name)
 
     logger.info("[cdsl-parser] AMFI map loaded: %d ISINs", len(result))
     _isin_cache = result
@@ -145,27 +164,48 @@ MONTH_MAP: dict[str, str] = {
     "दिसंबर": "12",
 }
 
-_DATE_RE = re.compile(
+# DD-MM-YYYY (numeric month) — most common in actual CDSL CAS PDFs
+_DATE_NUMERIC_RE = re.compile(r"^(\d{1,2})[/\-](\d{2})[/\-](\d{4})$")
+
+# DD-MonthName-YYYY (English abbreviation or full Hindi month name)
+_DATE_TEXT_RE = re.compile(
     r"^(\d{1,2})[/\-]([A-Za-zऀ-ॿ]+)[/\-](\d{4})$",
     re.UNICODE,
 )
 
 
 def parse_date_cdsl(raw: str) -> str:
-    """Parse DD-Mon-YYYY or DD-HindiMonth-YYYY → ISO YYYY-MM-DD."""
+    """Parse a date string to ISO YYYY-MM-DD.
+
+    Handles:
+    - DD-MM-YYYY  (numeric month, most common in CDSL)
+    - DD-Apr-YYYY (English 3-letter month)
+    - DD-अप्रैल-YYYY (Hindi month name)
+    - YYYY-MM-DD  (passthrough)
+    """
     if not raw:
         return ""
     raw = raw.strip()
+
     # Already ISO
     if re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
         return raw
-    m = _DATE_RE.match(raw)
+
+    # DD-MM-YYYY (numeric month) — handle first, most common in CDSL
+    m = _DATE_NUMERIC_RE.match(raw)
+    if m:
+        dd, mm, yyyy = m.group(1), m.group(2), m.group(3)
+        return f"{yyyy}-{mm}-{dd.zfill(2)}"
+
+    # DD-Mon-YYYY or DD-HindiMonth-YYYY
+    m = _DATE_TEXT_RE.match(raw)
     if m:
         dd, mon_raw, yyyy = m.group(1), m.group(2), m.group(3)
         key = mon_raw.lower()
         mm = MONTH_MAP.get(key) or MONTH_MAP.get(mon_raw)
         if mm:
             return f"{yyyy}-{mm}-{dd.zfill(2)}"
+
     logger.warning("[cdsl-parser] unrecognised date: %r", raw)
     return raw
 
@@ -173,7 +213,8 @@ def parse_date_cdsl(raw: str) -> str:
 # ── Transaction type normalisation ─────────────────────────────────────────────
 
 TX_KEYWORDS: list[tuple[str, str]] = [
-    (r"खरीद|purchase|buy|nfo|sip", "PURCHASE"),
+    # "Systematic Investment" and "Sys. Investment" are SIP purchases in CDSL CAS
+    (r"खरीद|purchase|buy|nfo|sip|systematic|sys\b", "PURCHASE"),
     (r"मोचन|redemption|redeem|withdrawal", "REDEMPTION"),
     (r"स्विच.*इन|switch.*in", "SWITCH_IN"),
     (r"स्विच.*आउट|switch.*out", "SWITCH_OUT"),
@@ -197,11 +238,15 @@ def normalise_cdsl_tx_type(description: str) -> str | None:
     return None
 
 
-# ── ISIN helpers ───────────────────────────────────────────────────────────────
+# ── ISIN / numeric helpers ─────────────────────────────────────────────────────
 
 _ISIN_RE = re.compile(r"\bINF[A-Z0-9]{9}\b")
 
 _FLOAT_RE = re.compile(r"^-?[\d,]+\.?\d*$")
+
+# Detects garbled text like "STATEME0N1T" where letters and digits alternate
+# inside words. Real fund names don't have patterns like "E0N" or "T0R2A4".
+_GARBLED_RE = re.compile(r"[A-Za-z]\d[A-Za-z]")
 
 
 def _parse_float(val: Any) -> float | None:
@@ -216,256 +261,218 @@ def _parse_float(val: Any) -> float | None:
         return None
 
 
+def _extract_isin_from_cell(cell: Any) -> str | None:
+    """Return the ISIN string from a cell like 'ISIN : INF179K01XQ0', or None."""
+    if not cell:
+        return None
+    m = _ISIN_RE.search(str(cell))
+    return m.group(0) if m else None
+
+
 def _cell_is_isin(cell: Any) -> bool:
-    return bool(cell and _ISIN_RE.match(str(cell).strip()))
-
-
-def _find_isin_col(rows: list[list]) -> int | None:
-    for row in rows:
-        for i, cell in enumerate(row):
-            if _cell_is_isin(cell):
-                return i
-    return None
+    return bool(cell and _ISIN_RE.search(str(cell).strip()))
 
 
 # ── Core extraction ────────────────────────────────────────────────────────────
 
-def _extract_tables_with_isin(pdf: pdfplumber.PDF) -> list[list[list]]:
-    """Return all pdfplumber tables that contain at least one MF ISIN cell."""
-    result = []
-    for page in pdf.pages:
-        for table in page.extract_tables():
-            for row in table:
-                if any(_cell_is_isin(cell) for cell in (row or [])):
-                    result.append(table)
-                    break
-    return result
+# Matches both DD-MM-YYYY and DD-Mon-YYYY / DD-HindiMonth-YYYY
+_ROW_DATE_RE = re.compile(
+    r"^\d{1,2}[/\-](?:\d{2}|[A-Za-zऀ-ॿ]+)[/\-]\d{4}$",
+    re.UNICODE,
+)
 
+# Matches "Folio No : 28056620/47" — try "folio no" before just "folio" so
+# regex engine doesn't stop at "folio" and capture "No" as the folio number.
+_FOLIO_RE = re.compile(
+    r"folio(?:\s+no\.?)?\s*[:\s]+([A-Z0-9][A-Z0-9/\-]*)",
+    re.IGNORECASE,
+)
 
-def _guess_col_indices(rows: list[list], isin_col: int) -> dict[str, int | None]:
-    """Heuristically identify which column index holds which value.
-
-    We look for columns that:
-    - units/nav/value: mostly numeric float values
-    - date: mostly match DD-Mon-YYYY or ISO date patterns
-    - description: mostly text / Hindi text
-    """
-    if not rows:
-        return {}
-
-    ncols = max(len(r) for r in rows)
-
-    float_scores = [0] * ncols
-    date_scores = [0] * ncols
-    text_scores = [0] * ncols
-
-    _date_hint = re.compile(
-        r"\d{1,2}[/\-]([A-Za-zऀ-ॿ]{3,})[/\-]\d{4}", re.UNICODE
-    )
-
-    for row in rows:
-        for i, cell in enumerate(row):
-            if i >= ncols or cell is None:
-                continue
-            s = str(cell).strip().replace(",", "")
-            if not s or s == "-":
-                continue
-            if _date_hint.search(str(cell)):
-                date_scores[i] += 1
-            elif _FLOAT_RE.match(s):
-                float_scores[i] += 1
-            elif len(s) > 3:
-                text_scores[i] += 1
-
-    # units, nav, amount: top 3 numeric cols excluding isin_col
-    numeric_cols = sorted(
-        [i for i in range(ncols) if i != isin_col and float_scores[i] > 0],
-        key=lambda i: -float_scores[i],
-    )
-
-    date_col = max(
-        (i for i in range(ncols) if date_scores[i] > 0),
-        key=lambda i: date_scores[i],
-        default=None,
-    )
-    desc_col = max(
-        (i for i in range(ncols) if i not in (isin_col, date_col) and text_scores[i] > 0),
-        key=lambda i: text_scores[i],
-        default=None,
-    )
-
-    # Among numeric cols: units (smaller fractional numbers), nav (medium), amount (large)
-    units_col = numeric_cols[0] if len(numeric_cols) > 0 else None
-    nav_col = numeric_cols[1] if len(numeric_cols) > 1 else None
-    amount_col = numeric_cols[2] if len(numeric_cols) > 2 else None
-
-    return {
-        "date": date_col,
-        "desc": desc_col,
-        "units": units_col,
-        "nav": nav_col,
-        "amount": amount_col,
-    }
+_CLOSING_RE = re.compile(
+    r"closing\s+balance|अंतिम\s+शेष|बंद\s+शेष",
+    re.IGNORECASE | re.UNICODE,
+)
 
 
 def extract_mf_folios(
     pdf: pdfplumber.PDF,
-    isin_map: dict[str, tuple[int, str]],
+    isin_map: dict[str, tuple[int, str, str]],
 ) -> list[dict[str, Any]]:
     """Extract mutual fund folio data from a CDSL/NSDL CAS PDF.
 
-    Uses two passes over pdfplumber tables:
-    1. Holdings pass: finds ISIN + numeric columns → scheme metadata
-    2. Transaction pass: finds date + description + numeric columns near each ISIN
-    """
-    tables = _extract_tables_with_isin(pdf)
-    if not tables:
-        return []
+    State machine over all tables on all pages:
+    - ISIN row (any cell contains INF...) → start/update scheme
+    - Folio row (any cell matches Folio No pattern) → record pending folio
+    - Closing Balance row → record close_units for current scheme
+    - Transaction row (col 0 is a date) → append transaction
 
-    # We build a flat list of scheme dicts keyed by ISIN, then group by folio.
-    # folio_number is extracted from text near the ISIN block when possible.
+    Does NOT require isin_map to be populated — if AMFI fetch failed, schemes
+    are still extracted with amfi=None and type='Other'.
+    """
     schemes_by_isin: dict[str, dict[str, Any]] = {}
     folio_by_isin: dict[str, str] = {}
 
-    _folio_re = re.compile(r"(?:folio|foliono|folio\s*no\.?)[:\s]*([A-Z0-9/]+)", re.IGNORECASE)
+    current_isin: str | None = None
+    pending_folio: str | None = None
+    pending_name: str | None = None
 
-    for table in tables:
-        # Skip completely empty tables
-        data_rows = [r for r in table if any(c for c in (r or []) if c)]
-        if not data_rows:
-            continue
-
-        isin_col = _find_isin_col(data_rows)
-        if isin_col is None:
-            continue
-
-        cols = _guess_col_indices(data_rows, isin_col)
-
-        current_isin: str | None = None
-
-        for row in data_rows:
-            if not row or len(row) <= isin_col:
+    for page in pdf.pages:
+        for table in page.extract_tables():
+            if not table:
                 continue
 
-            cell_isin = str(row[isin_col] or "").strip()
-
-            # Row with an ISIN → new scheme or holdings row
-            if _ISIN_RE.match(cell_isin):
-                current_isin = cell_isin
-
-                if current_isin not in isin_map:
-                    logger.debug("[cdsl-parser] ISIN %s not in AMFI map — skipping", current_isin)
+            for row in table:
+                if not row or not any(c for c in row if c):
                     continue
 
-                scheme_code, category = isin_map[current_isin]
+                cells = [str(c or "").strip() for c in row]
 
-                units_val = _parse_float(row[cols["units"]] if cols.get("units") is not None else None)
-                nav_val = _parse_float(row[cols["nav"]] if cols.get("nav") is not None else None)
-                amount_val = _parse_float(row[cols["amount"]] if cols.get("amount") is not None else None)
-
-                if current_isin not in schemes_by_isin:
-                    schemes_by_isin[current_isin] = {
-                        "name": None,
-                        "isin": current_isin,
-                        "type": category,
-                        "units": units_val,
-                        "nav": nav_val,
-                        "value": amount_val,
-                        "additional_info": {
-                            "amfi": str(scheme_code),
-                            "rta_code": None,
-                            "advisor": None,
-                            "open_units": None,
-                            "close_units": units_val,
-                        },
-                        "transactions": [],
-                        "_scheme_code": scheme_code,
-                    }
-                else:
-                    # Update holdings data if we see it again
-                    s = schemes_by_isin[current_isin]
-                    if units_val is not None:
-                        s["units"] = units_val
-                        s["additional_info"]["close_units"] = units_val
-                    if nav_val is not None:
-                        s["nav"] = nav_val
-                    if amount_val is not None:
-                        s["value"] = amount_val
-
-                # Try to get a scheme name from an adjacent text cell
-                for c_idx, cell in enumerate(row):
-                    if c_idx == isin_col:
-                        continue
-                    cell_str = str(cell or "").strip()
-                    if len(cell_str) > 10 and not _FLOAT_RE.match(cell_str.replace(",", "")):
-                        schemes_by_isin[current_isin]["name"] = cell_str
+                # ── 1. ISIN row — any cell contains INF[A-Z0-9]{9} ────────────
+                isin_in_row: str | None = None
+                for cell in cells:
+                    found = _extract_isin_from_cell(cell)
+                    if found:
+                        isin_in_row = found
                         break
 
-                # Try to find folio number in any cell of this row
-                for cell in row:
-                    if not cell:
-                        continue
-                    fm = _folio_re.search(str(cell))
+                if isin_in_row:
+                    current_isin = isin_in_row
+
+                    # Folio may have appeared in the previous row (pending_folio)
+                    if pending_folio and current_isin not in folio_by_isin:
+                        folio_by_isin[current_isin] = pending_folio
+
+                    # Folio may also be in the same row as the ISIN
+                    for cell in cells:
+                        fm = _FOLIO_RE.search(cell)
+                        if fm:
+                            folio_by_isin[current_isin] = fm.group(1)
+                            pending_folio = None
+                            break
+
+                    if current_isin not in schemes_by_isin:
+                        amfi_code: int | None = None
+                        category = "Other"
+                        amfi_name: str | None = None
+                        if current_isin in isin_map:
+                            entry = isin_map[current_isin]
+                            amfi_code, category = entry[0], entry[1]
+                            amfi_name = entry[2] if len(entry) > 2 and entry[2] else None
+
+                        schemes_by_isin[current_isin] = {
+                            # Prefer AMFI name (authoritative); fall back to
+                            # pending_name from adjacent table text
+                            "name": amfi_name or pending_name,
+                            "isin": current_isin,
+                            "type": category,
+                            "units": None,
+                            "nav": None,
+                            "value": None,
+                            "additional_info": {
+                                "amfi": str(amfi_code) if amfi_code is not None else None,
+                                "rta_code": None,
+                                "advisor": None,
+                                "open_units": None,
+                                "close_units": None,
+                            },
+                            "transactions": [],
+                        }
+                    pending_name = None
+                    continue
+
+                # ── 2. Folio row ───────────────────────────────────────────────
+                # Only assign to current_isin if it hasn't been given a folio yet.
+                # A new folio row between two ISINs belongs to the NEXT scheme,
+                # not the current one — so it must remain pending until the next
+                # ISIN row claims it.
+                for cell in cells:
+                    fm = _FOLIO_RE.search(cell)
                     if fm:
-                        folio_by_isin[current_isin] = fm.group(1)
+                        pending_folio = fm.group(1)
+                        if current_isin and current_isin not in folio_by_isin:
+                            folio_by_isin[current_isin] = fm.group(1)
                         break
 
-                continue
+                # ── 3. Closing Balance row → capture close_units ───────────────
+                second_cell = cells[1] if len(cells) > 1 else ""
+                if _CLOSING_RE.search(second_cell):
+                    for ci in range(2, len(cells)):
+                        v = _parse_float(cells[ci])
+                        if v is not None and v > 0 and current_isin and current_isin in schemes_by_isin:
+                            s = schemes_by_isin[current_isin]
+                            s["units"] = v
+                            s["additional_info"]["close_units"] = v
+                            break
+                    continue
 
-            # Row without an ISIN — might be a transaction row for current_isin
-            if current_isin is None or current_isin not in isin_map:
-                continue
+                # ── 4. Scheme name candidate (clean single-cell text row) ───────
+                # Only used as fallback when AMFI name is unavailable.
+                # Reject garbled text (letter-digit-letter patterns like "E0N").
+                non_empty = [c for c in cells if c]
+                if (
+                    len(non_empty) == 1
+                    and len(non_empty[0]) > 15
+                    and not _ISIN_RE.search(non_empty[0])
+                    and not _FOLIO_RE.search(non_empty[0])
+                    and not _ROW_DATE_RE.match(non_empty[0])
+                    and not _FLOAT_RE.match(non_empty[0].replace(",", ""))
+                    and not _GARBLED_RE.search(non_empty[0])
+                ):
+                    pending_name = non_empty[0]
 
-            date_cell = str(row[cols["date"]] if cols.get("date") is not None and len(row) > (cols.get("date") or 0) else "").strip()
-            if not date_cell:
-                continue
+                # ── 5. Transaction row — col 0 is a date ──────────────────────
+                first_cell = cells[0]
+                if not first_cell or not _ROW_DATE_RE.match(first_cell):
+                    continue
 
-            parsed_date = parse_date_cdsl(date_cell)
-            # If date parsing failed (returned original string that doesn't look like a date)
-            if not re.match(r"^\d{4}-\d{2}-\d{2}$", parsed_date):
-                continue
+                if current_isin is None:
+                    continue
 
-            desc_cell = str(row[cols["desc"]] if cols.get("desc") is not None and len(row) > (cols.get("desc") or 0) else "").strip()
-            tx_type = normalise_cdsl_tx_type(desc_cell)
-            if tx_type is None:
-                continue
+                parsed_date = parse_date_cdsl(first_cell)
+                if not re.match(r"^\d{4}-\d{2}-\d{2}$", parsed_date):
+                    continue
 
-            units_val = _parse_float(row[cols["units"]] if cols.get("units") is not None and len(row) > (cols.get("units") or 0) else None)
-            nav_val = _parse_float(row[cols["nav"]] if cols.get("nav") is not None and len(row) > (cols.get("nav") or 0) else None)
-            amount_val = _parse_float(row[cols["amount"]] if cols.get("amount") is not None and len(row) > (cols.get("amount") or 0) else None)
+                # Col 1: description
+                desc = cells[1] if len(cells) > 1 else ""
+                tx_type = normalise_cdsl_tx_type(desc)
+                if tx_type is None:
+                    continue
 
-            if units_val is None or units_val == 0:
-                continue
+                # Cols 2+ (numeric): amount[0], nav[1], price[2], units[3], stamp[4]...
+                # Preserve None for empty/dash cells so index positions stay aligned.
+                nums: list[float | None] = []
+                for c in cells[2:]:
+                    nums.append(_parse_float(c))
 
-            schemes_by_isin[current_isin]["transactions"].append({
-                "date": parsed_date,
-                "type": tx_type,
-                "description": desc_cell or tx_type.title(),
-                "amount": abs(amount_val) if amount_val is not None else 0.0,
-                "units": abs(units_val),
-                "nav": nav_val or 0.0,
-                "balance": None,
-            })
+                amount_val = nums[0] if len(nums) > 0 else None
+                nav_val = nums[1] if len(nums) > 1 else None
+                # Skip price col (same as NAV); units are at index 3
+                units_val = nums[3] if len(nums) > 3 else (nums[2] if len(nums) > 2 else None)
+
+                if not units_val:
+                    continue
+
+                schemes_by_isin[current_isin]["transactions"].append({
+                    "date": parsed_date,
+                    "type": tx_type,
+                    "description": desc or tx_type.title(),
+                    "amount": abs(amount_val) if amount_val is not None else 0.0,
+                    "units": abs(units_val),
+                    "nav": nav_val or 0.0,
+                    "balance": None,
+                })
 
     if not schemes_by_isin:
         return []
 
-    # Group schemes by folio number
     folio_schemes: dict[str, list[dict[str, Any]]] = {}
     for isin, scheme in schemes_by_isin.items():
-        folio_num = folio_by_isin.get(isin, "CDSL")
-        folio_schemes.setdefault(folio_num, []).append(scheme)
+        fn = folio_by_isin.get(isin, "CDSL")
+        folio_schemes.setdefault(fn, []).append(scheme)
 
     return [
-        {
-            "folio_number": folio_num,
-            "amc": None,
-            "schemes": [
-                {k: v for k, v in s.items() if k != "_scheme_code"}
-                for s in schemes
-            ],
-        }
-        for folio_num, schemes in folio_schemes.items()
+        {"folio_number": fn, "amc": None, "schemes": schemes}
+        for fn, schemes in folio_schemes.items()
     ]
 
 
@@ -482,7 +489,7 @@ def parse_cdsl_nsdl(pdf_bytes: bytes, password: str) -> dict[str, Any]:
 
     Raises:
         ValueError: If the PDF is not a CDSL/NSDL statement.
-        HoldingsOnlyError: If the statement has no transaction history.
+        HoldingsOnlyError: If the statement has schemes but no transaction history.
         Exception: If the PDF cannot be decrypted (wrong password).
     """
     try:
@@ -502,6 +509,12 @@ def parse_cdsl_nsdl(pdf_bytes: bytes, password: str) -> dict[str, Any]:
         logger.info("[cdsl-parser] detected %s CAS", cas_type.upper())
 
         isin_map = fetch_amfi_isin_map()
+        if not isin_map:
+            logger.warning(
+                "[cdsl-parser] AMFI map is empty (fetch failed?) — "
+                "scheme codes and categories will be unavailable"
+            )
+
         folios = extract_mf_folios(pdf, isin_map)
 
     total_transactions = sum(
@@ -510,7 +523,9 @@ def parse_cdsl_nsdl(pdf_bytes: bytes, password: str) -> dict[str, Any]:
         for s in f.get("schemes", [])
     )
 
-    if total_transactions == 0:
+    # Only raise if we found scheme blocks but zero transactions across all of them.
+    # A genuinely holdings-only statement has ISINs/folios but no transaction rows.
+    if folios and total_transactions == 0:
         raise HoldingsOnlyError(
             "This appears to be a holdings-only statement. Please download a Detailed CAS "
             "from CDSL/NSDL to include your transaction history."

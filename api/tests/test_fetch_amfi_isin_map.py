@@ -34,16 +34,18 @@ def test_fetch_amfi_isin_map_returns_correct_mapping():
         result = fetch_amfi_isin_map()
 
     assert "INF846K01DP8" in result
-    assert result["INF846K01DP8"] == (119551, "Equity")
+    code, cat, name = result["INF846K01DP8"]
+    assert (code, cat) == (119551, "Equity")
+    assert "Axis Bluechip" in name
 
     assert "INF846K01VD5" in result
-    assert result["INF846K01VD5"] == (119551, "Equity")
+    assert result["INF846K01VD5"][:2] == (119551, "Equity")
 
     assert "INF179K01VK5" in result
-    assert result["INF179K01VK5"] == (120465, "Debt")
+    assert result["INF179K01VK5"][:2] == (120465, "Debt")
 
     assert "INF179K01VL3" in result
-    assert result["INF179K01VL3"] == (120465, "Debt")
+    assert result["INF179K01VL3"][:2] == (120465, "Debt")
 
 
 def test_fetch_amfi_isin_map_uses_cache():
