@@ -1,6 +1,6 @@
 import { BENCHMARK_OPTIONS, migratePersistedAppState } from '../appStore';
 
-const DEFAULT_RETURN_ASSUMPTIONS = { cautious: 8, balanced: 12, growth: 15 };
+const DEFAULT_RETURN_ASSUMPTIONS = { cautious: 8, balanced: 12, growth: 12 };
 
 const DEFAULT_WEALTH_JOURNEY = {
   hasOpened: false,

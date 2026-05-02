@@ -79,11 +79,13 @@ describe('computeGoalPlan', () => {
     });
   });
 
-  describe('growth preset requires less monthly than balanced', () => {
-    it('higher return = lower required SIP', () => {
-      const growth = computeGoalPlan({ ...BASE_INPUT, returnPreset: 'growth' });
-      const balanced = computeGoalPlan(BASE_INPUT);
-      expect(growth.requiredMonthly).toBeLessThan(balanced.requiredMonthly);
+  describe('higher return rate requires less monthly investment', () => {
+    it('higher custom rate = lower required SIP', () => {
+      const lowerRates = { cautious: 0.08, balanced: 0.12, growth: 0.12 };
+      const higherRates = { cautious: 0.08, balanced: 0.12, growth: 0.15 };
+      const atLower = computeGoalPlan({ ...BASE_INPUT, returnPreset: 'growth' }, lowerRates);
+      const atHigher = computeGoalPlan({ ...BASE_INPUT, returnPreset: 'growth' }, higherRates);
+      expect(atHigher.requiredMonthly).toBeLessThan(atLower.requiredMonthly);
     });
   });
 
@@ -194,14 +196,14 @@ describe('buildGoalProjectionSeries', () => {
 
 describe('assumptionsToRates', () => {
   it('converts percentage values to decimal rates', () => {
-    const rates = assumptionsToRates({ cautious: 8, balanced: 12, growth: 15 });
+    const rates = assumptionsToRates({ cautious: 8, balanced: 12, growth: 12 });
     expect(rates.cautious).toBeCloseTo(0.08, 10);
     expect(rates.balanced).toBeCloseTo(0.12, 10);
-    expect(rates.growth).toBeCloseTo(0.15, 10);
+    expect(rates.growth).toBeCloseTo(0.12, 10);
   });
 
   it('matches GOAL_RETURN_PRESET_RATES for default assumptions', () => {
-    const rates = assumptionsToRates({ cautious: 8, balanced: 12, growth: 15 });
+    const rates = assumptionsToRates({ cautious: 8, balanced: 12, growth: 12 });
     expect(rates.cautious).toBeCloseTo(GOAL_RETURN_PRESET_RATES.cautious, 10);
     expect(rates.balanced).toBeCloseTo(GOAL_RETURN_PRESET_RATES.balanced, 10);
     expect(rates.growth).toBeCloseTo(GOAL_RETURN_PRESET_RATES.growth, 10);

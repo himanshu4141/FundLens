@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -74,6 +75,7 @@ export function ClearLensGoalSummaryScreen() {
   const chartWidth = windowWidth - ClearLensSpacing.md * 2;
 
   function confirmDelete() {
+    const goalId = goal!.id;
     Alert.alert(
       'Delete goal',
       `Remove "${goal!.name}"? This cannot be undone.`,
@@ -83,8 +85,8 @@ export function ClearLensGoalSummaryScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            deleteGoal(goal!.id);
             router.back();
+            deleteGoal(goalId);
           },
         },
       ],
@@ -98,7 +100,10 @@ export function ClearLensGoalSummaryScreen() {
       <ClearLensHeader
         title={goal.name}
         onPressBack={() => router.back()}
-        rightAction={{ icon: 'trash-outline', onPress: confirmDelete, tint: ClearLensColors.negative }}
+        rightAction={{
+          icon: 'pencil-outline',
+          onPress: () => router.push({ pathname: '/tools/goal-planner/create', params: { editId: goal.id } }),
+        }}
       />
 
       <ScrollView
@@ -131,6 +136,11 @@ export function ClearLensGoalSummaryScreen() {
             returnAssumptions={returnAssumptions}
           />
         )}
+
+        <TouchableOpacity style={styles.deleteRow} onPress={confirmDelete} activeOpacity={0.75}>
+          <Ionicons name="trash-outline" size={16} color={ClearLensColors.negative} />
+          <Text style={styles.deleteText}>Delete goal</Text>
+        </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
           Results are estimates only. Assumed return: {returnAssumptions[goal.returnPreset]}% p.a. ({presetLabel}). Past performance is not indicative of future returns.
@@ -653,6 +663,18 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
   },
 
+  deleteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.xs,
+    paddingVertical: ClearLensSpacing.sm,
+  },
+  deleteText: {
+    fontFamily: ClearLensFonts.medium,
+    fontSize: 14,
+    color: ClearLensColors.negative,
+  },
   disclaimer: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,

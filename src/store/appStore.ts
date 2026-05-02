@@ -37,7 +37,7 @@ export interface ReturnAssumptions {
 export const DEFAULT_RETURN_ASSUMPTIONS: ReturnAssumptions = {
   cautious: 8,
   balanced: 12,
-  growth: 15,
+  growth: 12,
 };
 
 function sanitizeReturnAssumptions(raw: unknown): ReturnAssumptions {

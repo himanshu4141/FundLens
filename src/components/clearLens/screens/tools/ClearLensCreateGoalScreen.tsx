@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ClearLensHeader, ClearLensScreen, ClearLensSegmentedControl } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
   ClearLensColors,
@@ -20,6 +20,7 @@ import {
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
 import { useAppStore, type GoalReturnPreset } from '@/src/store/appStore';
+import { yearsFromNow } from '@/src/utils/goalPlanner';
 
 const PRESET_OPTIONS: { value: GoalReturnPreset; label: string }[] = [
   { value: 'cautious', label: 'Cautious' },
@@ -29,14 +30,21 @@ const PRESET_OPTIONS: { value: GoalReturnPreset; label: string }[] = [
 
 export function ClearLensCreateGoalScreen() {
   const router = useRouter();
-  const { addGoal, returnAssumptions } = useAppStore();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const { goals, addGoal, updateGoal, returnAssumptions } = useAppStore();
 
-  const [name, setName] = useState('');
-  const [targetStr, setTargetStr] = useState('');
-  const [yearsStr, setYearsStr] = useState('10');
-  const [lumpSumStr, setLumpSumStr] = useState('');
-  const [currentMonthlyStr, setCurrentMonthlyStr] = useState('');
-  const [returnPreset, setReturnPreset] = useState<GoalReturnPreset>('balanced');
+  const editGoal = editId ? (goals.find((g) => g.id === editId) ?? null) : null;
+  const isEditing = editGoal !== null;
+
+  const [name, setName] = useState(() => editGoal?.name ?? '');
+  const [targetStr, setTargetStr] = useState(() => editGoal ? String(editGoal.targetAmount) : '');
+  const [yearsStr, setYearsStr] = useState(() => {
+    if (!editGoal?.targetDate) return '10';
+    return String(Math.max(1, Math.round(yearsFromNow(editGoal.targetDate))));
+  });
+  const [lumpSumStr, setLumpSumStr] = useState(() => editGoal?.lumpSum ? String(editGoal.lumpSum) : '');
+  const [currentMonthlyStr, setCurrentMonthlyStr] = useState(() => editGoal?.currentMonthly ? String(editGoal.currentMonthly) : '');
+  const [returnPreset, setReturnPreset] = useState<GoalReturnPreset>(() => editGoal?.returnPreset ?? 'balanced');
 
   const presetRate = returnAssumptions[returnPreset];
 
@@ -49,22 +57,27 @@ export function ClearLensCreateGoalScreen() {
     if (!isValid) return;
 
     const targetDate = toTargetDate(years);
-
-    addGoal({
+    const fields = {
       name: name.trim(),
       targetAmount,
       targetDate,
       lumpSum: parseRupees(lumpSumStr),
       currentMonthly: parseRupees(currentMonthlyStr),
       returnPreset,
-    });
+    };
+
+    if (isEditing) {
+      updateGoal(editGoal!.id, fields);
+    } else {
+      addGoal(fields);
+    }
 
     router.back();
   }
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="New Goal" onPressBack={() => router.back()} />
+      <ClearLensHeader title={isEditing ? 'Edit Goal' : 'New Goal'} onPressBack={() => router.back()} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -168,7 +181,7 @@ export function ClearLensCreateGoalScreen() {
             activeOpacity={0.8}
             disabled={!isValid}
           >
-            <Text style={styles.saveButtonText}>Save Goal</Text>
+            <Text style={styles.saveButtonText}>{isEditing ? 'Save Changes' : 'Save Goal'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

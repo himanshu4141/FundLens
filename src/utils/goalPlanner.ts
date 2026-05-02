@@ -6,7 +6,7 @@ export type { GoalReturnPreset };
 export const GOAL_RETURN_PRESET_RATES: Record<GoalReturnPreset, number> = {
   cautious: 0.08,
   balanced: 0.12,
-  growth: 0.15,
+  growth: 0.12,
 };
 
 export function assumptionsToRates(
