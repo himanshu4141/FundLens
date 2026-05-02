@@ -87,6 +87,18 @@ def normalize_casparser_result(raw: dict[str, Any]) -> dict[str, Any]:
     return {"mutual_funds": mutual_funds}
 
 
+def _detection_text(pdf: pdfplumber.PDF) -> str:
+    """Concatenate text from the first 3 pages for CAS-type detection.
+
+    CDSL/NSDL PDFs sometimes have a cover/disclaimer as page 1 that contains
+    no "CDSL"/"NSDL" marker; those strings appear on page 2 or 3.
+    """
+    parts: list[str] = []
+    for page in pdf.pages[:3]:
+        parts.append(page.extract_text() or "")
+    return "\n".join(parts)
+
+
 def parse_cas_pdf_bytes(
     pdf_bytes: bytes,
     password: str,
@@ -95,28 +107,29 @@ def parse_cas_pdf_bytes(
     """Parse a CAS PDF, auto-detecting whether it is CAMS/KFintech or CDSL/NSDL.
 
     Strategy:
-    1. Try to open with `password` (PAN).  Extract first-page text.
+    1. Try to open with `password`. Extract first 3 pages of text for detection.
        If open fails AND cdsl_password provided → try cdsl_password.
-    2. Scan first-page text for "CDSL"/"NSDL" markers.
+    2. Scan extracted text for "CDSL"/"NSDL" markers.
        Matching → route to CDSL/NSDL parser.
        Not matching → route to casparser (CAMS/KFintech/MFCentral).
+       If casparser also fails → fall back to CDSL/NSDL parser as last resort.
     """
     working_password: str | None = None
-    first_page_text = ""
+    detection_text = ""
 
-    # Try PAN password first
+    # Try primary password first
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes), password=password) as pdf:
-            first_page_text = pdf.pages[0].extract_text() or "" if pdf.pages else ""
+            detection_text = _detection_text(pdf)
         working_password = password
     except Exception:
         pass
 
-    # Fall back to CDSL password if PAN open failed
+    # Fall back to CDSL password if primary open failed
     if working_password is None and cdsl_password:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes), password=cdsl_password) as pdf:
-                first_page_text = pdf.pages[0].extract_text() or "" if pdf.pages else ""
+                detection_text = _detection_text(pdf)
             working_password = cdsl_password
         except Exception:
             pass
@@ -129,14 +142,30 @@ def parse_cas_pdf_bytes(
             "Make sure both are saved in Settings → Account."
         )
 
-    cas_type = detect_cdsl_nsdl(first_page_text)
-    logger.info("[cas-parser] detected cas_type=%s, password_source=%s", cas_type, "pan" if working_password == password else "cdsl")
+    cas_type = detect_cdsl_nsdl(detection_text)
+    logger.info(
+        "[cas-parser] detected cas_type=%s, password_source=%s",
+        cas_type,
+        "primary" if working_password == password else "cdsl",
+    )
 
     if cas_type in ("cdsl", "nsdl"):
         return parse_cdsl_nsdl(pdf_bytes, working_password)
 
-    # CAMS / KFintech / MFCentral path — use casparser with the PAN password
-    raw = casparser.read_cas_pdf(io.BytesIO(pdf_bytes), password, output="dict")
+    # CAMS / KFintech / MFCentral path — use casparser with the primary password
+    try:
+        raw = casparser.read_cas_pdf(io.BytesIO(pdf_bytes), password, output="dict")
+    except Exception as exc:
+        # casparser can't handle CDSL/NSDL PDFs. If the text we extracted looks
+        # like it might be a demat CAS (has ISINs starting with INF), try our
+        # CDSL/NSDL parser as a fallback before surfacing the error.
+        import re as _re
+        if _re.search(r"INF[A-Z0-9]{9}", detection_text):
+            logger.warning(
+                "[cas-parser] casparser failed and text contains ISINs — retrying with CDSL/NSDL parser"
+            )
+            return parse_cdsl_nsdl(pdf_bytes, working_password)
+        raise exc
 
     if hasattr(raw, "model_dump"):
         raw = raw.model_dump(mode="json")
