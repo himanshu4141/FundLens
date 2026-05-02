@@ -18,6 +18,7 @@ import {
  *  - `deleteCalls`  — each array is the ordered [col, val] pairs passed to
  *                     .eq() on a single delete chain (one entry per reversal).
  *  - `upsertedRows` — the rows array passed to the transaction .upsert() call.
+ *  - `fundUpdateCalls` — args passed to user_fund .update() (inactive marking)
  */
 function buildMockSupabase({
   fundId = 'fund-id-1',
@@ -37,13 +38,12 @@ function buildMockSupabase({
   const deleteCalls: Array<Array<[string, unknown]>> = [];
   let upsertedRows: Record<string, unknown>[] = [];
   let upsertedSchemeRow: Record<string, unknown> | null = null;
+  const fundUpdateCalls: Array<Record<string, unknown>> = [];
 
   function makeDeleteChain(): Record<string, unknown> {
     const eqLog: Array<[string, unknown]> = [];
     deleteCalls.push(eqLog);
 
-    // Each .eq() logs its args and returns the same chain.
-    // `await chain` resolves because await on a non-thenable returns the value.
     const chain: Record<string, unknown> = {};
     chain['eq'] = jest.fn((col: string, val: unknown) => {
       eqLog.push([col, val]);
@@ -62,6 +62,10 @@ function buildMockSupabase({
   const singleMock = jest.fn(() => ({ data: { id: fundId }, error: null }));
   const userFundSelectMock = jest.fn(() => ({ single: singleMock }));
   const userFundUpsertMock = jest.fn(() => ({ select: userFundSelectMock }));
+  const userFundUpdateMock = jest.fn((data: Record<string, unknown>) => {
+    fundUpdateCalls.push(data);
+    return { eq: jest.fn(() => ({ error: null })) };
+  });
   const schemeMasterUpsertMock = jest.fn((row: Record<string, unknown>) => {
     upsertedSchemeRow = row;
     return { error: schemeMasterError };
@@ -72,7 +76,7 @@ function buildMockSupabase({
   const fromMock = jest.fn((table: string) => {
     if (table === 'benchmark_mapping') return { select: benchmarkSelectMock };
     if (table === 'scheme_master') return { upsert: schemeMasterUpsertMock };
-    if (table === 'user_fund') return { upsert: userFundUpsertMock };
+    if (table === 'user_fund') return { upsert: userFundUpsertMock, update: userFundUpdateMock };
     if (table === 'transaction') return { delete: deleteMock, upsert: txUpsertMock };
     return {};
   });
@@ -83,13 +87,15 @@ function buildMockSupabase({
     deleteMock,
     deleteCalls,
     txUpsertMock,
+    userFundUpdateMock,
+    fundUpdateCalls,
     getUpsertedRows: () => upsertedRows,
     getUpsertedSchemeRow: () => upsertedSchemeRow,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Minimal CAS payload helper
+// Minimal CAS payload helpers
 // ---------------------------------------------------------------------------
 
 function minimalCAS(transactions: CASTransaction[]): CASParseResult {
@@ -101,6 +107,23 @@ function minimalCAS(transactions: CASTransaction[]): CASParseResult {
         name: 'DSP Small Cap Fund - Regular Plan - Growth',
         isin: 'INF740K01601',
         type: 'Equity',
+        additional_info: { amfi: '119551' },
+        transactions,
+      }],
+    }],
+  };
+}
+
+function minimalCASWithUnits(units: number, transactions: CASTransaction[]): CASParseResult {
+  return {
+    mutual_funds: [{
+      folio_number: '12345678/01',
+      amc: 'DSP Mutual Fund',
+      schemes: [{
+        name: 'DSP Small Cap Fund - Regular Plan - Growth',
+        isin: 'INF740K01601',
+        type: 'Equity',
+        units,
         additional_info: { amfi: '119551' },
         transactions,
       }],
@@ -166,21 +189,10 @@ describe('normaliseTxType()', () => {
     });
   });
 
-  // ── REVERSAL — the critical bug fix ────────────────────────────────────────
-  describe('REVERSAL (failed-payment undo)', () => {
-    it('maps REVERSAL → redemption so units are subtracted, not added', () => {
-      expect(normaliseTxType('REVERSAL')).toBe('redemption');
-    });
-
-    it('is case-insensitive for REVERSAL', () => {
-      expect(normaliseTxType('reversal')).toBe('redemption');
-      expect(normaliseTxType('Reversal')).toBe('redemption');
-    });
-  });
-
   // ── Types that must return null (skipped, not imported) ───────────────────
   describe('non-actionable types → null', () => {
     it.each([
+      'REVERSAL',
       'SEGREGATION',
       'STAMP_DUTY_TAX',
       'TDS_TAX',
@@ -189,6 +201,11 @@ describe('normaliseTxType()', () => {
       'UNKNOWN',
     ])('maps %s → null', (input) => {
       expect(normaliseTxType(input)).toBeNull();
+    });
+
+    it('maps REVERSAL case-insensitively to null', () => {
+      expect(normaliseTxType('reversal')).toBeNull();
+      expect(normaliseTxType('Reversal')).toBeNull();
     });
 
     it('maps an empty string → null (not purchase)', () => {
@@ -235,7 +252,6 @@ describe('parseDate()', () => {
   });
 
   it('returns a string for an empty input', () => {
-    // Falls back to today's date — just verify it is a non-empty string
     const result = parseDate('');
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
@@ -315,45 +331,67 @@ describe('importCASData()', () => {
   });
 
   // ── REVERSAL handling ──────────────────────────────────────────────────────
+  // casparser often returns REVERSAL rows with null units (the original bug).
+  // The fix: match on amount (always present) instead of units; exclude both
+  // the REVERSAL row AND its paired PURCHASE from the transaction upsert.
 
-  it('maps REVERSAL → redemption type in the upserted row', async () => {
-    const { supabase, getUpsertedRows } = buildMockSupabase();
+  it('excludes both REVERSAL and its paired PURCHASE from the upserted rows', async () => {
+    const { supabase, txUpsertMock } = buildMockSupabase();
 
+    // Realistic case: purchase + reversal on the same date, same amount magnitude
     const parsed = minimalCAS([
-      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
-      { date: '2024-01-15', type: 'REVERSAL', units: -100, amount: -10000, nav: 100 },
+      { date: '2024-01-10', type: 'PURCHASE', units: 155, amount: 24999, nav: 161 },
+      { date: '2024-01-10', type: 'REVERSAL', units: -155, amount: -24999, nav: 161 },
     ]);
 
     await importCASData(supabase, 'user-1', 'import-1', parsed);
 
-    const rows = getUpsertedRows();
-    const reversalRow = rows.find((r) => r.transaction_date === '2024-01-15');
-    expect(reversalRow).toBeDefined();
-    expect(reversalRow!.transaction_type).toBe('redemption');
-    expect(reversalRow!.units).toBe(100);   // Math.abs applied
-    expect(reversalRow!.amount).toBe(10000); // Math.abs applied
+    // No transaction rows should be upserted — both sides of the reversal are excluded
+    expect(txUpsertMock).not.toHaveBeenCalled();
   });
 
-  it('issues a compensating delete for a REVERSAL to remove the previously mis-imported purchase row', async () => {
+  it('key fix: REVERSAL with null units still excludes its paired PURCHASE via amount-based match', async () => {
+    // This was the original phantom-units bug: casparser returns null units for
+    // REVERSAL rows, so the old code's `if (revUnits > 0)` guard skipped both the
+    // deletion and the redemption-import — leaving the PURCHASE as a phantom holding.
+    const { supabase, deleteMock, deleteCalls, txUpsertMock } = buildMockSupabase();
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 155, amount: 24999, nav: 161 },
+      { date: '2024-01-10', type: 'REVERSAL', units: undefined, amount: -24999, nav: 161 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    // Deletion must still fire (amount-based, not unit-based)
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    const eqPairs = deleteCalls[0];
+    expect(eqPairs).toContainEqual(['transaction_type', 'purchase']);
+    expect(eqPairs).toContainEqual(['amount', 24999]);
+
+    // No transaction rows upserted — paired purchase is excluded
+    expect(txUpsertMock).not.toHaveBeenCalled();
+  });
+
+  it('delete chain matches on date and amount (not units) to handle null-unit reversals', async () => {
     const { supabase, deleteMock, deleteCalls } = buildMockSupabase();
 
     const parsed = minimalCAS([
       { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
-      { date: '2024-01-15', type: 'REVERSAL', units: -100, amount: -10000, nav: 100 },
+      { date: '2024-01-10', type: 'REVERSAL', units: -100, amount: -10000, nav: 100 },
     ]);
 
     await importCASData(supabase, 'user-1', 'import-1', parsed);
 
-    // Exactly one delete chain — one REVERSAL in the CAS
     expect(deleteMock).toHaveBeenCalledTimes(1);
-
-    // The delete targets 'purchase' rows matching the reversal's date/units/amount
     const eqPairs = deleteCalls[0];
-    expect(eqPairs).toContainEqual(['transaction_type', 'purchase']);
-    expect(eqPairs).toContainEqual(['transaction_date', '2024-01-15']);
-    expect(eqPairs).toContainEqual(['units', 100]);
-    expect(eqPairs).toContainEqual(['amount', 10000]);
     expect(eqPairs).toContainEqual(['fund_id', 'fund-id-1']);
+    expect(eqPairs).toContainEqual(['transaction_date', '2024-01-10']);
+    expect(eqPairs).toContainEqual(['transaction_type', 'purchase']);
+    expect(eqPairs).toContainEqual(['amount', 10000]);
+    // Units NOT part of the delete key — amount alone is sufficient
+    const colNames = eqPairs.map(([col]) => col);
+    expect(colNames).not.toContain('units');
   });
 
   it('issues one delete per REVERSAL when multiple reversals are present', async () => {
@@ -361,14 +399,32 @@ describe('importCASData()', () => {
 
     const parsed = minimalCAS([
       { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
-      { date: '2024-01-15', type: 'REVERSAL', units: -100, amount: -10000, nav: 100 },
+      { date: '2024-01-10', type: 'REVERSAL', units: -100, amount: -10000, nav: 100 },
       { date: '2024-02-05', type: 'PURCHASE', units: 50, amount: 6000, nav: 120 },
-      { date: '2024-02-08', type: 'REVERSAL', units: -50, amount: -6000, nav: 120 },
+      { date: '2024-02-05', type: 'REVERSAL', units: undefined, amount: -6000, nav: 120 },
     ]);
 
     await importCASData(supabase, 'user-1', 'import-1', parsed);
 
     expect(deleteMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not exclude a purchase that is not paired with any reversal', async () => {
+    const { supabase, getUpsertedRows } = buildMockSupabase();
+
+    // Real purchase on 01-Jan; reversal on 05-Mar of a different purchase
+    const parsed = minimalCAS([
+      { date: '2024-01-01', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 }, // ← kept
+      { date: '2024-03-05', type: 'PURCHASE', units: 50, amount: 6000, nav: 120 },   // ← excluded
+      { date: '2024-03-05', type: 'REVERSAL', units: undefined, amount: -6000, nav: 120 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    const rows = getUpsertedRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].transaction_date).toBe('2024-01-01');
+    expect(rows[0].transaction_type).toBe('purchase');
   });
 
   it('does not issue a delete when there are no REVERSALs', async () => {
@@ -384,6 +440,54 @@ describe('importCASData()', () => {
     expect(deleteMock).not.toHaveBeenCalled();
   });
 
+  // ── Inactive-fund marking when closing units = 0 ──────────────────────────
+
+  it('marks fund inactive when closing units are 0 and all transactions are reversed', async () => {
+    const { supabase, userFundUpdateMock, txUpsertMock, fundUpdateCalls } = buildMockSupabase();
+
+    // Closing balance 0 + all transactions are a reversal pair → never actually owned
+    const parsed = minimalCASWithUnits(0, [
+      { date: '2024-01-10', type: 'PURCHASE', units: 155, amount: 24999, nav: 161 },
+      { date: '2024-01-10', type: 'REVERSAL', units: undefined, amount: -24999, nav: 161 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    expect(userFundUpdateMock).toHaveBeenCalledTimes(1);
+    expect(fundUpdateCalls[0]).toMatchObject({ is_active: false });
+    // No transaction upsert should happen
+    expect(txUpsertMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT mark inactive when closing units are 0 but real transactions exist (full redemption)', async () => {
+    const { supabase, userFundUpdateMock, getUpsertedRows } = buildMockSupabase();
+
+    // Fully redeemed fund: real purchase + real redemption, closing = 0
+    const parsed = minimalCASWithUnits(0, [
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+      { date: '2024-06-01', type: 'REDEMPTION', units: 100, amount: 14000, nav: 140 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    // Real transactions remain → is_active NOT set to false
+    expect(userFundUpdateMock).not.toHaveBeenCalled();
+    expect(getUpsertedRows()).toHaveLength(2);
+  });
+
+  it('does NOT mark inactive when mf.units is undefined (no closing balance in CAS)', async () => {
+    const { supabase, userFundUpdateMock } = buildMockSupabase();
+
+    // No units field — should not trigger inactive marking
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    expect(userFundUpdateMock).not.toHaveBeenCalled();
+  });
+
   // ── Null-type filtering ────────────────────────────────────────────────────
 
   it.each([
@@ -393,8 +497,9 @@ describe('importCASData()', () => {
     ['MISC', 0, 0],
     ['UNKNOWN', 0, 0],
     ['SEGREGATION', 10, 0],   // non-zero units — must still be skipped
+    ['REVERSAL', 100, 10000], // REVERSAL with no paired purchase — excluded by type filter
   ])('filters out %s transactions (null type, never imported)', async (type, units, amount) => {
-    const { supabase, getUpsertedRows, txUpsertMock } = buildMockSupabase();
+    const { supabase, getUpsertedRows } = buildMockSupabase();
 
     const parsed = minimalCAS([
       { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
@@ -404,10 +509,6 @@ describe('importCASData()', () => {
     await importCASData(supabase, 'user-1', 'import-1', parsed);
 
     const rows = getUpsertedRows();
-    // Only the PURCHASE row should be upserted
-    expect(rows).toHaveLength(1);
-    expect(rows[0].transaction_type).toBe('purchase');
-    // No null transaction_type should exist
     expect(rows.every((r) => r.transaction_type !== null)).toBe(true);
   });
 
@@ -447,7 +548,6 @@ describe('importCASData()', () => {
 
     const result = await importCASData(supabase, 'user-1', 'import-1', parsed);
 
-    // Nothing was upserted — fund was skipped
     expect(fromMock).not.toHaveBeenCalledWith('user_fund');
     expect(result.fundsUpdated).toBe(0);
   });
@@ -455,7 +555,6 @@ describe('importCASData()', () => {
   it('records an error when the fund upsert fails and continues to next scheme', async () => {
     const { supabase } = buildMockSupabase();
 
-    // Override the user-fund upsert to fail
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       if (table === 'benchmark_mapping') return { select: jest.fn(() => ({ data: [] })) };
       if (table === 'scheme_master') {
@@ -468,6 +567,7 @@ describe('importCASData()', () => {
               single: jest.fn(() => ({ data: null, error: { message: 'DB error' } })),
             })),
           })),
+          update: jest.fn(() => ({ eq: jest.fn(() => ({ error: null })) })),
         };
       }
       return {};

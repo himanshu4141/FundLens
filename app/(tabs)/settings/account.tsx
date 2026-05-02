@@ -32,10 +32,15 @@ import {
 async function fetchProfile(userId: string) {
   const { data } = await supabase
     .from('user_profile')
-    .select('pan, kfintech_email')
+    .select('pan, kfintech_email, dob')
     .eq('user_id', userId)
     .maybeSingle();
   return data ?? null;
+}
+
+function formatDob(iso: string): string {
+  const [yyyy, mm, dd] = iso.split('-');
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 export default function AccountScreen() {
@@ -121,6 +126,25 @@ export default function AccountScreen() {
               </View>
               <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
                 <Text style={styles.actionBtnText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!isLoading && (
+            <View style={[styles.row, styles.borderTop]}>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowLabel}>Date of Birth</Text>
+                <Text style={styles.rowValue}>
+                  {profile?.dob ? formatDob(profile.dob) : 'Not set'}
+                </Text>
+                {!profile?.dob && (
+                  <Text style={styles.rowSub}>
+                    Required for CDSL/NSDL CAS imports
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
+                <Text style={styles.actionBtnText}>{profile?.dob ? 'Edit' : 'Add'}</Text>
               </TouchableOpacity>
             </View>
           )}

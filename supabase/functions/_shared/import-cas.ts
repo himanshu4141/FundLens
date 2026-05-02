@@ -108,13 +108,11 @@ export function normaliseTxType(raw: string): string | null {
   if (upper === 'SWITCH_OUT' || upper === 'SWITCH_OUT_MERGER') return 'switch_out';
   if (upper === 'DIVIDEND_REINVEST') return 'dividend_reinvest';
   if (upper === 'DIVIDEND_PAYOUT') return 'dividend';
-  // A reversal undoes a prior purchase (failed payment return) — treat as redemption
-  // so units are subtracted rather than added to the holding.
-  if (upper === 'REVERSAL') return 'redemption';
 
   // SEGREGATION, STAMP_DUTY_TAX, TDS_TAX, STT_TAX, MISC, UNKNOWN — not meaningful
   // for portfolio accounting; skip rather than default to 'purchase'.
   if (
+    upper === 'REVERSAL' ||
     upper === 'SEGREGATION' ||
     upper === 'STAMP_DUTY_TAX' ||
     upper === 'TDS_TAX' ||
@@ -218,27 +216,45 @@ export async function importCASData(
       fundsUpdated++;
       console.log('[import-cas] upserted fund %d "%s"', schemeCode, mf.name);
 
-      // For any REVERSAL transactions, delete the previously mis-imported 'purchase'
-      // row (same fund, date, units, amount) so re-imports fix existing bad data.
-      const reversals = (mf.transactions ?? []).filter(
-        (tx) => (tx.type ?? '').toUpperCase().trim() === 'REVERSAL',
-      );
-      for (const rev of reversals) {
-        const revUnits = Math.abs(rev.units ?? 0);
-        const revAmount = Math.abs(rev.amount ?? 0);
-        if (revUnits > 0) {
-          await supabase
-            .from('transaction')
-            .delete()
-            .eq('fund_id', fundRow.id as string)
-            .eq('transaction_date', parseDate(rev.date ?? ''))
-            .eq('transaction_type', 'purchase')
-            .eq('units', revUnits)
-            .eq('amount', revAmount);
+      // Build a set of reversed-purchase keys keyed by "date:amount".
+      // casparser often returns REVERSAL rows with null units, so we match on
+      // amount (always present) rather than units to find the paired purchase.
+      const reversedKeys = new Set<string>();
+      for (const tx of mf.transactions ?? []) {
+        if ((tx.type ?? '').toUpperCase().trim() === 'REVERSAL') {
+          const date = parseDate(tx.date ?? '');
+          const amount = Math.abs(tx.amount ?? 0);
+          if (amount > 0) reversedKeys.add(`${date}:${amount}`);
         }
       }
 
+      // Delete previously-imported purchase rows that have since been reversed
+      // (handles re-imports where the purchase exists from a prior import run).
+      for (const key of reversedKeys) {
+        const [date, amountStr] = key.split(':');
+        await supabase
+          .from('transaction')
+          .delete()
+          .eq('fund_id', fundRow.id as string)
+          .eq('transaction_date', date)
+          .eq('transaction_type', 'purchase')
+          .eq('amount', parseFloat(amountStr));
+        console.log('[import-cas] deleted reversed purchase for fund %d on %s amount=%s', schemeCode, date, amountStr);
+      }
+
+      // Exclude REVERSAL rows and their paired PURCHASE rows from import.
+      // Both represent a transaction that never settled — importing either
+      // would create phantom units in the portfolio.
       const txRows = (mf.transactions ?? [])
+        .filter((tx) => {
+          const type = (tx.type ?? '').toUpperCase().trim();
+          if (type === 'REVERSAL') return false;
+          if (type === 'PURCHASE' || type === 'PURCHASE_SIP') {
+            const key = `${parseDate(tx.date ?? '')}:${Math.abs(tx.amount ?? 0)}`;
+            if (reversedKeys.has(key)) return false;
+          }
+          return true;
+        })
         .map((tx) => ({
           user_id: userId,
           fund_id: fundRow.id as string,
@@ -251,6 +267,18 @@ export async function importCASData(
           cas_import_id: importId,
         }))
         .filter((tx) => tx.units > 0 && tx.transaction_type !== null);
+
+      // If the CAS closing balance is 0 and no real transactions remain after
+      // filtering reversals, this fund was never actually owned (e.g. failed SIP).
+      // Mark it inactive so it doesn't pollute the active portfolio.
+      if ((mf.units ?? null) === 0 && txRows.length === 0) {
+        await supabase
+          .from('user_fund')
+          .update({ is_active: false })
+          .eq('id', fundRow.id as string);
+        console.log('[import-cas] fund %d has 0 closing units and no real txns — marked inactive', schemeCode);
+        continue;
+      }
 
       if (txRows.length > 0) {
         const { error: txErr, count } = await supabase

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
@@ -16,7 +17,9 @@ import {
   uploadAsync,
 } from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
+import { useSession } from '@/src/hooks/useSession';
 import Logo from '@/src/components/Logo';
 import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
 import { Radii, Spacing, Typography } from '@/src/constants/theme';
@@ -39,7 +42,11 @@ function getParseCasPdfUrl() {
   return `${supabaseUrl}/functions/v1/parse-cas-pdf`;
 }
 
-function getUploadHeaders(token: string, fileName: string): Record<string, string> {
+function getUploadHeaders(
+  token: string,
+  fileName: string,
+  customPassword?: string,
+): Record<string, string> {
   const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!publishableKey) throw new Error('Supabase publishable key is not configured.');
 
@@ -48,6 +55,7 @@ function getUploadHeaders(token: string, fileName: string): Record<string, strin
     apikey: publishableKey,
     'Content-Type': 'application/octet-stream',
     'x-file-name': fileName,
+    ...(customPassword ? { 'x-password-override': customPassword } : {}),
   };
 }
 
@@ -133,12 +141,29 @@ async function uploadNativePdf(
 
 export default function PDFScreen() {
   const router = useRouter();
+  const { session } = useSession();
   const { colors: Colors } = useTheme();
   const { isClearLens } = useAppDesignMode();
   const styles = useMemo(() => makeStyles(Colors, isClearLens), [Colors, isClearLens]);
   const [state, setState] = useState<UploadState>('idle');
   const [result, setResult] = useState<{ funds: number; transactions: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [customPassword, setCustomPassword] = useState('');
+
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', session?.user.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_profile')
+        .select('dob')
+        .eq('user_id', session!.user.id)
+        .maybeSingle();
+      return data ?? null;
+    },
+    enabled: !!session?.user.id,
+  });
+
+  const dobMissing = !profile?.dob;
 
   function goBackToImportOptions() {
     router.replace('/onboarding');
@@ -175,7 +200,7 @@ export default function PDFScreen() {
       if (!token) throw new Error('Session expired. Please sign in again.');
 
       const fnUrl = getParseCasPdfUrl();
-      const headers = getUploadHeaders(token, asset.name ?? 'cas.pdf');
+      const headers = getUploadHeaders(token, asset.name ?? 'cas.pdf', customPassword.trim() || undefined);
       const uploadResult = Platform.OS === 'web'
         ? await uploadWebPdf(asset, fnUrl, headers)
         : await uploadNativePdf(asset, fnUrl, headers);
@@ -222,6 +247,8 @@ export default function PDFScreen() {
         <Text style={styles.infoItem}>• CAMS CAS (password = your PAN)</Text>
         <Text style={styles.infoItem}>• KFintech / Karvy CAS (password = your PAN)</Text>
         <Text style={styles.infoItem}>• MFcentral CAS (password = your PAN)</Text>
+        <Text style={styles.infoItem}>• CDSL CAS (password = PAN + date of birth, e.g. ABCDE1234F01011990)</Text>
+        <Text style={styles.infoItem}>• NSDL CAS (password = PAN + date of birth, e.g. ABCDE1234F01011990)</Text>
       </View>
 
       <View style={styles.panel}>
@@ -239,13 +266,57 @@ export default function PDFScreen() {
           <Text style={styles.bold}>MFcentral: </Text>
           mfcentral.com → CAS → Detailed → Download PDF
         </Text>
+        <Text style={styles.howStep}>
+          <Text style={styles.bold}>CDSL: </Text>
+          cvlkra.com → CAS → Request → Download PDF
+        </Text>
+        <Text style={styles.howStep}>
+          <Text style={styles.bold}>NSDL: </Text>
+          eservices.nsdl.com → CAS → Request → Download PDF
+        </Text>
       </View>
 
       <View style={styles.panNote}>
         <Text style={styles.panNoteText}>
-          Make sure your PAN is saved in import settings first. We use it as the PDF password.
+          For CAMS/KFintech/MFCentral: PDF password = your PAN.{'\n'}
+          For CDSL/NSDL: PDF password = PAN + date of birth (set both in Settings → Account).
         </Text>
       </View>
+
+      <View style={styles.panel}>
+        <Text style={styles.sectionLabel}>Custom password</Text>
+        <Text style={styles.infoTitle}>Different PDF password?</Text>
+        <Text style={styles.infoItem}>
+          Leave this blank — your PAN (and date of birth for CDSL/NSDL) are used automatically.
+          Only fill this in if your PDF was sent with a different password.
+        </Text>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Enter PDF password"
+          placeholderTextColor={Colors.textSecondary}
+          value={customPassword}
+          onChangeText={setCustomPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={state !== 'uploading'}
+        />
+      </View>
+
+      {dobMissing && (
+        <View style={styles.dobWarning}>
+          <Text style={styles.dobWarningTitle}>Date of birth not set</Text>
+          <Text style={styles.dobWarningText}>
+            CDSL/NSDL imports require your date of birth. Add it in Settings → Account.
+          </Text>
+          <TouchableOpacity
+            style={styles.dobWarningBtn}
+            onPress={() => router.push('/(tabs)/settings/account')}
+          >
+            <Text style={styles.dobWarningBtnText}>Go to Account Settings</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {state === 'success' && result && (
         <View style={styles.successCard}>
@@ -352,6 +423,17 @@ function makeStyles(Colors: AppColors, isClearLens: boolean) {
   howStep: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.textSecondary },
   bold: { fontWeight: '700' },
 
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: isClearLens ? ClearLensRadii.md : Radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    marginTop: 4,
+  },
   panNote: {
     marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
     backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
@@ -399,5 +481,25 @@ function makeStyles(Colors: AppColors, isClearLens: boolean) {
 
   backLink: { alignItems: 'center', paddingVertical: 4 },
   backLinkText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
+
+  dobWarning: {
+    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
+    padding: isClearLens ? ClearLensSpacing.md : Spacing.md,
+    gap: 8,
+  },
+  dobWarningTitle: { fontSize: 14, fontWeight: '700', color: '#92400e' },
+  dobWarningText: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: '#78350f' },
+  dobWarningBtn: {
+    backgroundColor: '#f59e0b',
+    borderRadius: isClearLens ? ClearLensRadii.full : Radii.md,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start' as const,
+  },
+  dobWarningBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   });
 }
