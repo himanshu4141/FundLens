@@ -6,7 +6,7 @@ Automate the user's manual mutual-fund composition review by surfacing portfolio
 
 ## User Value
 
-Before this work, the user was downloading monthly or quarterly disclosure files, stitching them together in spreadsheets, and manually deriving portfolio exposure views. This milestone moves that work into FundLens so the user can:
+Before this work, the user was downloading monthly or quarterly disclosure files, stitching them together in spreadsheets, and manually deriving portfolio exposure views. This milestone moves that work into FolioLens so the user can:
 
 1. See an aggregate view of what their portfolio owns.
 2. Distinguish between estimated composition and real disclosure-backed composition.
@@ -14,7 +14,7 @@ Before this work, the user was downloading monthly or quarterly disclosure files
 
 ## Context
 
-FundLens already had:
+FolioLens already had:
 
 - portfolio valuation, XIRR, and benchmark comparison via `usePortfolio`
 - fund detail analytics and benchmarking

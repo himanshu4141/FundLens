@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/src/lib/supabase';
 import { canShowDevAuthShortcut, getDevAuthCredentials } from '@/src/lib/devAuth';
 import Logo from '@/src/components/Logo';
-import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
 import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
@@ -162,7 +162,7 @@ export default function SignInScreen() {
             colors={[ClearLensColors.navy, ClearLensColors.slate]}
             style={clStyles.hero}
           >
-            <FundLensLogo size={36} light showWordmark />
+            <FolioLensLogo size={36} light showWordmark />
 
             <View style={clStyles.heroTextBlock}>
               <Text style={clStyles.heroHeadline}>

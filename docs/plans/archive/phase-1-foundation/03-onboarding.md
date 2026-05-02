@@ -7,7 +7,7 @@ Complete
 
 ## Goal
 
-Enable a user to connect their mutual fund portfolio to FundLens by forwarding a CAS email through CASParser.in. After setup, every future CAS email they forward will automatically import their transactions — no manual data entry required.
+Enable a user to connect their mutual fund portfolio to FolioLens by forwarding a CAS email through CASParser.in. After setup, every future CAS email they forward will automatically import their transactions — no manual data entry required.
 
 Also provides two manual fallback paths: MFcentral QR code (instructions) and PDF upload (instructions, parser TBD).
 

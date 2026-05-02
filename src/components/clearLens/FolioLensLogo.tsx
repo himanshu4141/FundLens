@@ -11,7 +11,7 @@ interface FocusRingLogoMarkProps {
   light?: boolean;
 }
 
-interface FundLensLogoProps extends FocusRingLogoMarkProps {
+interface FolioLensLogoProps extends FocusRingLogoMarkProps {
   showWordmark?: boolean;
   showTagline?: boolean;
 }
@@ -24,7 +24,7 @@ export function FocusRingLogoMark({ size = 32, light = false }: FocusRingLogoMar
       width={size}
       height={size}
       viewBox="0 0 64 64"
-      accessibilityLabel="FundLens"
+      accessibilityLabel="FolioLens"
       accessibilityRole="image"
     >
       <Path
@@ -68,12 +68,12 @@ export function FocusRingLogoMark({ size = 32, light = false }: FocusRingLogoMar
   );
 }
 
-export function FundLensLogo({
+export function FolioLensLogo({
   size = 32,
   light = false,
   showWordmark = true,
   showTagline = false,
-}: FundLensLogoProps) {
+}: FolioLensLogoProps) {
   const wordmarkColor = light ? ClearLensColors.textOnDark : ClearLensColors.navy;
   const taglineColor = light ? ClearLensColors.lightGrey : ClearLensColors.slate;
 
@@ -88,7 +88,7 @@ export function FundLensLogo({
               { color: wordmarkColor, fontSize: Math.max(20, size * 0.52), lineHeight: Math.max(24, size * 0.62) },
             ]}
           >
-            FundLens
+            FolioLens
           </Text>
           {showTagline && (
             <Text style={[styles.tagline, { color: taglineColor }]}>

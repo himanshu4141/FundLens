@@ -22,7 +22,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const MFDATA_USER_AGENT = 'Mozilla/5.0 (compatible; FundLens/1.0; +https://fundlens.app)';
+const MFDATA_USER_AGENT = 'Mozilla/5.0 (compatible; FolioLens/1.0; +https://foliolens.app)';
 
 const META_STALE_DAYS = 7;
 

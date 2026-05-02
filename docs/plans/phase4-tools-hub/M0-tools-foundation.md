@@ -2,17 +2,17 @@
 
 ## Goal
 
-Create the structural foundation for a Tools Hub in FundLens. This milestone introduces a Tools Hub screen and entry points from existing screens (Wealth Journey and Portfolio). No tools are fully built here — the goal is the shell, navigation, feature flags, and coming-soon states so every subsequent milestone (M1–M4) has a consistent home to land in.
+Create the structural foundation for a Tools Hub in FolioLens. This milestone introduces a Tools Hub screen and entry points from existing screens (Wealth Journey and Portfolio). No tools are fully built here — the goal is the shell, navigation, feature flags, and coming-soon states so every subsequent milestone (M1–M4) has a consistent home to land in.
 
 
 ## User Value
 
-A novice investor using FundLens today can view their portfolio and project future wealth, but has no single place to find planning or comparison tools. M0 creates that home. After this milestone, a user can tap "Explore tools" from the Wealth Journey screen (or a Tools shortcut from Portfolio quick actions), land on a clean Tools Hub screen, and see the tools that are available now vs coming soon — all within the Clear Lens design system.
+A novice investor using FolioLens today can view their portfolio and project future wealth, but has no single place to find planning or comparison tools. M0 creates that home. After this milestone, a user can tap "Explore tools" from the Wealth Journey screen (or a Tools shortcut from Portfolio quick actions), land on a clean Tools Hub screen, and see the tools that are available now vs coming soon — all within the Clear Lens design system.
 
 
 ## Context
 
-FundLens is an Expo React Native app with TypeScript, Expo Router, Supabase, and Zustand. Clear Lens is the default design mode (shipped in Phase 3). The feature-flag system is implemented via `useAppDesignMode` and the `appStore` Zustand store.
+FolioLens is an Expo React Native app with TypeScript, Expo Router, Supabase, and Zustand. Clear Lens is the default design mode (shipped in Phase 3). The feature-flag system is implemented via `useAppDesignMode` and the `appStore` Zustand store.
 
 **Repository layout relevant to this plan:**
 
@@ -41,9 +41,9 @@ src/
 
 docs/
   product/
-    fundlens-tools-hub-prd.md        — PRD (source of truth)
-    fundlens-tools-hub-project-plan.md
-    fundlens-tools-hub-design.png    — design mockup reference image
+    foliolens-tools-hub-prd.md        — PRD (source of truth)
+    foliolens-tools-hub-project-plan.md
+    foliolens-tools-hub-design.png    — design mockup reference image
   plans/
     phase4-tools-hub/
       M0-tools-foundation.md    — this file
@@ -74,7 +74,7 @@ Tools is a stack route (`app/tools.tsx`), not a tab. It is reached via deep-link
 4. Feature flags are stored in the Zustand store, not Supabase, so they are local-only for now.
 5. Coming-soon state replaces a full sheet/modal — a simple inline message inside the card is sufficient.
 6. No analytics events are wired in M0 (analytics system not confirmed to exist).
-7. The design image `docs/product/fundlens-tools-hub-design.png` is the visual reference. Numbers shown in mockups are illustrative; real data comes from existing portfolio hooks.
+7. The design image `docs/product/foliolens-tools-hub-design.png` is the visual reference. Numbers shown in mockups are illustrative; real data comes from existing portfolio hooks.
 
 
 ## Definitions

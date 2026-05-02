@@ -16,7 +16,7 @@ Magic-link sign-in requires leaving the app, opening an email client, and tappin
 ## Context
 
 
-FundLens uses Supabase Auth exclusively. Prior to this milestone, the only sign-in method is a magic link (OTP email). The app runs on three platforms — iOS, Android, and Web — and the auth flow differs meaningfully between them:
+FolioLens uses Supabase Auth exclusively. Prior to this milestone, the only sign-in method is a magic link (OTP email). The app runs on three platforms — iOS, Android, and Web — and the auth flow differs meaningfully between them:
 
 - **Web**: The browser can follow a redirect chain directly. Supabase handles the callback automatically when `detectSessionInUrl: true` is set in the client config.
 - **Native (iOS/Android)**: The app cannot follow redirect chains through the system browser without losing the process. Instead, `expo-web-browser` opens a secure in-app browser session (`openAuthSessionAsync`) that monitors for a specific URL scheme and returns the callback URL to the calling code.
@@ -31,8 +31,8 @@ All packages needed (`expo-web-browser`, `expo-linking`) were already in the pro
 
 1. The Supabase project exists and is accessible.
 2. A Google Cloud Console project with OAuth 2.0 credentials has been created (or will be created as part of setup).
-3. The production URL is `https://fund-lens.vercel.app`.
-4. The `fundlens://` deep-link scheme is already registered in `app.json` (it is, under `expo.scheme`).
+3. The production URL is `https://foliolens.vercel.app`.
+4. The `foliolens://` deep-link scheme is already registered in `app.json` (it is, under `expo.scheme`).
 5. Vercel preview deployments use subdomains of `*.vercel.app`.
 
 
@@ -85,16 +85,16 @@ All packages needed (`expo-web-browser`, `expo-linking`) were already in the pro
     → returns data.url (Google OAuth URL)
 
 [native]
-  openAuthSessionAsync(data.url, 'fundlens://')
+  openAuthSessionAsync(data.url, 'foliolens://')
     → embedded browser opens → user authenticates → Google redirects to
-      https://fund-lens.vercel.app/auth/callback?code=...
-    → callback page detects mobile UA → window.location.replace('fundlens://auth/callback?code=...')
-    → openAuthSessionAsync sees fundlens:// → returns { type: 'success', url: 'fundlens://auth/callback?code=...' }
+      https://foliolens.vercel.app/auth/callback?code=...
+    → callback page detects mobile UA → window.location.replace('foliolens://auth/callback?code=...')
+    → openAuthSessionAsync sees foliolens:// → returns { type: 'success', url: 'foliolens://auth/callback?code=...' }
   parseOAuthCode(result.url) → code
   router.push('/auth/callback?code=...')
 
 [app/auth/callback.tsx — native]
-  supabase.auth.exchangeCodeForSession('fundlens://auth/callback?code=...')
+  supabase.auth.exchangeCodeForSession('foliolens://auth/callback?code=...')
     → Supabase retrieves code verifier from AsyncStorage
     → exchanges code for session
   check session.user.identities → detect auto-link
@@ -173,7 +173,7 @@ After Google sign-in, detect whether Supabase auto-linked an existing account.
 Files: `app/auth/callback.tsx`
 
 Acceptance criteria:
-- When `session.user.identities` contains both `email` and `google`, show "Google account connected to your existing FundLens account" message.
+- When `session.user.identities` contains both `email` and `google`, show "Google account connected to your existing FolioLens account" message.
 - When email already exists and OAuth fails, show "Account already exists" error with "Sign in with email instead" button.
 
 
@@ -205,13 +205,13 @@ Prerequisite: `http://localhost:8081/auth/callback` must be added to Supabase �
 
 ### End-to-end: native (dev build or installed app)
 
-1. Install a native build that has `fundlens://` registered (any `eas build` output or the production app).
+1. Install a native build that has `foliolens://` registered (any `eas build` output or the production app).
 2. Apply the OTA update via `eas update --branch pr-{N}` or use the QR code from the PR comment.
 3. Open the app → sign-in screen → "Continue with Google".
 4. In-app browser opens. Sign in with Google.
 5. Browser closes automatically. App shows `/(tabs)`.
 
-Note: Expo Go cannot be used because it does not register the `fundlens://` scheme.
+Note: Expo Go cannot be used because it does not register the `foliolens://` scheme.
 
 
 ### Connect Google from Settings
@@ -228,7 +228,7 @@ Note: Expo Go cannot be used because it does not register the `fundlens://` sche
 1. Create an account via magic link with email `test@example.com`.
 2. Sign out.
 3. Tap "Continue with Google" with a Google account that uses `test@example.com`.
-4. If Supabase auto-linking is enabled: callback screen briefly shows "Google account connected to your existing FundLens account", then `/(tabs)` loads with original data intact.
+4. If Supabase auto-linking is enabled: callback screen briefly shows "Google account connected to your existing FolioLens account", then `/(tabs)` loads with original data intact.
 
 
 ### Tests
@@ -243,7 +243,7 @@ Expected: all tests pass, utils folder ≥ 95% lines/statements, 85% branches, 1
 
 | Risk | Mitigation |
 |---|---|
-| Supabase redirect URL not configured | `.env.example` documents all three required redirect URLs (production, Vercel wildcard, `fundlens://`). The sign-in will fail with a Supabase error if the URL is missing from the allowlist — the error message surfaces in the UI. |
+| Supabase redirect URL not configured | `.env.example` documents all three required redirect URLs (production, Vercel wildcard, `foliolens://`). The sign-in will fail with a Supabase error if the URL is missing from the allowlist — the error message surfaces in the UI. |
 | PKCE verifier lost between `signInWithOAuth` and `exchangeCodeForSession` | `openAuthSessionAsync` keeps the native app alive throughout the OAuth browser session, so the app process is never killed mid-flow. The verifier survives in AsyncStorage. |
 | Expo Go used for testing | PR preview comment explicitly warns that Expo Go does not support custom URL schemes and directs testers to use a native build or the Vercel web preview. |
 | Vercel preview URL not in Supabase allowlist | `.env.example` documents the `https://*.vercel.app/auth/callback` wildcard entry required for preview deployments. |
@@ -258,7 +258,7 @@ Expected: all tests pass, utils folder ≥ 95% lines/statements, 85% branches, 1
 Supabase defaults to PKCE for OAuth providers and the Supabase JS v2 client enforces it. Using implicit flow would require downgrading security and going against library defaults. Kept PKCE.
 
 **2026-04 — Bridge page pattern for native (same as existing magic-link)**
-The existing magic-link flow uses `https://fund-lens.vercel.app/auth/confirm` as a bridge: the HTTPS page detects a mobile user agent and redirects to `fundlens://`. The same pattern is used for the OAuth callback (`/auth/callback`). This ensures the in-app browser (which only shows HTTPS URLs) can redirect to the native scheme.
+The existing magic-link flow uses `https://foliolens.vercel.app/auth/confirm` as a bridge: the HTTPS page detects a mobile user agent and redirects to `foliolens://`. The same pattern is used for the OAuth callback (`/auth/callback`). This ensures the in-app browser (which only shows HTTPS URLs) can redirect to the native scheme.
 
 **2026-04 — `skipBrowserRedirect: true` on all platforms**
 Using `skipBrowserRedirect: true` means Supabase returns the OAuth URL without redirecting, giving the app explicit control. On web, the app then manually does `window.location.href = data.url`. On native, it opens the URL with `openAuthSessionAsync`. This uniform pattern makes the code easier to reason about.

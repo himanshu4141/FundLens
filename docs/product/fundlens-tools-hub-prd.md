@@ -1,18 +1,18 @@
-# FundLens Tools Hub PRD
+# FolioLens Tools Hub PRD
 
 ## 1. Feature name
 
 **Tools Hub**
 
-Tools Hub is a new section/layer in FundLens that groups practical investor tools under the Clear Lens design system.
+Tools Hub is a new section/layer in FolioLens that groups practical investor tools under the Clear Lens design system.
 
-The goal is to help novice mutual fund investors plan, compare, explore, and understand cost impact without turning FundLens into an advisory product or a finance terminal.
+The goal is to help novice mutual fund investors plan, compare, explore, and understand cost impact without turning FolioLens into an advisory product or a finance terminal.
 
 ---
 
 ## 2. Product context
 
-FundLens currently helps users understand:
+FolioLens currently helps users understand:
 
 - Current portfolio value
 - Portfolio return / XIRR
@@ -112,7 +112,7 @@ Use the existing **Clear Lens / Focus Ring** design system.
 
 Core style:
 
-- App name: FundLens
+- App name: FolioLens
 - Palette:
   - Navy: `#0A1430`
   - Slate: `#263248`
@@ -347,7 +347,7 @@ This is cost transparency, not advice.
 
 ### Why it matters
 
-Regular plans usually have higher expense ratios. Over time, the cost drag may become meaningful. FundLens should show this objectively at portfolio, fund, and tool level.
+Regular plans usually have higher expense ratios. Over time, the cost drag may become meaningful. FolioLens should show this objectively at portfolio, fund, and tool level.
 
 ### Initial data scope
 
@@ -579,7 +579,7 @@ No Morningstar dependency.
 
 ## 18. Advisory boundary
 
-FundLens should provide objective insight, not advice.
+FolioLens should provide objective insight, not advice.
 
 Allowed language:
 

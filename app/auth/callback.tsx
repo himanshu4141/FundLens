@@ -42,11 +42,11 @@ export default function OAuthCallbackScreen() {
     // ── Web path ──────────────────────────────────────────────────────────────
     if (Platform.OS === 'web') {
       // Bridge to native app only when running at the production native-bridge
-      // URL (fund-lens.vercel.app). Preview deployments serve the web app on a
+      // URL (foliolens.vercel.app). Preview deployments serve the web app on a
       // different hostname — mobile visitors there should get a web session, not
       // an app redirect.
       const ua = window.navigator.userAgent.toLowerCase();
-      const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
+      const isNativeBridgeHost = window.location.hostname === 'foliolens.vercel.app';
       if (/iphone|ipad|ipod|android/.test(ua) && isNativeBridgeHost) {
         // Preserve both query params and hash fragments. Supabase OAuth can
         // return either `?code=...` (PKCE) or `#access_token=...` (implicit).
@@ -67,7 +67,7 @@ export default function OAuthCallbackScreen() {
         desc.toLowerCase().includes('already');
       setErrorState({
         message: isDuplicate
-          ? 'This email already has a FundLens account created with email sign-in. Sign in with your magic link first, then connect Google from Settings → Connected Accounts.'
+          ? 'This email already has a FolioLens account created with email sign-in. Sign in with your magic link first, then connect Google from Settings → Connected Accounts.'
           : `Sign-in failed: ${desc}`,
         isDuplicate,
       });
@@ -122,7 +122,7 @@ export default function OAuthCallbackScreen() {
           const isDuplicate = error.message.toLowerCase().includes('already');
           setErrorState({
             message: isDuplicate
-              ? 'This email already has a FundLens account. Sign in with your magic link first, then connect Google from Settings → Connected Accounts.'
+              ? 'This email already has a FolioLens account. Sign in with your magic link first, then connect Google from Settings → Connected Accounts.'
               : `Sign-in failed: ${error.message}`,
             isDuplicate,
           });
@@ -201,7 +201,7 @@ export default function OAuthCallbackScreen() {
         <View style={[styles.messageCard, styles.successCard]}>
           <Text style={styles.cardTitle}>Google account connected</Text>
           <Text style={styles.cardBody}>
-            Your Google account has been connected to your existing FundLens account.
+            Your Google account has been connected to your existing FolioLens account.
             You can now sign in with either method.
           </Text>
         </View>

@@ -1,4 +1,4 @@
-# FundLens — Screens & Navigation
+# FolioLens — Screens & Navigation
 
 Clear Lens is the default app design. Classic remains available from Settings for fallback and comparison.
 
@@ -21,7 +21,7 @@ Secondary navigation:
 
 Screen families:
 
-- Clear Lens primary tabs use the FundLens focus-ring header, restrained bottom tabs, Inter typography, and tokenized card surfaces.
+- Clear Lens primary tabs use the FolioLens focus-ring header, restrained bottom tabs, Inter typography, and tokenized card surfaces.
 - Utility screens use a back-title header, Clear Lens cards, and plain-language import/status copy.
 - Classic screens remain behind the Settings design switch and should not inherit Clear Lens-only composition colors.
 

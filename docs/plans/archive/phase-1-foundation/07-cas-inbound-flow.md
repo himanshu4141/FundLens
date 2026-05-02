@@ -3,7 +3,7 @@
 
 ## Goal
 
-Replace the broken onboarding flow (which asked users to manually create a CASParser account and configure a webhook) with the correct CASParser inbound email API flow, where FundLens creates a unique forwarding address for each user and the user simply forwards their CAS email to it.
+Replace the broken onboarding flow (which asked users to manually create a CASParser account and configure a webhook) with the correct CASParser inbound email API flow, where FolioLens creates a unique forwarding address for each user and the user simply forwards their CAS email to it.
 
 
 ## User Value

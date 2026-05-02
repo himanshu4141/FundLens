@@ -1,5 +1,5 @@
 /**
- * FundLens design tokens — single source of truth for colours, spacing, and typography.
+ * FolioLens design tokens — single source of truth for colours, spacing, and typography.
  *
  * Palette: deep forest teal primary — growth, patience, long-term investing.
  * Teal is visually distinct from the semantic green (gains/losses) while

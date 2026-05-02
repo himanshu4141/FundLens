@@ -18,7 +18,7 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import Logo from '@/src/components/Logo';
-import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { Radii, Spacing, Typography } from '@/src/constants/theme';
 import { useTheme, type AppColors } from '@/src/context/ThemeContext';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
@@ -196,7 +196,7 @@ export default function PDFScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {isClearLens ? (
         <View style={[styles.hero, styles.heroClearLens]}>
-          <FundLensLogo size={44} showWordmark showTagline />
+          <FolioLensLogo size={44} showWordmark showTagline />
           <View style={styles.heroCopy}>
             <Text style={styles.title}>Upload a CAS PDF</Text>
             <Text style={styles.subtitle}>

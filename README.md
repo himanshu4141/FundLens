@@ -1,4 +1,4 @@
-# FundLens
+# FolioLens
 
 Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see XIRR, inspect composition, and model future outcomes.
 
@@ -18,7 +18,7 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 - **Shared scheme catalog** — scheme metadata and composition caches are now stored once per `scheme_code`, so future users can reuse known fund data instead of rebuilding duplicate per-user copies; the catalog also captures future-use `mfdata` fields like family linkage, declared benchmark text, risk label, Morningstar rating, and related variants
 - **Screen-family navigation** — Portfolio / Leaderboard / Wealth Journey are the primary tabs; Settings and Compare are hidden from the tab bar; utility screens use a lighter back-title header; Fund Detail relies on one clear history-aware back path
 - **Your Funds** — dedicated screen listing all holdings with shared fund cards, portfolio-allocation context, a mobile-friendly sort sheet, and in-memory sorting by current value, invested amount, XIRR, benchmark lead, or alphabetical order
-- **Clear Lens design mode** — Clear Lens is the default Focus Ring design; Settings can switch back to the current/classic design, and the choice persists across restarts while the app name remains FundLens
+- **Clear Lens design mode** — Clear Lens is the default Focus Ring design; Settings can switch back to the current/classic design, and the choice persists across restarts while the app name remains FolioLens
 - **Preview usage metrics** — EAS Insights support is enabled via `expo-insights`, so once the preview apps are rebuilt and installed you can see usage trends for the preview streams in Expo
 - **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
 - Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase migration replay validation on PRs, linked-project migration/schema validation before Supabase deploys on merge to main, and hardened preview publishing for Vercel / EAS export hangs
@@ -41,8 +41,8 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/FundLens.git
-cd FundLens
+git clone https://github.com/your-username/FolioLens.git
+cd FolioLens
 npm install
 ```
 
@@ -79,7 +79,7 @@ If you want to test the app end to end without waiting for magic-link emails or 
 
 ```env
 EXPO_PUBLIC_ENABLE_DEV_AUTH_BYPASS=true
-EXPO_PUBLIC_DEV_AUTH_EMAIL=demo@fundlens.local
+EXPO_PUBLIC_DEV_AUTH_EMAIL=demo@foliolens.local
 EXPO_PUBLIC_DEV_AUTH_PASSWORD=change-me-local-only
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
@@ -134,8 +134,8 @@ Recommended device setup during active development:
 
 - Install `preview-main` once as your stable shareable preview app
 - Install `preview-pr` once as your rolling PR review app
-- `main` merges publish OTA updates to the `main` stream for `FundLens Main`
-- PR commits publish OTA updates to the `pr-builds` stream for `FundLens PR`
+- `main` merges publish OTA updates to the `main` stream for `FolioLens Main`
+- PR commits publish OTA updates to the `pr-builds` stream for `FolioLens PR`
 
 ---
 
@@ -143,9 +143,9 @@ Recommended device setup during active development:
 
 1. Open the app → enter your email → tap "Send secure link →"
 2. Check your inbox → tap the link
-3. The link opens your installed FundLens app and signs you in automatically
+3. The link opens your installed FolioLens app and signs you in automatically
 
-The app scheme varies by installed build (`fundlens`, `fundlens-main`, `fundlens-pr`, etc.) and is configured in [app.config.js](/Users/hyadav/code/personal/FundLens/app.config.js).
+The app scheme varies by installed build (`foliolens`, `foliolens-main`, `foliolens-pr`, etc.) and is configured in [app.config.js](/Users/hyadav/code/personal/FolioLens/app.config.js).
 
 ---
 
@@ -167,25 +167,25 @@ Tap "Continue with Google" on the sign-in screen. The app opens an in-app browse
 
 - Go to Auth → Providers → Google → enable and paste the Client ID and Client Secret.
 - Go to Auth → URL Configuration:
-  - set `Site URL` to `https://fund-lens.vercel.app`
+  - set `Site URL` to `https://foliolens.vercel.app`
   - add these exact `Redirect URLs`:
 
   | Environment | URL |
   |---|---|
-  | Production web bridge | `https://fund-lens.vercel.app/auth/confirm` |
-  | Production web OAuth | `https://fund-lens.vercel.app/auth/callback` |
+  | Production web bridge | `https://foliolens.vercel.app/auth/confirm` |
+  | Production web OAuth | `https://foliolens.vercel.app/auth/callback` |
   | Vercel preview bridge | `https://fund-lens-*.vercel.app/auth/confirm` |
   | Vercel preview OAuth | `https://fund-lens-*.vercel.app/auth/callback` |
   | Local web dev bridge | `http://localhost:8081/auth/confirm` |
   | Local web dev OAuth | `http://localhost:8081/auth/callback` |
   | Local Expo web bridge | `http://localhost:19006/auth/confirm` |
   | Local Expo web OAuth | `http://localhost:19006/auth/callback` |
-  | Native production app bridge | `fundlens://auth/confirm` |
-  | Native production app OAuth | `fundlens://auth/callback` |
-  | Native main preview bridge | `fundlens-main://auth/confirm` |
-  | Native main preview OAuth | `fundlens-main://auth/callback` |
-  | Native PR preview bridge | `fundlens-pr://auth/confirm` |
-  | Native PR preview OAuth | `fundlens-pr://auth/callback` |
+  | Native production app bridge | `foliolens://auth/confirm` |
+  | Native production app OAuth | `foliolens://auth/callback` |
+  | Native main preview bridge | `foliolens-main://auth/confirm` |
+  | Native main preview OAuth | `foliolens-main://auth/callback` |
+  | Native PR preview bridge | `foliolens-pr://auth/confirm` |
+  | Native PR preview OAuth | `foliolens-pr://auth/callback` |
 
 Notes:
 - `/auth/confirm` is used by the magic-link/native bridge flow
@@ -212,7 +212,7 @@ Google OAuth on native requires a build that has the right app scheme registered
 
 | Trigger | Workflow | What it does |
 |---|---|---|
-| Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to the shared `pr-builds` stream for the installed `FundLens PR` app, posts update comment |
+| Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to the shared `pr-builds` stream for the installed `FolioLens PR` app, posts update comment |
 | Pull request | `supabase-validate.yml` | Rebuilds the local Supabase DB from migrations and lints the resulting public schema |
 | Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to both the shared `main` preview stream and the existing `production` stream |
 | Merge to main | Vercel (automatic) | `expo export --platform web` → deploys to Vercel |
@@ -234,7 +234,7 @@ Current setup:
 Practical implication:
 
 - rebuild and reinstall `preview-main` and `preview-pr` once after this change
-- after that, the `FundLens Main` preview app is the right stream to monitor for friend/family/focus-group usage
+- after that, the `FolioLens Main` preview app is the right stream to monitor for friend/family/focus-group usage
 
 **Required GitHub secrets:**
 - `EXPO_TOKEN` — from expo.dev → Account Settings → Access Tokens

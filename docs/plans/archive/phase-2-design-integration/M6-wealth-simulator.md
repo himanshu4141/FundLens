@@ -1,6 +1,6 @@
 # M6 — Wealth Simulator
 
-Superseded by [M11 — Wealth Journey Redesign](/Users/hyadav/code/personal/FundLens/docs/plans/phase-2-design-integration/M11-wealth-journey-redesign.md).
+Superseded by [M11 — Wealth Journey Redesign](/Users/hyadav/code/personal/FolioLens/docs/plans/phase-2-design-integration/M11-wealth-journey-redesign.md).
 
 ## Context
 

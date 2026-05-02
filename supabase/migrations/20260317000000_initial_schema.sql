@@ -1,5 +1,5 @@
 -- ============================================================
--- FundLens initial schema
+-- FolioLens initial schema
 -- ============================================================
 -- Conventions:
 --   - All user-owned tables have user_id + RLS enabled

@@ -31,7 +31,7 @@ WebBrowser.maybeCompleteAuthSession();
  *
  * Supabase magic links land at <scheme>://auth/confirm with the tokens in
  * the URL hash fragment, e.g.:
- *   fundlens-main://auth/confirm#access_token=xxx&refresh_token=yyy&type=magiclink
+ *   foliolens-main://auth/confirm#access_token=xxx&refresh_token=yyy&type=magiclink
  *
  * On native `detectSessionInUrl` is false so Supabase won't pick these up
  * automatically — we parse and forward them ourselves.

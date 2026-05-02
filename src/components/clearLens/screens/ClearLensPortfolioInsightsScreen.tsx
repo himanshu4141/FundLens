@@ -292,7 +292,7 @@ function PendingCard({ title, onSync, isSyncing }: { title: string; onSync: () =
     <ClearLensCard style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
       <Text style={styles.pendingText}>
-        FundLens will fill this from AMFI monthly portfolio disclosures.
+        FolioLens will fill this from AMFI monthly portfolio disclosures.
       </Text>
       <TouchableOpacity style={styles.syncButton} onPress={onSync} disabled={isSyncing}>
         {isSyncing ? (

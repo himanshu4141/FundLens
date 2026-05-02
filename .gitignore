@@ -13,7 +13,7 @@ expo-env.d.ts
 .playwright-mcp/
 #temp desing work
 funlens_design_concept/
-fundlens_design_concept/
+foliolens_design_concept/
 
 # Native builds
 android/
@@ -63,4 +63,4 @@ fixtures/private/
 # Misc
 *.pem
 .vercel
-fundlens-clear-lens/**
+foliolens-clear-lens/**

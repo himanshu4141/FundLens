@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     try {
       try {
         res = await fetch(`${MFAPI_BASE}/${schemeCode}`, {
-          headers: { 'User-Agent': 'FundLens/1.0' },
+          headers: { 'User-Agent': 'FolioLens/1.0' },
           signal: controller.signal,
         });
       } finally {

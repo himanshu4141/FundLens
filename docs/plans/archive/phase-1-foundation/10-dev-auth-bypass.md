@@ -4,7 +4,7 @@
 In progress
 
 ## Goal
-Allow a developer or coding agent to sign into FundLens quickly in development without waiting for a magic-link email, then land in a seeded demo portfolio that exercises the main app flows.
+Allow a developer or coding agent to sign into FolioLens quickly in development without waiting for a magic-link email, then land in a seeded demo portfolio that exercises the main app flows.
 
 ## User Value
 Today, local development depends on inbox access and a real portfolio. That slows implementation, makes autonomous testing hard, and couples routine UI checks to sensitive user data.
@@ -16,7 +16,7 @@ After this change, a developer can:
 - validate Home, Fund Detail, Compare, Settings, and onboarding-adjacent behavior without touching a real portfolio
 
 ## Context
-Production auth in FundLens is Supabase magic-link email auth. The app has no password login path today.
+Production auth in FolioLens is Supabase magic-link email auth. The app has no password login path today.
 
 The safest shortcut is not a fake auth system. It is:
 

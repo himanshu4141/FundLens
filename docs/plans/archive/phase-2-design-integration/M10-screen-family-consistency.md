@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make FundLens feel like one coherent product by standardising navigation chrome and high-frequency list interactions across related screen families, without forcing every screen into the same header pattern.
+Make FolioLens feel like one coherent product by standardising navigation chrome and high-frequency list interactions across related screen families, without forcing every screen into the same header pattern.
 
 
 ## User Value
@@ -64,7 +64,7 @@ Current implementation notes:
 
 The shared top bar used on top-level product destinations. It includes:
 
-- FundLens logo on the left
+- FolioLens logo on the left
 - one overflow action trigger on the right
 - no separate gear icon
 
@@ -317,7 +317,7 @@ That follow-on work changed:
 
 1. OTA publishing from per-PR branches to a shared `pr-builds` stream
 2. merge-to-main OTA publishing from `production` to a shared `main` preview stream
-3. Expo app config so `FundLens Main` and `FundLens PR` can be installed side by side with distinct package identifiers and deep-link schemes
+3. Expo app config so `FolioLens Main` and `FolioLens PR` can be installed side by side with distinct package identifiers and deep-link schemes
 
 This divergence is operational rather than product-UX driven, but it now lives on the same branch and should be tracked here for historical accuracy.
 

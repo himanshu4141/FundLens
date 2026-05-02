@@ -1,4 +1,4 @@
-# FundLens — ExecPlan Index
+# FolioLens — ExecPlan Index
 
 ---
 

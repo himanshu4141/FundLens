@@ -813,7 +813,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
       </View>
       <Text style={styles.emptyTitle}>Import your portfolio</Text>
       <Text style={styles.emptyText}>
-        Add your CAS once. FundLens will show SIP-aware returns, benchmark clarity, and your real progress.
+        Add your CAS once. FolioLens will show SIP-aware returns, benchmark clarity, and your real progress.
       </Text>
       <TouchableOpacity style={styles.primaryButton} onPress={onImport} activeOpacity={0.82}>
         <Text style={styles.primaryButtonText}>Import CAS</Text>
@@ -886,7 +886,7 @@ export function ClearLensPortfolioScreen() {
 
       {syncState === 'requested' && (
         <View style={styles.banner}>
-          <Text style={styles.bannerText}>CAS requested. Forward the email to your FundLens import address.</Text>
+          <Text style={styles.bannerText}>CAS requested. Forward the email to your FolioLens import address.</Text>
         </View>
       )}
       {syncState === 'error' && (

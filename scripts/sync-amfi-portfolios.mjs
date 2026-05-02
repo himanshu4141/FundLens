@@ -112,7 +112,7 @@ async function fetchJson(url) {
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { 'Accept': 'application/json', 'User-Agent': 'FundLens/1.0' },
+      headers: { 'Accept': 'application/json', 'User-Agent': 'FolioLens/1.0' },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();

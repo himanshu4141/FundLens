@@ -1,4 +1,4 @@
-# FundLens Tools Hub Project Plan
+# FolioLens Tools Hub Project Plan
 
 ## 1. Overview
 
@@ -103,7 +103,7 @@ Create the structural foundation for a Tools Hub without replacing Wealth Journe
 - Tapping an unavailable tool shows a calm coming-soon state.
 - No references to Morningstar or star ratings exist.
 - Bottom nav remains `Portfolio | Your Funds | Wealth Journey`.
-- App name remains FundLens.
+- App name remains FolioLens.
 - No product rename to Clear Lens.
 - Tests/build/lint pass.
 

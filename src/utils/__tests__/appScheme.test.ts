@@ -41,59 +41,59 @@ describe('appScheme helpers', () => {
 
   it('prefers expo extra appScheme when available', () => {
     constants.expoConfig = {
-      extra: { appScheme: 'fundlens-pr' },
-      scheme: 'fundlens',
+      extra: { appScheme: 'foliolens-pr' },
+      scheme: 'foliolens',
     };
 
-    expect(getAppScheme()).toBe('fundlens-pr');
+    expect(getAppScheme()).toBe('foliolens-pr');
   });
 
   it('falls back to expoConfig.scheme when extra appScheme is missing', () => {
     constants.expoConfig = {
-      scheme: 'fundlens-main',
+      scheme: 'foliolens-main',
     };
 
-    expect(getAppScheme()).toBe('fundlens-main');
+    expect(getAppScheme()).toBe('foliolens-main');
   });
 
   it('falls back to EXPO_PUBLIC_APP_SCHEME when expo config is unavailable', () => {
-    process.env.EXPO_PUBLIC_APP_SCHEME = 'fundlens-dev';
+    process.env.EXPO_PUBLIC_APP_SCHEME = 'foliolens-dev';
 
-    expect(getAppScheme()).toBe('fundlens-dev');
+    expect(getAppScheme()).toBe('foliolens-dev');
   });
 
-  it('defaults to fundlens when no override exists', () => {
-    expect(getAppScheme()).toBe('fundlens');
+  it('defaults to foliolens when no override exists', () => {
+    expect(getAppScheme()).toBe('foliolens');
   });
 
   it('builds the native auth origin from the resolved scheme', () => {
     constants.expoConfig = {
-      extra: { appScheme: 'fundlens-main' },
+      extra: { appScheme: 'foliolens-main' },
     };
 
-    expect(getNativeAuthOrigin()).toBe('fundlens-main://');
+    expect(getNativeAuthOrigin()).toBe('foliolens-main://');
   });
 
   it('builds confirm and callback bridge URLs with an encoded scheme', () => {
     constants.expoConfig = {
-      extra: { appScheme: 'fundlens pr' },
+      extra: { appScheme: 'foliolens pr' },
     };
 
     expect(getNativeBridgeUrl('/auth/confirm')).toBe(
-      'https://fund-lens.vercel.app/auth/confirm?scheme=fundlens%20pr',
+      'https://foliolens.vercel.app/auth/confirm?scheme=foliolens%20pr',
     );
     expect(getNativeBridgeUrl('/auth/callback')).toBe(
-      'https://fund-lens.vercel.app/auth/callback?scheme=fundlens%20pr',
+      'https://foliolens.vercel.app/auth/callback?scheme=foliolens%20pr',
     );
   });
 
   it('builds an HTTPS callback exchange URL when a native callback URL is missing', () => {
     constants.expoConfig = {
-      extra: { appScheme: 'fundlens-pr' },
+      extra: { appScheme: 'foliolens-pr' },
     };
 
     expect(getNativeExchangeCallbackUrl('abc+123')).toBe(
-      'https://fund-lens.vercel.app/auth/callback?scheme=fundlens-pr&code=abc%2B123',
+      'https://foliolens.vercel.app/auth/callback?scheme=foliolens-pr&code=abc%2B123',
     );
   });
 
@@ -101,8 +101,8 @@ describe('appScheme helpers', () => {
     expect(
       getNativeExchangeCallbackUrl(
         'ignored',
-        'fundlens-pr://auth/callback?code=abc123&state=xyz',
+        'foliolens-pr://auth/callback?code=abc123&state=xyz',
       ),
-    ).toBe('fundlens-pr://auth/callback?code=abc123&state=xyz');
+    ).toBe('foliolens-pr://auth/callback?code=abc123&state=xyz');
   });
 });

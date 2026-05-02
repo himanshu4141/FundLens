@@ -87,7 +87,7 @@ Replace `fetch(asset.uri)` with an `XMLHttpRequest` call. XHR's `responseType = 
 
 ### Auth preview guard
 
-Check `window.location.hostname === 'fund-lens.vercel.app'` before redirecting mobile browsers to the `fundlens://` scheme. Preview deployments use a different hostname and should complete the OAuth session in the browser.
+Check `window.location.hostname === 'foliolens.vercel.app'` before redirecting mobile browsers to the `foliolens://` scheme. Preview deployments use a different hostname and should complete the OAuth session in the browser.
 
 ### CI db push
 
@@ -207,7 +207,7 @@ PR raised from `claude/fix-portfolio-value-bug-2YLPO` → `main`.
 
 - **2026-04-27** — Chose to treat REVERSAL as `redemption` rather than a distinct new DB enum value. Rationale: redemption correctly subtracts units in the existing accounting model; introducing a new enum value would require a DB migration and UI handling. The economic effect is identical.
 - **2026-04-27** — Chose XHR over a React Native file-reading library for the Android PDF fix. Rationale: XHR is available in the existing RN WebView environment; no new dependency needed.
-- **2026-04-27** — Chose to scope the auth host guard to `fund-lens.vercel.app` hardcoded rather than an env var. Rationale: the production bridge URL is stable; an env var would require Vercel config changes for every preview deployment.
+- **2026-04-27** — Chose to scope the auth host guard to `foliolens.vercel.app` hardcoded rather than an env var. Rationale: the production bridge URL is stable; an env var would require Vercel config changes for every preview deployment.
 
 
 ## Progress

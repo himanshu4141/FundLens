@@ -27,8 +27,8 @@ Running app skeleton with:
 
 ### Auth
 - `src/hooks/useSession.ts` — Wraps `supabase.auth.onAuthStateChange`
-- Deep link scheme `fundlens://` in `app.json`
-- Supabase Auth redirect URL: `fundlens://auth/confirm`
+- Deep link scheme `foliolens://` in `app.json`
+- Supabase Auth redirect URL: `foliolens://auth/confirm`
 
 ### Supabase
 - `supabase/migrations/20260317000000_initial_schema.sql` — Full schema
@@ -71,7 +71,7 @@ Running app skeleton with:
 - `EXPO_TOKEN` — CI only, never in app bundle
 
 ## Risks addressed
-- Magic link deep link: `fundlens://` scheme configured in `app.json` + Supabase allow-list
+- Magic link deep link: `foliolens://` scheme configured in `app.json` + Supabase allow-list
 - Supabase new key format: using `PUBLISHABLE_KEY` not `ANON_KEY`
 - Android testing: EAS `preview` profile with `buildType: apk` for direct install
 

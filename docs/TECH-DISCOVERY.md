@@ -1,4 +1,4 @@
-# FundLens — Technical Discovery
+# FolioLens — Technical Discovery
 
 This document captures the outcome of the technical discovery session. It records the decisions made, the reasoning behind them, and the key findings from research. No implementation has started yet.
 

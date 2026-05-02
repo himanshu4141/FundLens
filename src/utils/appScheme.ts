@@ -10,7 +10,7 @@ export function getAppScheme(): string {
     return process.env.EXPO_PUBLIC_APP_SCHEME;
   }
 
-  return 'fundlens';
+  return 'foliolens';
 }
 
 export function getNativeAuthOrigin(): string {
@@ -19,7 +19,7 @@ export function getNativeAuthOrigin(): string {
 
 export function getNativeBridgeUrl(path: '/auth/confirm' | '/auth/callback'): string {
   const scheme = encodeURIComponent(getAppScheme());
-  return `https://fund-lens.vercel.app${path}?scheme=${scheme}`;
+  return `https://foliolens.vercel.app${path}?scheme=${scheme}`;
 }
 
 export function getNativeExchangeCallbackUrl(code: string, callbackUrl?: string): string {

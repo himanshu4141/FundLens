@@ -1,10 +1,10 @@
 /**
- * FundLens logo mark — a lens/circle enclosing an upward-trending sparkline.
+ * FolioLens logo mark — a lens/circle enclosing an upward-trending sparkline.
  * Rendered with react-native-svg so it is crisp at any screen density.
  *
  * Usage:
  *   <Logo size={48} />                   // icon only
- *   <Logo size={48} showWordmark />       // icon + "FundLens" wordmark beside it
+ *   <Logo size={48} showWordmark />       // icon + "FolioLens" wordmark beside it
  *   <Logo size={48} showWordmark light /> // white wordmark for dark backgrounds
  */
 

@@ -16,7 +16,7 @@ import {
   ClearLensSpacing,
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
-import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 
 export function ClearLensScreen({ children }: { children: ReactNode }) {
   return <SafeAreaView style={styles.screen}>{children}</SafeAreaView>;
@@ -54,7 +54,7 @@ export function ClearLensHeader({
           <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
         </TouchableOpacity>
       ) : (
-        <FundLensLogo size={34} showTagline={showTagline} />
+        <FolioLensLogo size={34} showTagline={showTagline} />
       )}
 
       {title ? <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text> : <View style={styles.headerSpacer} />}

@@ -21,7 +21,7 @@ const DEMO_PASSWORD =
   '';
 const DEMO_PAN = process.env.DEV_DEMO_PAN ?? 'ABCDE1234F';
 const DEMO_KFINTECH_EMAIL = process.env.DEV_DEMO_KFINTECH_EMAIL ?? 'demo-import@example.com';
-const DEMO_INBOUND_EMAIL = 'demo-inbound@fundlens.local';
+const DEMO_INBOUND_EMAIL = 'demo-inbound@foliolens.local';
 const DEMO_INBOUND_ID = 'demo-inbound-session';
 
 if (!SUPABASE_URL || !DEMO_EMAIL || !DEMO_PASSWORD) {

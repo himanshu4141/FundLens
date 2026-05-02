@@ -1,7 +1,7 @@
-# FundLens — Feature Roadmap
+# FolioLens — Feature Roadmap
 
 > Research-backed proposals for what to build next, in rough priority order.
-> Each feature is evaluated against the FundLens vision: answer the investor's key
+> Each feature is evaluated against the FolioLens vision: answer the investor's key
 > questions immediately, without jargon, without noise.
 
 ---
@@ -48,7 +48,7 @@ enough for the daily check.
   reviews after transaction history. Users want a verdict, not raw data.
 - A 2024 Vanguard study found investors who have a clear sense of "on-track vs.
   off-track" check their portfolio 40% less frequently and panic-sell 60% less.
-- Kuvera has goal-progress bars; FundLens can be the first to give a holistic
+- Kuvera has goal-progress bars; FolioLens can be the first to give a holistic
   performance score specifically for SIP investors.
 
 #### How it might look
@@ -107,7 +107,7 @@ Notification:
   Market: -1.1%  |  Your portfolio: -0.8%
   You outperformed today. 3 of 4 funds
   held up better than their benchmarks.
-  [Open FundLens]
+  [Open FolioLens]
 ```
 
 ---
@@ -134,7 +134,7 @@ needed.
 - India's 2024 Union Budget moved LTCG tax on equity funds from 10% to 12.5%, with
   grandfathering complexities — creating significant investor confusion.
 - Value Research and Kuvera both have capital gains reports but they require a separate
-  CAS download and manual upload each time. FundLens already has live transactions —
+  CAS download and manual upload each time. FolioLens already has live transactions —
   it can do this automatically.
 - r/IndiaInvestments: "Is there any app that tells me how much LTCG I'll owe before I
   redeem?" is asked ~monthly and has no satisfying answer.
@@ -180,7 +180,7 @@ present choices using real data they already trust.
 - Scripbox's "Goal Planner" is the most-cited positive review feature for that app.
   Users want to see "if I do X, will I reach Y?"
 - However Scripbox's planner uses assumed future returns (6–12% CAGR). Using actual
-  historical NAV data instead of assumed returns is more honest and maps to FundLens'
+  historical NAV data instead of assumed returns is more honest and maps to FolioLens'
   design principle of "no jargon / just the truth."
 - SIP investors who model scenarios are 3× more likely to increase their SIP amount
   (SBI Mutual Fund UX research, 2024) — an alignment incentive for any future
@@ -232,7 +232,7 @@ present choices using real data they already trust.
 **Vision alignment:** Expands the audience without changing the core experience.
 
 #### What it is
-A single FundLens account that can track portfolios for multiple family members
+A single FolioLens account that can track portfolios for multiple family members
 (spouse, parents) — each with their own PAN and CAS import but visible from one
 dashboard with an account switcher.
 

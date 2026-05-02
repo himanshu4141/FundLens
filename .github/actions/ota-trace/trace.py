@@ -53,7 +53,7 @@ def main() -> None:
     username = actor.get("username", "") if isinstance(actor, dict) else ""
     first_id = (ios or android or {}).get("id", "")
     eas_url = (
-        f"https://expo.dev/accounts/{username}/projects/fundlens/updates/{first_id}"
+        f"https://expo.dev/accounts/{username}/projects/foliolens/updates/{first_id}"
         if username and first_id
         else ""
     )
@@ -129,7 +129,7 @@ def _build_pr_comment(channel: str, ios: dict | None, android: dict | None,
 
     return (
         f"### EAS Preview Update\n\n"
-        f"Published to the shared **{channel}** stream for the installed **FundLens PR** preview app "
+        f"Published to the shared **{channel}** stream for the installed **FolioLens PR** preview app "
         f"(not Expo Go — native auth flows require a real build).\n\n"
         f"**OTA Update IDs** (latest first — search any ID in the app's About screen to "
         f"trace back to this PR):\n\n"

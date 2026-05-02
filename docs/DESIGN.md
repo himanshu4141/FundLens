@@ -1,8 +1,8 @@
-# FundLens Clear Lens Design
+# FolioLens Clear Lens Design
 
 ## Design Overview
 
-Clear Lens is the default FundLens interface. It is a calm mobile-first system for novice mutual fund investors: portfolio signal first, plain-language labels, restrained chrome, and consistent benchmark context.
+Clear Lens is the default FolioLens interface. It is a calm mobile-first system for novice mutual fund investors: portfolio signal first, plain-language labels, restrained chrome, and consistent benchmark context.
 
 Classic remains selectable in Settings.
 
@@ -65,7 +65,7 @@ Shared Clear Lens primitives live under `src/components/clearLens/`:
 - `ClearLensCard`
 - `ClearLensPill`
 - `ClearLensSegmentedControl`
-- `FundLensLogo`
+- `FolioLensLogo`
 
 Primary screens should compose these primitives before adding screen-specific styles.
 

@@ -151,7 +151,7 @@ export const useAppStore = create<AppStore>()(
       setDesignVariant: (variant: 'v1' | 'v2') => set({ designVariant: variant }),
     }),
     {
-      name: 'fundlens-app-store',
+      name: 'foliolens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

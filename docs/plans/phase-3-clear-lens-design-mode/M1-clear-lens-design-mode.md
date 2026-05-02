@@ -2,14 +2,14 @@
 
 ## Goal
 
-Implement Clear Lens as the default FundLens experience while preserving the current/classic app as a selectable fallback in Settings.
+Implement Clear Lens as the default FolioLens experience while preserving the current/classic app as a selectable fallback in Settings.
 
 The work starts a new execution-plan phase. Older execution plans are historical records and must not be amended for this redesign.
 
 
 ## User Value
 
-FundLens is built for novice mutual fund investors who want to know whether they are doing well without reading a dense finance dashboard. Clear Lens makes the app calmer, more visual, and more beginner-friendly while keeping the same calculations and navigation.
+FolioLens is built for novice mutual fund investors who want to know whether they are doing well without reading a dense finance dashboard. Clear Lens makes the app calmer, more visual, and more beginner-friendly while keeping the same calculations and navigation.
 
 A user should land in Clear Lens by default, open Settings to switch back to `Current design` if needed, restart the app, and see the selected design persist.
 
@@ -28,7 +28,7 @@ There is an older color-only Editorial theme toggle implemented as `designVarian
 
 The visual source of truth is the uploaded Focus Ring / Clear Lens design direction:
 
-- app name remains `FundLens`
+- app name remains `FolioLens`
 - Clear Lens / Focus Ring is the design direction, not the product name
 - palette: navy `#0A1430`, slate `#263248`, emerald `#10B981`, mint `#A7F3D0`, light grey `#E6EBF1`, background `#FAFBFD`
 - logo is a code-native SVG focus ring with an emerald upward signal
@@ -49,7 +49,7 @@ The visual source of truth is the uploaded Focus Ring / Clear Lens design direct
 
 **Classic design**
 
-The currently shipped FundLens design.
+The currently shipped FolioLens design.
 
 **Clear Lens design**
 
@@ -73,7 +73,7 @@ A portfolio chart with three INR-value series:
 1. Add a persistent Settings control for `appDesignMode: 'classic' | 'clearLens'`.
 2. Replace the old Editorial `designVariant` toggle and migrate old persisted or missing values to `clearLens`, except explicitly stored `classic`.
 3. Add Clear Lens tokens and reusable Clear Lens primitives.
-4. Implement the SVG Focus Ring / FundLens logo in code.
+4. Implement the SVG Focus Ring / FolioLens logo in code.
 5. Redesign the main Clear Lens screens:
    - Portfolio
    - Portfolio Insights
@@ -93,7 +93,7 @@ A portfolio chart with three INR-value series:
 
 ## Out of Scope
 
-1. Renaming FundLens to Clear Lens.
+1. Renaming FolioLens to Clear Lens.
 2. Shipping raster or base64 logo assets.
 3. Adding new investment advice, recommendations, tax reporting, broker integrations, or stock portfolio support.
 4. Changing Supabase database schema or deployed Edge Functions.
@@ -129,7 +129,7 @@ Classic tokens remain available to existing screens.
 Create reusable code-native SVG components:
 
 - icon-only focus ring mark
-- horizontal lockup with `FundLens`
+- horizontal lockup with `FolioLens`
 - optional tagline `FOCUS. COMPARE. GROW.`
 
 The logo mark uses navy segmented circular arcs, an emerald upward signal line, and an emerald focus dot. It must scale cleanly from small header size to large empty-state size.
@@ -139,7 +139,7 @@ The logo mark uses navy segmented circular arcs, an emerald upward signal line, 
 Portfolio:
 
 - Replace the old dense gradient dashboard with a light Clear Lens summary.
-- Show the FundLens header with Focus Ring logo.
+- Show the FolioLens header with Focus Ring logo.
 - Show total value, daily move, overall gain, SIP-aware return, and benchmark status.
 - Show benchmark options for Nifty 50, Nifty 100, and BSE Sensex.
 - Replace the old indexed portfolio-vs-market chart with the investment vs benchmark chart.
@@ -192,7 +192,7 @@ Keep old portfolio-vs-market chart available for classic mode.
 
 2. Hardcode the mockup values.
 
-   Rejected because FundLens must remain a real portfolio tracker. Mockup values guide visual QA, while live hooks provide product data.
+   Rejected because FolioLens must remain a real portfolio tracker. Mockup values guide visual QA, while live hooks provide product data.
 
 3. Restyle all existing components in place.
 
@@ -400,7 +400,7 @@ Expected automated result:
 ## Decision Log
 
 1. Clear Lens starts a new Phase 3 plan. Older ExecPlans are not amended.
-2. The app name remains FundLens.
+2. The app name remains FolioLens.
 3. Clear Lens / Focus Ring is a design direction, not a product rename.
 4. The old Editorial `designVariant` path is removed rather than preserved as a third mode.
 5. `appDesignMode` defaults to `clearLens`.

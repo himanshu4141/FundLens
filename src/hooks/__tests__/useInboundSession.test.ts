@@ -44,10 +44,10 @@ describe('fetchSession()', () => {
 
   it('returns the inbound email address when found', async () => {
     mockFrom.mockReturnValue(
-      makeChain({ data: { inbound_email_address: 'abc@import.fundlens.app' }, error: null }),
+      makeChain({ data: { inbound_email_address: 'abc@import.foliolens.app' }, error: null }),
     );
     const result = await fetchSession('user-1');
-    expect(result).toBe('abc@import.fundlens.app');
+    expect(result).toBe('abc@import.foliolens.app');
   });
 
   it('returns null when no session row exists', async () => {
@@ -72,11 +72,11 @@ describe('callCreateSession()', () => {
 
   it('returns the inbound email on success', async () => {
     mockInvoke.mockResolvedValue({
-      data: { inboundEmail: 'xyz@import.fundlens.app' },
+      data: { inboundEmail: 'xyz@import.foliolens.app' },
       error: null,
     });
     const result = await callCreateSession();
-    expect(result).toBe('xyz@import.fundlens.app');
+    expect(result).toBe('xyz@import.foliolens.app');
   });
 
   it('throws when the edge function returns an error', async () => {

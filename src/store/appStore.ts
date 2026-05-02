@@ -223,7 +223,7 @@ export const useAppStore = create<AppStore>()(
       toolsFlags: DEFAULT_TOOLS_FLAGS,
     }),
     {
-      name: 'fundlens-app-store',
+      name: 'foliolens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
       version: 3,
       migrate: migratePersistedAppState,

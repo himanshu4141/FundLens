@@ -1,4 +1,4 @@
-# FundLens Design System
+# FolioLens Design System
 
 ## Direction and Feel
 

@@ -20,7 +20,7 @@ import {
 } from '@/src/constants/clearLensTheme';
 
 const DESIGN_OPTIONS = [
-  { value: 'classic' as const, label: 'Current design', desc: 'Classic FundLens look' },
+  { value: 'classic' as const, label: 'Current design', desc: 'Classic FolioLens look' },
   { value: 'clearLens' as const, label: 'Clear Lens design', desc: 'New clean and minimal design' },
 ];
 

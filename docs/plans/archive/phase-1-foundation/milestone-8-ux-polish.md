@@ -2,9 +2,9 @@
 
 ## Goal
 
-Transform FundLens from a working MVP into a polished, professional product. The
+Transform FolioLens from a working MVP into a polished, professional product. The
 login experience especially felt like a hobby project. This milestone establishes a
-consistent visual language, introduces the FundLens brand mark, and upgrades every
+consistent visual language, introduces the FolioLens brand mark, and upgrades every
 screen's design quality — without changing any behaviour or data model.
 
 ## What changed
@@ -14,7 +14,7 @@ screen's design quality — without changing any behaviour or data model.
 | File | Purpose |
 |------|---------|
 | `src/constants/theme.ts` | Design tokens — colours, spacing, radii, typography |
-| `src/components/Logo.tsx` | FundLens SVG logo mark + optional wordmark |
+| `src/components/Logo.tsx` | FolioLens SVG logo mark + optional wordmark |
 
 ### Updated files
 

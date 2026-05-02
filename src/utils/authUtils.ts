@@ -2,7 +2,7 @@
  * Extract the PKCE authorization code from an OAuth callback URL.
  *
  * Works with both custom scheme and HTTPS URLs:
- *   fundlens://auth/callback?code=abc123
+ *   foliolens://auth/callback?code=abc123
  *   https://example.com/auth/callback?code=abc123
  *
  * Returns null if no code is present (error redirect or cancelled flow).

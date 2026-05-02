@@ -1,10 +1,10 @@
 # Clear Lens Handoff Parity Audit
 
-This audit records intentional divergences from `/Users/hyadav/Downloads/fundLens-clear-lens/project/FundLens.html` and its imports.
+This audit records intentional divergences from `/Users/hyadav/Downloads/fundLens-clear-lens/project/FolioLens.html` and its imports.
 
 | Source / artboard | Screen | Divergence | Reason | Impact | Follow-up |
 |---|---|---|---|---|---|
-| `fl-data.jsx` example values | All data screens | App renders live Supabase/demo portfolio values instead of prototype numbers. | FundLens must remain a real tracker. | Visual totals, fund names, and counts differ from the handoff. | None unless demo seed needs closer visual examples. |
+| `fl-data.jsx` example values | All data screens | App renders live Supabase/demo portfolio values instead of prototype numbers. | FolioLens must remain a real tracker. | Visual totals, fund names, and counts differ from the handoff. | None unless demo seed needs closer visual examples. |
 | `fl-components.jsx` SVG charts | Portfolio, Fund Detail, Wealth Journey | React Native uses `react-native-svg` and `react-native-gifted-charts` rather than copying browser SVG helpers. | Existing Expo app needs native/web-compatible chart components and pointer behavior. | Chart density and exact SVG labels can differ slightly. | Browser screenshot pass should tune density if needed. |
 | `fl-screens.jsx` Portfolio | Portfolio | Wealth Journey appears as the real primary tab and route rather than only as a teaser card in the prototype stack. | Main navigation has shipped Portfolio, Leaderboard, Wealth Journey. | Portfolio entries differ slightly from the static prototype. | Keep screen map aligned in `docs/SCREENS.md`. |
 | `fl-screens.jsx` Leaderboard stub | Leaderboard | Implemented a real Clear Lens leaderboard instead of the prototype placeholder. | The app already has benchmark-aware ranking behavior. | Visual design is extrapolated from Clear Lens card/chip primitives. | Screenshot QA should validate density and ranking readability. |
