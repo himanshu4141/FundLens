@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
@@ -41,7 +42,11 @@ function getParseCasPdfUrl() {
   return `${supabaseUrl}/functions/v1/parse-cas-pdf`;
 }
 
-function getUploadHeaders(token: string, fileName: string): Record<string, string> {
+function getUploadHeaders(
+  token: string,
+  fileName: string,
+  customPassword?: string,
+): Record<string, string> {
   const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!publishableKey) throw new Error('Supabase publishable key is not configured.');
 
@@ -50,6 +55,7 @@ function getUploadHeaders(token: string, fileName: string): Record<string, strin
     apikey: publishableKey,
     'Content-Type': 'application/octet-stream',
     'x-file-name': fileName,
+    ...(customPassword ? { 'x-password-override': customPassword } : {}),
   };
 }
 
@@ -142,6 +148,7 @@ export default function PDFScreen() {
   const [state, setState] = useState<UploadState>('idle');
   const [result, setResult] = useState<{ funds: number; transactions: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [customPassword, setCustomPassword] = useState('');
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', session?.user.id],
@@ -193,7 +200,7 @@ export default function PDFScreen() {
       if (!token) throw new Error('Session expired. Please sign in again.');
 
       const fnUrl = getParseCasPdfUrl();
-      const headers = getUploadHeaders(token, asset.name ?? 'cas.pdf');
+      const headers = getUploadHeaders(token, asset.name ?? 'cas.pdf', customPassword.trim() || undefined);
       const uploadResult = Platform.OS === 'web'
         ? await uploadWebPdf(asset, fnUrl, headers)
         : await uploadNativePdf(asset, fnUrl, headers);
@@ -274,6 +281,26 @@ export default function PDFScreen() {
           For CAMS/KFintech/MFCentral: PDF password = your PAN.{'\n'}
           For CDSL/NSDL: PDF password = PAN + date of birth (set both in Settings → Account).
         </Text>
+      </View>
+
+      <View style={styles.panel}>
+        <Text style={styles.sectionLabel}>Custom password</Text>
+        <Text style={styles.infoTitle}>Different PDF password?</Text>
+        <Text style={styles.infoItem}>
+          Leave this blank — your PAN (and date of birth for CDSL/NSDL) are used automatically.
+          Only fill this in if your PDF was sent with a different password.
+        </Text>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Enter PDF password"
+          placeholderTextColor={Colors.textSecondary}
+          value={customPassword}
+          onChangeText={setCustomPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={state !== 'uploading'}
+        />
       </View>
 
       {dobMissing && (
@@ -396,6 +423,17 @@ function makeStyles(Colors: AppColors, isClearLens: boolean) {
   howStep: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.textSecondary },
   bold: { fontWeight: '700' },
 
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: isClearLens ? ClearLensRadii.md : Radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    marginTop: 4,
+  },
   panNote: {
     marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
     backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',

@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
   }
 
   const fileName = req.headers.get('x-file-name') ?? 'cas.pdf';
+  const passwordOverride = req.headers.get('x-password-override')?.trim() || null;
 
   const { data: profile } = await supabase
     .from('user_profile')
@@ -85,21 +86,22 @@ Deno.serve(async (req) => {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  const password = profile?.pan ?? '';
-
   function computeCdslPassword(pan: string, dob: string): string {
     // dob is ISO YYYY-MM-DD; CDSL/NSDL password format is PAN + DDMMYYYY
     const [yyyy, mm, dd] = dob.split('-');
     return `${pan.toUpperCase()}${dd}${mm}${yyyy}`;
   }
 
-  const cdslPassword = (profile?.pan && profile?.dob)
-    ? computeCdslPassword(profile.pan, profile.dob)
-    : null;
+  // If user supplied a custom password, use it exclusively — they've opted out of defaults.
+  // Otherwise fall back to PAN (primary) and PAN+DOB (CDSL/NSDL fallback).
+  const password = passwordOverride ?? (profile?.pan ?? '');
+  const cdslPassword = passwordOverride
+    ? null
+    : (profile?.pan && profile?.dob ? computeCdslPassword(profile.pan, profile.dob) : null);
 
   console.log(
-    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, has_dob=%s',
-    user.id, fileName, pdfBytesRaw.byteLength, !!profile?.dob,
+    '[parse-cas-pdf] user=%s, file=%s, size=%d bytes, has_dob=%s, custom_pw=%s',
+    user.id, fileName, pdfBytesRaw.byteLength, !!profile?.dob, !!passwordOverride,
   );
 
   if (!password) {
