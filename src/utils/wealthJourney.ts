@@ -1,4 +1,5 @@
 import { projectWealth } from '@/src/utils/simulatorCalc';
+import { DEFAULT_RETURN_ASSUMPTIONS, type ReturnAssumptions } from '@/src/store/appStore';
 
 export interface WealthJourneyTransaction {
   transaction_date: string;
@@ -143,21 +144,17 @@ export function detectRecurringMonthlySipDetails(
   return [...bestByFund.values()].sort((a, b) => b.latestDate.localeCompare(a.latestDate));
 }
 
-function clampReturnPercent(value: number): number {
-  if (!Number.isFinite(value)) return 10;
-  return Math.min(14, Math.max(8, value));
-}
+export function buildReturnProfile(
+  xirr: number | null | undefined,
+  assumptions: ReturnAssumptions = DEFAULT_RETURN_ASSUMPTIONS,
+): ReturnProfile {
+  const { cautious, balanced, growth } = assumptions;
 
-export function buildReturnProfile(xirr: number | null | undefined): ReturnProfile {
-  const rawXirrPercent =
-    Number.isFinite(xirr) && xirr != null && xirr > 0 ? xirr * 100 : 10;
-  const balanced = Number(clampReturnPercent(rawXirrPercent).toFixed(1));
-  const cautious = Number(Math.max(6, balanced - 2).toFixed(1));
-  const growth = Number(Math.min(16, balanced + 1.5).toFixed(1));
-
+  // Use XIRR only to suggest which preset fits the user's actual portfolio return
+  const xirrPct = Number.isFinite(xirr) && xirr != null && xirr > 0 ? xirr * 100 : balanced;
   let defaultPresetKey: ReturnProfile['defaultPresetKey'] = 'balanced';
-  if (balanced <= 9) defaultPresetKey = 'cautious';
-  if (balanced >= 12.5) defaultPresetKey = 'growth';
+  if (xirrPct <= cautious + 1) defaultPresetKey = 'cautious';
+  else if (xirrPct >= growth - 1) defaultPresetKey = 'growth';
 
   return {
     suggestedLabel:

@@ -287,6 +287,7 @@ export function ClearLensLeaderboardScreen() {
         onSync={handleSync}
         onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
         onSettings={() => router.push('/(tabs)/settings')}
+        onTools={() => router.push('/tools' as never)}
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

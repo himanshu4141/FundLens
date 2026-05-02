@@ -1,0 +1,275 @@
+import { useMemo, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ClearLensHeader, ClearLensScreen, ClearLensSegmentedControl } from '@/src/components/clearLens/ClearLensPrimitives';
+import {
+  ClearLensColors,
+  ClearLensFonts,
+  ClearLensRadii,
+  ClearLensShadow,
+  ClearLensSpacing,
+  ClearLensTypography,
+} from '@/src/constants/clearLensTheme';
+import { useAppStore, type GoalReturnPreset } from '@/src/store/appStore';
+import { yearsFromNow } from '@/src/utils/goalPlanner';
+
+const PRESET_OPTIONS: { value: GoalReturnPreset; label: string }[] = [
+  { value: 'cautious', label: 'Cautious' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'growth', label: 'Growth' },
+];
+
+export function ClearLensCreateGoalScreen() {
+  const router = useRouter();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const { goals, addGoal, updateGoal, returnAssumptions } = useAppStore();
+
+  const editGoal = editId ? (goals.find((g) => g.id === editId) ?? null) : null;
+  const isEditing = editGoal !== null;
+
+  const [name, setName] = useState(() => editGoal?.name ?? '');
+  const [targetStr, setTargetStr] = useState(() => editGoal ? String(editGoal.targetAmount) : '');
+  const [yearsStr, setYearsStr] = useState(() => {
+    if (!editGoal?.targetDate) return '10';
+    return String(Math.max(1, Math.round(yearsFromNow(editGoal.targetDate))));
+  });
+  const [currentMonthlyStr, setCurrentMonthlyStr] = useState(() => editGoal?.currentMonthly ? String(editGoal.currentMonthly) : '');
+  const [returnPreset, setReturnPreset] = useState<GoalReturnPreset>(() => editGoal?.returnPreset ?? 'balanced');
+
+  const presetRate = returnAssumptions[returnPreset];
+
+  const targetAmount = useMemo(() => parseRupees(targetStr), [targetStr]);
+  const years = useMemo(() => parsePositiveNumber(yearsStr), [yearsStr]);
+
+  const isValid = name.trim().length > 0 && targetAmount > 0 && years > 0;
+
+  function handleSave() {
+    if (!isValid) return;
+
+    const targetDate = toTargetDate(years);
+    const fields = {
+      name: name.trim(),
+      targetAmount,
+      targetDate,
+      lumpSum: 0,
+      currentMonthly: parseRupees(currentMonthlyStr),
+      returnPreset,
+    };
+
+    if (isEditing) {
+      updateGoal(editGoal!.id, fields);
+    } else {
+      addGoal(fields);
+    }
+
+    router.back();
+  }
+
+  return (
+    <ClearLensScreen>
+      <ClearLensHeader title={isEditing ? 'Edit Goal' : 'New Goal'} onPressBack={() => router.back()} />
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.card}>
+            <InputRow label="Goal name">
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. Home, Education, Retirement"
+                placeholderTextColor={ClearLensColors.textTertiary}
+                value={name}
+                onChangeText={setName}
+                returnKeyType="next"
+                autoFocus
+              />
+            </InputRow>
+
+            <Separator />
+
+            <InputRow label="Target amount (₹)">
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. 50,00,000"
+                placeholderTextColor={ClearLensColors.textTertiary}
+                value={targetStr}
+                onChangeText={setTargetStr}
+                keyboardType="numeric"
+                returnKeyType="next"
+              />
+            </InputRow>
+
+            <Separator />
+
+            <InputRow label="Timeline (years)">
+              <TextInput
+                style={styles.textInput}
+                placeholder="1–40"
+                placeholderTextColor={ClearLensColors.textTertiary}
+                value={yearsStr}
+                onChangeText={setYearsStr}
+                keyboardType="numeric"
+                returnKeyType="next"
+              />
+            </InputRow>
+
+            <Separator />
+
+            <InputRow label="Current monthly investment (₹)">
+              <TextInput
+                style={styles.textInput}
+                placeholder="0"
+                placeholderTextColor={ClearLensColors.textTertiary}
+                value={currentMonthlyStr}
+                onChangeText={setCurrentMonthlyStr}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+            </InputRow>
+
+            <Separator />
+
+            <View style={styles.presetRow}>
+              <View style={styles.presetLabelRow}>
+                <Text style={styles.inputLabel}>Return assumption</Text>
+                <Text style={styles.presetRate}>{presetRate}% p.a.</Text>
+              </View>
+              <ClearLensSegmentedControl
+                options={PRESET_OPTIONS}
+                selected={returnPreset}
+                onChange={setReturnPreset}
+              />
+              <Text style={styles.presetHint}>
+                You can change these percentages in Settings → Preferences.
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.saveButton, !isValid && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            activeOpacity={0.8}
+            disabled={!isValid}
+          >
+            <Text style={styles.saveButtonText}>{isEditing ? 'Save Changes' : 'Save Goal'}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ClearLensScreen>
+  );
+}
+
+function InputRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.inputRow}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      {children}
+    </View>
+  );
+}
+
+function Separator() {
+  return <View style={styles.separator} />;
+}
+
+function parseRupees(str: string): number {
+  const n = parseFloat(str.replace(/,/g, ''));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function parsePositiveNumber(str: string): number {
+  const n = parseFloat(str);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function toTargetDate(years: number): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + Math.round(years));
+  return d.toISOString().split('T')[0];
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingTop: ClearLensSpacing.xs,
+    paddingBottom: ClearLensSpacing.xxl,
+    gap: ClearLensSpacing.md,
+  },
+  card: {
+    backgroundColor: ClearLensColors.surface,
+    borderRadius: ClearLensRadii.lg,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    ...ClearLensShadow,
+    overflow: 'hidden',
+  },
+  inputRow: {
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingVertical: ClearLensSpacing.sm + 2,
+    gap: 6,
+  },
+  inputLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    letterSpacing: 0.4,
+  },
+  textInput: {
+    fontFamily: ClearLensFonts.regular,
+    fontSize: 15,
+    color: ClearLensColors.textPrimary,
+    paddingVertical: 4,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: ClearLensColors.borderLight,
+    marginHorizontal: ClearLensSpacing.md,
+  },
+  presetRow: {
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingVertical: ClearLensSpacing.sm + 2,
+    gap: 8,
+  },
+  presetLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  presetRate: {
+    fontFamily: ClearLensFonts.semiBold,
+    fontSize: 13,
+    color: ClearLensColors.emerald,
+  },
+  presetHint: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    lineHeight: 16,
+  },
+  saveButton: {
+    backgroundColor: ClearLensColors.emerald,
+    borderRadius: ClearLensRadii.md,
+    paddingVertical: ClearLensSpacing.sm + 4,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: { opacity: 0.45 },
+  saveButtonText: {
+    fontFamily: ClearLensFonts.semiBold,
+    fontSize: 16,
+    color: ClearLensColors.textOnDark,
+  },
+});

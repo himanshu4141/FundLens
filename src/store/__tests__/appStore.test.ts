@@ -1,5 +1,7 @@
 import { BENCHMARK_OPTIONS, migratePersistedAppState } from '../appStore';
 
+const DEFAULT_RETURN_ASSUMPTIONS = { cautious: 8, balanced: 12, growth: 12 };
+
 const DEFAULT_WEALTH_JOURNEY = {
   hasOpened: false,
   hasSavedPlan: false,
@@ -41,6 +43,8 @@ describe('appDesignMode persistence migration', () => {
     expect(migratePersistedAppState(null)).toEqual({
       appDesignMode: 'clearLens',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
   });
 
@@ -49,6 +53,8 @@ describe('appDesignMode persistence migration', () => {
       defaultBenchmarkSymbol: '^NSEI',
       appDesignMode: 'clearLens',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
   });
 
@@ -57,11 +63,15 @@ describe('appDesignMode persistence migration', () => {
       defaultBenchmarkSymbol: '^NSEI',
       appDesignMode: 'clearLens',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
     expect(migratePersistedAppState({ designVariant: 'v2' })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
       appDesignMode: 'clearLens',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
   });
 
@@ -70,6 +80,8 @@ describe('appDesignMode persistence migration', () => {
       defaultBenchmarkSymbol: '^NSEI',
       appDesignMode: 'classic',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
   });
 
@@ -78,6 +90,8 @@ describe('appDesignMode persistence migration', () => {
       defaultBenchmarkSymbol: '^BSESN',
       appDesignMode: 'clearLens',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
   });
 
@@ -102,6 +116,8 @@ describe('appDesignMode persistence migration', () => {
         futureSipTarget: 125000,
         yearsToRetirement: 20,
       },
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
   });
 
@@ -140,7 +156,61 @@ describe('appDesignMode persistence migration', () => {
         withdrawalRate: 12,
         postRetirementReturn: 20,
       },
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
     });
+  });
+
+  it('preserves valid returnAssumptions from persisted state', () => {
+    const result = migratePersistedAppState({
+      returnAssumptions: { cautious: 7, balanced: 11, growth: 14 },
+    });
+    expect(result.returnAssumptions).toEqual({ cautious: 7, balanced: 11, growth: 14 });
+  });
+
+  it('falls back to defaults for invalid returnAssumptions', () => {
+    expect(migratePersistedAppState({ returnAssumptions: null }).returnAssumptions)
+      .toEqual(DEFAULT_RETURN_ASSUMPTIONS);
+    expect(migratePersistedAppState({ returnAssumptions: 'bad' }).returnAssumptions)
+      .toEqual(DEFAULT_RETURN_ASSUMPTIONS);
+  });
+
+  it('clamps out-of-range returnAssumptions values', () => {
+    const result = migratePersistedAppState({
+      returnAssumptions: { cautious: 0, balanced: 50, growth: -5 },
+    });
+    expect(result.returnAssumptions!.cautious).toBe(1);
+    expect(result.returnAssumptions!.balanced).toBe(30);
+    expect(result.returnAssumptions!.growth).toBe(1);
+  });
+
+  it('migrates persisted goals, preserving valid ones and dropping corrupt ones', () => {
+    const result = migratePersistedAppState({
+      goals: [
+        {
+          id: 'g-1',
+          name: 'Retirement',
+          targetAmount: 1_00_00_000,
+          targetDate: '2040-01-01',
+          lumpSum: 5_00_000,
+          currentMonthly: 25_000,
+          returnPreset: 'growth',
+          createdAt: '2025-01-01T00:00:00Z',
+        },
+        null,
+        { id: '', name: 'Bad' },
+      ],
+    });
+    expect(result.goals).toHaveLength(1);
+    expect(result.goals![0].name).toBe('Retirement');
+    expect(result.goals![0].returnPreset).toBe('growth');
+  });
+
+  it('defaults invalid returnPreset in goal to balanced', () => {
+    const result = migratePersistedAppState({
+      goals: [{ id: 'g-1', name: 'Test', returnPreset: 'aggressive' }],
+    });
+    expect(result.goals![0].returnPreset).toBe('balanced');
   });
 });
 

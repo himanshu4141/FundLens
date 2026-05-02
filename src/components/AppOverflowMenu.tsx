@@ -22,6 +22,7 @@ interface AppOverflowMenuProps {
   onSync: () => void;
   onImport: () => void;
   onSettings: () => void;
+  onTools?: () => void;
 }
 
 export function AppOverflowMenu({
@@ -31,6 +32,7 @@ export function AppOverflowMenu({
   onSync,
   onImport,
   onSettings,
+  onTools,
 }: AppOverflowMenuProps) {
   const { colors } = useTheme();
   const { isClearLens } = useAppDesignMode();
@@ -102,6 +104,22 @@ export function AppOverflowMenu({
             <Ionicons name="settings-outline" size={18} color={activeColors.textPrimary} />
             <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Settings</Text>
           </TouchableOpacity>
+
+          {onTools ? (
+            <>
+              <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
+              <TouchableOpacity
+                style={[styles.item, isClearLens && styles.clearItem]}
+                onPress={() => {
+                  onClose();
+                  onTools();
+                }}
+              >
+                <Ionicons name="construct-outline" size={18} color={activeColors.textPrimary} />
+                <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Tools</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
 
           <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
 

@@ -19,6 +19,7 @@ export const ClearLensColors = {
   positiveBg: '#E7FAF2',
   amber: '#F59E0B',
   warning: '#D97706',
+  warningBg: '#FFF8E6',
   accountSurface: '#E7DFD2',
   accountBorder: '#CFC6B8',
   border: '#DDE5EE',

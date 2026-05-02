@@ -38,12 +38,14 @@ export function ClearLensHeader({
   title,
   showTagline = false,
   accountLabel,
+  rightAction,
 }: {
   onPressMenu?: () => void;
   onPressBack?: () => void;
   title?: string;
   showTagline?: boolean;
   accountLabel?: string | null;
+  rightAction?: { icon: string; onPress: () => void; tint?: string };
 }) {
   const accountInitial = getAccountInitial(accountLabel);
 
@@ -59,7 +61,11 @@ export function ClearLensHeader({
 
       {title ? <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text> : <View style={styles.headerSpacer} />}
 
-      {onPressMenu ? (
+      {rightAction ? (
+        <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.75}>
+          <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? ClearLensColors.navy} />
+        </TouchableOpacity>
+      ) : onPressMenu ? (
         <TouchableOpacity
           onPress={onPressMenu}
           style={styles.accountButton}
