@@ -420,6 +420,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feedback: {
+        Row: {
+          app_version: string | null
+          body: string
+          created_at: string
+          id: string
+          status: string
+          title: string
+          type: string
+          update_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          status?: string
+          title: string
+          type: string
+          update_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          status?: string
+          title?: string
+          type?: string
+          update_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       fund: {

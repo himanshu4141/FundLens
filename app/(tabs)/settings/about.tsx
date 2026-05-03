@@ -12,8 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import ExpoConstants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/src/lib/supabase';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
+import { FeedbackSheet, type FeedbackKind } from '@/src/components/FeedbackSheet';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -22,6 +24,8 @@ import {
   ClearLensSpacing,
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
+
+const HELP_URL = 'https://foliolens.in/faq.html';
 
 type InfoRowProps = {
   label: string;
@@ -73,6 +77,21 @@ function LinkRow({ icon, label, onPress, isLast }: LinkRowProps) {
 export default function AboutScreen() {
   const styles = useMemo(() => makeStyles(), []);
   const [copiedUpdateId, setCopiedUpdateId] = useState(false);
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
+
+  async function handleOpenHelp() {
+    try {
+      await WebBrowser.openBrowserAsync(HELP_URL, {
+        // Keeps the user inside the app via SFSafariViewController / Chrome Custom Tab.
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      });
+    } catch (error) {
+      Alert.alert(
+        'Could not open Help',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    }
+  }
 
   const appVersion = ExpoConstants.expoConfig?.version ?? '—';
   const updateChannel = Updates.channel ?? '—';
@@ -134,9 +153,9 @@ export default function AboutScreen() {
 
         {/* Support links */}
         <View style={styles.card}>
-          <LinkRow icon="help-circle-outline" label="Help & FAQs" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} />
-          <LinkRow icon="bulb-outline" label="Request a feature" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} />
-          <LinkRow icon="alert-circle-outline" label="Report an issue" onPress={() => Alert.alert('Coming soon', 'This feature is on its way.')} isLast />
+          <LinkRow icon="help-circle-outline" label="Help & FAQs" onPress={handleOpenHelp} />
+          <LinkRow icon="bulb-outline" label="Request a feature" onPress={() => setFeedbackKind('feature_request')} />
+          <LinkRow icon="alert-circle-outline" label="Report an issue" onPress={() => setFeedbackKind('bug_report')} isLast />
         </View>
 
         {/* Sign out */}
@@ -147,6 +166,12 @@ export default function AboutScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <FeedbackSheet
+        visible={feedbackKind != null}
+        kind={feedbackKind}
+        onClose={() => setFeedbackKind(null)}
+      />
     </SafeAreaView>
   );
 }
