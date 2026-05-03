@@ -1,9 +1,21 @@
-name: Production Deploy
+name: Production Release
+
+# Triggered by pushing a semver tag (e.g. git tag v1.0.0 && git push --tags).
+# Also supports manual dispatch for emergency re-runs without a new tag.
+#
+# BEFORE TAGGING: run supabase-deploy-prod.yml (workflow_dispatch) to apply
+# any pending DB migrations to production. Take a backup first.
+#
+# This workflow:
+#   1. Runs checks (typecheck, lint, tests)
+#   2. Publishes an EAS OTA update to the foliolens-production channel
+#   3. Deploys the web app to the production Vercel project (foliolens)
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   checks:
@@ -21,42 +33,6 @@ jobs:
       - name: Run tests
         run: npm test -- --coverage --ci
 
-  eas-update-main:
-    name: EAS Update (main preview)
-    runs-on: ubuntu-latest
-    needs: checks
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-      - name: Publish EAS Update to main preview stream
-        id: eas-update
-        run: |
-          UPDATE_JSON=$(python3 scripts/eas-update.py)
-          echo "update_json<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$UPDATE_JSON" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-        env:
-          APP_VARIANT: preview-main
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL_PROD }}
-          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY_PROD }}
-          EXPO_PUBLIC_APP_BASE_URL: ${{ secrets.EXPO_PUBLIC_APP_BASE_URL_PROD }}
-          EAS_UPDATE_CHANNEL: main
-          EAS_UPDATE_MESSAGE: "Main preview: ${{ github.sha }}"
-      - name: Trace OTA update IDs
-        uses: ./.github/actions/ota-trace
-        with:
-          update_json: ${{ steps.eas-update.outputs.update_json }}
-          channel: main
-          commit_sha: ${{ github.sha }}
-
   eas-update-production:
     name: EAS Update (production)
     runs-on: ubuntu-latest
@@ -72,7 +48,7 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Publish EAS Update to production
+      - name: Publish EAS Update to foliolens-production
         id: eas-update
         run: |
           UPDATE_JSON=$(python3 scripts/eas-update.py)
@@ -84,11 +60,28 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL_PROD }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY_PROD }}
           EXPO_PUBLIC_APP_BASE_URL: ${{ secrets.EXPO_PUBLIC_APP_BASE_URL_PROD }}
-          EAS_UPDATE_CHANNEL: production
-          EAS_UPDATE_MESSAGE: "Deploy: ${{ github.sha }}"
+          EAS_UPDATE_CHANNEL: foliolens-production
+          EAS_UPDATE_MESSAGE: "Release: ${{ github.ref_name }}"
       - name: Trace OTA update IDs
         uses: ./.github/actions/ota-trace
         with:
           update_json: ${{ steps.eas-update.outputs.update_json }}
-          channel: production
+          channel: foliolens-production
           commit_sha: ${{ github.sha }}
+
+  vercel-deploy-production:
+    name: Deploy to Vercel (production)
+    runs-on: ubuntu-latest
+    needs: checks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Deploy to Vercel production
+        run: npx vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_PROD }}
