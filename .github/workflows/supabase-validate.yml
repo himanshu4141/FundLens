@@ -8,7 +8,8 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/config.toml'
       - '.github/workflows/supabase-validate.yml'
-      - '.github/workflows/supabase-deploy.yml'
+      - '.github/workflows/supabase-deploy-dev.yml'
+      - '.github/workflows/supabase-deploy-prod.yml'
       - 'scripts/check_supabase_migration_parity.py'
 
 jobs:
