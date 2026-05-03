@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -135,20 +136,25 @@ export default function AboutScreen() {
       <UtilityHeader title="About & support" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Version info */}
+        {/* Version info — OTA / channel rows are mobile-only;
+            on web there is no EAS update channel and no OTA bundle. */}
         <View style={styles.card}>
-          <InfoRow label="Version" value={appVersion} />
-          <InfoRow label="Update channel" value={updateChannel} />
-          <InfoRow
-            label="OTA update"
-            value={copiedUpdateId ? 'Copied!' : updateIdDisplay}
-            onPress={updateId && !isEmbedded ? handleCopyUpdateId : undefined}
-          />
-          <InfoRow
-            label="OTA date"
-            value={updateDateDisplay}
-            isLast
-          />
+          <InfoRow label="Version" value={appVersion} isLast={Platform.OS === 'web'} />
+          {Platform.OS !== 'web' ? (
+            <>
+              <InfoRow label="Update channel" value={updateChannel} />
+              <InfoRow
+                label="OTA update"
+                value={copiedUpdateId ? 'Copied!' : updateIdDisplay}
+                onPress={updateId && !isEmbedded ? handleCopyUpdateId : undefined}
+              />
+              <InfoRow
+                label="OTA date"
+                value={updateDateDisplay}
+                isLast
+              />
+            </>
+          ) : null}
         </View>
 
         {/* Support links */}

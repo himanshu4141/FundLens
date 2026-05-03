@@ -423,6 +423,7 @@ export type Database = {
       user_feedback: {
         Row: {
           app_version: string | null
+          attachment_path: string | null
           body: string
           created_at: string
           id: string
@@ -435,6 +436,7 @@ export type Database = {
         }
         Insert: {
           app_version?: string | null
+          attachment_path?: string | null
           body: string
           created_at?: string
           id?: string
@@ -447,6 +449,7 @@ export type Database = {
         }
         Update: {
           app_version?: string | null
+          attachment_path?: string | null
           body?: string
           created_at?: string
           id?: string

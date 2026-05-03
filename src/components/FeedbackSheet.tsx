@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
+import * as ImagePicker from 'expo-image-picker';
 import ExpoConstants from 'expo-constants';
 import { supabase } from '@/src/lib/supabase';
 import {
@@ -47,6 +50,15 @@ const KIND_COPY: Record<FeedbackKind, { title: string; subtitle: string; titlePl
 
 const TITLE_MAX = 200;
 const BODY_MAX = 4000;
+const ATTACHMENT_BUCKET = 'user-feedback-attachments';
+const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024; // 10 MB — matches storage policy
+
+type PickedAttachment = {
+  uri: string;
+  mime: string;
+  ext: string;
+  size: number | null;
+};
 
 export function FeedbackSheet({
   visible,
@@ -59,6 +71,7 @@ export function FeedbackSheet({
 }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [attachment, setAttachment] = useState<PickedAttachment | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -69,6 +82,7 @@ export function FeedbackSheet({
       const timer = setTimeout(() => {
         setTitle('');
         setBody('');
+        setAttachment(null);
         setError(null);
         setSubmitting(false);
         setSubmitted(false);
@@ -76,6 +90,66 @@ export function FeedbackSheet({
       return () => clearTimeout(timer);
     }
   }, [visible]);
+
+  async function handlePickImage() {
+    if (Platform.OS !== 'web') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Photos access needed',
+          'We use this only to attach the screenshot you pick. You can revoke it in Settings.',
+        );
+        return;
+      }
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsMultipleSelection: false,
+      exif: false,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > ATTACHMENT_MAX_BYTES) {
+      setError('That image is over 10 MB. Please pick a smaller one.');
+      return;
+    }
+
+    const mime = asset.mimeType ?? 'image/jpeg';
+    const ext = mime.includes('/') ? mime.split('/')[1].toLowerCase() : 'jpg';
+    setAttachment({
+      uri: asset.uri,
+      mime,
+      ext: ext === 'jpeg' ? 'jpg' : ext,
+      size: asset.fileSize ?? null,
+    });
+    setError(null);
+  }
+
+  async function uploadAttachment(userId: string): Promise<string | null> {
+    if (!attachment) return null;
+
+    // Read the local file as a binary blob — Supabase storage expects a
+    // Blob/ArrayBuffer for raw uploads. fetch() handles file:// uris on
+    // both iOS and Android.
+    const response = await fetch(attachment.uri);
+    const blob = await response.blob();
+
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${attachment.ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .upload(path, blob, {
+        contentType: attachment.mime,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message || 'Upload failed.');
+    }
+    return path;
+  }
 
   async function handleSubmit() {
     if (!kind) return;
@@ -96,6 +170,19 @@ export function FeedbackSheet({
       return;
     }
 
+    let attachmentPath: string | null = null;
+    try {
+      attachmentPath = await uploadAttachment(userResult.user.id);
+    } catch (uploadError) {
+      setSubmitting(false);
+      setError(
+        uploadError instanceof Error
+          ? `Could not upload attachment: ${uploadError.message}`
+          : 'Could not upload attachment. Please try again.',
+      );
+      return;
+    }
+
     const appVersion = ExpoConstants.expoConfig?.version ?? null;
     const updateId = Updates.isEmbeddedLaunch ? null : Updates.updateId;
 
@@ -106,6 +193,7 @@ export function FeedbackSheet({
       body: trimmedBody.slice(0, BODY_MAX),
       app_version: appVersion,
       update_id: updateId,
+      attachment_path: attachmentPath,
     });
 
     setSubmitting(false);
@@ -170,6 +258,38 @@ export function FeedbackSheet({
                     textAlignVertical="top"
                     maxLength={BODY_MAX}
                   />
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Screenshot (optional)</Text>
+                  {attachment ? (
+                    <View style={styles.attachmentPreview}>
+                      <Image source={{ uri: attachment.uri }} style={styles.attachmentThumb} />
+                      <View style={styles.attachmentInfo}>
+                        <Text style={styles.attachmentName} numberOfLines={1}>
+                          {attachment.mime}
+                        </Text>
+                        {attachment.size != null ? (
+                          <Text style={styles.attachmentMeta}>
+                            {(attachment.size / 1024).toFixed(0)} KB
+                          </Text>
+                        ) : null}
+                      </View>
+                      <TouchableOpacity
+                        style={styles.attachmentRemove}
+                        onPress={() => setAttachment(null)}
+                        accessibilityLabel="Remove attachment"
+                        activeOpacity={0.76}
+                      >
+                        <Ionicons name="close" size={18} color={ClearLensColors.navy} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} activeOpacity={0.76}>
+                      <Ionicons name="image-outline" size={18} color={ClearLensColors.emeraldDeep} />
+                      <Text style={styles.attachButtonText}>Attach a screenshot</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {error ? (
@@ -313,6 +433,60 @@ const styles = StyleSheet.create({
     borderColor: ClearLensColors.border,
     padding: ClearLensSpacing.md,
     color: ClearLensColors.navy,
+    backgroundColor: ClearLensColors.surface,
+  },
+  attachButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.sm,
+    minHeight: 46,
+    borderRadius: ClearLensRadii.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: ClearLensColors.border,
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  attachButtonText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.emeraldDeep,
+    fontFamily: ClearLensFonts.bold,
+  },
+  attachmentPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
+    padding: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.md,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  attachmentThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: ClearLensRadii.sm,
+    backgroundColor: ClearLensColors.surface,
+  },
+  attachmentInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  attachmentName: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  attachmentMeta: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  attachmentRemove: {
+    width: 30,
+    height: 30,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: ClearLensColors.surface,
   },
   errorBox: {
