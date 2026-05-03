@@ -1,14 +1,14 @@
-name: PR Preview
+name: Main Deploy
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  push:
+    branches:
+      - main
 
 jobs:
   checks:
-    name: Typecheck, Lint & Test
+    name: Typecheck & Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,13 +21,10 @@ jobs:
       - name: Run tests
         run: npm test -- --coverage --ci
 
-  eas-update:
-    name: EAS Update (PR preview)
+  eas-update-main:
+    name: EAS Update (dev stable)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      pull-requests: write
+    needs: checks
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,7 +36,7 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Publish EAS Update
+      - name: Publish EAS Update to foliolens-main
         id: eas-update
         run: |
           UPDATE_JSON=$(python3 scripts/eas-update.py)
@@ -47,18 +44,15 @@ jobs:
           echo "$UPDATE_JSON" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
         env:
+          APP_VARIANT: preview-main
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL_DEV }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY_DEV }}
           EXPO_PUBLIC_APP_BASE_URL: ${{ secrets.EXPO_PUBLIC_APP_BASE_URL_DEV }}
-          APP_VARIANT: preview-pr
-          EAS_UPDATE_CHANNEL: foliolens-pr
-          EAS_UPDATE_MESSAGE: PR #${{ github.event.number }}: ${{ github.event.pull_request.title }}
-      - name: Trace OTA IDs + update PR comment
+          EAS_UPDATE_CHANNEL: foliolens-main
+          EAS_UPDATE_MESSAGE: "Main: ${{ github.sha }}"
+      - name: Trace OTA update IDs
         uses: ./.github/actions/ota-trace
         with:
           update_json: ${{ steps.eas-update.outputs.update_json }}
-          channel: foliolens-pr
-          commit_sha: ${{ github.event.pull_request.head.sha }}
-          pr_number: ${{ github.event.number }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          repo: ${{ github.repository }}
+          channel: foliolens-main
+          commit_sha: ${{ github.sha }}

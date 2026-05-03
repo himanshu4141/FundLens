@@ -1,27 +1,27 @@
 const VARIANTS = {
   production: {
-    appName: 'FundLens',
-    scheme: 'fundlens',
-    iosBundleIdentifier: 'com.fundlens.app',
-    androidPackage: 'com.fundlens.app',
+    appName: 'FolioLens',
+    scheme: 'foliolens',
+    iosBundleIdentifier: 'com.foliolens.app',
+    androidPackage: 'com.foliolens.app',
   },
   development: {
-    appName: 'FundLens Dev',
-    scheme: 'fundlens-dev',
-    iosBundleIdentifier: 'com.fundlens.app.dev',
-    androidPackage: 'com.fundlens.app.dev',
+    appName: 'FolioLens Dev',
+    scheme: 'foliolens-dev',
+    iosBundleIdentifier: 'com.foliolens.app.dev',
+    androidPackage: 'com.foliolens.app.dev',
   },
   'preview-main': {
-    appName: 'FundLens Main',
-    scheme: 'fundlens-main',
-    iosBundleIdentifier: 'com.fundlens.app.mainpreview',
-    androidPackage: 'com.fundlens.app.mainpreview',
+    appName: 'FolioLens Main',
+    scheme: 'foliolens-main',
+    iosBundleIdentifier: 'com.foliolens.app.mainpreview',
+    androidPackage: 'com.foliolens.app.mainpreview',
   },
   'preview-pr': {
-    appName: 'FundLens PR',
-    scheme: 'fundlens-pr',
-    iosBundleIdentifier: 'com.fundlens.app.prpreview',
-    androidPackage: 'com.fundlens.app.prpreview',
+    appName: 'FolioLens PR',
+    scheme: 'foliolens-pr',
+    iosBundleIdentifier: 'com.foliolens.app.prpreview',
+    androidPackage: 'com.foliolens.app.prpreview',
   },
 };
 
@@ -37,7 +37,7 @@ module.exports = ({ config }) => {
   return {
     ...config,
     name: variantConfig.appName,
-    slug: 'fundlens',
+    slug: 'foliolens',
     version: '1.0.0',
     scheme: variantConfig.scheme,
     orientation: 'portrait',
@@ -48,7 +48,7 @@ module.exports = ({ config }) => {
       policy: 'appVersion',
     },
     updates: {
-      url: 'https://u.expo.dev/cca64872-6fe3-4c13-86ae-caedecdff628',
+      url: 'https://u.expo.dev/fa824fc9-9add-418b-8959-eeeeb693b7b5'
     },
     ios: {
       supportsTablet: false,
@@ -85,9 +85,9 @@ module.exports = ({ config }) => {
     extra: {
       appVariant: variant,
       appScheme: variantConfig.scheme,
-      eas: {
-        projectId: 'cca64872-6fe3-4c13-86ae-caedecdff628',
-      },
+      "eas": {
+        "projectId": "fa824fc9-9add-418b-8959-eeeeb693b7b5"
+      }
     },
     owner: 'himanshu4141',
   };

@@ -1,0 +1,43 @@
+name: Deploy Supabase (Dev)
+
+# Auto-deploys edge functions and migrations to the DEV Supabase project
+# on every push to main that touches supabase files.
+# Migration validation already ran in CI on the PR via supabase-validate.yml.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/supabase-deploy-dev.yml'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+
+jobs:
+  deploy-dev:
+    name: Deploy to Dev Supabase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Patch config.toml (strip schedule keys for CLI compat)
+        run: sed -i 's/^schedule = .*$/# schedule = (managed via pg_cron migration)/' supabase/config.toml
+
+      - name: Deploy all Edge Functions
+        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF_DEV }}" --no-verify-jwt --use-api
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Link Supabase project
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF_DEV }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Push migrations
+        run: supabase db push --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

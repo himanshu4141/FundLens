@@ -16,7 +16,7 @@ const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
 const VERCEL_PROTECTION_BYPASS_TOKEN = Deno.env.get('VERCEL_PROTECTION_BYPASS_TOKEN') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-const DEFAULT_CAS_PARSER_URL = 'https://fund-lens.vercel.app/api/parse-cas-pdf';
+const DEFAULT_CAS_PARSER_URL = `${Deno.env.get('APP_BASE_URL') ?? 'https://app.foliolens.in'}/api/parse-cas-pdf`;
 
 function resolveParserUrl(req: Request): string {
   // Prefer explicit env configuration when available. This keeps parser routing

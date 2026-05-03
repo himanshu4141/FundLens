@@ -92,14 +92,14 @@ describe('exportMoneyTrailCsv', () => {
     const result = await exportMoneyTrailCsv([transaction()], new Date('2026-04-29T00:00:00Z'));
 
     expect(link.href).toBe('blob:money-trail');
-    expect(link.download).toBe('fundlens-money-trail-2026-04-29.csv');
+    expect(link.download).toBe('foliolens-money-trail-2026-04-29.csv');
     expect(appendChild).toHaveBeenCalledWith(link);
     expect(click).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledTimes(1);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:money-trail');
     expect(result).toEqual({
-      fileName: 'fundlens-money-trail-2026-04-29.csv',
-      message: 'Downloaded fundlens-money-trail-2026-04-29.csv to your browser downloads.',
+      fileName: 'foliolens-money-trail-2026-04-29.csv',
+      message: 'Downloaded foliolens-money-trail-2026-04-29.csv to your browser downloads.',
     });
   });
 
@@ -109,26 +109,26 @@ describe('exportMoneyTrailCsv', () => {
       granted: true,
       directoryUri: 'content://downloads',
     });
-    mockCreateFile.mockResolvedValue('content://downloads/fundlens-money-trail.csv');
+    mockCreateFile.mockResolvedValue('content://downloads/foliolens-money-trail.csv');
 
     const result = await exportMoneyTrailCsv([transaction()], new Date('2026-04-29T00:00:00Z'));
 
     expect(mockRequestDirectoryPermissions).toHaveBeenCalledTimes(1);
     expect(mockCreateFile).toHaveBeenCalledWith(
       'content://downloads',
-      'fundlens-money-trail-2026-04-29.csv',
+      'foliolens-money-trail-2026-04-29.csv',
       'text/csv',
     );
     expect(mockWriteAsString).toHaveBeenCalledWith(
-      'content://downloads/fundlens-money-trail.csv',
+      'content://downloads/foliolens-money-trail.csv',
       expect.stringContaining('DSP Large & Mid Cap Fund'),
       { encoding: 'utf8' },
     );
     expect(mockShare).not.toHaveBeenCalled();
     expect(result).toEqual({
-      fileName: 'fundlens-money-trail-2026-04-29.csv',
-      uri: 'content://downloads/fundlens-money-trail.csv',
-      message: 'Saved fundlens-money-trail-2026-04-29.csv to the folder you selected.',
+      fileName: 'foliolens-money-trail-2026-04-29.csv',
+      uri: 'content://downloads/foliolens-money-trail.csv',
+      message: 'Saved foliolens-money-trail-2026-04-29.csv to the folder you selected.',
     });
   });
 
@@ -140,16 +140,16 @@ describe('exportMoneyTrailCsv', () => {
     const result = await exportMoneyTrailCsv([transaction()], new Date('2026-04-29T00:00:00Z'));
 
     expect(mockWriteAsString).toHaveBeenCalledWith(
-      'file://documents/fundlens-money-trail-2026-04-29.csv',
+      'file://documents/foliolens-money-trail-2026-04-29.csv',
       expect.stringContaining('DSP Large & Mid Cap Fund'),
       { encoding: 'utf8' },
     );
     expect(mockShare).toHaveBeenCalledWith({
-      title: 'FundLens Money Trail CSV',
-      message: 'FundLens Money Trail CSV exported as fundlens-money-trail-2026-04-29.csv.',
-      url: 'file://documents/fundlens-money-trail-2026-04-29.csv',
+      title: 'FolioLens Money Trail CSV',
+      message: 'FolioLens Money Trail CSV exported as foliolens-money-trail-2026-04-29.csv.',
+      url: 'file://documents/foliolens-money-trail-2026-04-29.csv',
     });
-    expect(result.message).toBe('Opened the share sheet for fundlens-money-trail-2026-04-29.csv.');
+    expect(result.message).toBe('Opened the share sheet for foliolens-money-trail-2026-04-29.csv.');
   });
 
   it('uses app storage and share sheet on non-Android native platforms', async () => {
@@ -160,11 +160,11 @@ describe('exportMoneyTrailCsv', () => {
 
     expect(mockRequestDirectoryPermissions).not.toHaveBeenCalled();
     expect(mockWriteAsString).toHaveBeenCalledWith(
-      'file://documents/fundlens-money-trail-2026-04-29.csv',
+      'file://documents/foliolens-money-trail-2026-04-29.csv',
       expect.any(String),
       { encoding: 'utf8' },
     );
-    expect(result.uri).toBe('file://documents/fundlens-money-trail-2026-04-29.csv');
+    expect(result.uri).toBe('file://documents/foliolens-money-trail-2026-04-29.csv');
   });
 
   it('throws when native file storage is unavailable', async () => {

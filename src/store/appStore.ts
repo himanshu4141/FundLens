@@ -347,7 +347,7 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({ goals: state.goals.filter((g) => g.id !== id) })),
     }),
     {
-      name: 'fundlens-app-store',
+      name: 'foliolens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
       version: 4,
       migrate: migratePersistedAppState,

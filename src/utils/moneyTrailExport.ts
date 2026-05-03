@@ -31,7 +31,7 @@ export async function exportMoneyTrailCsv(
   date = new Date(),
 ): Promise<MoneyTrailCsvExportResult> {
   const csv = buildMoneyTrailCsv(transactions);
-  const fileName = `fundlens-money-trail-${formatExportDate(date)}.csv`;
+  const fileName = `foliolens-money-trail-${formatExportDate(date)}.csv`;
 
   if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined') {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -68,8 +68,8 @@ export async function exportMoneyTrailCsv(
 
   const fileUri = await writeToAppStorage(fileName, csv);
   await Share.share({
-    title: 'FundLens Money Trail CSV',
-    message: `FundLens Money Trail CSV exported as ${fileName}.`,
+    title: 'FolioLens Money Trail CSV',
+    message: `FolioLens Money Trail CSV exported as ${fileName}.`,
     url: fileUri,
   });
 

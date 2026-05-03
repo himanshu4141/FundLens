@@ -1,19 +1,11 @@
-name: Deploy Supabase
+name: Deploy Supabase (Prod)
 
-# Triggered on pushes to main that touch edge functions or migrations.
-# Requires secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF
+# MANUAL ONLY — run from the GitHub Actions tab before or after tagging a release.
+# Validates migrations against prod, deploys edge functions, and pushes migrations.
+# Take a database backup before running this in production.
 
 on:
-  workflow_dispatch:  # allow manual runs from GitHub Actions tab
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/supabase-deploy.yml'
-      - '.github/workflows/supabase-validate.yml'
-      - 'scripts/check_supabase_migration_parity.py'
-      - 'supabase/functions/**'
-      - 'supabase/migrations/**'
+  workflow_dispatch:
 
 jobs:
   validate-migrations:
@@ -39,7 +31,7 @@ jobs:
         run: supabase db lint --local --fail-on error --schema public
 
       - name: Link Supabase project
-        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF_PROD }}"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -76,13 +68,11 @@ jobs:
         with:
           version: latest
 
-      # Supabase CLI ≤2.x doesn't parse the `schedule` key in [functions.*]
-      # Strip it so the CLI can parse config.toml without errors
       - name: Patch config.toml (strip schedule keys for CLI compat)
         run: sed -i 's/^schedule = .*$/# schedule = (managed via pg_cron migration)/' supabase/config.toml
 
       - name: Deploy all Edge Functions
-        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --no-verify-jwt --use-api
+        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF_PROD }}" --no-verify-jwt --use-api
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -104,7 +94,7 @@ jobs:
       # the subsequent push uses the Management API (IPv4/HTTPS) rather than a
       # direct DB connection (now IPv6, unreachable from GitHub Actions runners).
       - name: Link Supabase project
-        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF_PROD }}"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
