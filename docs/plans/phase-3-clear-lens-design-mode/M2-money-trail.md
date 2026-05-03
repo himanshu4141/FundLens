@@ -504,6 +504,7 @@ If Money Trail needs to be disabled after merge:
 - 2026-04-29: After device testing, changed native CSV export to open an Android folder picker before writing the CSV, with share-sheet fallback instead of showing app-private `file://` paths in the UI.
 - 2026-04-30: After Clear Lens merged to `main`, rebased Money Trail onto `origin/main` using only the Money Trail commits and archived the shipped Clear Lens M1 ExecPlan in the plan index.
 - 2026-05-03: Rebasing onto current `main` brought in the CDSL/NSDL CAS import and parser-side failed-payment reversal fix. Kept Money Trail's defensive legacy cleanup and added stale zero-unit reversal handling for databases that already contain old reversal rows.
+- 2026-05-03: Fund-filtered Money Trail views now switch from portfolio-level external-cashflow summaries to fund-level cost-basis summaries so switch-only funds match Fund Detail and Your Funds. Portfolio-wide Money Trail still treats switches as internal movement and keeps them out of external net invested.
 
 
 ## Amendments
@@ -511,6 +512,7 @@ If Money Trail needs to be disabled after merge:
 - 2026-04-29: Blank amount filter inputs must remain unset. `Number('')` produced `0`, which made an untouched max-amount field exclude all positive-amount transactions after applying filters.
 - 2026-04-29: Failed-payment reversals can arrive in the current database as a same-day `purchase` plus `redemption` pair because earlier CAS import behavior mapped `REVERSAL` to `redemption`. Money Trail now hides those pairs by default, and shared portfolio/XIRR/timeline helpers remove the pair before calculating holdings, current value, invested amount, realized gains, and benchmark comparisons.
 - 2026-05-03: Current imports no longer add `REVERSAL` rows, but a re-import can delete the old purchase side while leaving an old zero-unit redemption reversal behind. Shared calculation helpers and Money Trail now drop those stale zero-unit reversal rows as well.
+- 2026-05-03: A fund can be held entirely through switch-in transactions. Showing portfolio-level external totals (`₹0` invested/withdrawn/net invested) in that pre-filtered fund view conflicted with Fund Detail's cost basis and Your Funds' invested amount. Money Trail now uses `fund_cost_basis` summary mode whenever a fund filter is active, counting switch-ins as money into the fund, switch-outs as money out of the fund, and using the shared cashflow helper's remaining cost basis for the net figure.
 
 
 ## Progress

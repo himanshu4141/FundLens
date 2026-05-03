@@ -372,6 +372,102 @@ describe('moneyTrail hidden and internal transaction handling', () => {
     });
   });
 
+  it('uses fund cost-basis semantics for fund-filtered summaries', () => {
+    const transactions = buildMoneyTrailTransactions([
+      raw({
+        id: 'switch-in-1',
+        fund_id: 'fund-switch',
+        transaction_date: '2025-04-10',
+        transaction_type: 'switch_in',
+        amount: 100000,
+        units: 100,
+      }),
+      raw({
+        id: 'switch-out-1',
+        fund_id: 'fund-switch',
+        transaction_date: '2025-12-10',
+        transaction_type: 'switch_out',
+        amount: 60000,
+        units: 50,
+      }),
+      raw({
+        id: 'buy-1',
+        fund_id: 'fund-switch',
+        transaction_date: '2026-04-10',
+        transaction_type: 'purchase',
+        amount: 20000,
+        units: 20,
+      }),
+      raw({
+        id: 'switch-out-2',
+        fund_id: 'fund-switch',
+        transaction_date: '2026-05-10',
+        transaction_type: 'switch_out',
+        amount: 30000,
+        units: 30,
+      }),
+    ]);
+
+    expect(buildMoneyTrailSummary(transactions)).toEqual({
+      totalInvested: 20000,
+      totalWithdrawn: 0,
+      netInvested: 20000,
+      transactionCount: 4,
+    });
+    expect(buildMoneyTrailSummary(transactions, 'fund_cost_basis')).toEqual({
+      totalInvested: 120000,
+      totalWithdrawn: 90000,
+      netInvested: 40000,
+      transactionCount: 4,
+    });
+    expect(buildAnnualMoneyFlows(transactions, 'fund_cost_basis')).toEqual([
+      {
+        financialYear: 'FY 2025-26',
+        invested: 100000,
+        withdrawn: 60000,
+        netInvested: 50000,
+        transactionCount: 2,
+      },
+      {
+        financialYear: 'FY 2026-27',
+        invested: 20000,
+        withdrawn: 30000,
+        netInvested: 40000,
+        transactionCount: 2,
+      },
+    ]);
+
+    const secondFundTransactions = buildMoneyTrailTransactions([
+      ...transactions.map((tx) => ({
+        id: tx.id,
+        fund_id: tx.fundId,
+        fund_name: tx.fundName,
+        transaction_date: tx.date,
+        transaction_type: tx.type,
+        units: tx.units ?? 0,
+        amount: tx.amount,
+      })),
+      raw({
+        id: 'fund-b-switch-in',
+        fund_id: 'fund-b',
+        transaction_date: '2025-05-10',
+        transaction_type: 'switch_in',
+        amount: 50000,
+        units: 100,
+      }),
+      raw({
+        id: 'fund-b-switch-out',
+        fund_id: 'fund-b',
+        transaction_date: '2025-06-10',
+        transaction_type: 'switch_out',
+        amount: 10000,
+        units: 20,
+      }),
+    ]);
+
+    expect(buildMoneyTrailSummary(secondFundTransactions, 'fund_cost_basis').netInvested).toBe(80000);
+  });
+
   it('classifies dividend payout and reinvestment separately', () => {
     const payout = buildPortfolioTransaction(raw({ transaction_type: 'dividend_payout', amount: 250 }));
     const reinvested = buildPortfolioTransaction(raw({ transaction_type: 'dividend_reinvest', amount: 250 }));

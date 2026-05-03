@@ -103,6 +103,7 @@ Shows CAS-derived transaction history:
 - empty/no-results/error states
 
 Failed, reversed, stale zero-unit reversal rows, and confidently matched reversal pairs are hidden by default. Switches and reinvested dividends are shown as internal movement so they do not inflate Money Trail net invested.
+When Money Trail is opened for a specific fund, summary cards and yearly bars use the same fund-level cost-basis semantics as Fund Detail and Your Funds: switch-ins count as money moving into that fund, switch-outs count as money moving out, and the net figure is the remaining cost basis.
 
 ### 6. Leaderboard
 

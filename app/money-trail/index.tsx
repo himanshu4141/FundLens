@@ -44,6 +44,7 @@ import {
   type MoneyTrailDirection,
   type MoneyTrailFilters,
   type MoneyTrailSortOption,
+  type MoneyTrailSummaryMode,
   type MoneyTrailTransactionType,
   type PortfolioTransaction,
 } from '@/src/utils/moneyTrail';
@@ -85,14 +86,31 @@ const SORT_OPTIONS: MoneyTrailSortOption[] = [
   'fund_desc',
 ];
 
-function MetricGrid({ transactions }: { transactions: PortfolioTransaction[] }) {
-  const summary = useMemo(() => buildMoneyTrailSummary(transactions), [transactions]);
+function MetricGrid({
+  transactions,
+  summaryMode,
+}: {
+  transactions: PortfolioTransaction[];
+  summaryMode: MoneyTrailSummaryMode;
+}) {
+  const summary = useMemo(() => buildMoneyTrailSummary(transactions, summaryMode), [summaryMode, transactions]);
+  const labels = summaryMode === 'fund_cost_basis'
+    ? {
+        totalInvested: 'Money into fund',
+        totalWithdrawn: 'Money out of fund',
+        netInvested: 'Cost basis',
+      }
+    : {
+        totalInvested: 'Total invested',
+        totalWithdrawn: 'Total withdrawn',
+        netInvested: 'Net invested',
+      };
 
   return (
     <ClearLensCard style={styles.metricGrid}>
-      <Metric label="Total invested" value={formatCurrency(summary.totalInvested)} tone="in" />
-      <Metric label="Total withdrawn" value={formatCurrency(summary.totalWithdrawn)} tone="out" />
-      <Metric label="Net invested" value={formatCurrency(summary.netInvested)} tone="net" />
+      <Metric label={labels.totalInvested} value={formatCurrency(summary.totalInvested)} tone="in" />
+      <Metric label={labels.totalWithdrawn} value={formatCurrency(summary.totalWithdrawn)} tone="out" />
+      <Metric label={labels.netInvested} value={formatCurrency(summary.netInvested)} tone="net" />
       <Metric label="Transactions" value={String(summary.transactionCount)} tone="neutral" />
     </ClearLensCard>
   );
@@ -116,12 +134,33 @@ function Metric({
   );
 }
 
-function AnnualSummary({ transactions }: { transactions: PortfolioTransaction[] }) {
-  const annualFlows = useMemo(() => buildAnnualMoneyFlows(transactions), [transactions]);
+function AnnualSummary({
+  transactions,
+  summaryMode,
+}: {
+  transactions: PortfolioTransaction[];
+  summaryMode: MoneyTrailSummaryMode;
+}) {
+  const annualFlows = useMemo(() => buildAnnualMoneyFlows(transactions, summaryMode), [summaryMode, transactions]);
   const maxValue = Math.max(
     1,
     ...annualFlows.flatMap((flow) => [flow.invested, flow.withdrawn, Math.abs(flow.netInvested)]),
   );
+  const copy = summaryMode === 'fund_cost_basis'
+    ? {
+        title: 'Net invested by financial year',
+        subtitle: 'Using your buys, redemptions, and switches',
+        invested: 'Into fund',
+        withdrawn: 'Out of fund',
+        net: 'Cost basis',
+      }
+    : {
+        title: 'Net invested by financial year',
+        subtitle: 'Invested, withdrawn, and net invested',
+        invested: 'Invested',
+        withdrawn: 'Withdrawn',
+        net: 'Net invested',
+      };
 
   if (annualFlows.length === 0) return null;
 
@@ -129,8 +168,8 @@ function AnnualSummary({ transactions }: { transactions: PortfolioTransaction[] 
     <ClearLensCard style={styles.annualCard}>
       <View style={styles.sectionHeader}>
         <View>
-          <Text style={styles.sectionTitle}>Net invested by financial year</Text>
-          <Text style={styles.sectionSubtitle}>Invested, withdrawn, and net invested</Text>
+          <Text style={styles.sectionTitle}>{copy.title}</Text>
+          <Text style={styles.sectionSubtitle}>{copy.subtitle}</Text>
         </View>
         <Ionicons name="information-circle-outline" size={18} color={ClearLensColors.textTertiary} />
       </View>
@@ -151,9 +190,9 @@ function AnnualSummary({ transactions }: { transactions: PortfolioTransaction[] 
         })}
       </View>
       <View style={styles.legendRow}>
-        <Legend color={ClearLensColors.emerald} label="Invested" />
-        <Legend color={ClearLensColors.amber} label="Withdrawn" />
-        <Legend color={ClearLensColors.mint} label="Net invested" />
+        <Legend color={ClearLensColors.emerald} label={copy.invested} />
+        <Legend color={ClearLensColors.amber} label={copy.withdrawn} />
+        <Legend color={ClearLensColors.mint} label={copy.net} />
       </View>
     </ClearLensCard>
   );
@@ -696,6 +735,9 @@ export default function MoneyTrailScreen() {
     () => applyMoneyTrailControls(transactions, filters, query, sortBy),
     [filters, query, sortBy, transactions],
   );
+  const summaryMode: MoneyTrailSummaryMode = filters.fundIds.length > 0
+    ? 'fund_cost_basis'
+    : 'portfolio_external';
   const hasAnyFilter = query.trim().length > 0 ||
     filters.datePreset !== 'all_time' ||
     filters.transactionTypes.length > 0 ||
@@ -747,8 +789,8 @@ export default function MoneyTrailScreen() {
 
           {transactions.length > 0 ? (
             <>
-              <MetricGrid transactions={visibleTransactions} />
-              <AnnualSummary transactions={visibleTransactions} />
+              <MetricGrid transactions={visibleTransactions} summaryMode={summaryMode} />
+              <AnnualSummary transactions={visibleTransactions} summaryMode={summaryMode} />
 
               <View style={styles.controlsBlock}>
                 <View style={styles.searchBox}>

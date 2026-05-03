@@ -1,4 +1,4 @@
-import { findReversedTransactionPairIndexes } from '@/src/utils/xirr';
+import { buildCashflowsFromTransactions, findReversedTransactionPairIndexes } from '@/src/utils/xirr';
 
 export type MoneyTrailTransactionType =
   | 'sip_purchase'
@@ -26,6 +26,7 @@ export type MoneyTrailSortOption =
   | 'fund_asc'
   | 'fund_desc';
 export type MoneyTrailDatePreset = 'this_fy' | 'last_fy' | 'last_3_months' | 'all_time' | 'custom';
+export type MoneyTrailSummaryMode = 'portfolio_external' | 'fund_cost_basis';
 
 export interface RawMoneyTrailTransaction {
   id: string;
@@ -340,7 +341,12 @@ export function buildMoneyTrailTransactions(rawRows: RawMoneyTrailTransaction[])
   return hideReversalPairs(rawRows.map(buildPortfolioTransaction));
 }
 
-export function buildMoneyTrailSummary(transactions: PortfolioTransaction[]): MoneyTrailSummary {
+export function buildMoneyTrailSummary(
+  transactions: PortfolioTransaction[],
+  mode: MoneyTrailSummaryMode = 'portfolio_external',
+): MoneyTrailSummary {
+  if (mode === 'fund_cost_basis') return buildFundCostBasisSummary(transactions);
+
   return transactions.reduce<MoneyTrailSummary>(
     (summary, tx) => {
       if (tx.hiddenByDefault) return summary;
@@ -354,7 +360,12 @@ export function buildMoneyTrailSummary(transactions: PortfolioTransaction[]): Mo
   );
 }
 
-export function buildAnnualMoneyFlows(transactions: PortfolioTransaction[]): AnnualMoneyFlow[] {
+export function buildAnnualMoneyFlows(
+  transactions: PortfolioTransaction[],
+  mode: MoneyTrailSummaryMode = 'portfolio_external',
+): AnnualMoneyFlow[] {
+  if (mode === 'fund_cost_basis') return buildFundCostBasisAnnualFlows(transactions);
+
   const byYear = new Map<string, AnnualMoneyFlow>();
 
   for (const tx of transactions) {
@@ -375,6 +386,129 @@ export function buildAnnualMoneyFlows(transactions: PortfolioTransaction[]): Ann
   }
 
   return [...byYear.values()].sort((a, b) => compareFinancialYears(a.financialYear, b.financialYear));
+}
+
+function buildFundCostBasisSummary(transactions: PortfolioTransaction[]): MoneyTrailSummary {
+  const visible = transactions.filter((tx) => !tx.hiddenByDefault);
+  let totalInvested = 0;
+  let totalWithdrawn = 0;
+  let transactionCount = 0;
+  let netInvested = 0;
+
+  for (const tx of visible) {
+    if (isFundCostBasisIncrease(tx)) totalInvested += tx.amount;
+    if (isFundCostBasisDecrease(tx)) totalWithdrawn += tx.amount;
+    if (tx.direction !== 'neutral') transactionCount += 1;
+  }
+
+  for (const fundTransactions of groupTransactionsByFund(visible).values()) {
+    const { investedAmount } = buildCashflowsFromTransactions(
+      fundTransactions.map(toCashflowTransaction),
+      0,
+      new Date(),
+    );
+    netInvested += investedAmount;
+  }
+
+  return {
+    totalInvested,
+    totalWithdrawn,
+    netInvested,
+    transactionCount,
+  };
+}
+
+function buildFundCostBasisAnnualFlows(transactions: PortfolioTransaction[]): AnnualMoneyFlow[] {
+  const byYear = new Map<string, AnnualMoneyFlow>();
+  const visibleByFund = groupTransactionsByFund(transactions.filter((tx) => !tx.hiddenByDefault));
+
+  for (const fundTransactions of visibleByFund.values()) {
+    for (const flow of buildSingleFundCostBasisAnnualFlows(fundTransactions)) {
+      const existing = byYear.get(flow.financialYear) ?? {
+        financialYear: flow.financialYear,
+        invested: 0,
+        withdrawn: 0,
+        netInvested: 0,
+        transactionCount: 0,
+      };
+
+      existing.invested += flow.invested;
+      existing.withdrawn += flow.withdrawn;
+      existing.netInvested += flow.netInvested;
+      existing.transactionCount += flow.transactionCount;
+      byYear.set(flow.financialYear, existing);
+    }
+  }
+
+  return [...byYear.values()].sort((a, b) => compareFinancialYears(a.financialYear, b.financialYear));
+}
+
+function buildSingleFundCostBasisAnnualFlows(transactions: PortfolioTransaction[]): AnnualMoneyFlow[] {
+  const byYear = new Map<string, AnnualMoneyFlow>();
+  let totalUnits = 0;
+  let totalCost = 0;
+
+  for (const tx of transactions.sort((a, b) => a.date.localeCompare(b.date))) {
+    const existing = byYear.get(tx.financialYear) ?? {
+      financialYear: tx.financialYear,
+      invested: 0,
+      withdrawn: 0,
+      netInvested: totalCost,
+      transactionCount: 0,
+    };
+
+    if (isFundCostBasisIncrease(tx)) {
+      totalUnits += tx.units ?? 0;
+      totalCost += tx.amount;
+      existing.invested += tx.amount;
+    } else if (isFundCostBasisDecrease(tx)) {
+      const avgCost = totalUnits > 0 ? totalCost / totalUnits : 0;
+      const costBasis = (tx.units ?? 0) * avgCost;
+      totalCost = Math.max(0, totalCost - costBasis);
+      totalUnits = Math.max(0, totalUnits - (tx.units ?? 0));
+      existing.withdrawn += tx.amount;
+    }
+
+    if (tx.direction !== 'neutral') existing.transactionCount += 1;
+    existing.netInvested = totalCost;
+    byYear.set(tx.financialYear, existing);
+  }
+
+  return [...byYear.values()].sort((a, b) => compareFinancialYears(a.financialYear, b.financialYear));
+}
+
+function groupTransactionsByFund(transactions: PortfolioTransaction[]): Map<string, PortfolioTransaction[]> {
+  const byFund = new Map<string, PortfolioTransaction[]>();
+  for (const tx of transactions) {
+    const existing = byFund.get(tx.fundId) ?? [];
+    existing.push(tx);
+    byFund.set(tx.fundId, existing);
+  }
+  return byFund;
+}
+
+function isFundCostBasisIncrease(tx: PortfolioTransaction): boolean {
+  return ['sip_purchase', 'purchase', 'switch_in', 'dividend_reinvestment'].includes(tx.type);
+}
+
+function isFundCostBasisDecrease(tx: PortfolioTransaction): boolean {
+  return tx.type === 'redemption' || tx.type === 'switch_out';
+}
+
+function toCashflowTransaction(tx: PortfolioTransaction) {
+  return {
+    fund_id: tx.fundId,
+    transaction_date: tx.date,
+    transaction_type: toSharedCashflowType(tx),
+    units: tx.units ?? 0,
+    amount: tx.amount,
+  };
+}
+
+function toSharedCashflowType(tx: PortfolioTransaction): string {
+  if (tx.type === 'sip_purchase') return 'purchase';
+  if (tx.type === 'dividend_reinvestment') return 'dividend_reinvest';
+  return tx.type;
 }
 
 export function sortMoneyTrailTransactions(
