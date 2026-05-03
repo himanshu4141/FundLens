@@ -59,13 +59,17 @@ const DATE_PRESETS: { value: MoneyTrailDatePreset; label: string }[] = [
 // Filter chips group multiple underlying transaction types so users don't
 // have to think in CAS-statement vocabulary (SIP vs lumpsum, switch in vs
 // out). The data layer still tracks the granular types — this is UI sugar.
+//
+// "Other" is a catch-all for the long tail (STPs, SWPs, transfers we haven't
+// classified, plus any future-discovered raw type that normalizeMoneyTrailType
+// maps to 'unknown'). Keeping it explicit prevents users from missing rows.
 const TYPE_FILTER_GROUPS: { values: MoneyTrailTransactionType[]; label: string }[] = [
   { values: ['sip_purchase', 'purchase'], label: 'Investment' },
   { values: ['redemption'], label: 'Withdrawal' },
   { values: ['switch_in', 'switch_out'], label: 'Switch' },
   { values: ['dividend_payout', 'dividend_reinvestment'], label: 'Dividend' },
-  { values: ['transfer'], label: 'Transfer' },
   { values: ['failed', 'reversal'], label: 'Failed/reversed' },
+  { values: ['transfer', 'stp_in', 'stp_out', 'swp', 'unknown'], label: 'Other' },
 ];
 
 const SORT_OPTIONS: MoneyTrailSortOption[] = [
@@ -167,26 +171,81 @@ function FlowStat({
 }
 
 function AnnualBars({ annualFlows }: { annualFlows: ReturnType<typeof buildAnnualMoneyFlows> }) {
+  const visibleFlows = useMemo(() => annualFlows.slice(-6), [annualFlows]);
+  const [selectedFy, setSelectedFy] = useState<string | null>(null);
   const maxValue = Math.max(
     1,
-    ...annualFlows.flatMap((flow) => [flow.invested, flow.withdrawn, Math.abs(flow.netInvested)]),
+    ...visibleFlows.flatMap((flow) => [flow.invested, flow.withdrawn, Math.abs(flow.netInvested)]),
   );
+
+  const activeFy = selectedFy ?? visibleFlows[visibleFlows.length - 1]?.financialYear ?? null;
+  const activeFlow = activeFy ? visibleFlows.find((flow) => flow.financialYear === activeFy) ?? null : null;
 
   return (
     <View style={styles.annualBlock}>
-      <Text style={styles.annualHeading}>By financial year</Text>
+      <View style={styles.annualHeader}>
+        <Text style={styles.annualHeading}>By financial year</Text>
+        <View style={styles.annualLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, { backgroundColor: ClearLensColors.emerald }]} />
+            <Text style={styles.legendText}>Invested</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, { backgroundColor: ClearLensColors.amber }]} />
+            <Text style={styles.legendText}>Withdrawn</Text>
+          </View>
+        </View>
+      </View>
+
+      {activeFlow ? (
+        <View style={styles.annualDetail}>
+          <Text style={styles.annualDetailFy}>{activeFlow.financialYear}</Text>
+          <View style={styles.annualDetailRow}>
+            <Text style={styles.annualDetailItem}>
+              Invested <Text style={[styles.annualDetailValue, { color: ClearLensColors.emeraldDeep }]}>{formatCurrency(activeFlow.invested)}</Text>
+            </Text>
+            <Text style={styles.annualDetailItem}>
+              Withdrawn <Text style={[styles.annualDetailValue, { color: ClearLensColors.amber }]}>{formatCurrency(activeFlow.withdrawn)}</Text>
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.annualBars}>
-        {annualFlows.slice(-6).map((flow) => {
+        {visibleFlows.map((flow) => {
           const investedHeight = Math.max(6, (flow.invested / maxValue) * 64);
           const withdrawnHeight = flow.withdrawn > 0 ? Math.max(3, (flow.withdrawn / maxValue) * 28) : 0;
+          const isActive = flow.financialYear === activeFy;
           return (
-            <View key={flow.financialYear} style={styles.annualBarItem}>
+            <TouchableOpacity
+              key={flow.financialYear}
+              style={styles.annualBarItem}
+              onPress={() => setSelectedFy(flow.financialYear)}
+              activeOpacity={0.7}
+              accessibilityLabel={`${flow.financialYear}: invested ${formatCurrency(flow.invested)}, withdrawn ${formatCurrency(flow.withdrawn)}`}
+            >
               <View style={styles.annualBarTrack}>
-                <View style={[styles.annualInvested, { height: investedHeight }]} />
-                {withdrawnHeight > 0 && <View style={[styles.annualWithdrawn, { height: withdrawnHeight }]} />}
+                <View
+                  style={[
+                    styles.annualInvested,
+                    { height: investedHeight },
+                    !isActive && styles.annualBarDim,
+                  ]}
+                />
+                {withdrawnHeight > 0 && (
+                  <View
+                    style={[
+                      styles.annualWithdrawn,
+                      { height: withdrawnHeight },
+                      !isActive && styles.annualBarDim,
+                    ]}
+                  />
+                )}
               </View>
-              <Text style={styles.annualLabel}>{getFinancialYearShortLabel(flow.financialYear)}</Text>
-            </View>
+              <Text style={[styles.annualLabel, isActive && styles.annualLabelActive]}>
+                {getFinancialYearShortLabel(flow.financialYear)}
+              </Text>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -732,6 +791,30 @@ export default function MoneyTrailScreen() {
     () => applyMoneyTrailControls(transactions, filters, query, sortBy),
     [filters, query, sortBy, transactions],
   );
+  // Hero summary should reflect the *scope* of what's being viewed (date
+  // range + optional fund focus), not drill-down list filters. Otherwise
+  // selecting "Investment" filter zeroes out the Money Out tile and makes
+  // the hero feel inconsistent with what users think of as their account
+  // summary. The transaction list still respects the full filter set.
+  const heroTransactions = useMemo(() => {
+    const scopeFilters: MoneyTrailFilters = {
+      ...DEFAULT_MONEY_TRAIL_FILTERS,
+      datePreset: filters.datePreset,
+      customStartDate: filters.customStartDate,
+      customEndDate: filters.customEndDate,
+      fundIds: filters.fundIds,
+      includeHidden: filters.includeHidden,
+    };
+    return applyMoneyTrailControls(transactions, scopeFilters, '', sortBy);
+  }, [
+    filters.datePreset,
+    filters.customStartDate,
+    filters.customEndDate,
+    filters.fundIds,
+    filters.includeHidden,
+    sortBy,
+    transactions,
+  ]);
   const summaryMode: MoneyTrailSummaryMode = filters.fundIds.length > 0
     ? 'fund_cost_basis'
     : 'portfolio_external';
@@ -803,7 +886,7 @@ export default function MoneyTrailScreen() {
           {transactions.length > 0 ? (
             <>
               <HeroSection
-                transactions={visibleTransactions}
+                transactions={heroTransactions}
                 summaryMode={summaryMode}
                 rangeLabel={rangeLabel}
               />
@@ -985,12 +1068,60 @@ const styles = StyleSheet.create({
     borderTopColor: ClearLensColors.borderLight,
     gap: ClearLensSpacing.sm,
   },
+  annualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+  },
   annualHeading: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+  },
+  annualLegend: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendSwatch: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  legendText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  annualDetail: {
+    paddingHorizontal: ClearLensSpacing.sm,
+    paddingVertical: 6,
+    borderRadius: ClearLensRadii.sm,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    gap: 2,
+  },
+  annualDetailFy: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  annualDetailRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: ClearLensSpacing.md,
+  },
+  annualDetailItem: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textSecondary,
+  },
+  annualDetailValue: {
+    fontFamily: ClearLensFonts.bold,
   },
   annualBars: {
     minHeight: 90,
@@ -1021,9 +1152,16 @@ const styles = StyleSheet.create({
     width: 18,
     backgroundColor: ClearLensColors.amber,
   },
+  annualBarDim: {
+    opacity: 0.42,
+  },
   annualLabel: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
+  },
+  annualLabelActive: {
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
   },
   scrollTopFab: {
     position: 'absolute',

@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ClearLensCard } from '@/src/components/clearLens/ClearLensPrimitives';
@@ -22,12 +23,15 @@ export function MoneyTrailPreviewCard({
   annualFlows: AnnualMoneyFlow[];
   onPress: () => void;
 }) {
+  const chartFlows = useMemo(() => annualFlows.slice(-5), [annualFlows]);
   const currentFinancialYear = getCurrentFinancialYear();
-  const currentFlow =
-    annualFlows.find((flow) => flow.financialYear === currentFinancialYear) ??
-    annualFlows[annualFlows.length - 1] ??
+  const defaultFy =
+    chartFlows.find((flow) => flow.financialYear === currentFinancialYear)?.financialYear ??
+    chartFlows[chartFlows.length - 1]?.financialYear ??
     null;
-  const chartFlows = annualFlows.slice(-5);
+  const [selectedFy, setSelectedFy] = useState<string | null>(null);
+  const activeFy = selectedFy ?? defaultFy;
+  const activeFlow = activeFy ? chartFlows.find((flow) => flow.financialYear === activeFy) ?? null : null;
   const maxFlow = Math.max(
     1,
     ...chartFlows.flatMap((flow) => [flow.invested, flow.withdrawn, Math.abs(flow.netInvested)]),
@@ -38,30 +42,41 @@ export function MoneyTrailPreviewCard({
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Money Trail</Text>
-          <Text style={styles.subtitle}>Your investments and withdrawals by financial year</Text>
+          <Text style={styles.subtitle}>Tap a year to see invested vs withdrawn</Text>
         </View>
         <View style={styles.headerIcon}>
           <Ionicons name="trail-sign-outline" size={20} color={ClearLensColors.emerald} />
         </View>
       </View>
 
-      {currentFlow ? (
+      {activeFlow ? (
         <>
           <View style={styles.currentSummary}>
             <View>
-              <Text style={styles.fyLabel}>{currentFlow.financialYear}</Text>
-              <Text style={styles.netValue}>{formatCurrency(currentFlow.netInvested)}</Text>
+              <Text style={styles.fyLabel}>{activeFlow.financialYear}</Text>
+              <Text style={styles.netValue}>{formatCurrency(activeFlow.netInvested)}</Text>
               <Text style={styles.netLabel}>Net invested</Text>
             </View>
             <View style={styles.currentBreakdown}>
               <View style={styles.breakdownItem}>
-                <Text style={styles.investedValue}>{formatCurrency(currentFlow.invested)}</Text>
+                <Text style={styles.investedValue}>{formatCurrency(activeFlow.invested)}</Text>
                 <Text style={styles.breakdownLabel}>Invested</Text>
               </View>
               <View style={styles.breakdownItem}>
-                <Text style={styles.withdrawnValue}>{formatCurrency(currentFlow.withdrawn)}</Text>
+                <Text style={styles.withdrawnValue}>{formatCurrency(activeFlow.withdrawn)}</Text>
                 <Text style={styles.breakdownLabel}>Withdrawn</Text>
               </View>
+            </View>
+          </View>
+
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: ClearLensColors.emerald }]} />
+              <Text style={styles.legendText}>Invested</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: ClearLensColors.amber }]} />
+              <Text style={styles.legendText}>Withdrawn</Text>
             </View>
           </View>
 
@@ -70,16 +85,37 @@ export function MoneyTrailPreviewCard({
               {chartFlows.map((flow) => {
                 const investedHeight = Math.max(8, (flow.invested / maxFlow) * 62);
                 const withdrawnHeight = flow.withdrawn > 0 ? Math.max(3, (flow.withdrawn / maxFlow) * 30) : 0;
+                const isActive = flow.financialYear === activeFy;
                 return (
-                  <View key={flow.financialYear} style={styles.barWrap}>
+                  <TouchableOpacity
+                    key={flow.financialYear}
+                    style={styles.barWrap}
+                    onPress={() => setSelectedFy(flow.financialYear)}
+                    activeOpacity={0.7}
+                    accessibilityLabel={`${flow.financialYear}: invested ${formatCurrency(flow.invested)}, withdrawn ${formatCurrency(flow.withdrawn)}`}
+                  >
                     <View style={styles.barTrack}>
-                      <View style={[styles.barInvested, { height: investedHeight }]} />
+                      <View
+                        style={[
+                          styles.barInvested,
+                          { height: investedHeight },
+                          !isActive && styles.barDim,
+                        ]}
+                      />
                       {withdrawnHeight > 0 && (
-                        <View style={[styles.barWithdrawn, { height: withdrawnHeight }]} />
+                        <View
+                          style={[
+                            styles.barWithdrawn,
+                            { height: withdrawnHeight },
+                            !isActive && styles.barDim,
+                          ]}
+                        />
                       )}
                     </View>
-                    <Text style={styles.barLabel}>{getFinancialYearShortLabel(flow.financialYear)}</Text>
-                  </View>
+                    <Text style={[styles.barLabel, isActive && styles.barLabelActive]}>
+                      {getFinancialYearShortLabel(flow.financialYear)}
+                    </Text>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -203,7 +239,33 @@ const styles = StyleSheet.create({
     width: 24,
     backgroundColor: ClearLensColors.amber,
   },
+  barDim: {
+    opacity: 0.42,
+  },
   barLabel: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  barLabelActive: {
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: ClearLensSpacing.sm,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendSwatch: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  legendText: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
   },
