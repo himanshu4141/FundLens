@@ -48,7 +48,7 @@ module.exports = ({ config }) => {
       policy: 'appVersion',
     },
     updates: {
-      url: 'https://u.expo.dev/cca64872-6fe3-4c13-86ae-caedecdff628',
+      url: 'https://u.expo.dev/fa824fc9-9add-418b-8959-eeeeb693b7b5'
     },
     ios: {
       supportsTablet: false,
@@ -85,9 +85,9 @@ module.exports = ({ config }) => {
     extra: {
       appVariant: variant,
       appScheme: variantConfig.scheme,
-      eas: {
-        projectId: 'cca64872-6fe3-4c13-86ae-caedecdff628',
-      },
+      "eas": {
+        "projectId": "fa824fc9-9add-418b-8959-eeeeb693b7b5"
+      }
     },
     owner: 'himanshu4141',
   };

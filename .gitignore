@@ -64,3 +64,5 @@ fixtures/private/
 *.pem
 .vercel
 fundlens-clear-lens/**
+
+.worktrees
