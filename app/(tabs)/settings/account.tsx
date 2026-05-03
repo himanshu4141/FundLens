@@ -207,7 +207,7 @@ export default function AccountScreen() {
         <View style={styles.footerNote}>
           <Ionicons name="shield-checkmark-outline" size={15} color={ClearLensColors.textTertiary} />
           <Text style={styles.footerNoteText}>
-            These accounts are used to sign in to FundLens.
+            These accounts are used to sign in to FolioLens.
           </Text>
         </View>
       </ScrollView>

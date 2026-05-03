@@ -1,0 +1,53 @@
+/* FundLens Design Tokens */
+:root {
+  /* Colors */
+  --fl-navy: #0A1430;
+  --fl-slate: #263248;
+  --fl-emerald: #10B981;
+  --fl-emerald-deep: #0EA372;
+  --fl-mint: #A7F3D0;
+  --fl-mint-50: #ECFDF5;
+  --fl-grey: #E6EBF1;
+  --fl-grey-50: #F2F4F8;
+  --fl-bg: #FAFBFD;
+  --fl-white: #FFFFFF;
+  --fl-text: #0A1430;
+  --fl-text-muted: #5B677D;
+  --fl-text-subtle: #8C97AB;
+  --fl-positive: #10B981;
+  --fl-negative: #E5484D;
+  --fl-negative-bg: #FEEDEE;
+  --fl-positive-bg: #E7FAF2;
+  --fl-amber: #F59E0B;
+
+  /* Spacing — 4pt base, 8pt grid */
+  --fl-s-1: 4px;
+  --fl-s-2: 8px;
+  --fl-s-3: 12px;
+  --fl-s-4: 16px;
+  --fl-s-5: 20px;
+  --fl-s-6: 24px;
+  --fl-s-8: 32px;
+  --fl-s-10: 40px;
+  --fl-s-12: 48px;
+
+  /* Radius */
+  --fl-r-sm: 8px;
+  --fl-r-md: 12px;
+  --fl-r-lg: 16px;
+  --fl-r-pill: 9999px;
+
+  /* Shadow */
+  --fl-shadow-sm: 0 1px 2px rgba(10,20,48,0.04);
+  --fl-shadow: 0 4px 16px rgba(10,20,48,0.06);
+  --fl-shadow-lg: 0 12px 32px rgba(10,20,48,0.08);
+
+  /* Type */
+  --fl-font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* Hide scrollbars on phone screens */
+.fl-noscroll::-webkit-scrollbar { display: none; }
+.fl-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+
+.fl-sans { font-family: var(--fl-font); }

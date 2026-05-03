@@ -10,7 +10,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/src/components/Logo';
-import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { getAppScheme } from '@/src/utils/appScheme';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
@@ -41,7 +41,8 @@ export default function ConfirmScreen() {
     if (!hash || hash.length <= 1) return;
 
     const ua = window.navigator.userAgent.toLowerCase();
-    const isNativeBridgeHost = window.location.hostname === 'fund-lens.vercel.app';
+    const nativeBridgeHostname = new URL(process.env.EXPO_PUBLIC_APP_BASE_URL ?? 'https://app.foliolens.in').hostname;
+    const isNativeBridgeHost = window.location.hostname === nativeBridgeHostname;
     if (!/iphone|ipad|ipod|android/.test(ua) || !isNativeBridgeHost) return;
 
     window.location.replace(`${targetScheme}://auth/confirm${hash}`);
@@ -57,7 +58,7 @@ export default function ConfirmScreen() {
       <View style={clStyles.container}>
         {/* Logo bar */}
         <View style={clStyles.logoBar}>
-          <FundLensLogo size={30} showWordmark />
+          <FolioLensLogo size={30} showWordmark />
         </View>
 
         <ScrollView
@@ -139,7 +140,7 @@ export default function ConfirmScreen() {
       <Text style={styles.title}>Check your inbox</Text>
 
       <Text style={styles.body}>
-        We sent a secure sign-in link to your email. Tap it to open FundLens — no
+        We sent a secure sign-in link to your email. Tap it to open FolioLens — no
         password needed.
       </Text>
 

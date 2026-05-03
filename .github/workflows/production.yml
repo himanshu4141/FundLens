@@ -45,8 +45,9 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
         env:
           APP_VARIANT: preview-main
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL_PROD }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY_PROD }}
+          EXPO_PUBLIC_APP_BASE_URL: ${{ secrets.EXPO_PUBLIC_APP_BASE_URL_PROD }}
           EAS_UPDATE_CHANNEL: main
           EAS_UPDATE_MESSAGE: "Main preview: ${{ github.sha }}"
       - name: Trace OTA update IDs
@@ -80,8 +81,9 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
         env:
           APP_VARIANT: production
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL_PROD }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY_PROD }}
+          EXPO_PUBLIC_APP_BASE_URL: ${{ secrets.EXPO_PUBLIC_APP_BASE_URL_PROD }}
           EAS_UPDATE_CHANNEL: production
           EAS_UPDATE_MESSAGE: "Deploy: ${{ github.sha }}"
       - name: Trace OTA update IDs

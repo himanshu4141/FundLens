@@ -18,7 +18,7 @@ import { supabase } from '@/src/lib/supabase';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
 import Logo from '@/src/components/Logo';
-import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { useTheme, type AppColors } from '@/src/context/ThemeContext';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { Colors as ClassicColors, Radii, Spacing, Typography } from '@/src/constants/theme';
@@ -126,7 +126,7 @@ function OnboardingHero({
   if (isClearLens) {
     return (
       <View style={styles.hero}>
-        <FundLensLogo size={42} showWordmark showTagline />
+        <FolioLensLogo size={42} showWordmark showTagline />
         <View style={styles.heroCopy}>
           <Text style={styles.heroTitle}>{title}</Text>
           <Text style={styles.heroSubtitle}>{subtitle}</Text>

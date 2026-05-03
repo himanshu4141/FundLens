@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "FundLens"
+project_id = "FolioLens"
 
 [api]
 enabled = true
@@ -151,13 +151,13 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "https://fund-lens.vercel.app"
+site_url = "https://foliolens-dev.vercel.app"
 # Allowed redirect URLs after authentication.
 # fundlens:// — native app deep-link scheme (any path); covers fundlens://auth/confirm
 # https://*.vercel.app/** — all Vercel preview and production deployments
 # localhost variants — Expo dev server and local web dev
 additional_redirect_urls = [
-  "fundlens://",
+  "foliolens://",
   "https://*.vercel.app/**",
   "http://localhost:8081",
   "exp://localhost:8081",
@@ -240,7 +240,7 @@ otp_expiry = 3600
 # content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.magic_link]
-subject = "Your FundLens sign-in link"
+subject = "Your FolioLens sign-in link"
 content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize notification email template

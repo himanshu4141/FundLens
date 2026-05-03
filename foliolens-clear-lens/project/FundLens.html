@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FundLens — Clear Lens</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; background: #f0eee9; color: #0A1430; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="fl-data.jsx"></script>
+<script type="text/babel" src="fl-components.jsx"></script>
+<script type="text/babel" src="fl-system.jsx"></script>
+<script type="text/babel" src="fl-wealth.jsx"></script>
+<script type="text/babel" src="fl-screens.jsx"></script>
+
+<script type="text/babel">
+function Root() {
+  return (
+    <DesignCanvas>
+      <DCSection id="brand" title="01 · Design system" subtitle="Clear-lens tokens — colour, type, spacing, voice. The canonical reference for everything downstream.">
+        <DCArtboard id="tokens" label="Tokens · v1.0" width={880} height={760}>
+          <DesignSystemCard />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="components" title="02 · Component library" subtitle="Every reusable brick — composed in real React, not screenshots. These are the same components rendering the prototype.">
+        <DCArtboard id="lib" label="Components" width={1100} height={1480}>
+          <ComponentLibrary />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="prototype" title="03 · Interactive prototype" subtitle="390 px iPhone frames. Tap into Insights, Funds, or any fund card. Tabs and bottom nav are live.">
+        <DCArtboard id="main" label="01 Main Portfolio" width={410} height={864}>
+          <FLApp initialScreen="portfolio" />
+        </DCArtboard>
+        <DCArtboard id="insights" label="02 Portfolio Insights" width={410} height={864}>
+          <FLApp initialScreen="insights" />
+        </DCArtboard>
+        <DCArtboard id="funds" label="03 Your Funds" width={410} height={864}>
+          <FLApp initialScreen="funds" />
+        </DCArtboard>
+        <DCArtboard id="detail" label="04 Fund Detail · DSP Large & Mid Cap" width={410} height={864}>
+          <FLApp initialScreen="fundDetail" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="wealth" title="04 · Wealth Journey" subtitle="New flow — projection home, adjust plan, results (wealth growth + withdrawal income), and the 3-step Edit detected SIP modal. Rebuilt to match existing screen patterns.">
+        <DCArtboard id="wj-home" label="01 Wealth Journey home" width={410} height={864}>
+          <FLApp initialScreen="wealth" />
+        </DCArtboard>
+        <DCArtboard id="wj-adjust" label="02 Adjust your plan" width={410} height={864}>
+          <FLApp initialScreen="wealthAdjust" />
+        </DCArtboard>
+        <DCArtboard id="wj-results-growth" label="03 Results · Wealth growth" width={410} height={864}>
+          <FLApp initialScreen="wealthResults" />
+        </DCArtboard>
+        <DCArtboard id="wj-results-withdrawal" label="04 Results · Withdrawal income" width={410} height={864}>
+          <FLApp initialScreen="wealthResultsWithdrawal" />
+        </DCArtboard>
+        <DCArtboard id="wj-edit-sip" label="05 Edit detected SIP (3 steps)" width={410} height={864}>
+          <FLApp initialScreen="wealthEditSip" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="critique" title="05 · Usability critique" subtitle="Honest review for the novice Indian investor. What works, what blocks understanding, and the one thing to fix first.">
+        <DCArtboard id="audit" label="UX audit" width={880} height={1320}>
+          <CritiqueCard />
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+</script>
+</body>
+</html>

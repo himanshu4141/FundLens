@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/src/components/Logo';
 import { useTheme } from '@/src/context/ThemeContext';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
-import { FundLensLogo } from '@/src/components/clearLens/FundLensLogo';
+import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { ClearLensColors, ClearLensSpacing } from '@/src/constants/clearLensTheme';
 import { Radii, Spacing } from '@/src/constants/theme';
 
@@ -32,7 +32,7 @@ export function PrimaryShellHeader({ onPressLogo, onPressMenu }: PrimaryShellHea
         style={styles.logoTouch}
       >
         {isClearLens ? (
-          <FundLensLogo size={32} showWordmark />
+          <FolioLensLogo size={32} showWordmark />
         ) : (
           <Logo size={28} showWordmark light />
         )}
