@@ -35,13 +35,11 @@ import {
   applyMoneyTrailControls,
   buildAnnualMoneyFlows,
   buildMoneyTrailSummary,
-  directionLabel,
   formatMoneyTrailDate,
   getFinancialYearShortLabel,
   parseMoneyTrailAmountInput,
   statusLabel,
   type MoneyTrailDatePreset,
-  type MoneyTrailDirection,
   type MoneyTrailFilters,
   type MoneyTrailSortOption,
   type MoneyTrailSummaryMode,
@@ -58,23 +56,20 @@ const DATE_PRESETS: { value: MoneyTrailDatePreset; label: string }[] = [
   { value: 'custom', label: 'Custom range' },
 ];
 
-const TYPE_FILTERS: { value: MoneyTrailTransactionType; label: string }[] = [
-  { value: 'sip_purchase', label: 'SIP investment' },
-  { value: 'purchase', label: 'Lump sum investment' },
-  { value: 'redemption', label: 'Withdrawal' },
-  { value: 'switch_in', label: 'Switch' },
-  { value: 'switch_out', label: 'Switch out' },
-  { value: 'dividend_payout', label: 'Dividend' },
-  { value: 'dividend_reinvestment', label: 'Dividend reinvested' },
-  { value: 'transfer', label: 'Transfer' },
-  { value: 'failed', label: 'Failed/reversed' },
-  { value: 'reversal', label: 'Reversal' },
-];
-
-const DIRECTION_FILTERS: { value: MoneyTrailDirection; label: string }[] = [
-  { value: 'money_in', label: 'Money in' },
-  { value: 'money_out', label: 'Money out' },
-  { value: 'internal', label: 'Internal movement' },
+// Filter chips group multiple underlying transaction types so users don't
+// have to think in CAS-statement vocabulary (SIP vs lumpsum, switch in vs
+// out). The data layer still tracks the granular types — this is UI sugar.
+//
+// "Other" is a catch-all for the long tail (STPs, SWPs, transfers we haven't
+// classified, plus any future-discovered raw type that normalizeMoneyTrailType
+// maps to 'unknown'). Keeping it explicit prevents users from missing rows.
+const TYPE_FILTER_GROUPS: { values: MoneyTrailTransactionType[]; label: string }[] = [
+  { values: ['sip_purchase', 'purchase'], label: 'Investment' },
+  { values: ['redemption'], label: 'Withdrawal' },
+  { values: ['switch_in', 'switch_out'], label: 'Switch' },
+  { values: ['dividend_payout', 'dividend_reinvestment'], label: 'Dividend' },
+  { values: ['failed', 'reversal'], label: 'Failed/reversed' },
+  { values: ['transfer', 'stp_in', 'stp_out', 'swp', 'unknown'], label: 'Other' },
 ];
 
 const SORT_OPTIONS: MoneyTrailSortOption[] = [
@@ -86,123 +81,174 @@ const SORT_OPTIONS: MoneyTrailSortOption[] = [
   'fund_desc',
 ];
 
-function MetricGrid({
+function HeroSection({
   transactions,
   summaryMode,
+  rangeLabel,
 }: {
   transactions: PortfolioTransaction[];
   summaryMode: MoneyTrailSummaryMode;
+  rangeLabel: string;
 }) {
   const summary = useMemo(() => buildMoneyTrailSummary(transactions, summaryMode), [summaryMode, transactions]);
-  const labels = summaryMode === 'fund_cost_basis'
-    ? {
-        totalInvested: 'Money into fund',
-        totalWithdrawn: 'Money out of fund',
-        netInvested: 'Cost basis',
-      }
-    : {
-        totalInvested: 'Total invested',
-        totalWithdrawn: 'Total withdrawn',
-        netInvested: 'Net invested',
-      };
+  const annualFlows = useMemo(() => buildAnnualMoneyFlows(transactions, summaryMode), [summaryMode, transactions]);
+  const moneyInCount = useMemo(
+    () => transactions.filter((tx) => tx.direction === 'money_in' && !tx.hiddenByDefault).length,
+    [transactions],
+  );
+  const moneyOutCount = useMemo(
+    () => transactions.filter((tx) => tx.direction === 'money_out' && !tx.hiddenByDefault).length,
+    [transactions],
+  );
+
+  const copy = summaryMode === 'fund_cost_basis'
+    ? { hero: 'Cost basis', flowIn: 'Money into fund', flowOut: 'Money out of fund' }
+    : { hero: 'Net invested', flowIn: 'Money in', flowOut: 'Money out' };
 
   return (
-    <ClearLensCard style={styles.metricGrid}>
-      <Metric label={labels.totalInvested} value={formatCurrency(summary.totalInvested)} tone="in" />
-      <Metric label={labels.totalWithdrawn} value={formatCurrency(summary.totalWithdrawn)} tone="out" />
-      <Metric label={labels.netInvested} value={formatCurrency(summary.netInvested)} tone="net" />
-      <Metric label="Transactions" value={String(summary.transactionCount)} tone="neutral" />
+    <ClearLensCard style={styles.heroCard}>
+      <View>
+        <Text style={styles.heroEyebrow}>{copy.hero} · {rangeLabel}</Text>
+        <Text style={styles.heroValue}>{formatCurrency(summary.netInvested)}</Text>
+      </View>
+
+      <View style={styles.flowRow}>
+        <FlowStat
+          icon="arrow-down-circle"
+          tint={ClearLensColors.emeraldDeep}
+          tintBg={ClearLensColors.mint50}
+          label={copy.flowIn}
+          amount={summary.totalInvested}
+          count={moneyInCount}
+        />
+        <View style={styles.flowDivider} />
+        <FlowStat
+          icon="arrow-up-circle"
+          tint={ClearLensColors.amber}
+          tintBg="#FFF7E6"
+          label={copy.flowOut}
+          amount={summary.totalWithdrawn}
+          count={moneyOutCount}
+        />
+      </View>
+
+      {annualFlows.length > 0 ? (
+        <AnnualBars annualFlows={annualFlows} />
+      ) : null}
     </ClearLensCard>
   );
 }
 
-function Metric({
+function FlowStat({
+  icon,
+  tint,
+  tintBg,
   label,
-  value,
-  tone,
+  amount,
+  count,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  tintBg: string;
   label: string;
-  value: string;
-  tone: 'in' | 'out' | 'net' | 'neutral';
+  amount: number;
+  count: number;
 }) {
-  const color = tone === 'in' || tone === 'net' ? ClearLensColors.emeraldDeep : ClearLensColors.navy;
   return (
-    <View style={styles.metric}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={[styles.metricLabel, { color }]}>{label}</Text>
+    <View style={styles.flowStat}>
+      <View style={[styles.flowIcon, { backgroundColor: tintBg }]}>
+        <Ionicons name={icon} size={18} color={tint} />
+      </View>
+      <View style={styles.flowCopy}>
+        <Text style={styles.flowLabel}>{label}</Text>
+        <Text style={styles.flowAmount}>{formatCurrency(amount)}</Text>
+        <Text style={styles.flowMeta}>
+          {count} {count === 1 ? 'entry' : 'entries'}
+        </Text>
+      </View>
     </View>
   );
 }
 
-function AnnualSummary({
-  transactions,
-  summaryMode,
-}: {
-  transactions: PortfolioTransaction[];
-  summaryMode: MoneyTrailSummaryMode;
-}) {
-  const annualFlows = useMemo(() => buildAnnualMoneyFlows(transactions, summaryMode), [summaryMode, transactions]);
+function AnnualBars({ annualFlows }: { annualFlows: ReturnType<typeof buildAnnualMoneyFlows> }) {
+  const visibleFlows = useMemo(() => annualFlows.slice(-6), [annualFlows]);
+  const [selectedFy, setSelectedFy] = useState<string | null>(null);
   const maxValue = Math.max(
     1,
-    ...annualFlows.flatMap((flow) => [flow.invested, flow.withdrawn, Math.abs(flow.netInvested)]),
+    ...visibleFlows.flatMap((flow) => [flow.invested, flow.withdrawn, Math.abs(flow.netInvested)]),
   );
-  const copy = summaryMode === 'fund_cost_basis'
-    ? {
-        title: 'Net invested by financial year',
-        subtitle: 'Using your buys, redemptions, and switches',
-        invested: 'Into fund',
-        withdrawn: 'Out of fund',
-        net: 'Cost basis',
-      }
-    : {
-        title: 'Net invested by financial year',
-        subtitle: 'Invested, withdrawn, and net invested',
-        invested: 'Invested',
-        withdrawn: 'Withdrawn',
-        net: 'Net invested',
-      };
 
-  if (annualFlows.length === 0) return null;
+  const activeFy = selectedFy ?? visibleFlows[visibleFlows.length - 1]?.financialYear ?? null;
+  const activeFlow = activeFy ? visibleFlows.find((flow) => flow.financialYear === activeFy) ?? null : null;
 
   return (
-    <ClearLensCard style={styles.annualCard}>
-      <View style={styles.sectionHeader}>
-        <View>
-          <Text style={styles.sectionTitle}>{copy.title}</Text>
-          <Text style={styles.sectionSubtitle}>{copy.subtitle}</Text>
+    <View style={styles.annualBlock}>
+      <View style={styles.annualHeader}>
+        <Text style={styles.annualHeading}>By financial year</Text>
+        <View style={styles.annualLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, { backgroundColor: ClearLensColors.emerald }]} />
+            <Text style={styles.legendText}>Invested</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, { backgroundColor: ClearLensColors.amber }]} />
+            <Text style={styles.legendText}>Withdrawn</Text>
+          </View>
         </View>
-        <Ionicons name="information-circle-outline" size={18} color={ClearLensColors.textTertiary} />
       </View>
+
+      {activeFlow ? (
+        <View style={styles.annualDetail}>
+          <Text style={styles.annualDetailFy}>{activeFlow.financialYear}</Text>
+          <View style={styles.annualDetailRow}>
+            <Text style={styles.annualDetailItem}>
+              Invested <Text style={[styles.annualDetailValue, { color: ClearLensColors.emeraldDeep }]}>{formatCurrency(activeFlow.invested)}</Text>
+            </Text>
+            <Text style={styles.annualDetailItem}>
+              Withdrawn <Text style={[styles.annualDetailValue, { color: ClearLensColors.amber }]}>{formatCurrency(activeFlow.withdrawn)}</Text>
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.annualBars}>
-        {annualFlows.slice(-6).map((flow) => {
-          const investedHeight = Math.max(8, (flow.invested / maxValue) * 78);
-          const withdrawnHeight = flow.withdrawn > 0 ? Math.max(3, (flow.withdrawn / maxValue) * 34) : 0;
+        {visibleFlows.map((flow) => {
+          const investedHeight = Math.max(6, (flow.invested / maxValue) * 64);
+          const withdrawnHeight = flow.withdrawn > 0 ? Math.max(3, (flow.withdrawn / maxValue) * 28) : 0;
+          const isActive = flow.financialYear === activeFy;
           return (
-            <View key={flow.financialYear} style={styles.annualBarItem}>
-              <Text style={styles.annualNet}>{formatCurrency(flow.netInvested)}</Text>
+            <TouchableOpacity
+              key={flow.financialYear}
+              style={styles.annualBarItem}
+              onPress={() => setSelectedFy(flow.financialYear)}
+              activeOpacity={0.7}
+              accessibilityLabel={`${flow.financialYear}: invested ${formatCurrency(flow.invested)}, withdrawn ${formatCurrency(flow.withdrawn)}`}
+            >
               <View style={styles.annualBarTrack}>
-                <View style={[styles.annualInvested, { height: investedHeight }]} />
-                {withdrawnHeight > 0 && <View style={[styles.annualWithdrawn, { height: withdrawnHeight }]} />}
+                <View
+                  style={[
+                    styles.annualInvested,
+                    { height: investedHeight },
+                    !isActive && styles.annualBarDim,
+                  ]}
+                />
+                {withdrawnHeight > 0 && (
+                  <View
+                    style={[
+                      styles.annualWithdrawn,
+                      { height: withdrawnHeight },
+                      !isActive && styles.annualBarDim,
+                    ]}
+                  />
+                )}
               </View>
-              <Text style={styles.annualLabel}>{getFinancialYearShortLabel(flow.financialYear)}</Text>
-            </View>
+              <Text style={[styles.annualLabel, isActive && styles.annualLabelActive]}>
+                {getFinancialYearShortLabel(flow.financialYear)}
+              </Text>
+            </TouchableOpacity>
           );
         })}
       </View>
-      <View style={styles.legendRow}>
-        <Legend color={ClearLensColors.emerald} label={copy.invested} />
-        <Legend color={ClearLensColors.amber} label={copy.withdrawn} />
-        <Legend color={ClearLensColors.mint} label={copy.net} />
-      </View>
-    </ClearLensCard>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendDot, { backgroundColor: color }]} />
-      <Text style={styles.legendText}>{label}</Text>
     </View>
   );
 }
@@ -302,8 +348,14 @@ function ActiveFilterChips({
       .filter(Boolean);
     chips.push(names.length === 1 ? names[0]! : `${names.length} funds`);
   }
-  if (filters.transactionTypes.length > 0) chips.push(`${filters.transactionTypes.length} type filters`);
-  if (filters.directions.length > 0) chips.push(filters.directions.map(directionLabel).join(', '));
+  if (filters.transactionTypes.length > 0) {
+    const activeGroups = TYPE_FILTER_GROUPS.filter((group) =>
+      group.values.some((value) => filters.transactionTypes.includes(value)),
+    );
+    if (activeGroups.length > 0) {
+      chips.push(activeGroups.map((group) => group.label).join(', '));
+    }
+  }
   if (filters.amcNames.length > 0) chips.push(`${filters.amcNames.length} AMCs`);
   if (filters.minAmount != null || filters.maxAmount != null) chips.push('Amount range');
   if (filters.includeHidden) chips.push('Hidden shown');
@@ -464,27 +516,27 @@ function FilterSheet({
 
             <FilterGroup title="Transaction type">
               <View style={styles.wrapRow}>
-                {TYPE_FILTERS.map((type) => (
-                  <ChoiceChip
-                    key={type.value}
-                    label={type.label}
-                    selected={draft.transactionTypes.includes(type.value)}
-                    onPress={() => toggleArrayValue('transactionTypes', type.value)}
-                  />
-                ))}
-              </View>
-            </FilterGroup>
-
-            <FilterGroup title="Direction">
-              <View style={styles.wrapRow}>
-                {DIRECTION_FILTERS.map((direction) => (
-                  <ChoiceChip
-                    key={direction.value}
-                    label={direction.label}
-                    selected={draft.directions.includes(direction.value)}
-                    onPress={() => toggleArrayValue('directions', direction.value)}
-                  />
-                ))}
+                {TYPE_FILTER_GROUPS.map((group) => {
+                  const selected = group.values.every((value) => draft.transactionTypes.includes(value));
+                  return (
+                    <ChoiceChip
+                      key={group.label}
+                      label={group.label}
+                      selected={selected}
+                      onPress={() => {
+                        setDraft((current) => {
+                          const without = current.transactionTypes.filter(
+                            (value) => !group.values.includes(value),
+                          );
+                          return {
+                            ...current,
+                            transactionTypes: selected ? without : [...without, ...group.values],
+                          };
+                        });
+                      }}
+                    />
+                  );
+                })}
               </View>
             </FilterGroup>
 
@@ -709,11 +761,14 @@ function EmptyTransactions({ filtered, onPrimary }: { filtered: boolean; onPrima
   );
 }
 
+const SCROLL_TOP_THRESHOLD = 480;
+
 export default function MoneyTrailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ fundId?: string }>();
   const requestedFundId = typeof params.fundId === 'string' ? params.fundId : undefined;
   const didApplyFundParam = useRef(false);
+  const scrollRef = useRef<ScrollView | null>(null);
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<MoneyTrailFilters>(DEFAULT_MONEY_TRAIL_FILTERS);
   const [sortBy, setSortBy] = useState<MoneyTrailSortOption>('newest');
@@ -722,6 +777,7 @@ export default function MoneyTrailScreen() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportResult, setExportResult] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const { data, isLoading, isError, refetch } = useMoneyTrail();
   const transactions = useMemo(() => data?.transactions ?? [], [data?.transactions]);
 
@@ -735,13 +791,40 @@ export default function MoneyTrailScreen() {
     () => applyMoneyTrailControls(transactions, filters, query, sortBy),
     [filters, query, sortBy, transactions],
   );
+  // Hero summary should reflect the *scope* of what's being viewed (date
+  // range + optional fund focus), not drill-down list filters. Otherwise
+  // selecting "Investment" filter zeroes out the Money Out tile and makes
+  // the hero feel inconsistent with what users think of as their account
+  // summary. The transaction list still respects the full filter set.
+  const heroTransactions = useMemo(() => {
+    const scopeFilters: MoneyTrailFilters = {
+      ...DEFAULT_MONEY_TRAIL_FILTERS,
+      datePreset: filters.datePreset,
+      customStartDate: filters.customStartDate,
+      customEndDate: filters.customEndDate,
+      fundIds: filters.fundIds,
+      includeHidden: filters.includeHidden,
+    };
+    return applyMoneyTrailControls(transactions, scopeFilters, '', sortBy);
+  }, [
+    filters.datePreset,
+    filters.customStartDate,
+    filters.customEndDate,
+    filters.fundIds,
+    filters.includeHidden,
+    sortBy,
+    transactions,
+  ]);
   const summaryMode: MoneyTrailSummaryMode = filters.fundIds.length > 0
     ? 'fund_cost_basis'
     : 'portfolio_external';
+  const rangeLabel = useMemo(
+    () => DATE_PRESETS.find((preset) => preset.value === filters.datePreset)?.label ?? 'All time',
+    [filters.datePreset],
+  );
   const hasAnyFilter = query.trim().length > 0 ||
     filters.datePreset !== 'all_time' ||
     filters.transactionTypes.length > 0 ||
-    filters.directions.length > 0 ||
     filters.amcNames.length > 0 ||
     filters.fundIds.length > 0 ||
     filters.minAmount != null ||
@@ -751,6 +834,10 @@ export default function MoneyTrailScreen() {
   function clearFilters() {
     setFilters(DEFAULT_MONEY_TRAIL_FILTERS);
     setQuery('');
+  }
+
+  function scrollToTop() {
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   }
 
   async function handleExport() {
@@ -781,7 +868,16 @@ export default function MoneyTrailScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={32}
+          onScroll={(event) => {
+            const next = event.nativeEvent.contentOffset.y > SCROLL_TOP_THRESHOLD;
+            if (next !== showScrollTop) setShowScrollTop(next);
+          }}
+        >
           <View style={styles.titleBlock}>
             <Text style={styles.title}>Money Trail</Text>
             <Text style={styles.subtitle}>Every investment, withdrawal, switch, and dividend in your portfolio.</Text>
@@ -789,8 +885,11 @@ export default function MoneyTrailScreen() {
 
           {transactions.length > 0 ? (
             <>
-              <MetricGrid transactions={visibleTransactions} summaryMode={summaryMode} />
-              <AnnualSummary transactions={visibleTransactions} summaryMode={summaryMode} />
+              <HeroSection
+                transactions={heroTransactions}
+                summaryMode={summaryMode}
+                rangeLabel={rangeLabel}
+              />
 
               <View style={styles.controlsBlock}>
                 <View style={styles.searchBox}>
@@ -873,6 +972,18 @@ export default function MoneyTrailScreen() {
         onClose={() => setExportOpen(false)}
         onExport={handleExport}
       />
+
+      {showScrollTop ? (
+        <TouchableOpacity
+          style={styles.scrollTopFab}
+          onPress={scrollToTop}
+          activeOpacity={0.82}
+          accessibilityLabel="Scroll to top"
+          accessibilityRole="button"
+        >
+          <Ionicons name="arrow-up" size={20} color={ClearLensColors.textOnDark} />
+        </TouchableOpacity>
+      ) : null}
     </ClearLensScreen>
   );
 }
@@ -894,48 +1005,126 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.textSecondary,
   },
-  metricGrid: {
-    padding: 0,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  heroCard: {
+    gap: ClearLensSpacing.md,
   },
-  metric: {
-    width: '50%',
-    minHeight: 74,
-    padding: ClearLensSpacing.md,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: ClearLensColors.borderLight,
-    gap: 4,
-  },
-  metricValue: {
-    ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
-  },
-  metricLabel: {
+  heroEyebrow: {
     ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
-  annualCard: {
-    gap: ClearLensSpacing.md,
+  heroValue: {
+    ...ClearLensTypography.h1,
+    color: ClearLensColors.emeraldDeep,
+    marginTop: 4,
   },
-  sectionHeader: {
+  flowRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'stretch',
     gap: ClearLensSpacing.md,
+    paddingTop: ClearLensSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
   },
-  sectionTitle: {
-    ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+  flowStat: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ClearLensSpacing.sm,
   },
-  sectionSubtitle: {
+  flowDivider: {
+    width: 1,
+    backgroundColor: ClearLensColors.borderLight,
+  },
+  flowIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flowCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  flowLabel: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
   },
+  flowAmount: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  flowMeta: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  annualBlock: {
+    paddingTop: ClearLensSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
+    gap: ClearLensSpacing.sm,
+  },
+  annualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+  },
+  annualHeading: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+    fontFamily: ClearLensFonts.semiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  annualLegend: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendSwatch: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  legendText: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
+  },
+  annualDetail: {
+    paddingHorizontal: ClearLensSpacing.sm,
+    paddingVertical: 6,
+    borderRadius: ClearLensRadii.sm,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    gap: 2,
+  },
+  annualDetailFy: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
+  },
+  annualDetailRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: ClearLensSpacing.md,
+  },
+  annualDetailItem: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textSecondary,
+  },
+  annualDetailValue: {
+    fontFamily: ClearLensFonts.bold,
+  },
   annualBars: {
-    minHeight: 126,
+    minHeight: 90,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -946,50 +1135,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: ClearLensSpacing.xs,
   },
-  annualNet: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.navy,
-    fontFamily: ClearLensFonts.bold,
-  },
   annualBarTrack: {
-    height: 88,
-    width: 24,
+    height: 70,
+    width: 18,
     justifyContent: 'flex-end',
     borderBottomWidth: 1,
     borderBottomColor: ClearLensColors.border,
   },
   annualInvested: {
-    width: 24,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
+    width: 18,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
     backgroundColor: ClearLensColors.emerald,
   },
   annualWithdrawn: {
-    width: 24,
+    width: 18,
     backgroundColor: ClearLensColors.amber,
+  },
+  annualBarDim: {
+    opacity: 0.42,
   },
   annualLabel: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
   },
-  legendRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: ClearLensSpacing.md,
+  annualLabelActive: {
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.bold,
   },
-  legendItem: {
-    flexDirection: 'row',
+  scrollTopFab: {
+    position: 'absolute',
+    right: ClearLensSpacing.md,
+    bottom: ClearLensSpacing.lg,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: ClearLensColors.emeraldDeep,
     alignItems: 'center',
-    gap: ClearLensSpacing.xs,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    justifyContent: 'center',
+    ...ClearLensShadow,
   },
   controlsBlock: {
     flexDirection: 'row',
