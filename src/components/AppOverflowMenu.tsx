@@ -26,6 +26,16 @@ interface AppOverflowMenuProps {
   onTools?: () => void;
 }
 
+type RowConfig = {
+  key: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  danger?: boolean;
+};
+
 export function AppOverflowMenu({
   visible,
   syncState,
@@ -41,6 +51,13 @@ export function AppOverflowMenu({
   const activeColors = isClearLens ? ClearLensColors : colors;
   const dangerColor = isClearLens ? ClearLensColors.negative : colors.negative;
 
+  function dismissAnd(action: () => void) {
+    return () => {
+      onClose();
+      action();
+    };
+  }
+
   async function handleSignOut() {
     onClose();
     const { error } = await supabase.auth.signOut();
@@ -48,6 +65,50 @@ export function AppOverflowMenu({
       Alert.alert('Sign out failed', error.message);
     }
   }
+
+  // Grouped, semantically ordered: data actions first (sync/import),
+  // navigation in the middle (trail/tools/settings), destructive at the bottom.
+  const dataActions: RowConfig[] = [
+    {
+      key: 'sync',
+      icon: 'sync-outline',
+      label: 'Sync portfolio',
+      onPress: dismissAnd(onSync),
+      loading: syncState === 'syncing',
+      disabled: syncState === 'syncing',
+    },
+    {
+      key: 'import',
+      icon: 'cloud-upload-outline',
+      label: 'Import CAS',
+      onPress: dismissAnd(onImport),
+    },
+  ];
+
+  const navActions: RowConfig[] = [
+    ...(onMoneyTrail
+      ? [{ key: 'trail', icon: 'trail-sign-outline', label: 'Money Trail', onPress: dismissAnd(onMoneyTrail) } as RowConfig]
+      : []),
+    ...(onTools
+      ? [{ key: 'tools', icon: 'construct-outline', label: 'Tools', onPress: dismissAnd(onTools) } as RowConfig]
+      : []),
+    {
+      key: 'settings',
+      icon: 'settings-outline',
+      label: 'Settings',
+      onPress: dismissAnd(onSettings),
+    },
+  ];
+
+  const destructiveActions: RowConfig[] = [
+    {
+      key: 'signout',
+      icon: 'log-out-outline',
+      label: 'Log out',
+      onPress: handleSignOut,
+      danger: true,
+    },
+  ];
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -65,98 +126,80 @@ export function AppOverflowMenu({
             Quick actions
           </Text>
 
-          <TouchableOpacity
-            style={[styles.item, isClearLens && styles.clearItem]}
-            onPress={() => {
-              onClose();
-              onSync();
-            }}
-            disabled={syncState === 'syncing'}
-          >
-            {syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color={isClearLens ? ClearLensColors.emerald : colors.primary} />
-            ) : (
-              <Ionicons name="sync-outline" size={18} color={activeColors.textPrimary} />
-            )}
-            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Sync Portfolio</Text>
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
-
-          {onMoneyTrail ? (
-            <>
-              <TouchableOpacity
-                style={[styles.item, isClearLens && styles.clearItem]}
-                onPress={() => {
-                  onClose();
-                  onMoneyTrail();
-                }}
-              >
-                <Ionicons name="trail-sign-outline" size={18} color={activeColors.textPrimary} />
-                <View style={styles.itemCopy}>
-                  <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Money Trail</Text>
-                  {isClearLens ? (
-                    <Text style={styles.clearItemDescription}>See investments, withdrawals, switches, and dividends.</Text>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-
-              <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
-            </>
-          ) : null}
-
-          <TouchableOpacity
-            style={[styles.item, isClearLens && styles.clearItem]}
-            onPress={() => {
-              onClose();
-              onImport();
-            }}
-          >
-            <Ionicons name="cloud-upload-outline" size={18} color={activeColors.textPrimary} />
-            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Import CAS</Text>
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
-
-          <TouchableOpacity
-            style={[styles.item, isClearLens && styles.clearItem]}
-            onPress={() => {
-              onClose();
-              onSettings();
-            }}
-          >
-            <Ionicons name="settings-outline" size={18} color={activeColors.textPrimary} />
-            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Settings</Text>
-          </TouchableOpacity>
-
-          {onTools ? (
-            <>
-              <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
-              <TouchableOpacity
-                style={[styles.item, isClearLens && styles.clearItem]}
-                onPress={() => {
-                  onClose();
-                  onTools();
-                }}
-              >
-                <Ionicons name="construct-outline" size={18} color={activeColors.textPrimary} />
-                <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Tools</Text>
-              </TouchableOpacity>
-            </>
-          ) : null}
-
-          <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
-
-          <TouchableOpacity
-            style={[styles.item, isClearLens && styles.clearItem]}
-            onPress={handleSignOut}
-          >
-            <Ionicons name="log-out-outline" size={18} color={dangerColor} />
-            <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: dangerColor }]}>Log out</Text>
-          </TouchableOpacity>
+          <RowGroup
+            rows={dataActions}
+            isClearLens={isClearLens}
+            activeColors={activeColors}
+            primaryColor={isClearLens ? ClearLensColors.emerald : colors.primary}
+            dangerColor={dangerColor}
+          />
+          <View style={[styles.groupDivider, { backgroundColor: activeColors.border }]} />
+          <RowGroup
+            rows={navActions}
+            isClearLens={isClearLens}
+            activeColors={activeColors}
+            primaryColor={isClearLens ? ClearLensColors.emerald : colors.primary}
+            dangerColor={dangerColor}
+          />
+          <View style={[styles.groupDivider, { backgroundColor: activeColors.border }]} />
+          <RowGroup
+            rows={destructiveActions}
+            isClearLens={isClearLens}
+            activeColors={activeColors}
+            primaryColor={isClearLens ? ClearLensColors.emerald : colors.primary}
+            dangerColor={dangerColor}
+          />
         </Pressable>
       </Pressable>
     </Modal>
+  );
+}
+
+function RowGroup({
+  rows,
+  isClearLens,
+  activeColors,
+  primaryColor,
+  dangerColor,
+}: {
+  rows: RowConfig[];
+  isClearLens: boolean;
+  activeColors: { textPrimary: string };
+  primaryColor: string;
+  dangerColor: string;
+}) {
+  return (
+    <View>
+      {rows.map((row) => {
+        const labelColor = row.danger ? dangerColor : activeColors.textPrimary;
+        return (
+          <TouchableOpacity
+            key={row.key}
+            style={[styles.item, isClearLens && styles.clearItem]}
+            onPress={row.onPress}
+            disabled={row.disabled}
+            activeOpacity={0.76}
+          >
+            <View style={styles.itemIcon}>
+              {row.loading ? (
+                <ActivityIndicator size="small" color={primaryColor} />
+              ) : (
+                <Ionicons name={row.icon} size={20} color={labelColor} />
+              )}
+            </View>
+            <Text
+              style={[
+                styles.itemText,
+                isClearLens && styles.clearItemText,
+                { color: labelColor },
+              ]}
+            >
+              {row.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 }
 
@@ -211,30 +254,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
+    paddingVertical: 10,
   },
   clearItem: {
     paddingHorizontal: ClearLensSpacing.md,
-    paddingVertical: ClearLensSpacing.md,
+    paddingVertical: 12,
+  },
+  itemIcon: {
+    width: 24,
+    alignItems: 'center',
   },
   itemText: {
     fontSize: 15,
     fontWeight: '500',
-  },
-  itemCopy: {
     flex: 1,
-    gap: 2,
   },
   clearItemText: {
     ...ClearLensTypography.body,
     fontFamily: ClearLensFonts.medium,
   },
-  clearItemDescription: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
-  },
-  divider: {
+  groupDivider: {
     height: 1,
-    marginHorizontal: Spacing.sm,
+    marginHorizontal: Spacing.md,
+    marginVertical: 6,
   },
 });
