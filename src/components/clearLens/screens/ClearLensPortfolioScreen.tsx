@@ -949,7 +949,6 @@ export function ClearLensPortfolioScreen() {
           {moneyTrailData ? (
             <MoneyTrailPreviewCard
               annualFlows={moneyTrailData.annualFlows}
-              summary={moneyTrailData.summary}
               onPress={() => router.push('/money-trail')}
             />
           ) : moneyTrailLoading ? (

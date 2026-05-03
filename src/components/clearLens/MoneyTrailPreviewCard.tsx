@@ -13,16 +13,13 @@ import {
   getCurrentFinancialYear,
   getFinancialYearShortLabel,
   type AnnualMoneyFlow,
-  type MoneyTrailSummary,
 } from '@/src/utils/moneyTrail';
 
 export function MoneyTrailPreviewCard({
   annualFlows,
-  summary,
   onPress,
 }: {
   annualFlows: AnnualMoneyFlow[];
-  summary: MoneyTrailSummary;
   onPress: () => void;
 }) {
   const currentFinancialYear = getCurrentFinancialYear();
@@ -87,14 +84,6 @@ export function MoneyTrailPreviewCard({
               })}
             </View>
           )}
-
-          <View style={styles.totalsRow}>
-            <PreviewTotal label="Total invested" value={summary.totalInvested} tone="in" />
-            <View style={styles.totalDivider} />
-            <PreviewTotal label="Total withdrawn" value={summary.totalWithdrawn} tone="out" />
-            <View style={styles.totalDivider} />
-            <PreviewTotal label="Net invested" value={summary.netInvested} tone="net" />
-          </View>
         </>
       ) : (
         <View style={styles.emptyBlock}>
@@ -108,24 +97,6 @@ export function MoneyTrailPreviewCard({
         <Ionicons name="arrow-forward" size={17} color={ClearLensColors.emeraldDeep} />
       </TouchableOpacity>
     </ClearLensCard>
-  );
-}
-
-function PreviewTotal({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: 'in' | 'out' | 'net';
-}) {
-  const color = tone === 'out' ? ClearLensColors.slate : ClearLensColors.navy;
-  return (
-    <View style={styles.totalItem}>
-      <Text style={styles.totalLabel}>{label}</Text>
-      <Text style={[styles.totalValue, { color }]}>{formatCurrency(value)}</Text>
-    </View>
   );
 }
 
@@ -235,29 +206,6 @@ const styles = StyleSheet.create({
   barLabel: {
     ...ClearLensTypography.caption,
     color: ClearLensColors.textTertiary,
-  },
-  totalsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    paddingTop: ClearLensSpacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
-  },
-  totalItem: {
-    flex: 1,
-    gap: 3,
-  },
-  totalDivider: {
-    width: 1,
-    marginHorizontal: ClearLensSpacing.sm,
-    backgroundColor: ClearLensColors.borderLight,
-  },
-  totalLabel: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
-  },
-  totalValue: {
-    ...ClearLensTypography.h3,
   },
   emptyBlock: {
     paddingVertical: ClearLensSpacing.md,
