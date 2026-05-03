@@ -121,6 +121,41 @@ describe('fetchPortfolioData()', () => {
     expect(isFinite(result.summary!.xirr) || isNaN(result.summary!.xirr)).toBe(true);
   });
 
+  it('does not show funds that only have a failed-payment purchase/reversal pair', async () => {
+    const failedPaymentTxs = [
+      {
+        fund_id: 'fund-1',
+        transaction_date: '2025-10-09',
+        transaction_type: 'redemption',
+        units: 0,
+        amount: 25000,
+      },
+      {
+        fund_id: 'fund-1',
+        transaction_date: '2025-10-09',
+        transaction_type: 'purchase',
+        units: 101.12,
+        amount: 25000,
+      },
+    ];
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
+      if (table === 'transaction') return makeChain({ data: failedPaymentTxs, error: null });
+      if (table === 'nav_history') return makeChain({ data: MOCK_NAV, error: null });
+      if (table === 'index_history') return makeChain({ data: MOCK_INDEX, error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+
+    expect(result.fundCards).toHaveLength(0);
+    expect(result.summary).toMatchObject({
+      totalValue: 0,
+      totalInvested: 0,
+    });
+  });
+
   it('skips funds with no transactions (does not add them to fundCards)', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });

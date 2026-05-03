@@ -6,7 +6,7 @@
 
 | Plan | Branch | What it covers |
 |---|---|---|
-| `phase-3-clear-lens-design-mode/M1-clear-lens-design-mode.md` | `codex/clear-lens-design-mode` | Clear Lens default design mode; tokens and logo; redesigned Portfolio, Insights, Your Funds, Fund Detail, Leaderboard, Wealth Journey, and supporting screens |
+| `phase-3-clear-lens-design-mode/M2-money-trail.md` | `feature/money-trail` | Money Trail transaction history on Clear Lens; portfolio preview, entry points, transaction browsing, detail, filters, sorting, CSV export, and calculation alignment |
 
 ---
 
@@ -48,6 +48,19 @@ All shipped work is in `docs/plans/archive/`. These are read-only historical rec
 | `M9-portfolio-insights.md` | Asset mix, market-cap mix, sector exposure, top holdings |
 | `M10-screen-family-consistency.md` | Unified navigation chrome, single back affordance in Fund Detail, sortable Your Funds list |
 | `M11-wealth-journey-redesign.md` | Wealth Journey — portfolio-anchored planning with drawdown view |
+
+**Phase 3 — Clear Lens Design Mode** (`archive/phase-3-clear-lens-design-mode/`)
+
+| Plan | What it covers |
+|---|---|
+| `M1-clear-lens-design-mode.md` | Clear Lens default design mode; tokens and logo; redesigned Portfolio, Insights, Your Funds, Fund Detail, Leaderboard, Wealth Journey, and supporting screens |
+
+**Phase 4 — Tools Hub** (`archive/phase4-tools-hub/`)
+
+| Plan | What it covers |
+|---|---|
+| `M0-tools-foundation.md` | Tools Hub shell, feature flags, and Portfolio / Wealth Journey entry points |
+| `M1-goal-planner-mvp.md` | Goal Planner MVP with Clear Lens calculator screens, projection chart, and tool route structure |
 
 **Bug Fixes** (`archive/bug-fixes/`)
 

@@ -1906,6 +1906,16 @@ function ClearLensFundDetailScreen() {
               </View>
             </View>
           )}
+
+          <TouchableOpacity
+            style={clearDetailStyles.transactionsAction}
+            onPress={() => router.push(`/money-trail?fundId=${data.id}`)}
+            activeOpacity={0.76}
+          >
+            <Ionicons name="receipt-outline" size={18} color={ClearLensColors.emeraldDeep} />
+            <Text style={clearDetailStyles.transactionsActionText}>View fund transactions</Text>
+            <Ionicons name="arrow-forward" size={16} color={ClearLensColors.emeraldDeep} />
+          </TouchableOpacity>
         </ClearLensCard>
 
         <ClearLensSegmentedControl
@@ -2076,6 +2086,22 @@ const clearDetailStyles = StyleSheet.create({
   realizedValue: {
     ...ClearLensTypography.h3,
     color: ClearLensColors.navy,
+  },
+  transactionsAction: {
+    minHeight: 46,
+    borderRadius: ClearLensRadii.md,
+    borderWidth: 1,
+    borderColor: ClearLensColors.borderLight,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ClearLensSpacing.sm,
+  },
+  transactionsActionText: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.emeraldDeep,
+    fontFamily: ClearLensFonts.bold,
   },
   xirrSignalLine: {
     flexDirection: 'row',

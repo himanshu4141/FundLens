@@ -21,6 +21,7 @@ interface AppOverflowMenuProps {
   onClose: () => void;
   onSync: () => void;
   onImport: () => void;
+  onMoneyTrail?: () => void;
   onSettings: () => void;
   onTools?: () => void;
 }
@@ -31,6 +32,7 @@ export function AppOverflowMenu({
   onClose,
   onSync,
   onImport,
+  onMoneyTrail,
   onSettings,
   onTools,
 }: AppOverflowMenuProps) {
@@ -80,6 +82,28 @@ export function AppOverflowMenu({
           </TouchableOpacity>
 
           <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
+
+          {onMoneyTrail ? (
+            <>
+              <TouchableOpacity
+                style={[styles.item, isClearLens && styles.clearItem]}
+                onPress={() => {
+                  onClose();
+                  onMoneyTrail();
+                }}
+              >
+                <Ionicons name="trail-sign-outline" size={18} color={activeColors.textPrimary} />
+                <View style={styles.itemCopy}>
+                  <Text style={[styles.itemText, isClearLens && styles.clearItemText, { color: activeColors.textPrimary }]}>Money Trail</Text>
+                  {isClearLens ? (
+                    <Text style={styles.clearItemDescription}>See investments, withdrawals, switches, and dividends.</Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+
+              <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
+            </>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.item, isClearLens && styles.clearItem]}
@@ -197,9 +221,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
   },
+  itemCopy: {
+    flex: 1,
+    gap: 2,
+  },
   clearItemText: {
     ...ClearLensTypography.body,
     fontFamily: ClearLensFonts.medium,
+  },
+  clearItemDescription: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
   },
   divider: {
     height: 1,

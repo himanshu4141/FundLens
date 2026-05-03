@@ -72,10 +72,12 @@ Primary screens should compose these primitives before adding screen-specific st
 ## Data Visualization
 
 - Portfolio chart: show amount invested, real portfolio worth, and benchmark worth in rupees.
+- Money Trail: show financial-year invested/withdrawn/net-invested summaries with compact bars; keep transaction rows minimal and place units, NAV, and calculation flags in detail.
 - Fund detail performance: fund vs benchmark, with period controls.
 - Composition: use semantic asset and market-cap colors.
 - Portfolio Insights holdings: show up to 30 holdings, 10 per page, with icon chevrons for paging.
 - Wealth Journey: show current vs adjusted growth and withdrawal drawdown paths.
+- Tools / Goal Planner: use quiet card lists, segmented scenario controls, conservative default assumptions, and plain estimated-outcome copy.
 - Positive and negative deltas should use arrowed signed formatting (`▲ +1.23%`, `▼ -1.23%`) in Clear Lens UI.
 
 ## Screen Patterns
@@ -116,4 +118,4 @@ The largest product-level divergence is that live portfolio data remains authori
 - `npm test -- --runInBand`
 - `EXPO_PUBLIC_SUPABASE_URL=https://example.supabase.co EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_dummy npm run export:web`
 - Browser pass on local Expo web with the demo auth shortcut
-- Screenshot pass for Portfolio, Portfolio Insights, Your Funds, Fund Detail, Leaderboard, Wealth Journey, Settings, import, PDF upload, overflow menu, sort sheet, and modal states
+- Screenshot pass for Portfolio, Portfolio Insights, Your Funds, Fund Detail, Money Trail, Leaderboard, Wealth Journey, Tools, Goal Planner, Settings, import, PDF upload, overflow menu, sort sheet, and modal states

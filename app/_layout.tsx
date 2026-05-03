@@ -109,6 +109,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="fund/[id]" options={{ headerShown: true, title: '' }} />
+            <Stack.Screen name="money-trail" options={{ headerShown: false }} />
             <Stack.Screen name="portfolio-insights" options={{ headerShown: true, title: 'Portfolio Insights' }} />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="tools" />
