@@ -6,8 +6,8 @@ name: Sync AMFI Portfolio Data
 #
 # Runs against both DEV and PROD: the AMFI portfolio composition data is
 # identical across environments, and keeping DEV current makes feature work
-# realistic. The two jobs run in parallel and don't fail-fast — a problem in
-# one environment doesn't block the other.
+# realistic. The two jobs run in parallel and a failure in one doesn't
+# affect the other.
 on:
   schedule:
     - cron: '0 6 11 * *'
@@ -24,32 +24,46 @@ on:
           - prod
 
 jobs:
-  sync:
-    name: Sync ${{ matrix.environment }}
+  sync-dev:
+    name: Sync dev
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: |
       github.event_name == 'schedule' ||
       github.event.inputs.environment == 'both' ||
-      github.event.inputs.environment == matrix.environment
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [dev, prod]
-
+      github.event.inputs.environment == 'dev'
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Run AMFI sync (${{ matrix.environment }})
+      - name: Run AMFI sync (dev)
         env:
-          SUPABASE_URL: ${{ matrix.environment == 'prod' && secrets.EXPO_PUBLIC_SUPABASE_URL_PROD || secrets.EXPO_PUBLIC_SUPABASE_URL_DEV }}
-          SUPABASE_SECRET_KEY: ${{ matrix.environment == 'prod' && secrets.SUPABASE_SECRET_KEY_PROD || secrets.SUPABASE_SECRET_KEY_DEV }}
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL_DEV }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY_DEV }}
+        run: node scripts/sync-amfi-portfolios.mjs
+
+  sync-prod:
+    name: Sync prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      github.event_name == 'schedule' ||
+      github.event.inputs.environment == 'both' ||
+      github.event.inputs.environment == 'prod'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run AMFI sync (prod)
+        env:
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL_PROD }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY_PROD }}
         run: node scripts/sync-amfi-portfolios.mjs
