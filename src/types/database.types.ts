@@ -395,6 +395,7 @@ export type Database = {
       }
       user_profile: {
         Row: {
+          cas_inbox_token: string
           created_at: string
           dob: string | null
           kfintech_email: string | null
@@ -403,6 +404,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cas_inbox_token?: string
           created_at?: string
           dob?: string | null
           kfintech_email?: string | null
@@ -411,6 +413,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cas_inbox_token?: string
           created_at?: string
           dob?: string | null
           kfintech_email?: string | null
