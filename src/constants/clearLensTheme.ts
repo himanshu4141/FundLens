@@ -176,13 +176,17 @@ function buildSemanticColors(c: ClearLensColorTokens, scheme: ClearLensColorSche
       other: c.lightGrey,
     },
     marketCap: {
+      // Three-step ordering — Large (most saturated) → Mid → Small (warmest).
       // `large` was `c.navy` historically, but `navy` flips to near-white in
-      // dark mode, which leaves the bar segment indistinguishable from either
-      // the surrounding dark canvas or a light surface depending on context.
-      // Use stable greens instead — emerald for the anchor (Large), mint for
-      // Mid, amber for Small. All three read against light AND dark canvases.
+      // dark mode, leaving the bar indistinguishable from a light or dark
+      // canvas. We anchor on emerald instead.
+      //
+      // `mid` needs a hue that reads on BOTH canvases. Mint reads cleanly on
+      // dark but washes out on a white card; emeraldDeep works on white but
+      // sits very close to the Large emerald in dark. Resolve per-scheme:
+      // emeraldDeep in light, mint in dark.
       large: c.emerald,
-      mid: c.mint,
+      mid: scheme === 'dark' ? c.mint : c.emeraldDeep,
       small: c.amber,
       other: c.lightGrey,
     },
