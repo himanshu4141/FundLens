@@ -212,7 +212,7 @@ export function FeedbackSheet({
     <Modal visible={visible && copy != null} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.kbAvoid}
           pointerEvents="box-none"
         >

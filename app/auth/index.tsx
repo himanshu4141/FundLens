@@ -150,7 +150,7 @@ export default function SignInScreen() {
     return (
       <KeyboardAvoidingView
         style={clStyles.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
           contentContainerStyle={clStyles.scroll}
