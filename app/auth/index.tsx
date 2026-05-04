@@ -164,7 +164,7 @@ export default function SignInScreen() {
           {/* Hero */}
           <LinearGradient
             colors={[ClearLensColors.navy, ClearLensColors.slate]}
-            style={[clStyles.hero, isDesktop && clStyles.heroDesktop]}
+            style={[clStyles.hero, isDesktop && clStyles.heroDesktopColumn]}
           >
             <FolioLensLogo size={36} light showWordmark />
 
@@ -188,7 +188,7 @@ export default function SignInScreen() {
           </LinearGradient>
 
           {/* Form panel */}
-          <View style={clStyles.formPanel}>
+          <View style={[clStyles.formPanel, isDesktop && clStyles.formPanelDesktop]}>
             <Text style={clStyles.formTitle}>Sign in</Text>
             <Text style={clStyles.formSubtitle}>
               Enter your email — we&apos;ll send a secure link. No password needed.
@@ -663,7 +663,7 @@ const clStyles = StyleSheet.create({
     flexGrow: 1,
   },
   scrollDesktop: {
-    paddingVertical: ClearLensSpacing.xl,
+    paddingVertical: ClearLensSpacing.lg,
     paddingHorizontal: ClearLensSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -674,7 +674,9 @@ const clStyles = StyleSheet.create({
   },
   cardDesktop: {
     width: '100%',
-    maxWidth: 460,
+    maxWidth: 920,
+    flexDirection: 'row',
+    alignItems: 'stretch',
     backgroundColor: ClearLensColors.surface,
     borderRadius: ClearLensRadii.xl,
     overflow: 'hidden',
@@ -684,8 +686,21 @@ const clStyles = StyleSheet.create({
     shadowRadius: 32,
     elevation: 12,
   },
-  heroDesktop: {
+  heroDesktopColumn: {
+    flex: 1,
     paddingTop: ClearLensSpacing.xl,
+    paddingBottom: ClearLensSpacing.xl,
+    justifyContent: 'center',
+  },
+  formPanelDesktop: {
+    flex: 1,
+    marginTop: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    paddingTop: ClearLensSpacing.xl,
+    paddingBottom: ClearLensSpacing.xl,
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   hero: {
