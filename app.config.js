@@ -53,7 +53,11 @@ module.exports = ({ config }) => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: variantConfig.iosBundleIdentifier,
-      icon: './assets/images/icon.png',
+      icon: {
+        light: './assets/images/icon.png',
+        dark: './assets/images/icon-dark.png',
+        tinted: './assets/images/icon-tinted.png',
+      },
     },
     android: {
       adaptiveIcon: {

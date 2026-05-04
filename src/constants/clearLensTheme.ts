@@ -173,8 +173,13 @@ function buildSemanticColors(c: ClearLensColorTokens, scheme: ClearLensColorSche
       other: c.lightGrey,
     },
     marketCap: {
-      large: c.navy,
-      mid: c.emerald,
+      // `large` was `c.navy` historically, but `navy` flips to near-white in
+      // dark mode, which leaves the bar segment indistinguishable from either
+      // the surrounding dark canvas or a light surface depending on context.
+      // Use stable greens instead — emerald for the anchor (Large), mint for
+      // Mid, amber for Small. All three read against light AND dark canvases.
+      large: c.emerald,
+      mid: c.mint,
       small: c.amber,
       other: c.lightGrey,
     },
@@ -182,10 +187,16 @@ function buildSemanticColors(c: ClearLensColorTokens, scheme: ClearLensColorSche
       fund: c.emerald,
       portfolio: c.emerald,
       benchmark: c.slate,
-      invested: c.navy,
+      // `invested` is used as a baseline/reference fill on charts. Use the
+      // dark-stable hero surface so it never blends into the page bg in dark.
+      invested: c.heroSurface,
       neutral: c.textTertiary,
     },
-    fundAllocation: [c.emerald, c.navy, c.amber, c.negative, c.slate, c.mint],
+    // Palette used to colour fund allocation segments. The previous `c.navy`
+    // entry rendered as near-black on light bg (fine) but flipped to near-white
+    // on dark bg, which made the segment look like an empty track. Cycle
+    // through six distinct hues that all read against both canvases.
+    fundAllocation: [c.emerald, c.amber, c.negative, c.mint, c.slate, c.emeraldDeep],
     sentiment: {
       positive: c.positive,
       negative: c.negative,

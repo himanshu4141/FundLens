@@ -433,7 +433,7 @@ function SortSheet({
           ))}
           <SheetActions
             secondaryLabel="Cancel"
-            primaryLabel="Apply sort"
+            primaryLabel="Apply"
             onSecondary={onClose}
             onPrimary={() => {
               onApply(draft);

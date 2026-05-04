@@ -118,6 +118,20 @@ function ThemedAppShell() {
     SystemUI.setBackgroundColorAsync(clearLens.colors.background).catch(() => {});
   }, [clearLens.colors.background]);
 
+  useEffect(() => {
+    // Web only: when the user picks a theme via the in-app picker, override
+    // the OS-driven favicon swap so the tab icon tracks the picked scheme
+    // instead of the system preference. The +html.tsx ships both variants
+    // with `media="(prefers-color-scheme: …)"` for the no-JS first paint.
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const href = resolvedScheme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg';
+    const links = document.querySelectorAll<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]');
+    links.forEach((link) => {
+      link.removeAttribute('media');
+      link.href = href;
+    });
+  }, [resolvedScheme]);
+
   return (
     <SafeAreaProvider>
       <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />

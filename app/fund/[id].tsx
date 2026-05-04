@@ -40,7 +40,6 @@ import {
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
-  ClearLensSemanticColors,
   ClearLensTypography,
   type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
@@ -1376,26 +1375,27 @@ function makeDonutStyles(colors: AppColors) {
 
 function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
   const { colors } = useTheme();
+  const tokens = useClearLensTokens();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const cs = useMemo(() => makeCompStyles(colors), [colors]);
   const { composition, isLoading } = useFundComposition(schemeCode);
   const compAssetColors = useMemo(
     () => ({
-      equity: ClearLensSemanticColors.asset.equity,
-      debt: ClearLensSemanticColors.asset.debt,
-      cash: ClearLensSemanticColors.asset.cash,
-      other: ClearLensSemanticColors.asset.other,
+      equity: tokens.semantic.asset.equity,
+      debt: tokens.semantic.asset.debt,
+      cash: tokens.semantic.asset.cash,
+      other: tokens.semantic.asset.other,
     }),
-    [],
+    [tokens.semantic.asset],
   );
   const compCapColors = useMemo(
     () => ({
-      large: ClearLensSemanticColors.marketCap.large,
-      mid: ClearLensSemanticColors.marketCap.mid,
-      small: ClearLensSemanticColors.marketCap.small,
-      other: ClearLensSemanticColors.marketCap.other,
+      large: tokens.semantic.marketCap.large,
+      mid: tokens.semantic.marketCap.mid,
+      small: tokens.semantic.marketCap.small,
+      other: tokens.semantic.marketCap.other,
     }),
-    [],
+    [tokens.semantic.marketCap],
   );
 
   if (isLoading) {
