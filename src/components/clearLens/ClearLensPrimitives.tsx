@@ -90,8 +90,7 @@ export function ClearLensHeader({
       <View style={[styles.header, styles.headerDesktopChrome]}>
         {onPressBack ? (
           <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.75} accessibilityLabel="Go back">
-            <Ionicons name="chevron-back" size={18} color={ClearLensColors.navy} />
-            <Text style={styles.headerBackLabel}>Back</Text>
+            <Ionicons name="chevron-back" size={20} color={ClearLensColors.navy} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
@@ -263,20 +262,13 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
   },
-  headerBackLabel: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
-    marginLeft: 2,
-    fontWeight: '600',
-  },
   backChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    width: 36,
+    height: 36,
     borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: ClearLensColors.surfaceSoft,
-    gap: 2,
   },
   headerTitle: {
     ...ClearLensTypography.h3,
