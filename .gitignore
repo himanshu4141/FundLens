@@ -11,6 +11,8 @@ expo-env.d.ts
 
 #Playwright
 .playwright-mcp/
+# Local QA artefacts (screenshots from manual / Playwright dark-mode audits)
+qa-audit/
 #temp desing work
 funlens_design_concept/
 fundlens_design_concept/
