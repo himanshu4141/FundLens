@@ -21,8 +21,9 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { json } from '../_shared/cors.ts';
 import { importCASData } from '../_shared/import-cas.ts';
+import { decodeBase64 } from "jsr:@std/encoding/base64";
 
-const CASPARSER_API_KEY = Deno.env.get('CASPARSER_API_KEY') ?? '';
+const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -32,10 +33,8 @@ Deno.serve(async (req) => {
   }
 
   let payload: {
-    inbound_email_id?: string;
-    reference?: string;
-    forwarded_by?: string;
-    files?: { url: string; cas_type?: string }[];
+    headers?: { from?: string };
+    attachments?: { file_name?: string; content?: string; content_type?: string }[];
   };
 
   try {
@@ -44,36 +43,43 @@ Deno.serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  const userId = payload.reference;
-  if (!userId) {
-    console.error('[cas-webhook] missing reference field in payload');
-    return json({ error: 'Missing reference' }, { status: 400 });
-  }
+  // Identity user from sender email
+  const fromHeader = payload.headers?.from || '';
+  const emailMatch = fromHeader.match(/<([^>]+)>/);
+  const senderEmail = (emailMatch ? emailMatch[1] : fromHeader).trim().toLowerCase();
 
-  const files = payload.files ?? [];
-  console.log(
-    '[cas-webhook] received, inbound_email_id=%s, user=%s, files=%d',
-    payload.inbound_email_id ?? '(none)', userId, files.length,
-  );
-
-  if (files.length === 0) {
-    console.warn('[cas-webhook] no files in payload for user %s', userId);
-    return json({ ok: true, message: 'No files to process' });
+  if (!senderEmail) {
+    console.error('[cas-webhook] missing From header in payload');
+    return json({ error: 'Missing From header' }, { status: 400 });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // Resolve user PAN
+  // Look up user by kfintech_email
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('pan')
-    .eq('user_id', userId)
+    .select('user_id, pan, cas_password')
+    .ilike('kfintech_email', senderEmail)
     .maybeSingle();
 
-  if (!profile?.pan) {
-    console.error('[cas-webhook] no PAN configured for user %s — cannot decrypt PDF', userId);
-    // Return 200 so CASParser does not retry — this requires user action
-    return json({ ok: false, error: 'user PAN not configured' });
+  if (!profile?.user_id || !profile?.pan) {
+    console.error('[cas-webhook] no active profile or missing PAN found for sender %s', senderEmail);
+    return json({ ok: false, error: `Unknown sender email (${senderEmail}) or missing PAN` }, { status: 404 });
+  }
+
+  const userId = profile.user_id;
+
+  const files = payload.attachments ?? [];
+  const pdfFiles = files.filter(f => f.file_name?.toLowerCase().endsWith('.pdf') || f.content_type === 'application/pdf');
+
+  console.log(
+    '[cas-webhook] received, From=%s, user=%s, pdf_files=%d',
+    senderEmail, userId, pdfFiles.length,
+  );
+
+  if (pdfFiles.length === 0) {
+    console.warn('[cas-webhook] no PDF attachments in payload for user %s', userId);
+    return json({ ok: false, message: `No PDF attachments to process (found ${files.length} total files)` }, { status: 400 });
   }
 
   // Create audit record
@@ -100,23 +106,33 @@ Deno.serve(async (req) => {
   let totalTransactions = 0;
   const allErrors: string[] = [];
 
-  for (const file of files) {
+  for (const file of pdfFiles) {
     try {
-      // Pass the presigned URL directly to CASParser — no need to download and re-upload.
-      // PAN is the CAS PDF password (KFintech and CAMS use plain PAN as password).
-      const parseRes = await fetch('https://api.casparser.in/v4/smart/parse', {
+      if (!file.content) {
+        throw new Error("Empty attachment content");
+      }
+      
+      const pdfBytes = decodeBase64(file.content);
+      const appUrl = Deno.env.get('EXPO_PUBLIC_APP_URL') ?? 'https://fund-lens.vercel.app';
+
+      // POST to our Vercel Python parsing endpoint
+      const parseRes = await fetch(`${appUrl}/api/parse-cas-pdf`, {
         method: 'POST',
-        headers: { 'x-api-key': CASPARSER_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdf_url: file.url, password: profile.pan }),
+        headers: { 
+          'x-parser-secret': CAS_PARSER_SHARED_SECRET, 
+          'x-password': profile.pan,
+          'Content-Length': pdfBytes.length.toString(),
+        },
+        body: pdfBytes,
       });
 
       if (!parseRes.ok) {
         const errBody = await parseRes.text();
-        throw new Error(`CASParser parse failed: ${parseRes.status} ${errBody}`);
+        throw new Error(`Parse failed: ${parseRes.status} ${errBody}`);
       }
 
       const parsed = await parseRes.json();
-      console.log('[cas-webhook] CASParser parsed %d folios', (parsed?.mutual_funds ?? []).length);
+      console.log('[cas-webhook] Vercel parser parsed %d folios', (parsed?.mutual_funds ?? []).length);
 
       const { fundsUpdated, transactionsAdded, errors } = await importCASData(
         supabase, userId, importId, parsed,

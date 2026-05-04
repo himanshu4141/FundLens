@@ -41,13 +41,13 @@ const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
 // Fixed list of trackable benchmark indexes
 const INDEX_OPTIONS = [
-  { symbol: '^NSEI',     name: 'Nifty 50' },
+  { symbol: '^NSEI', name: 'Nifty 50' },
   { symbol: '^NIFTY100', name: 'Nifty 100' },
-  { symbol: '^BSESN',    name: 'BSE Sensex' },
-  { symbol: '^BSE100',   name: 'BSE 100' },
-  { symbol: '^BSE500',   name: 'BSE 500' },
-  { symbol: '^NSEBANK',  name: 'Nifty Bank' },
-  { symbol: '^CNXIT',    name: 'Nifty IT' },
+  { symbol: '^BSESN', name: 'BSE Sensex' },
+  { symbol: '^BSE100', name: 'BSE 100' },
+  { symbol: '^BSE500', name: 'BSE 500' },
+  { symbol: '^NSEBANK', name: 'Nifty Bank' },
+  { symbol: '^CNXIT', name: 'Nifty IT' },
 ];
 
 interface SelectedItem {
@@ -567,8 +567,8 @@ export default function CompareScreen() {
                     {selectedItems.length < 2
                       ? 'Add at least 2 items to see the chart.'
                       : visibleItems.length < 2
-                      ? 'Show at least 2 items in the legend to compare.'
-                      : 'No overlapping data for this time window.'}
+                        ? 'Show at least 2 items in the legend to compare.'
+                        : 'No overlapping data for this time window.'}
                   </Text>
                 </View>
               )}

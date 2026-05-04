@@ -21,6 +21,7 @@ import {
   ClearLensPill,
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
+import { CamsWebViewModal } from '@/src/components/CamsWebViewModal';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import {
@@ -64,8 +65,6 @@ const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
 const CLEAR_LENS_RED_SOFT = ClearLensSemanticColors.sentiment.negativeSurface;
 const CLEAR_LENS_GREEN_SOFT = ClearLensSemanticColors.sentiment.positiveSurface;
-
-type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 function toneForValue(value: number): 'positive' | 'negative' {
   return value >= 0 ? 'positive' : 'negative';
@@ -832,14 +831,14 @@ export function ClearLensPortfolioScreen() {
   const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [webviewVisible, setWebviewVisible] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', userId],
     queryFn: async () => {
       const { data } = await supabase
         .from('user_profile')
-        .select('kfintech_email')
+        .select('kfintech_email, pan')
         .eq('user_id', userId!)
         .maybeSingle();
       return data;
@@ -847,18 +846,12 @@ export function ClearLensPortfolioScreen() {
     enabled: !!userId,
   });
 
-  async function handleSync() {
-    if (!profile?.kfintech_email) {
+  function handleSync() {
+    if (!profile?.kfintech_email || !profile?.pan) {
       router.push('/onboarding');
       return;
     }
-    setSyncState('syncing');
-    const { error } = await supabase.functions.invoke('request-cas', {
-      method: 'POST',
-      body: { email: profile.kfintech_email },
-    });
-    setSyncState(error ? 'error' : 'requested');
-    setTimeout(() => setSyncState('idle'), 4000);
+    setWebviewVisible(true);
   }
 
   const { data, isLoading, isError, refetch, isRefetching } = usePortfolio(defaultBenchmarkSymbol);
@@ -880,24 +873,25 @@ export function ClearLensPortfolioScreen() {
       />
       <AppOverflowMenu
         visible={overflowOpen}
-        syncState={syncState}
+        syncState="idle"
         onClose={() => setOverflowOpen(false)}
-        onSync={handleSync}
+        onSync={() => {
+          setOverflowOpen(false);
+          handleSync();
+        }}
         onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
         onMoneyTrail={() => router.push('/money-trail')}
         onSettings={() => router.push('/(tabs)/settings')}
         onTools={() => router.push('/tools' as never)}
       />
 
-      {syncState === 'requested' && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>CAS requested. Forward the email to your FundLens import address.</Text>
-        </View>
-      )}
-      {syncState === 'error' && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>Sync failed. Please try again.</Text>
-        </View>
+      {profile?.kfintech_email && profile?.pan && (
+        <CamsWebViewModal
+          visible={webviewVisible}
+          onClose={() => setWebviewVisible(false)}
+          email={profile.kfintech_email}
+          pan={profile.pan}
+        />
       )}
 
       {isLoading ? (

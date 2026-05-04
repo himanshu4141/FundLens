@@ -1090,7 +1090,7 @@ function ClassicWealthJourneyScreen() {
                       style={[
                         styles.choiceChip,
                         Math.abs(Number(sipDraft || 0) - chip.value) < 0.001 &&
-                          styles.choiceChipActive,
+                        styles.choiceChipActive,
                       ]}
                       onPress={() => setSipDraft(String(chip.value))}
                     >
@@ -1098,7 +1098,7 @@ function ClassicWealthJourneyScreen() {
                         style={[
                           styles.choiceChipText,
                           Math.abs(Number(sipDraft || 0) - chip.value) < 0.001 &&
-                            styles.choiceChipTextActive,
+                          styles.choiceChipTextActive,
                         ]}
                       >
                         {chip.label}
