@@ -117,7 +117,10 @@ export const ClearLensDarkColors: ClearLensColorTokens = {
   textTertiary: '#8C9BB8',
   positive: '#34D399',
   negative: '#F87171',
-  negativeBg: '#3A1A1F',
+  // Slight saturation bump on the negative tint so the "Today's Worst" /
+  // negative-alpha badges read as red rather than muddy brown on the dark
+  // canvas. Pairs with the brighter `negative` (#F87171) for the text.
+  negativeBg: '#451B23',
   positiveBg: '#0E3324',
   amber: '#FBBF24',
   warning: '#F59E0B',

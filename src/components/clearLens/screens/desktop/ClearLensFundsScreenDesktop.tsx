@@ -566,7 +566,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   moverChipName: {
     ...ClearLensTypography.bodySmall,
-    color: cl.navy,
+    color: cl.textPrimary,
     fontFamily: ClearLensFonts.semiBold,
   },
   moverChipDelta: {
