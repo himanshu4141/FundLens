@@ -2151,12 +2151,18 @@ function makeStyles(colors: AppColors) {
     statLabel: { ...Typography.caption, color: colors.textTertiary, textTransform: 'uppercase' },
 
     windowRow: { flexDirection: 'row', gap: 6 },
+    // Inactive pill: subtle surface lift + hairline border so it reads as a
+    // discrete chip in both schemes. The previous `borderLight` background
+    // matched the dark-mode page bg almost exactly, leaving the unselected
+    // pills feeling like floating text.
     windowPill: {
       flex: 1,
       paddingVertical: 6,
       borderRadius: Radii.full,
       alignItems: 'center',
-      backgroundColor: colors.borderLight,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     windowPillActive: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.primary },
     windowPillText: { fontSize: 12, fontWeight: '600' as const, color: colors.textTertiary },

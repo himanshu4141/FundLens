@@ -1185,10 +1185,15 @@ function makeStyles(tokens: ClearLensTokens) {
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: cl.surfaceSoft,
+    backgroundColor: cl.surface,
+    // Hairline border so the inactive chip reads as a discrete control in
+    // dark mode (where `surfaceSoft` was almost identical to the page bg).
+    borderWidth: 1,
+    borderColor: cl.border,
   },
   rangePillActive: {
     backgroundColor: cl.heroSurface,
+    borderColor: cl.heroSurface,
   },
   rangePillText: {
     ...ClearLensTypography.bodySmall,
