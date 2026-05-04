@@ -19,7 +19,6 @@ import {
   ClearLensSpacing,
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
-import { DesktopAccountMenu } from './DesktopAccountMenu';
 import { SidebarWidth } from './desktopBreakpoints';
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
@@ -71,7 +70,6 @@ export function DesktopSidebar() {
   const accountMetadata = session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
   const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const accountInitial = useMemo(() => getAccountInitial(accountLabel), [accountLabel]);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>('idle');
 
   const { data: profile } = useQuery({
@@ -181,12 +179,16 @@ export function DesktopSidebar() {
 
       <View style={styles.spacer} />
 
+      {/* The account row is a direct link to Settings — every other item
+          surfaced by the legacy account dropdown (Sync, Import, Money Trail,
+          Tools) is already in this sidebar, and Sign Out lives inside
+          Settings → About & support. Keeps one entry point per action. */}
       <TouchableOpacity
         style={styles.accountRow}
-        onPress={() => setMenuOpen(true)}
+        onPress={() => router.push('/(tabs)/settings')}
         activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel="Open account menu"
+        accessibilityRole="link"
+        accessibilityLabel="Open settings"
       >
         <View style={styles.accountBadge}>
           <Text style={styles.accountInitial}>{accountInitial}</Text>
@@ -197,20 +199,8 @@ export function DesktopSidebar() {
           </Text>
           <Text style={styles.accountAction}>Account · settings</Text>
         </View>
-        <Ionicons name="ellipsis-horizontal" size={16} color={ClearLensColors.textTertiary} />
+        <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
       </TouchableOpacity>
-
-      <DesktopAccountMenu
-        visible={menuOpen}
-        syncState={syncState}
-        accountLabel={accountLabel}
-        onClose={() => setMenuOpen(false)}
-        onSync={handleSync}
-        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
-        onMoneyTrail={() => router.push('/money-trail')}
-        onTools={() => router.push('/tools' as never)}
-        onSettings={() => router.push('/(tabs)/settings')}
-      />
     </View>
   );
 }

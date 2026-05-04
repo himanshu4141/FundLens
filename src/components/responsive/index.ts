@@ -3,6 +3,5 @@ export { useResponsiveLayout, useIsDesktop, type ResponsiveLayout } from './useR
 export { DesktopShell } from './DesktopShell';
 export { DesktopSidebar } from './DesktopSidebar';
 export { DesktopContainer } from './DesktopContainer';
-export { DesktopAccountMenu } from './DesktopAccountMenu';
 export { ResponsiveRouteFrame } from './ResponsiveRouteFrame';
 export { DesktopFormFrame } from './DesktopFormFrame';
