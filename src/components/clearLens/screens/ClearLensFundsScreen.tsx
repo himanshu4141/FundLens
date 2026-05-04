@@ -555,6 +555,8 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
         onClose={() => setOverflowOpen(false)}
         onSync={handleSync}
         onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onMoneyTrail={() => router.push('/money-trail')}
+        onTools={() => router.push('/tools' as never)}
         onSettings={() => router.push('/(tabs)/settings')}
       />
       {isLoading ? (

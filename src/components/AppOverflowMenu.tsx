@@ -21,9 +21,12 @@ interface AppOverflowMenuProps {
   onClose: () => void;
   onSync: () => void;
   onImport: () => void;
-  onMoneyTrail?: () => void;
+  // Money Trail and Tools are required so every screen surfaces the same
+  // Quick Actions menu — preventing the per-screen drift we shipped before
+  // (some screens omitted Money Trail, some omitted Tools).
+  onMoneyTrail: () => void;
+  onTools: () => void;
   onSettings: () => void;
-  onTools?: () => void;
 }
 
 type RowConfig = {
@@ -86,18 +89,9 @@ export function AppOverflowMenu({
   ];
 
   const navActions: RowConfig[] = [
-    ...(onMoneyTrail
-      ? [{ key: 'trail', icon: 'trail-sign-outline', label: 'Money Trail', onPress: dismissAnd(onMoneyTrail) } as RowConfig]
-      : []),
-    ...(onTools
-      ? [{ key: 'tools', icon: 'construct-outline', label: 'Tools', onPress: dismissAnd(onTools) } as RowConfig]
-      : []),
-    {
-      key: 'settings',
-      icon: 'settings-outline',
-      label: 'Settings',
-      onPress: dismissAnd(onSettings),
-    },
+    { key: 'trail', icon: 'trail-sign-outline', label: 'Money Trail', onPress: dismissAnd(onMoneyTrail) },
+    { key: 'tools', icon: 'construct-outline', label: 'Tools', onPress: dismissAnd(onTools) },
+    { key: 'settings', icon: 'settings-outline', label: 'Settings', onPress: dismissAnd(onSettings) },
   ];
 
   const destructiveActions: RowConfig[] = [
