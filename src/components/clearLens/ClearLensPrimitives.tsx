@@ -89,8 +89,8 @@ export function ClearLensHeader({
     return (
       <View style={[styles.header, styles.headerDesktopChrome]}>
         {onPressBack ? (
-          <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.75} accessibilityLabel="Go back">
-            <Ionicons name="chevron-back" size={20} color={ClearLensColors.navy} />
+          <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.7} accessibilityLabel="Go back">
+            <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
@@ -99,8 +99,8 @@ export function ClearLensHeader({
         <View style={styles.headerSpacer} />
 
         {rightAction ? (
-          <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.75}>
-            <Ionicons name={rightAction.icon as never} size={20} color={rightAction.tint ?? ClearLensColors.navy} />
+          <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.7}>
+            <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? ClearLensColors.navy} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
@@ -112,7 +112,7 @@ export function ClearLensHeader({
   return (
     <View style={styles.header}>
       {onPressBack ? (
-        <TouchableOpacity onPress={onPressBack} style={styles.iconButton} activeOpacity={0.75}>
+        <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.7} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
         </TouchableOpacity>
       ) : (
@@ -262,13 +262,18 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
   },
+  // Matches UtilityHeader's `clearBackBtn` so the back affordance reads the
+  // same on every screen (Settings sub-pages use UtilityHeader; the rest use
+  // ClearLensHeader). 38 px circle, white surface, 1 px navy border.
   backChip: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
   },
   headerTitle: {
     ...ClearLensTypography.h3,
