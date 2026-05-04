@@ -1,12 +1,11 @@
 import { Platform, useWindowDimensions } from 'react-native';
-import { DESKTOP_MIN_WIDTH } from './desktopBreakpoints';
+import { resolveResponsiveLayout, type ResponsiveLayout } from '@/src/utils/responsiveLayout';
 
-export type ResponsiveLayout = 'mobile' | 'desktop';
+export type { ResponsiveLayout };
 
 export function useResponsiveLayout(): { layout: ResponsiveLayout; width: number } {
   const { width } = useWindowDimensions();
-  if (Platform.OS !== 'web') return { layout: 'mobile', width };
-  return { layout: width >= DESKTOP_MIN_WIDTH ? 'desktop' : 'mobile', width };
+  return { layout: resolveResponsiveLayout(width, Platform.OS === 'web'), width };
 }
 
 export function useIsDesktop(): boolean {

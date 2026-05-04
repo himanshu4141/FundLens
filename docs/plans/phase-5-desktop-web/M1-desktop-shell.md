@@ -435,3 +435,126 @@ Cross-cutting checks before raising the PR:
       Portfolio Insights, Tools, Settings
 - [x] M4 — Auth + Onboarding desktop
 - [x] M5 — Final pass (README + PR)
+
+
+## Amendments
+
+Captured during implementation; the original plan covers the architectural shape but
+several details were adjusted in response to live audits and user feedback.
+
+### Tab navigator preserves active route across resize
+
+The first cut of `(tabs)/_layout.tsx` returned two completely different navigator trees —
+`<Tabs>` on mobile and `<DesktopShell><Slot /></DesktopShell>` on desktop. Crossing the
+1024 px breakpoint then unmounted the navigator and reset the active tab (open Wealth
+Journey, drag the window wider → land on Portfolio). The fix keeps a single `<Tabs>`
+mounted in both modes; on desktop the bottom tab bar is hidden via
+`tabBarStyle: { display: 'none' }` and the sidebar renders as a row sibling. The
+navigator instance is preserved so the active route survives.
+
+### Title placement unified — body owns the h1, header is chrome only
+
+The original plan had `ClearLensHeader` rendering the title centered between the back
+button and the menu button. After auditing every screen with Playwright on both layouts
+we found duplicate-title patterns ("Money Trail" header above an h1 "Money Trail" in
+the body). Resolved by making `ClearLensHeader.title` a no-op everywhere and letting
+each screen body render its own eyebrow + h1 + subtitle block. Money Trail [id], Tools,
+and Create-Goal gained body title blocks. The header is now a slim 44 px chrome strip
+whose only job is the back chip (when navigating from a non-sidebar route).
+
+### Eyebrow + h1 + subtitle pattern standardised
+
+To stop the title styling from drifting, every primary screen now uses the same green
+ALL-CAPS eyebrow + bold navy h1 + grey subtitle pattern: Portfolio, Funds, Wealth
+Journey, Money Trail, Money Trail [id], Portfolio Insights, Tools, Settings. Fund
+Detail keeps the fund name as its own hero (the name is inherently contextual).
+
+### Desktop sidebar account row links straight to Settings
+
+The first version had the account row open a `<DesktopAccountMenu>` dropdown that
+duplicated everything the sidebar already exposed (Sync, Import, Money Trail, Tools)
+and added only Settings + Sign Out. The dropdown was deleted entirely; the account row
+is now a direct link to `/(tabs)/settings`, with Sign Out reachable via Settings →
+About & support exactly like mobile.
+
+### `AppOverflowMenu` props made required
+
+The mobile Quick Actions menu rendered different items per screen (Funds dropped Money
+Trail and Tools; Wealth Journey dropped Tools). Root cause: the optional
+`onMoneyTrail` / `onTools` props were silently omitted at three of the six call sites.
+Both props are now required and the conditional spread inside the component is gone, so
+the same menu appears on every screen.
+
+### Funds desktop is fund-level insight, not portfolio metrics
+
+The original Funds desktop summary card showed Portfolio value / Your XIRR / vs Nifty /
+Ahead-Behind — all of which are portfolio-level numbers already on the home screen. It
+was redesigned to show fund-level insight instead: allocation strip, holdings count,
+top-3 concentration, largest holding, today's best/worst movers within the user's
+funds. The "ahead/behind" terminology was unclear and was dropped.
+
+### Charts on Fund Detail derive width from `useWindowDimensions`
+
+The first cut left Performance, NAV, and Growth Consistency charts using the
+module-scope `CHART_WIDTH = Math.min(SCREEN_WIDTH, FUND_DETAIL_DESKTOP_MAX) - 32`
+constant. That constant captures the viewport once at JS load time, so resizing the
+browser left charts at the original width. Each chart now reads
+`useWindowDimensions().width` inside its own component so they grow with the window.
+The Growth Consistency chart additionally uses an equal-slot bar layout
+(`plotWidth / bars.length` per slot) so bars span the full plot rather than
+clustering at the left edge on wide viewports.
+
+### `FundDesktopCard` and `FundListItem` deliberately stay separate
+
+We attempted to consolidate the two — exporting `FundListItem` and using it on desktop —
+but reverted. The mobile expanded card with sparkline + "View transactions" CTA + 30-day
+sparkline panel reads as cramped on the desktop card grid. The desktop card uses a
+hierarchical layout (primary current value big, XIRR + Today as smaller stats, footer
+with Invested ▏ Gain split) that suits the wider canvas. Documented in the audit log
+section so future readers know the divergence is intentional.
+
+### Auth + Onboarding desktop simpler than originally planned
+
+Plan called for a "side-by-side hero + form" card. Auth ships with that layout
+(920 px wide card, hero left, form right, both vertically centered). Onboarding ships
+with `<DesktopFormFrame>` — a centered 720 px column inside the desktop sidebar shell —
+rather than a separate centered-card layout, because once the user is signed in the
+sidebar is more useful than another card chrome.
+
+### Other UX refinements made along the way
+
+- Bottom tab bar grew (68→78 px Clear Lens; 76→86 Classic) and labels shrank
+  (12/16 → 11/14, centered) so "Wealth Journey" wraps cleanly on narrow widths.
+- Portfolio side panel: replaced the duplicate Portfolio Insights link with a Wealth
+  Journey teaser.
+- Mobile fund card Gain row: stripped the duplicate ▲ arrow from the percentage
+  subvalue; hide Redeemed / Booked P&L rows when the fund has no realized activity;
+  add "NAV · last 30 days" label above the sparkline; right-align Today + XIRR via
+  the same MetricRow pattern as the breakdown rows.
+- Settings hub caps content at 760 px on desktop so cards don't stretch edge-to-edge.
+- Fund Detail Portfolio Weight donut card caps at 460 px so the donut + info pair
+  doesn't drift in a sea of whitespace.
+- Fund Detail Technical Details card gains a 16 px horizontal indent on Clear Lens to
+  line up with the NAV chart card above it (which sits inside an extra-padded tab
+  container).
+- Feedback modals (Request a feature / Report an issue) move the submit button into a
+  sticky footer outside the ScrollView so it's always visible.
+- ClearLensHeader back chip now matches `UtilityHeader.clearBackBtn` exactly (38 px
+  circle, white surface, 1 px border, 22 px chevron) so the back affordance reads the
+  same on every screen across both ClearLensHeader-driven and UtilityHeader-driven
+  pages (Settings sub-pages use the latter).
+- `app/money-trail/_layout.tsx` added so Expo Router stops warning about the
+  `<Stack.Screen name="money-trail">` declaration having no nested children layout.
+
+### Component duplication audit (carried for follow-up)
+
+- **Fund-card-like components**: `FundCard` (legacy classic, only `categoryColor`
+  helper is imported elsewhere — the component itself is dead), `FundListItem` (mobile
+  expanded), `FundDesktopCard` (desktop hierarchical), `RankCard` (classic
+  leaderboard), `MoverCard` / `MoverChip` / `GainerCard`. Per-card divergence is
+  intentional; promote `FundCard.categoryColor` and the alpha-pp / sign helpers to a
+  shared module in a follow-up.
+- **Header components**: `ClearLensHeader`, `UtilityHeader`, `PrimaryShellHeader`.
+  Visual back-button styling is now aligned. Future: collapse to one component.
+- **Allocation strip + summary card**: mobile `AllocationOverview` vs desktop summary
+  card share the same idea but ship as two implementations. Consolidation deferred.
