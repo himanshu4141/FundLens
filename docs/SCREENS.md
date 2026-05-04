@@ -1,30 +1,50 @@
 # FundLens — Screens & Navigation
 
-Clear Lens is the default app design. Classic remains available from Settings for fallback and comparison.
+Clear Lens is the default app design. Classic remains available from Settings (mobile only) for fallback and comparison.
+
+## Layout modes
+
+The same Clear Lens screens render in two layout modes, gated on viewport width by the `useResponsiveLayout()` hook (`src/components/responsive/`):
+
+- **Mobile** — viewport width < 1024 px, OR any iOS / Android binary regardless of width. Top FolioLens header, bottom tabs, and a stacked single-column body. Title sits in a body-level eyebrow + h1 + subtitle block.
+- **Desktop** — viewport width ≥ 1024 px on web. The bottom tab bar is hidden and a 240 px Clear Lens sidebar renders to the left with logo, primary nav, Quick Actions, and an account row that links to Settings. The same `<Tabs>` navigator stays mounted across the breakpoint so resizing preserves the active route. The body retains the same eyebrow + h1 + subtitle title block.
+
+Native binaries (iOS, Android) are hard-locked to mobile.
 
 ## Navigation Structure
 
-Primary bottom tabs:
+Primary navigation (mobile bottom tabs, desktop sidebar "Navigate"):
 
 - `Portfolio`
 - `Funds`
 - `Wealth Journey`
 
-Secondary navigation:
+Quick Actions (mobile overflow sheet, desktop sidebar "Quick actions"):
 
-- `Settings` is hidden from the tab bar and opened from the shared header overflow menu.
-- `Portfolio Insights`, `Your Funds`, and `Fund Detail` are stack routes from Portfolio and fund rows.
-- `Tools Hub` is a stack route reachable from the Portfolio entry rows and the Wealth Journey "Explore more tools" link. Clear Lens only.
-- `Money Trail` is a stack route from Portfolio preview, Quick Actions, Your Funds expanded rows, and Fund Detail.
+- `Sync portfolio`
+- `Import CAS`
+- `Money Trail`
+- `Tools`
+
+Account / Settings:
+
+- Mobile — `Settings` is hidden from the tab bar and opened from the overflow sheet's middle group; sign-out lives in the destructive group of the same sheet.
+- Desktop — the sidebar account row links directly to `/(tabs)/settings`. Sign-out lives at Settings → About & support, mirroring mobile.
+
+Stack routes (rendered inside the desktop sidebar shell via `ResponsiveRouteFrame`, full-screen on mobile):
+
+- `Portfolio Insights`, `Your Funds`, and `Fund Detail` are reached from Portfolio and fund rows.
+- `Tools Hub` is reached from the sidebar Quick Action, the Portfolio entry rows, and the Wealth Journey "Explore more tools" link.
+- `Money Trail` is reached from the sidebar Quick Action, Portfolio preview, Your Funds expanded rows, and Fund Detail.
 - `Leaderboard` is hidden legacy chrome in Clear Lens for now; classic keeps its tab.
-- `Onboarding / Import CAS` and `PDF Upload` are utility flows used for first-run import and later portfolio maintenance.
+- `Onboarding / Import CAS` and `PDF Upload` are utility flows used for first-run import and later portfolio maintenance. Onboarding renders inside the sidebar shell on desktop via `DesktopFormFrame`.
 - `Compare` remains a hidden legacy route for transition and deep-link safety.
 
 Screen families:
 
-- Clear Lens primary tabs use the FundLens focus-ring header, restrained bottom tabs, Inter typography, and tokenized card surfaces.
-- Utility screens use a back-title header, Clear Lens cards, and plain-language import/status copy.
-- Classic screens remain behind the Settings design switch and should not inherit Clear Lens-only composition colors.
+- Clear Lens primary tabs use the FolioLens focus-ring header (mobile), the sidebar shell (desktop), restrained bottom tabs (mobile), Inter typography, and tokenized card surfaces.
+- Utility / out-of-tabs screens use a back-chip-only chrome header (the body always owns the title) and Clear Lens cards.
+- Classic screens remain behind the Settings design switch and are mobile-only — they should not inherit Clear Lens-only composition colors.
 
 ## Screen Map
 
@@ -43,6 +63,8 @@ Clear Lens includes:
 - allocation preview when composition data is available
 - entries for `Portfolio Insights`, `Your Funds`, and the Wealth Journey teaser path
 - loading, empty, sync-requested, sync-error, and pull-to-refresh states
+
+Desktop variant (`ClearLensPortfolioScreenDesktop`) composes the same presentational subcomponents into a 2-column dashboard: the chart, movers, and entry rows on the left (2/3); the asset allocation card, Money Trail preview, and a Wealth Journey teaser on the right (1/3). The mobile single-column remains unchanged.
 
 ### 2. Portfolio Insights
 
@@ -67,9 +89,11 @@ Includes:
 
 - allocation overview with active fund count, top-three share, and largest position
 - search
-- sort bottom sheet with current value, invested amount, XIRR, benchmark lead, and alphabetical options
+- sort bottom sheet with current value, invested amount, XIRR, benchmark lead, 1-day change, and alphabetical options
 - compact fund rows with value and portfolio share
-- expandable fund cards with Today, XIRR, invested, gain/loss, redeemed, booked P&L, NAV staleness, filled sparkline when available, and `View transactions`
+- expandable fund cards with Today and XIRR (right-aligned MetricRow), invested, gain/loss, redeemed, booked P&L (only when realized activity exists), NAV staleness, "NAV · last 30 days" labelled sparkline, and `View transactions`
+
+Desktop variant (`ClearLensFundsScreenDesktop`) replaces the mobile allocation overview with a fund-level summary card: allocation strip, holdings count, top-3 concentration, largest holding (name + % of portfolio), and today's best/worst movers among the user's funds — explicitly *not* portfolio-level metrics like Portfolio value or Your XIRR (those live on Portfolio). The per-fund cards use a hierarchical desktop layout (`FundDesktopCard`): title row + alpha-pp badge ("vs benchmark"), big primary current value with smaller XIRR + Today stats, and a footer with explicit Invested ▏ Gain split. The mobile expanded card and the desktop card stay deliberately separate.
 
 ### 4. Fund Detail
 
@@ -81,7 +105,9 @@ Clear Lens Fund Detail includes:
 - Performance chart and growth consistency
 - NAV History chart and period stats
 - Composition asset mix, market-cap mix, sectors, top holdings, and disclosure footer
-- Portfolio Weight card
+- Portfolio Weight card (caps at 460 px wide on desktop so the donut + info pair doesn't drift in whitespace)
+
+On desktop the screen renders inside the sidebar shell with `desktopMaxWidth={920}` (chart-heavy). All charts (Performance, NAV, Growth Consistency) read width from `useWindowDimensions` so they grow as the window does. The Growth Consistency bars use equal-slot positioning (`plotWidth / bars.length` per slot) so they span the full plot rather than clustering at the left edge.
 
 Classic Fund Detail remains available when the design switch is set to classic.
 
@@ -132,7 +158,7 @@ Clear Lens includes:
 
 ### 8. Settings
 
-Settings is hidden from tabs and opened from the overflow menu.
+Settings is hidden from the bottom tabs on mobile (opened from the overflow menu) and reached on desktop by clicking the sidebar account row.
 
 Includes:
 
@@ -142,7 +168,9 @@ Includes:
 - design switch: Clear Lens default, classic selectable
 - sync controls
 - import tools, CAS address, PAN management, PDF upload shortcut
-- sign out
+- sign out (under About & support)
+
+On desktop the hub caps content at 760 px so the cards don't stretch edge-to-edge of the sidebar shell's content area.
 
 ### 9. Tools Hub
 
@@ -177,3 +205,9 @@ Main import paths:
 - direct PDF upload flow
 
 Clear Lens mode uses the same behavior with Clear Lens header, cards, status chips, shadows, radii, and button treatment.
+
+Desktop renders the wizard inside the sidebar shell using `DesktopFormFrame` (centered 720 px column) and suppresses the Stack header that would otherwise duplicate the body's hero ("Import your portfolio" / "Upload a CAS PDF").
+
+### 11. Auth (sign in + magic-link confirm)
+
+Pre-login screens (no sidebar). On mobile, hero gradient strip on top of the form panel inside a single column. On desktop, a 920 px wide rounded card centered on the navy background, hero on the left half (logo + headline + value props), form on the right half (email + magic link + Google + dev shortcut + security note), both vertically centered. Magic-link confirm renders the same envelope illustration centered in a ~460 px column on desktop.
