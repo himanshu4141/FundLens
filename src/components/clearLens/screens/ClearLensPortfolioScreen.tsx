@@ -747,7 +747,13 @@ export function AssetAllocationPreview({
       <View style={styles.allocationBar}>
         {rows.map((row) => (
           row.pct > 0 ? (
-            <View key={row.label} style={[styles.allocationSegment, { flex: row.pct, backgroundColor: row.color }]} />
+            <View
+              key={row.label}
+              // Floor the flex value at 4 so a sliver-thin segment (e.g. 3%
+              // Cash) still renders as a recognisable chip rather than a
+              // hairline that disappears in dark mode.
+              style={[styles.allocationSegment, { flex: Math.max(row.pct, 4), backgroundColor: row.color }]}
+            />
           ) : null
         ))}
       </View>

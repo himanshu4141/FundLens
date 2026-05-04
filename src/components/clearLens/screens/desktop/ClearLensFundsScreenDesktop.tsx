@@ -175,7 +175,8 @@ export function ClearLensFundsScreenDesktop() {
                     key={segment.id}
                     style={[
                       styles.allocationSegment,
-                      { flex: Math.max(segment.pct, 1), backgroundColor: segment.color },
+                      // Floor at 4 so sub-1% slivers don't disappear in dark.
+                      { flex: Math.max(segment.pct, 4), backgroundColor: segment.color },
                     ]}
                   />
                 ))}

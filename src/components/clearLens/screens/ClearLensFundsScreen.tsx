@@ -132,7 +132,11 @@ function AllocationOverview({
               key={segment.id}
               style={[
                 styles.allocationStripSegment,
-                { flex: Math.max(segment.pct, 1), backgroundColor: segment.color },
+                // Floor at 4 (was 1) — a sub-1% sliver was effectively a
+                // hairline in dark mode where the bg surface and the segment
+                // colour fall close together. 4 still preserves visual
+                // ordering across many holdings without distorting big chunks.
+                { flex: Math.max(segment.pct, 4), backgroundColor: segment.color },
               ]}
             />
           ))}
