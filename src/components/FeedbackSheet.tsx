@@ -222,14 +222,20 @@ export function FeedbackSheet({
             {submitted ? (
               <SuccessState onClose={onClose} kind={kind!} />
             ) : copy ? (
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <View style={styles.header}>
-                  <Text style={styles.title}>{copy.title}</Text>
-                  <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.76}>
-                    <Ionicons name="close" size={20} color={ClearLensColors.navy} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.subtitle}>{copy.subtitle}</Text>
+              <>
+              <View style={styles.header}>
+                <Text style={styles.title}>{copy.title}</Text>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.76}>
+                  <Ionicons name="close" size={20} color={ClearLensColors.navy} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.subtitle}>{copy.subtitle}</Text>
+              <ScrollView
+                style={styles.scrollBody}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
 
                 <View style={styles.field}>
                   <Text style={styles.fieldLabel}>Title</Text>
@@ -302,7 +308,10 @@ export function FeedbackSheet({
                 <Text style={styles.footnote}>
                   We attach your account, app version, and OTA update so we can reproduce issues. We never share or sell this data.
                 </Text>
+              </ScrollView>
 
+              {/* Sticky footer — submit always visible without scrolling. */}
+              <View style={styles.footer}>
                 <TouchableOpacity
                   style={[styles.submit, submitting && styles.submitDisabled]}
                   onPress={handleSubmit}
@@ -315,7 +324,8 @@ export function FeedbackSheet({
                     <Text style={styles.submitText}>{copy.submit}</Text>
                   )}
                 </TouchableOpacity>
-              </ScrollView>
+              </View>
+              </>
             ) : null}
           </Pressable>
         </KeyboardAvoidingView>
@@ -356,13 +366,25 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     paddingHorizontal: ClearLensSpacing.md,
     paddingTop: ClearLensSpacing.sm,
-    paddingBottom: ClearLensSpacing.lg,
+    paddingBottom: 0,
     backgroundColor: ClearLensColors.surface,
     borderTopLeftRadius: ClearLensRadii.xl,
     borderTopRightRadius: ClearLensRadii.xl,
     borderWidth: 1,
     borderColor: ClearLensColors.border,
     ...ClearLensShadow,
+  },
+  scrollBody: {
+    flexShrink: 1,
+  },
+  scrollContent: {
+    paddingBottom: ClearLensSpacing.md,
+  },
+  footer: {
+    paddingTop: ClearLensSpacing.sm,
+    paddingBottom: ClearLensSpacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: ClearLensColors.borderLight,
   },
   handle: {
     width: 44,

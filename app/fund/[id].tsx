@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -999,7 +1000,12 @@ function makeTechStyles(colors: AppColors) {
       borderColor: colors.border,
     },
     clearLensCard: {
-      marginHorizontal: 0,
+      // The sibling NavHistoryTab adds its own paddingHorizontal:16 inside
+      // its own container, so its chart card sits 32 px from the viewport
+      // edge. This card sits directly under the same ScrollView (16 px
+      // padding) so without the extra margin it ends up 16 px wider on each
+      // side — matching the parent indent fixes the visual mismatch.
+      marginHorizontal: ClearLensSpacing.md,
       marginTop: 0,
       borderRadius: ClearLensRadii.lg,
       borderColor: ClearLensColors.border,
@@ -1057,13 +1063,19 @@ function makeTechStyles(colors: AppColors) {
 function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const { colors } = useTheme();
   const gs = useMemo(() => makeGrowthStyles(colors), [colors]);
+  // Use the live viewport width rather than the module-scope CHART_WIDTH.
+  // The module-scope value is captured once when the JS bundle loads, so on
+  // web it reflects whatever the browser was at on first paint — resizing
+  // afterwards leaves the chart rendered at the stale (often desktop) width
+  // and bars get clipped by the mobile viewport.
+  const { width: viewportWidth } = useWindowDimensions();
+  const chartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32 - 64;
   const bars = computeQuarterlyReturns(navHistory, colors.positive, colors.negative);
   if (bars.length < 2) return null;
 
   const vals = bars.map((b) => Math.abs(b.value));
   const maxAbs = Math.max(...vals, 1);
   const chartMax = Math.ceil(maxAbs * 1.2);
-  const chartWidth = CHART_WIDTH - 64;
   const chartHeight = 176;
   const plotTop = 18;
   const plotBottom = 34;

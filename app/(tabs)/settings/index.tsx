@@ -156,6 +156,7 @@ function ClearLensHub() {
   return (
     <SafeAreaView style={hubStyles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={hubStyles.content}>
+        <View style={hubStyles.frame}>
         <View style={hubStyles.header}>
           <Text style={hubStyles.eyebrow}>Settings</Text>
           <Text style={hubStyles.heading}>Account & preferences</Text>
@@ -197,6 +198,7 @@ function ClearLensHub() {
             isLast
           />
         </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -204,7 +206,19 @@ function ClearLensHub() {
 
 const hubStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: ClearLensColors.background },
-  content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.md },
+  // Cap inner column width so on desktop the cards don't stretch
+  // edge-to-edge of the content area. 760 px matches
+  // ClearLensScreen.desktopMaxWidth used by the other single-column
+  // screens (Wealth Journey, Money Trail, etc.).
+  content: {
+    padding: ClearLensSpacing.md,
+    alignItems: 'center',
+  },
+  frame: {
+    width: '100%',
+    maxWidth: 760,
+    gap: ClearLensSpacing.md,
+  },
   header: { gap: 4, paddingVertical: ClearLensSpacing.sm },
   eyebrow: {
     ...ClearLensTypography.label,
