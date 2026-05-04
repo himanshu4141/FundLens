@@ -18,11 +18,9 @@ import {
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
-  ClearLensSemanticColors,
   ClearLensTypography,
   type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
@@ -136,8 +134,8 @@ function RankCard({
   const { base, planBadge } = parseFundName(fund.schemeName);
   const alphaPp = (fund.returnXirr - marketXirr) * 100;
   const ahead = alphaPp >= 0;
-  const color = ahead ? ClearLensSemanticColors.sentiment.positive : ClearLensSemanticColors.sentiment.negative;
-  const surface = ahead ? ClearLensSemanticColors.sentiment.positiveSurface : ClearLensSemanticColors.sentiment.negativeSurface;
+  const color = ahead ? tokens.semantic.sentiment.positive : tokens.semantic.sentiment.negative;
+  const surface = ahead ? tokens.semantic.sentiment.positiveSurface : tokens.semantic.sentiment.negativeSurface;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.76}>
@@ -174,7 +172,7 @@ function RankCard({
             </Text>
           )}
         </View>
-        <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
+        <Ionicons name="chevron-forward" size={18} color={tokens.colors.textTertiary} />
       </ClearLensCard>
     </TouchableOpacity>
   );

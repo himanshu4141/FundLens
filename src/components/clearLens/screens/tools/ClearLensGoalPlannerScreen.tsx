@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ClearLensHeader, ClearLensScreen } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
@@ -105,7 +104,7 @@ function GoalCard({
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleRow}>
           <Text style={styles.goalName} numberOfLines={1}>{goal.name}</Text>
-          <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
+          <Ionicons name="chevron-forward" size={16} color={tokens.colors.textTertiary} />
         </View>
         <View style={styles.tagRow}>
           <View style={[styles.tag, plan.onTrack ? styles.tagGreen : styles.tagAmber]}>

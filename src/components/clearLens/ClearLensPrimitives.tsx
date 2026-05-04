@@ -339,9 +339,9 @@ function makeStyles(tokens: ClearLensTokens) {
       borderRadius: ClearLensRadii.sm,
     },
     segmentActive: {
-      backgroundColor: cl.navy,
+      backgroundColor: cl.heroSurface,
       borderWidth: 1,
-      borderColor: cl.navy,
+      borderColor: cl.heroSurface,
       ...ClearLensShadow,
       shadowOpacity: 0.04,
       elevation: 1,
@@ -377,7 +377,7 @@ function makeStyles(tokens: ClearLensTokens) {
       justifyContent: 'center',
       backgroundColor: cl.surfaceSoft,
     },
-    pillActive: { backgroundColor: cl.navy },
+    pillActive: { backgroundColor: cl.heroSurface },
     pillText: {
       ...ClearLensTypography.bodySmall,
       fontWeight: '600',

@@ -101,6 +101,7 @@ function TimeWindowSelector({
   onChange: (w: TimeWindow) => void;
 }) {
   const { colors } = useTheme();
+  const tokens = useClearLensTokens();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={s.windowRow}>
@@ -110,7 +111,7 @@ function TimeWindowSelector({
           style={[
             s.windowPill,
             selected === w && s.windowPillActive,
-            selected === w && { backgroundColor: ClearLensColors.navy },
+            selected === w && { backgroundColor: tokens.colors.heroSurface },
           ]}
           onPress={() => onChange(w)}
           activeOpacity={0.75}
@@ -136,15 +137,16 @@ function PerformanceTab({
   userId?: string;
 }) {
   const { colors } = useTheme();
+  const tokens = useClearLensTokens();
   const s = useMemo(() => makeStyles(colors), [colors]);
   // Live viewport width — module-scope CHART_WIDTH is captured once at JS
   // load time, so on web it would leave the chart at the original size when
   // the window is resized. Recompute against the current viewport instead.
   const { width: viewportWidth } = useWindowDimensions();
   const liveChartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32;
-  const benchmarkColor = ClearLensColors.slate;
-  const positiveMetricColor = ClearLensColors.emerald;
-  const negativeMetricColor = ClearLensColors.negative;
+  const benchmarkColor = tokens.colors.slate;
+  const positiveMetricColor = tokens.colors.emerald;
+  const negativeMetricColor = tokens.colors.negative;
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
@@ -301,7 +303,7 @@ function PerformanceTab({
         <View style={s.pointerLabel}>
           <Text style={s.pointerDate}>{formatChartDate(point.date, window)}</Text>
           <Text style={s.pointerSeriesText}>
-            <Text style={{ color: ClearLensSemanticColors.chart.invested }}>● </Text>
+            <Text style={{ color: tokens.semantic.chart.invested }}>● </Text>
             Net invested: {formatCurrency(point.investedValue)}
           </Text>
           <Text style={s.pointerSeriesText}>
@@ -315,7 +317,16 @@ function PerformanceTab({
         </View>
       );
     },
-    [benchmarkColor, colors.primary, s, selectedLabel, timelinePoints, updateActiveIdxFromPointer, window],
+    [
+      benchmarkColor,
+      colors.primary,
+      s,
+      selectedLabel,
+      timelinePoints,
+      tokens.semantic.chart.invested,
+      updateActiveIdxFromPointer,
+      window,
+    ],
   );
   const actualPointerConfig = useMemo(
     () => ({
@@ -391,7 +402,7 @@ function PerformanceTab({
       <View style={s.tabContent}>
         <TimeWindowSelector selected={window} onChange={setWindow} />
         <View style={s.chartCard}>
-          <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="small" color={tokens.colors.emerald} />
         </View>
       </View>
     );
@@ -494,7 +505,7 @@ function PerformanceTab({
               style={[
                 s.benchmarkPill,
                 selectedSymbol === opt.symbol && s.benchmarkPillActive,
-                selectedSymbol === opt.symbol && { backgroundColor: ClearLensColors.navy },
+                selectedSymbol === opt.symbol && { backgroundColor: tokens.colors.heroSurface },
               ]}
               onPress={() => setSelectedSymbol(opt.symbol)}
               activeOpacity={0.75}
@@ -509,7 +520,7 @@ function PerformanceTab({
         <View style={s.chartCard}>
           <View style={s.chartLegendRow}>
             <View style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: ClearLensSemanticColors.chart.invested }]} />
+              <View style={[s.legendDot, { backgroundColor: tokens.semantic.chart.invested }]} />
               <Text style={s.legendLabel}>Net invested</Text>
             </View>
             <View style={s.legendItem}>
@@ -533,7 +544,7 @@ function PerformanceTab({
               initialSpacing={8}
               endSpacing={8}
               hideDataPoints
-              color1={ClearLensSemanticColors.chart.invested}
+              color1={tokens.semantic.chart.invested}
               color2={colors.primary}
               color3={benchmarkColor}
               thickness1={2.4}
@@ -652,7 +663,7 @@ function PerformanceTab({
             style={[
               s.benchmarkPill,
               selectedSymbol === opt.symbol && s.benchmarkPillActive,
-              selectedSymbol === opt.symbol && { backgroundColor: ClearLensColors.navy },
+              selectedSymbol === opt.symbol && { backgroundColor: tokens.colors.heroSurface },
             ]}
             onPress={() => setSelectedSymbol(opt.symbol)}
             activeOpacity={0.75}

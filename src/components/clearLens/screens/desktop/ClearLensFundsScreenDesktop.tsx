@@ -19,7 +19,6 @@ import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
 import { MaxContentWidth } from '@/src/components/responsive';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSemanticColors,
@@ -300,7 +299,7 @@ function SummaryMetric({
   const tokens = useClearLensTokens();
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const valueColor =
-    tone === 'positive' ? ClearLensColors.emerald : tone === 'negative' ? CLEAR_LENS_RED : ClearLensColors.navy;
+    tone === 'positive' ? tokens.colors.emerald : tone === 'negative' ? CLEAR_LENS_RED : tokens.colors.navy;
   return (
     <View style={styles.summaryMetric}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -501,7 +500,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   summaryEyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   allocationStrip: {
@@ -509,7 +508,7 @@ function makeStyles(tokens: ClearLensTokens) {
     borderRadius: ClearLensRadii.full,
     overflow: 'hidden',
     flexDirection: 'row',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   allocationSegment: {
     height: '100%',
@@ -537,11 +536,11 @@ function makeStyles(tokens: ClearLensTokens) {
   summaryValue: {
     ...ClearLensTypography.h3,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   summarySub: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   summaryDivider: {
     width: 1,
@@ -567,7 +566,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   moverChipName: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.semiBold,
   },
   moverChipDelta: {
@@ -608,8 +607,8 @@ function makeStyles(tokens: ClearLensTokens) {
     borderColor: cl.border,
   },
   sortChipActive: {
-    backgroundColor: cl.navy,
-    borderColor: cl.navy,
+    backgroundColor: cl.heroSurface,
+    borderColor: cl.heroSurface,
   },
   sortChipText: {
     ...ClearLensTypography.caption,
@@ -695,7 +694,7 @@ function makeStyles(tokens: ClearLensTokens) {
     fontFamily: ClearLensFonts.extraBold,
     fontSize: 28,
     lineHeight: 32,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   secondaryStats: {
     flexDirection: 'row',
@@ -708,7 +707,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   secondaryLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   secondaryValue: {

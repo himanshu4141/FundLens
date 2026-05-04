@@ -21,7 +21,6 @@ import {
 import { useMoneyTrail } from '@/src/hooks/useMoneyTrail';
 import { ResponsiveRouteFrame, useIsDesktop } from '@/src/components/responsive';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
@@ -270,7 +269,7 @@ function TransactionRow({
 }) {
   const tokens = useClearLensTokens();
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
-  const treatment = transactionTreatment(transaction);
+  const treatment = transactionTreatment(transaction, tokens);
 
   return (
     <TouchableOpacity style={styles.transactionRow} onPress={onPress} activeOpacity={0.76}>
@@ -292,49 +291,56 @@ function TransactionRow({
   );
 }
 
-function transactionTreatment(transaction: PortfolioTransaction): {
+function transactionTreatment(
+  transaction: PortfolioTransaction,
+  tokens: ClearLensTokens,
+): {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   bg: string;
   statusColor: string;
 } {
+  const cl = tokens.colors;
   if (transaction.hiddenByDefault) {
     return {
       icon: 'remove-circle-outline',
-      color: ClearLensColors.textTertiary,
-      bg: ClearLensColors.grey50,
-      statusColor: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
+      bg: cl.grey50,
+      statusColor: cl.textTertiary,
     };
   }
   if (transaction.direction === 'money_in') {
     return {
       icon: 'arrow-down-circle-outline',
-      color: ClearLensColors.emeraldDeep,
-      bg: ClearLensColors.mint50,
-      statusColor: ClearLensColors.emeraldDeep,
+      color: cl.emeraldDeep,
+      bg: cl.mint50,
+      statusColor: cl.emeraldDeep,
     };
   }
   if (transaction.direction === 'money_out') {
     return {
       icon: 'arrow-up-circle-outline',
-      color: ClearLensColors.amber,
-      bg: '#FFF7E6',
-      statusColor: ClearLensColors.emeraldDeep,
+      color: cl.amber,
+      bg: cl.warningBg,
+      statusColor: cl.emeraldDeep,
     };
   }
   if (transaction.direction === 'internal') {
     return {
       icon: 'swap-horizontal-outline',
-      color: ClearLensColors.slate,
-      bg: ClearLensColors.surfaceSoft,
-      statusColor: ClearLensColors.emeraldDeep,
+      // In dark mode `slate` flips to a light grey — that reads on the dark
+      // card. In light mode it stays as the brand slate. Either way the
+      // amount text stays legible against the row surface.
+      color: cl.textPrimary,
+      bg: cl.surfaceSoft,
+      statusColor: cl.emeraldDeep,
     };
   }
   return {
     icon: 'ellipse-outline',
-    color: ClearLensColors.textTertiary,
-    bg: ClearLensColors.surfaceSoft,
-    statusColor: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
+    bg: cl.surfaceSoft,
+    statusColor: cl.textTertiary,
   };
 }
 
@@ -657,7 +663,7 @@ function ExportSheet({
           <SheetHeader title="CSV export" onClose={onClose} />
           <View style={styles.exportBody}>
             <View style={styles.exportIcon}>
-              <Ionicons name="document-text-outline" size={36} color={ClearLensColors.emeraldDeep} />
+              <Ionicons name="document-text-outline" size={36} color={tokens.colors.emeraldDeep} />
               <Text style={styles.exportBadge}>CSV</Text>
             </View>
             <Text style={styles.exportTitle}>Export your transactions</Text>
@@ -1037,7 +1043,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   eyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   title: {

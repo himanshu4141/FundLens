@@ -21,13 +21,14 @@ import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
 import { maskPan } from './index';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 async function fetchProfile(userId: string) {
   const { data } = await supabase
@@ -47,7 +48,8 @@ export default function AccountScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
-  const styles = useMemo(() => makeStyles(), []);
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
 
   const identities = session?.user?.identities ?? [];
   const isGoogleLinked = identities.some((id: { provider: string }) => id.provider === 'google');
@@ -107,7 +109,7 @@ export default function AccountScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={22} color={ClearLensColors.emerald} />
+              <Ionicons name="person" size={22} color={tokens.colors.emerald} />
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileEmail} numberOfLines={1}>{session?.user.email ?? '—'}</Text>
@@ -115,7 +117,7 @@ export default function AccountScreen() {
                 {isLoading ? 'Loading…' : profile?.pan ? maskPan(profile.pan) : 'PAN not set'}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
+            <Ionicons name="chevron-forward" size={18} color={tokens.colors.textTertiary} />
           </TouchableOpacity>
 
           {!isLoading && profile?.kfintech_email && (
@@ -155,7 +157,7 @@ export default function AccountScreen() {
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={styles.providerIconWrap}>
-              <Ionicons name="mail-outline" size={18} color={ClearLensColors.textSecondary} />
+              <Ionicons name="mail-outline" size={18} color={tokens.colors.textSecondary} />
             </View>
             <View style={styles.rowLeft}>
               <Text style={styles.rowValue}>Email (magic link)</Text>
@@ -188,7 +190,7 @@ export default function AccountScreen() {
                 activeOpacity={0.75}
               >
                 {linkingGoogle
-                  ? <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+                  ? <ActivityIndicator size="small" color={tokens.colors.emerald} />
                   : <Text style={styles.actionBtnText}>Connect</Text>}
               </TouchableOpacity>
             )}
@@ -196,7 +198,7 @@ export default function AccountScreen() {
 
           {linkError && (
             <View style={[styles.row, styles.borderTop]}>
-              <Text style={[styles.rowSub, { color: ClearLensColors.negative, flex: 1 }]}>
+              <Text style={[styles.rowSub, { color: tokens.colors.negative, flex: 1 }]}>
                 {linkError}
               </Text>
             </View>
@@ -205,7 +207,7 @@ export default function AccountScreen() {
 
         {/* Footer note */}
         <View style={styles.footerNote}>
-          <Ionicons name="shield-checkmark-outline" size={15} color={ClearLensColors.textTertiary} />
+          <Ionicons name="shield-checkmark-outline" size={15} color={tokens.colors.textTertiary} />
           <Text style={styles.footerNoteText}>
             These accounts are used to sign in to FolioLens.
           </Text>
@@ -215,24 +217,25 @@ export default function AccountScreen() {
   );
 }
 
-function makeStyles() {
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: ClearLensColors.background },
+    container: { flex: 1, backgroundColor: cl.background },
     content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.sm, paddingBottom: ClearLensSpacing.xxl },
 
     sectionLabel: {
       ...ClearLensTypography.label,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       textTransform: 'uppercase',
       marginBottom: ClearLensSpacing.xs,
       marginTop: ClearLensSpacing.xs,
     },
 
     card: {
-      backgroundColor: ClearLensColors.surface,
+      backgroundColor: cl.surface,
       borderRadius: ClearLensRadii.lg,
       borderWidth: 1,
-      borderColor: ClearLensColors.border,
+      borderColor: cl.border,
       overflow: 'hidden',
       ...ClearLensShadow,
     },
@@ -247,7 +250,7 @@ function makeStyles() {
       width: 44,
       height: 44,
       borderRadius: ClearLensRadii.full,
-      backgroundColor: ClearLensColors.mint50,
+      backgroundColor: cl.mint50,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -255,11 +258,11 @@ function makeStyles() {
     profileEmail: {
       ...ClearLensTypography.h3,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.navy,
+      color: cl.navy,
     },
     profileMeta: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
     },
 
     row: {
@@ -269,20 +272,20 @@ function makeStyles() {
       paddingVertical: 14,
       gap: ClearLensSpacing.md,
     },
-    borderTop: { borderTopWidth: 1, borderTopColor: ClearLensColors.borderLight },
+    borderTop: { borderTopWidth: 1, borderTopColor: cl.borderLight },
     rowLeft: { flex: 1, gap: 3 },
     rowLabel: {
       ...ClearLensTypography.label,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       textTransform: 'uppercase',
     },
     rowValue: {
       ...ClearLensTypography.h3,
-      color: ClearLensColors.navy,
+      color: cl.navy,
     },
     rowSub: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
     },
 
     actionBtn: {
@@ -291,19 +294,19 @@ function makeStyles() {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      backgroundColor: ClearLensColors.mint50,
+      backgroundColor: cl.mint50,
       borderRadius: ClearLensRadii.full,
     },
     actionBtnText: {
       ...ClearLensTypography.caption,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.emerald,
+      color: cl.emerald,
     },
 
     providerIconWrap: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
 
     connectedBadge: {
-      backgroundColor: ClearLensColors.positiveBg,
+      backgroundColor: cl.positiveBg,
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: ClearLensRadii.full,
@@ -311,7 +314,7 @@ function makeStyles() {
     connectedText: {
       ...ClearLensTypography.caption,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.emerald,
+      color: cl.emerald,
     },
 
     footerNote: {
@@ -323,7 +326,7 @@ function makeStyles() {
     },
     footerNoteText: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       flex: 1,
     },
   });

@@ -21,7 +21,6 @@ import { useAppStore } from '@/src/store/appStore';
 import { formatCurrency } from '@/src/utils/formatting';
 import type { InsightDebtFund } from '@/src/types/app';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
@@ -248,7 +247,7 @@ function DebtCashCard({
       label: 'Cash & Others',
       pct: cashPct,
       value: (cashPct / 100) * totalValue,
-      color: ClearLensColors.mint,
+      color: tokens.colors.mint,
       icon: 'wallet-outline' as const,
     },
   ];
@@ -263,7 +262,7 @@ function DebtCashCard({
         {rows.map((row) => (
           <View key={row.label} style={styles.debtSummaryItem}>
             <View style={[styles.debtIcon, { backgroundColor: row.color }]}>
-              <Ionicons name={row.icon} size={16} color={ClearLensColors.navy} />
+              <Ionicons name={row.icon} size={16} color={tokens.colors.navy} />
             </View>
             <Text style={styles.debtPct}>{row.pct.toFixed(1)}%</Text>
             <Text style={styles.debtLabel}>{row.label}</Text>
@@ -454,7 +453,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   heroEyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   heroTitle: {

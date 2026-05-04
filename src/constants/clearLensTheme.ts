@@ -25,6 +25,14 @@ export interface ClearLensColorTokens {
   background: string;
   surface: string;
   surfaceSoft: string;
+  /**
+   * Brand-dark surface used by hero cards, active segment/pill backgrounds,
+   * and other places that want a distinctive dark accent. Stays dark in both
+   * light and dark modes — `navy` itself doubles as a flipping text colour,
+   * so anything that needs a stable dark surface should reach for this token
+   * instead.
+   */
+  heroSurface: string;
   textPrimary: string;
   textSecondary: string;
   textTertiary: string;
@@ -56,6 +64,7 @@ export const ClearLensLightColors: ClearLensColorTokens = {
   background: '#FAFBFD',
   surface: '#FFFFFF',
   surfaceSoft: '#F4F7FA',
+  heroSurface: '#0A1430',
   textPrimary: '#0A1430',
   textSecondary: '#263248',
   textTertiary: '#7B8AA3',
@@ -76,19 +85,26 @@ export const ClearLensLightColors: ClearLensColorTokens = {
 };
 
 export const ClearLensDarkColors: ClearLensColorTokens = {
-  // Brand stays recognisable; "navy" inverts to a near-white so existing
-  // headings/values keep contrast against the dark canvas.
+  // `navy` doubles as the primary text colour, so it flips to near-white in
+  // dark mode. Anything that needs the deep brand-navy *surface* (hero cards,
+  // active pill backgrounds, segment-active state) reaches for `heroSurface`
+  // instead, which is brand-navy in both modes.
   navy: '#F2F5FB',
   slate: '#C5CFE0',
   emerald: '#34D399',
   emeraldDeep: '#10B981',
-  mint: '#064E3B',
+  // `mint` is consumed both as a soft surface accent and as a token-on-dark
+  // accent in icons. Light mint reads against the dark canvas the same way
+  // it reads against the light surface, so we keep it stable.
+  mint: '#A7F3D0',
   mint50: '#0E2F25',
   lightGrey: '#26314A',
   grey50: '#1A2238',
-  background: '#0A1226',
+  background: '#06101F',
   surface: '#121B33',
   surfaceSoft: '#19223D',
+  // Slightly elevated dark navy so the hero pops against the page bg.
+  heroSurface: '#1F2A4A',
   textPrimary: '#F2F5FB',
   textSecondary: '#C5CFE0',
   textTertiary: '#8C9BB8',

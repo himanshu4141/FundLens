@@ -1029,8 +1029,8 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   heroCard: {
     gap: ClearLensSpacing.sm,
-    backgroundColor: cl.navy,
-    borderColor: cl.navy,
+    backgroundColor: cl.heroSurface,
+    borderColor: cl.heroSurface,
     padding: ClearLensSpacing.lg,
   },
   heroLabel: {
@@ -1190,7 +1190,7 @@ function makeStyles(tokens: ClearLensTokens) {
     backgroundColor: cl.surfaceSoft,
   },
   rangePillActive: {
-    backgroundColor: cl.navy,
+    backgroundColor: cl.heroSurface,
   },
   rangePillText: {
     ...ClearLensTypography.bodySmall,

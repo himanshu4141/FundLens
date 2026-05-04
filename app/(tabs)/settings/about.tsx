@@ -18,13 +18,14 @@ import { supabase } from '@/src/lib/supabase';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { FeedbackSheet, type FeedbackKind } from '@/src/components/FeedbackSheet';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 const HELP_URL = 'https://foliolens.in/faq.html';
 
@@ -36,7 +37,8 @@ type InfoRowProps = {
 };
 
 function InfoRow({ label, value, onPress, isLast }: InfoRowProps) {
-  const styles = makeStyles();
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const Row = onPress ? TouchableOpacity : View;
   return (
     <Row
@@ -48,7 +50,7 @@ function InfoRow({ label, value, onPress, isLast }: InfoRowProps) {
         <Text style={styles.rowLabel}>{label}</Text>
         <Text style={styles.rowValue}>{value}</Text>
       </View>
-      {onPress && <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />}
+      {onPress && <Ionicons name="chevron-forward" size={16} color={tokens.colors.textTertiary} />}
     </Row>
   );
 }
@@ -61,22 +63,24 @@ type LinkRowProps = {
 };
 
 function LinkRow({ icon, label, onPress, isLast }: LinkRowProps) {
-  const styles = makeStyles();
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <TouchableOpacity
       style={[styles.linkRow, !isLast && styles.borderBottom]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Ionicons name={icon} size={18} color={ClearLensColors.textSecondary} />
+      <Ionicons name={icon} size={18} color={tokens.colors.textSecondary} />
       <Text style={styles.linkLabel}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
+      <Ionicons name="chevron-forward" size={16} color={tokens.colors.textTertiary} />
     </TouchableOpacity>
   );
 }
 
 export default function AboutScreen() {
-  const styles = useMemo(() => makeStyles(), []);
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [copiedUpdateId, setCopiedUpdateId] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
 
@@ -167,7 +171,7 @@ export default function AboutScreen() {
         {/* Sign out */}
         <View style={styles.card}>
           <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
-            <Ionicons name="log-out-outline" size={18} color={ClearLensColors.negative} />
+            <Ionicons name="log-out-outline" size={18} color={tokens.colors.negative} />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
         </View>
@@ -182,16 +186,17 @@ export default function AboutScreen() {
   );
 }
 
-function makeStyles() {
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: ClearLensColors.background },
+    container: { flex: 1, backgroundColor: cl.background },
     content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.sm, paddingBottom: ClearLensSpacing.xxl },
 
     card: {
-      backgroundColor: ClearLensColors.surface,
+      backgroundColor: cl.surface,
       borderRadius: ClearLensRadii.lg,
       borderWidth: 1,
-      borderColor: ClearLensColors.border,
+      borderColor: cl.border,
       overflow: 'hidden',
       ...ClearLensShadow,
     },
@@ -203,16 +208,16 @@ function makeStyles() {
       paddingVertical: 14,
       gap: ClearLensSpacing.md,
     },
-    borderBottom: { borderBottomWidth: 1, borderBottomColor: ClearLensColors.borderLight },
+    borderBottom: { borderBottomWidth: 1, borderBottomColor: cl.borderLight },
     rowLeft: { flex: 1, gap: 3 },
     rowLabel: {
       ...ClearLensTypography.label,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       textTransform: 'uppercase',
     },
     rowValue: {
       ...ClearLensTypography.h3,
-      color: ClearLensColors.navy,
+      color: cl.navy,
     },
 
     linkRow: {
@@ -225,7 +230,7 @@ function makeStyles() {
     linkLabel: {
       ...ClearLensTypography.body,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.navy,
+      color: cl.navy,
       flex: 1,
     },
 
@@ -239,7 +244,7 @@ function makeStyles() {
     signOutText: {
       ...ClearLensTypography.body,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.negative,
+      color: cl.negative,
     },
   });
 }

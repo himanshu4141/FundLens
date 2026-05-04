@@ -1564,8 +1564,8 @@ function makeStyles(tokens: ClearLensTokens) {
     justifyContent: 'center',
   },
   choiceChipActive: {
-    backgroundColor: cl.navy,
-    borderColor: cl.navy,
+    backgroundColor: cl.heroSurface,
+    borderColor: cl.heroSurface,
   },
   choiceChipText: {
     ...ClearLensTypography.caption,
@@ -1591,8 +1591,8 @@ function makeStyles(tokens: ClearLensTokens) {
     gap: 2,
   },
   returnCardActive: {
-    backgroundColor: cl.navy,
-    borderColor: cl.navy,
+    backgroundColor: cl.heroSurface,
+    borderColor: cl.heroSurface,
   },
   returnCardLabel: {
     ...ClearLensTypography.caption,

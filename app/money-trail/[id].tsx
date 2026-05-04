@@ -18,7 +18,6 @@ import {
 import { useMoneyTrail } from '@/src/hooks/useMoneyTrail';
 import { ResponsiveRouteFrame } from '@/src/components/responsive';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
@@ -76,13 +75,14 @@ function topIconFor(transaction: PortfolioTransaction): keyof typeof Ionicons.gl
   return 'ellipse-outline';
 }
 
-function topColorFor(transaction: PortfolioTransaction): string {
-  if (transaction.hiddenByDefault) return ClearLensColors.textTertiary;
+function topColorFor(transaction: PortfolioTransaction, tokens: ClearLensTokens): string {
+  const cl = tokens.colors;
+  if (transaction.hiddenByDefault) return cl.textTertiary;
   if (transaction.direction === 'money_in' || transaction.type === 'dividend_reinvestment') {
-    return ClearLensColors.emeraldDeep;
+    return cl.emeraldDeep;
   }
-  if (transaction.direction === 'money_out') return ClearLensColors.amber;
-  return ClearLensColors.slate;
+  if (transaction.direction === 'money_out') return cl.amber;
+  return cl.textPrimary;
 }
 
 function ExplanationCard({ transaction }: { transaction: PortfolioTransaction }) {
@@ -170,7 +170,7 @@ export default function MoneyTrailDetailScreen() {
           <ClearLensCard style={styles.heroCard}>
             <View style={styles.heroTop}>
               <View style={[styles.heroIcon, { backgroundColor: transaction.hiddenByDefault ? tokens.colors.grey50 : tokens.colors.mint50 }]}>
-                <Ionicons name={topIconFor(transaction)} size={21} color={topColorFor(transaction)} />
+                <Ionicons name={topIconFor(transaction)} size={21} color={topColorFor(transaction, tokens)} />
               </View>
               <View style={styles.heroTitleBlock}>
                 <Text style={styles.transactionType}>{transaction.userFacingType}</Text>
@@ -183,7 +183,7 @@ export default function MoneyTrailDetailScreen() {
 
             <View style={styles.amountBlock}>
               <Text style={styles.amountLabel}>Amount</Text>
-              <Text style={[styles.amountValue, { color: topColorFor(transaction) }]}>
+              <Text style={[styles.amountValue, { color: topColorFor(transaction, tokens) }]}>
                 {formatCurrency(transaction.amount)}
               </Text>
             </View>
@@ -254,12 +254,12 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   eyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   title: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   heroCard: {
     gap: ClearLensSpacing.md,
