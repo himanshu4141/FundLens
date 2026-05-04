@@ -1092,8 +1092,11 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
   const plotWidth = chartWidth - plotLeft - plotRight;
   const plotHeight = chartHeight - plotTop - plotBottom;
   const zeroY = plotTop + plotHeight / 2;
-  const barGap = 7;
-  const barWidth = Math.max(12, Math.min(20, (plotWidth - barGap * (bars.length - 1)) / bars.length));
+  // Each bar gets an equal slot across the full plot width so the cluster
+  // doesn't cling to the left edge on wide viewports. The bar itself stays
+  // capped between 12 px and 28 px and is centered within its slot.
+  const slotWidth = plotWidth / bars.length;
+  const barWidth = Math.max(12, Math.min(28, slotWidth - 8));
   const xLabelEvery = bars.length <= 8 ? 1 : 2;
 
   function yFor(value: number): number {
@@ -1133,7 +1136,7 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
             );
           })}
           {bars.map((bar, index) => {
-            const x = plotLeft + index * (barWidth + barGap);
+            const x = plotLeft + index * slotWidth + (slotWidth - barWidth) / 2;
             const positive = bar.value >= 0;
             const y = positive ? yFor(bar.value) : zeroY;
             const height = Math.max(3, Math.abs(yFor(bar.value) - zeroY));
