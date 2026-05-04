@@ -74,29 +74,31 @@ export function ClearLensHeader({
   const { layout } = useResponsiveLayout();
   const isDesktop = layout === 'desktop';
 
-  // On desktop the sidebar already shows the logo, account avatar, and quick
-  // actions. Suppress the in-screen header in those cases — only render when
-  // there's a back button or an explicit right action that the sidebar can't
-  // surface (e.g. screen-specific overflow). When there's nothing meaningful
-  // left, render nothing at all so the screen body sits flush.
+  // On desktop the sidebar owns the logo + account, and each screen body
+  // renders its own h1/title. Render the header only when a back button or
+  // right action is present — and even then suppress the title to avoid the
+  // duplicate-title pattern (e.g. centered "Money Trail" header above an h1
+  // "Money Trail" inside the body). The bar becomes a slim chrome strip with
+  // just the navigation affordance.
   if (isDesktop) {
-    const hasContent = !!onPressBack || !!rightAction || !!title;
-    if (!hasContent) return null;
+    const hasNav = !!onPressBack || !!rightAction;
+    if (!hasNav) return null;
     return (
-      <View style={styles.header}>
+      <View style={[styles.header, styles.headerDesktopChrome]}>
         {onPressBack ? (
-          <TouchableOpacity onPress={onPressBack} style={styles.iconButton} activeOpacity={0.75}>
-            <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
+          <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.75} accessibilityLabel="Go back">
+            <Ionicons name="chevron-back" size={18} color={ClearLensColors.navy} />
+            <Text style={styles.headerBackLabel}>Back</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
         )}
 
-        {title ? <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text> : <View style={styles.headerSpacer} />}
+        <View style={styles.headerSpacer} />
 
         {rightAction ? (
           <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.75}>
-            <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? ClearLensColors.navy} />
+            <Ionicons name={rightAction.icon as never} size={20} color={rightAction.tint ?? ClearLensColors.navy} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
@@ -252,6 +254,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
     backgroundColor: ClearLensColors.background,
+  },
+  headerDesktopChrome: {
+    minHeight: 44,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  headerBackLabel: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    marginLeft: 2,
+    fontWeight: '600',
+  },
+  backChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: ClearLensRadii.full,
+    backgroundColor: ClearLensColors.surfaceSoft,
+    gap: 2,
   },
   headerTitle: {
     ...ClearLensTypography.h3,
