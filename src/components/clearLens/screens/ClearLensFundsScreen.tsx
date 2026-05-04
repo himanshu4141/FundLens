@@ -31,7 +31,6 @@ import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
 import { navStaleness } from '@/src/utils/navUtils';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
@@ -880,7 +879,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   metricRowDivider: {
     height: 1,
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
     marginVertical: 2,
   },
   metricRow: {
@@ -900,7 +899,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   metricRowValue: {
     ...ClearLensTypography.bodySmall,
-    color: cl.navy,
+    color: cl.textPrimary,
     fontFamily: ClearLensFonts.bold,
     textAlign: 'right',
   },
@@ -914,7 +913,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   sparklineLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   sparklinePanel: {
@@ -922,7 +921,11 @@ function makeStyles(tokens: ClearLensTokens) {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: ClearLensRadii.md,
-    backgroundColor: cl.mint50,
+    // Lifted "well" trough behind the NAV sparkline. `mint50` worked in light
+    // mode (soft mint) but flips to a near-black green in dark, which merged
+    // with the emerald line. `surfaceSoft` reads as a subtle lift in both
+    // schemes, so the emerald line keeps its contrast.
+    backgroundColor: cl.surfaceSoft,
     overflow: 'hidden',
   },
   transactionsAction: {
