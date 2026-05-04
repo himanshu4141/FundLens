@@ -180,3 +180,30 @@ The actual upload step reuses the existing `pdf.tsx` flow. We move the file pick
 - [ ] M1.4 — Request-fresh-CAS path with in-app browser
 - [ ] M1.5 — Done step + entry-point routing + Settings re-import link
 - [ ] M1.6 — Tests + manual validation + beta tester run-throughs
+
+---
+
+## Amendments
+
+### 2026-05-04 — Pause for desktop shell + dark mode rebase
+
+PR #92 is parked as **draft** until PR #97 (dark mode + classic-theme retirement) merges into `main`. Two pieces of work that landed (or will land) on `main` since this branch was cut materially change the scope of the wizard's UI:
+
+1. **Desktop shell** (already on `main`) — the app now renders a sidebar layout at viewports ≥1024 px instead of bottom tabs, with new responsive primitives in `src/components/responsive/` (`DesktopShell`, `DesktopSidebar`, `DesktopContainer`, `DesktopFormFrame`, `ResponsiveRouteFrame`, `useResponsiveLayout`).
+2. **Dark mode + retire classic theme** (PR #97) — single Clear-Lens-only theming with light / dark / system selector. Hardcoded colour literals will stop working once classic theme is deleted; everything must read from the new theme tokens.
+
+#### Post-#97 redesign checklist for the wizard rebase
+
+Before un-drafting #92:
+
+- **Theming.** Replace every literal colour reference in the wizard (`#…`, `ClearLensColors.*` if those are renamed/removed) with the new theme accessor (`useTheme()` / new tokens). Verify the wizard renders correctly in light, dark, and system mode. Pay special attention to: progress pills (active vs idle), portal cards, the green CTA, error banners, KAV background.
+- **Desktop layout.** At ≥1024 px the wizard currently scrolls a phone-sized column inside the sidebar shell. Wrap each step's body in `DesktopFormFrame` (or whichever centred-form primitive ships with #97) so the wizard sits in a 480–560 px column with breathing room. Welcome + Done steps may benefit from a hero/illustration on the left at desktop widths — decide during rebase.
+- **Sidebar coexistence.** Onboarding must hide the desktop sidebar (no nav while the user is signing up). Confirm the `(tabs)` group / route guard pattern from the desktop shell merge already does this; if not, add an explicit suppress in `app/onboarding/_layout.tsx`.
+- **Portal cards on desktop.** The "Open KFinTech / CAMS" cards open `expo-web-browser` on native. On web desktop this should open in a new tab via `Linking.openURL` (or the equivalent that the desktop shell adopted) and the AppState return-to-foreground banner becomes a no-op — replace with a "Done? Click to refresh" affordance.
+- **KeyboardAvoidingView.** With desktop shell, KAV is a no-op above 1024 px. Confirm no layout regressions at the breakpoint crossing.
+- **Coverage.** Coverage commit for `casPdfUpload` + `onboardingDraft` storage helpers landed 2026-05-04 (`f4a5454`). Re-run after rebase — new theme tokens may pull other files into coverage.
+
+#### Out-of-scope for this milestone
+
+- Redesigning the four-step shape itself. The reducer + step model is solid; the rebase is purely a presentation-layer pass.
+- Dark-mode tuning of the standalone `app/onboarding/pdf.tsx` re-import screen — covered under M1.5 routing work, but treat as a follow-up if PR #97's review surfaces theme work elsewhere.

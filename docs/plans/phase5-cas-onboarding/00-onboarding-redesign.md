@@ -71,3 +71,12 @@ No WebView wrapping a third-party portal at any point. We use `expo-web-browser`
 
 - M1 implements steps 1-4 minus auto-refresh (and the Upload + Request paths)
 - M2 implements the auto-refresh path and post-import nudge
+
+
+## Amendments
+
+### 2026-05-04 — Paused pending dark mode + desktop shell rebase
+
+Both M1 (#92) and M2 (#93) are draft until PR #97 (dark mode + classic-theme retirement) merges into `main`. The desktop shell has already landed on `main` and adds new responsive primitives that the wizard needs to honour.
+
+See per-milestone amendments at the bottom of `M1-friendly-upload-onboarding.md` and `M2-resend-inbound-auto-refresh.md` for the rebase checklists. High-level design above remains correct — the rebase is a presentation-layer pass, not a redesign of the four-step shape.

@@ -201,3 +201,35 @@ We deliberately keep the parsing path unified (one `parse-cas-pdf` Vercel endpoi
 - [ ] M2.5 — Settings row + last-refresh display
 - [ ] M2.6 — Retire CASParser code paths
 - [ ] M2.7 — Tests + real-email validation
+
+---
+
+## Amendments
+
+### 2026-05-04 — Pause for desktop shell + dark mode rebase
+
+PR #93 is parked as **draft** alongside #92 while PR #97 (dark mode + classic-theme retirement) is in flight. Most of M2 is backend (Edge Function, migration, token utility) and is **unaffected** by #97 / desktop shell. The UI pieces (auto-refresh card, Settings row, banners) need a theming pass.
+
+#### Post-#97 rebase checklist for M2
+
+Backend (no change):
+
+- `cas_inbox_token` migration, `gen_cas_inbox_token()` helper, BEFORE INSERT trigger, per-row backfill — independent of UI work.
+- `cas-webhook-resend` Edge Function — independent of UI work.
+- `casInboxToken.ts` parser/formatter helpers + tests — independent of UI work.
+
+UI (rebase + reskin):
+
+- **Auto-refresh card** (M2.4). Re-skin against new theme tokens; verify light + dark + system. Confirm the card looks right inside `DesktopContainer` at ≥1024 px (it currently assumes a phone-width column).
+- **Settings row + last-refresh display** (M2.5). Same theming pass — Settings hub already has a desktop max-width frame, so layout-wise this should drop in cleanly.
+- **Post-import nudge banner.** Verify it still renders correctly above any new desktop chrome that #97 introduces (top bar, theme toggle, etc.).
+- **`useInboundSession` hook.** No theming surface, but if #97 adds a `useTheme()` hook the consuming UI will need to be touched.
+
+#### Sequencing recommendation
+
+If the rebase proves cheap (UI-only and small), keep M2 as a single PR. If desktop + dark mode forces meaningful rework on the auto-refresh card, consider splitting:
+
+1. **M2-backend** — migration + Edge Function + token utility (mergeable independent of #97).
+2. **M2-ui** — auto-refresh card + Settings row + banner (rebased on top of #97 + M1).
+
+This split would let beta testers exercise the inbound webhook end-to-end before the wizard rebase lands.
