@@ -249,7 +249,7 @@ function makeStyles(tokens: ClearLensTokens) {
       paddingVertical: 10,
       borderRadius: ClearLensRadii.md,
     },
-    navItemActive: { backgroundColor: c.navy },
+    navItemActive: { backgroundColor: c.heroSurface },
     navLabel: { ...ClearLensTypography.bodySmall, fontFamily: ClearLensFonts.semiBold },
     quickGroup: { gap: 2 },
     quickItem: {

@@ -607,8 +607,8 @@ function makeStyles(tokens: ClearLensTokens) {
     borderColor: cl.border,
   },
   sortChipActive: {
-    backgroundColor: cl.heroSurface,
-    borderColor: cl.heroSurface,
+    backgroundColor: cl.mint50,
+    borderColor: cl.emerald,
   },
   sortChipText: {
     ...ClearLensTypography.caption,
@@ -616,7 +616,7 @@ function makeStyles(tokens: ClearLensTokens) {
     color: cl.textSecondary,
   },
   sortChipTextActive: {
-    color: cl.textOnDark,
+    color: cl.emeraldDeep,
   },
   listHeader: {
     flexDirection: 'row',

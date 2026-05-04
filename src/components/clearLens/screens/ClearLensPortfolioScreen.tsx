@@ -66,8 +66,6 @@ const JOURNEY_TOOLTIP_WIDTH = 226;
 const JOURNEY_TOOLTIP_HEIGHT = 112;
 const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
-const CLEAR_LENS_RED_SOFT = ClearLensSemanticColors.sentiment.negativeSurface;
-const CLEAR_LENS_GREEN_SOFT = ClearLensSemanticColors.sentiment.positiveSurface;
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
@@ -1098,10 +1096,10 @@ function makeStyles(tokens: ClearLensTokens) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
-    backgroundColor: CLEAR_LENS_GREEN_SOFT,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   marketStatusPillNegative: {
-    backgroundColor: CLEAR_LENS_RED_SOFT,
+    backgroundColor: tokens.semantic.sentiment.negativeSurface,
   },
   marketStatusText: {
     ...ClearLensTypography.bodySmall,

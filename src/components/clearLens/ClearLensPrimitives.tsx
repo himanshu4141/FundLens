@@ -339,9 +339,9 @@ function makeStyles(tokens: ClearLensTokens) {
       borderRadius: ClearLensRadii.sm,
     },
     segmentActive: {
-      backgroundColor: cl.heroSurface,
+      backgroundColor: cl.mint50,
       borderWidth: 1,
-      borderColor: cl.heroSurface,
+      borderColor: cl.emerald,
       ...ClearLensShadow,
       shadowOpacity: 0.04,
       elevation: 1,
@@ -351,7 +351,7 @@ function makeStyles(tokens: ClearLensTokens) {
       fontWeight: '600',
       color: cl.textTertiary,
     },
-    segmentTextActive: { color: cl.textOnDark },
+    segmentTextActive: { color: cl.emeraldDeep, fontWeight: '700' },
     metricCard: {
       flex: 1,
       padding: ClearLensSpacing.sm,
@@ -377,12 +377,16 @@ function makeStyles(tokens: ClearLensTokens) {
       justifyContent: 'center',
       backgroundColor: cl.surfaceSoft,
     },
-    pillActive: { backgroundColor: cl.heroSurface },
+    pillActive: {
+      backgroundColor: cl.mint50,
+      borderWidth: 1,
+      borderColor: cl.emerald,
+    },
     pillText: {
       ...ClearLensTypography.bodySmall,
       fontWeight: '600',
       color: cl.textTertiary,
     },
-    pillTextActive: { color: cl.textOnDark },
+    pillTextActive: { color: cl.emeraldDeep, fontWeight: '700' },
   });
 }

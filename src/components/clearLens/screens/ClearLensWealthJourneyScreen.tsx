@@ -1564,8 +1564,8 @@ function makeStyles(tokens: ClearLensTokens) {
     justifyContent: 'center',
   },
   choiceChipActive: {
-    backgroundColor: cl.heroSurface,
-    borderColor: cl.heroSurface,
+    backgroundColor: cl.mint50,
+    borderColor: cl.emerald,
   },
   choiceChipText: {
     ...ClearLensTypography.caption,
@@ -1573,7 +1573,7 @@ function makeStyles(tokens: ClearLensTokens) {
     fontFamily: ClearLensFonts.bold,
   },
   choiceChipTextActive: {
-    color: cl.textOnDark,
+    color: cl.emeraldDeep,
   },
   returnGrid: {
     flexDirection: 'row',
@@ -1591,8 +1591,8 @@ function makeStyles(tokens: ClearLensTokens) {
     gap: 2,
   },
   returnCardActive: {
-    backgroundColor: cl.heroSurface,
-    borderColor: cl.heroSurface,
+    backgroundColor: cl.mint50,
+    borderColor: cl.emerald,
   },
   returnCardLabel: {
     ...ClearLensTypography.caption,
@@ -1604,7 +1604,7 @@ function makeStyles(tokens: ClearLensTokens) {
     color: cl.textTertiary,
   },
   returnCardLabelActive: {
-    color: cl.textOnDark,
+    color: cl.emeraldDeep,
   },
   twoColumnGrid: {
     flexDirection: 'row',

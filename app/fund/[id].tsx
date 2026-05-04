@@ -37,7 +37,6 @@ import {
   ClearLensSegmentedControl,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
@@ -101,7 +100,6 @@ function TimeWindowSelector({
   onChange: (w: TimeWindow) => void;
 }) {
   const { colors } = useTheme();
-  const tokens = useClearLensTokens();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={s.windowRow}>
@@ -111,7 +109,7 @@ function TimeWindowSelector({
           style={[
             s.windowPill,
             selected === w && s.windowPillActive,
-            selected === w && { backgroundColor: tokens.colors.heroSurface },
+           
           ]}
           onPress={() => onChange(w)}
           activeOpacity={0.75}
@@ -505,7 +503,7 @@ function PerformanceTab({
               style={[
                 s.benchmarkPill,
                 selectedSymbol === opt.symbol && s.benchmarkPillActive,
-                selectedSymbol === opt.symbol && { backgroundColor: tokens.colors.heroSurface },
+               
               ]}
               onPress={() => setSelectedSymbol(opt.symbol)}
               activeOpacity={0.75}
@@ -663,7 +661,7 @@ function PerformanceTab({
             style={[
               s.benchmarkPill,
               selectedSymbol === opt.symbol && s.benchmarkPillActive,
-              selectedSymbol === opt.symbol && { backgroundColor: tokens.colors.heroSurface },
+             
             ]}
             onPress={() => setSelectedSymbol(opt.symbol)}
             activeOpacity={0.75}
@@ -999,8 +997,8 @@ function makeTechStyles(colors: AppColors) {
       marginHorizontal: ClearLensSpacing.md,
       marginTop: 0,
       borderRadius: ClearLensRadii.lg,
-      borderColor: ClearLensColors.border,
-      backgroundColor: ClearLensColors.surface,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
     },
     title: {
       ...Typography.label,
@@ -2160,9 +2158,9 @@ function makeStyles(colors: AppColors) {
       alignItems: 'center',
       backgroundColor: colors.borderLight,
     },
-    windowPillActive: { backgroundColor: colors.primary },
+    windowPillActive: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.primary },
     windowPillText: { fontSize: 12, fontWeight: '600' as const, color: colors.textTertiary },
-    windowPillTextActive: { color: colors.textOnDark },
+    windowPillTextActive: { color: colors.primary, fontWeight: '700' as const },
 
     chartAxisLabel: { fontSize: 9, color: colors.textTertiary },
 
@@ -2191,9 +2189,9 @@ function makeStyles(colors: AppColors) {
       borderRadius: Radii.full,
       backgroundColor: colors.borderLight,
     },
-    benchmarkPillActive: { backgroundColor: colors.primary },
+    benchmarkPillActive: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.primary },
     benchmarkPillText: { fontSize: 11, fontWeight: '600' as const, color: colors.textTertiary },
-    benchmarkPillTextActive: { color: colors.textOnDark },
+    benchmarkPillTextActive: { color: colors.primary, fontWeight: '700' as const },
 
     pointerLabel: {
       backgroundColor: colors.surface,

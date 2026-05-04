@@ -98,13 +98,20 @@ export const ClearLensDarkColors: ClearLensColorTokens = {
   // it reads against the light surface, so we keep it stable.
   mint: '#A7F3D0',
   mint50: '#0E2F25',
-  lightGrey: '#26314A',
+  // `lightGrey` is consumed as a chart "other" segment colour and as a soft
+  // border/muted accent. Pick a mid-grey that reads against the dark canvas
+  // (the previous #26314A merged with the page bg — the "navy on navy" bar
+  // chart bug surfaced from review).
+  lightGrey: '#4F5A78',
   grey50: '#1A2238',
   background: '#06101F',
   surface: '#121B33',
   surfaceSoft: '#19223D',
-  // Slightly elevated dark navy so the hero pops against the page bg.
-  heroSurface: '#1F2A4A',
+  // Lifted dark navy that stands clearly above `surfaceSoft` (and the page
+  // bg) for active selections — the previous #1F2A4A was only a few % off
+  // from the surrounding surfaces, which made selected pills/chips/segments
+  // hard to spot in dark mode.
+  heroSurface: '#34416B',
   textPrimary: '#F2F5FB',
   textSecondary: '#C5CFE0',
   textTertiary: '#8C9BB8',
