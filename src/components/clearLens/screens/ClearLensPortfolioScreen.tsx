@@ -45,7 +45,9 @@ import {
   ClearLensSpacing,
   ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import {
   formatClearLensCurrencyDelta,
   formatClearLensPercentDelta,
@@ -94,6 +96,8 @@ export function PortfolioHero({
   dailyChangePct: number;
   xirr: number;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const gain = totalValue - totalInvested;
   const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
   const gainColor = toneColor(toneForValue(gain));
@@ -139,6 +143,8 @@ export function BenchmarkComparisonCard({
   benchmarkSymbol: string;
   onBenchmarkChange: (symbol: string) => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const benchmarkLabel = BENCHMARK_OPTIONS.find((option) => option.symbol === benchmarkSymbol)?.label ?? benchmarkSymbol;
   const difference = Number.isFinite(xirr) && Number.isFinite(marketXirr) ? (xirr - marketXirr) * 100 : null;
   const ahead = difference === null || difference >= 0;
@@ -150,7 +156,7 @@ export function BenchmarkComparisonCard({
           <Ionicons
             name={ahead ? 'trending-up' : 'trending-down'}
             size={18}
-            color={ahead ? ClearLensColors.emerald : CLEAR_LENS_RED}
+            color={ahead ? tokens.colors.emerald : CLEAR_LENS_RED}
           />
           <Text style={[styles.marketStatusText, !ahead && styles.marketStatusTextNegative]}>
             You are {ahead ? 'ahead of' : 'behind'} {benchmarkLabel} by {Math.abs(difference).toFixed(1)}%
@@ -370,6 +376,8 @@ export function InvestmentVsBenchmarkChart({
   userId: string | undefined;
   benchmarkSymbol: string;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [chartInnerWidth, setChartInnerWidth] = useState(CHART_WIDTH);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -442,7 +450,7 @@ export function InvestmentVsBenchmarkChart({
       </View>
       {isLoading ? (
         <View style={styles.chartLoading}>
-          <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="small" color={tokens.colors.emerald} />
         </View>
       ) : error ? (
         <View style={styles.chartLoading}>
@@ -451,9 +459,9 @@ export function InvestmentVsBenchmarkChart({
       ) : (
         <>
           <View style={styles.legendWrap}>
-            <Legend color={ClearLensSemanticColors.chart.invested} label="Amount invested" />
-            <Legend color={ClearLensSemanticColors.chart.portfolio} label="Portfolio value" />
-            <Legend color={ClearLensSemanticColors.chart.benchmark} label={`If invested in ${benchmarkLabel}`} />
+            <Legend color={tokens.semantic.chart.invested} label="Amount invested" />
+            <Legend color={tokens.semantic.chart.portfolio} label="Portfolio value" />
+            <Legend color={tokens.semantic.chart.benchmark} label={`If invested in ${benchmarkLabel}`} />
           </View>
           <View
             style={styles.journeyChartFrame}
@@ -473,7 +481,7 @@ export function InvestmentVsBenchmarkChart({
                     x2={JOURNEY_Y_AXIS_WIDTH + plotWidth}
                     y1={y}
                     y2={y}
-                    stroke={ClearLensColors.borderLight}
+                    stroke={tokens.colors.borderLight}
                     strokeWidth={1}
                   />
                 );
@@ -483,12 +491,12 @@ export function InvestmentVsBenchmarkChart({
                 x2={JOURNEY_Y_AXIS_WIDTH + plotWidth}
                 y1={JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT}
                 y2={JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT}
-                stroke={ClearLensColors.border}
+                stroke={tokens.colors.border}
                 strokeWidth={1}
               />
               <Path
                 d={investedPath}
-                stroke={ClearLensSemanticColors.chart.invested}
+                stroke={tokens.semantic.chart.invested}
                 strokeWidth={2.4}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -497,7 +505,7 @@ export function InvestmentVsBenchmarkChart({
               />
               <Path
                 d={benchmarkPath}
-                stroke={ClearLensSemanticColors.chart.benchmark}
+                stroke={tokens.semantic.chart.benchmark}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -506,7 +514,7 @@ export function InvestmentVsBenchmarkChart({
               />
               <Path
                 d={portfolioPath}
-                stroke={ClearLensSemanticColors.chart.portfolio}
+                stroke={tokens.semantic.chart.portfolio}
                 strokeWidth={3.2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -519,7 +527,7 @@ export function InvestmentVsBenchmarkChart({
                     x2={activeX}
                     y1={JOURNEY_CHART_TOP_PADDING}
                     y2={JOURNEY_CHART_TOP_PADDING + JOURNEY_CHART_HEIGHT}
-                    stroke={ClearLensColors.slate}
+                    stroke={tokens.colors.slate}
                     strokeWidth={1}
                     opacity={0.42}
                   />
@@ -527,24 +535,24 @@ export function InvestmentVsBenchmarkChart({
                     cx={activeX}
                     cy={getScaledY(activePoint.investedValue, journeyScale, JOURNEY_CHART_HEIGHT)}
                     r={4.5}
-                    fill={ClearLensSemanticColors.chart.invested}
-                    stroke={ClearLensColors.surface}
+                    fill={tokens.semantic.chart.invested}
+                    stroke={tokens.colors.surface}
                     strokeWidth={2}
                   />
                   <Circle
                     cx={activeX}
                     cy={getScaledY(activePoint.benchmarkValue, journeyScale, JOURNEY_CHART_HEIGHT)}
                     r={4.5}
-                    fill={ClearLensSemanticColors.chart.benchmark}
-                    stroke={ClearLensColors.surface}
+                    fill={tokens.semantic.chart.benchmark}
+                    stroke={tokens.colors.surface}
                     strokeWidth={2}
                   />
                   <Circle
                     cx={activeX}
                     cy={activePortfolioY}
                     r={5}
-                    fill={ClearLensSemanticColors.chart.portfolio}
-                    stroke={ClearLensColors.surface}
+                    fill={tokens.semantic.chart.portfolio}
+                    stroke={tokens.colors.surface}
                     strokeWidth={2}
                   />
                 </>
@@ -594,9 +602,9 @@ export function InvestmentVsBenchmarkChart({
                 ]}
               >
                 <Text style={styles.pointerDate}>{formatJourneyTooltipDate(activePoint.date)}</Text>
-                <PointerRow color={ClearLensSemanticColors.chart.invested} label="Invested" value={activePoint.investedValue} />
-                <PointerRow color={ClearLensSemanticColors.chart.portfolio} label="Portfolio" value={activePoint.portfolioValue} />
-                <PointerRow color={ClearLensSemanticColors.chart.benchmark} label={benchmarkLabel} value={activePoint.benchmarkValue} />
+                <PointerRow color={tokens.semantic.chart.invested} label="Invested" value={activePoint.investedValue} />
+                <PointerRow color={tokens.semantic.chart.portfolio} label="Portfolio" value={activePoint.portfolioValue} />
+                <PointerRow color={tokens.semantic.chart.benchmark} label={benchmarkLabel} value={activePoint.benchmarkValue} />
               </View>
             )}
 
@@ -629,6 +637,8 @@ export function InvestmentVsBenchmarkChart({
 }
 
 function PointerRow({ color, label, value }: { color: string; label: string; value: number }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.pointerRow}>
       <Text style={[styles.pointerSeries, { color }]}>●</Text>
@@ -639,6 +649,8 @@ function PointerRow({ color, label, value }: { color: string; label: string; val
 }
 
 function Legend({ color, label }: { color: string; label: string }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.legendItem}>
       <View style={[styles.legendDot, { backgroundColor: color }]} />
@@ -648,6 +660,8 @@ function Legend({ color, label }: { color: string; label: string }) {
 }
 
 export function MoversRow({ fundCards }: { fundCards: FundCardData[] }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const withDailyChange = fundCards.filter((fund) => fund.dailyChangePct !== null && fund.currentValue !== null);
   if (withDailyChange.length < 2) return null;
 
@@ -672,6 +686,8 @@ function MoverCard({
   fund: FundCardData;
   positive: boolean;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const { base } = parseFundName(fund.schemeName);
   const pct = fund.dailyChangePct ?? 0;
   const amount = fund.dailyChangeAmount ?? 0;
@@ -719,10 +735,12 @@ export function AssetAllocationPreview({
   debtPct: number;
   cashPct: number;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const rows = [
-    { label: 'Equity', pct: equityPct, color: ClearLensSemanticColors.asset.equity },
-    { label: 'Debt', pct: debtPct, color: ClearLensSemanticColors.asset.debt },
-    { label: 'Cash & Others', pct: cashPct, color: ClearLensSemanticColors.asset.cash },
+    { label: 'Equity', pct: equityPct, color: tokens.semantic.asset.equity },
+    { label: 'Debt', pct: debtPct, color: tokens.semantic.asset.debt },
+    { label: 'Cash & Others', pct: cashPct, color: tokens.semantic.asset.cash },
   ];
 
   return (
@@ -760,6 +778,8 @@ export function EntryRows({
   onFunds: () => void;
   onTools: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.entryRows}>
       <EntryRow
@@ -795,25 +815,29 @@ function EntryRow({
   subtitle: string;
   onPress: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <TouchableOpacity style={styles.entryRow} onPress={onPress} activeOpacity={0.76}>
       <View style={styles.entryIcon}>
-        <Ionicons name={icon} size={19} color={ClearLensColors.emerald} />
+        <Ionicons name={icon} size={19} color={tokens.colors.emerald} />
       </View>
       <View style={styles.entryCopy}>
         <Text style={styles.entryTitle}>{title}</Text>
         <Text style={styles.entrySubtitle}>{subtitle}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
+      <Ionicons name="chevron-forward" size={18} color={tokens.colors.textTertiary} />
     </TouchableOpacity>
   );
 }
 
 export function PortfolioEmptyState({ onImport }: { onImport: () => void }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIcon}>
-        <Ionicons name="cloud-upload-outline" size={32} color={ClearLensColors.emerald} />
+        <Ionicons name="cloud-upload-outline" size={32} color={tokens.colors.emerald} />
       </View>
       <Text style={styles.emptyTitle}>Import your portfolio</Text>
       <Text style={styles.emptyText}>
@@ -833,6 +857,8 @@ export function ClearLensPortfolioScreen() {
 }
 
 function ClearLensPortfolioScreenMobile() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -910,7 +936,7 @@ function ClearLensPortfolioScreenMobile() {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="large" color={tokens.colors.emerald} />
         </View>
       ) : isError ? (
         <View style={styles.centered}>
@@ -929,7 +955,7 @@ function ClearLensPortfolioScreenMobile() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={ClearLensColors.emerald}
+              tintColor={tokens.colors.emerald}
             />
           }
         >
@@ -961,7 +987,7 @@ function ClearLensPortfolioScreenMobile() {
             />
           ) : moneyTrailLoading ? (
             <ClearLensCard style={styles.sectionCard}>
-              <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+              <ActivityIndicator size="small" color={tokens.colors.emerald} />
             </ClearLensCard>
           ) : null}
 
@@ -978,7 +1004,7 @@ function ClearLensPortfolioScreenMobile() {
 
           {!insights && insightsLoading && (
             <ClearLensCard style={styles.sectionCard}>
-              <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+              <ActivityIndicator size="small" color={tokens.colors.emerald} />
             </ClearLensCard>
           )}
 
@@ -993,7 +1019,9 @@ function ClearLensPortfolioScreenMobile() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scrollContent: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
@@ -1001,21 +1029,21 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     gap: ClearLensSpacing.sm,
-    backgroundColor: ClearLensColors.navy,
-    borderColor: ClearLensColors.navy,
+    backgroundColor: cl.navy,
+    borderColor: cl.navy,
     padding: ClearLensSpacing.lg,
   },
   heroLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.mint,
+    color: cl.mint,
   },
   heroValue: {
     ...ClearLensTypography.hero,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
   heroToday: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.semiBold,
   },
   heroTodayValue: {
@@ -1033,11 +1061,11 @@ const styles = StyleSheet.create({
   heroDivider: {
     width: 1,
     marginHorizontal: ClearLensSpacing.md,
-    backgroundColor: ClearLensSemanticColors.overlay.darkDivider,
+    backgroundColor: tokens.semantic.overlay.darkDivider,
   },
   heroBottomLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textOnDarkMuted,
+    color: cl.textOnDarkMuted,
   },
   heroBottomValue: {
     ...ClearLensTypography.bodySmall,
@@ -1045,11 +1073,11 @@ const styles = StyleSheet.create({
   },
   heroXirrValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
   metricLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   metricValue: {
@@ -1078,11 +1106,11 @@ const styles = StyleSheet.create({
   marketStatusText: {
     ...ClearLensTypography.bodySmall,
     flex: 1,
-    color: ClearLensSemanticColors.sentiment.positiveText,
+    color: tokens.semantic.sentiment.positiveText,
     fontFamily: ClearLensFonts.semiBold,
   },
   marketStatusTextNegative: {
-    color: ClearLensSemanticColors.sentiment.negativeText,
+    color: tokens.semantic.sentiment.negativeText,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -1092,11 +1120,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   sectionMeta: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   compareGrid: {
     flexDirection: 'row',
@@ -1109,11 +1137,11 @@ const styles = StyleSheet.create({
   },
   compareDivider: {
     width: 1,
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
   },
   compareValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   pillRow: {
     gap: ClearLensSpacing.sm,
@@ -1130,7 +1158,7 @@ const styles = StyleSheet.create({
   },
   journeySubtitle: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     marginTop: 2,
   },
   chartBenchmarkBadge: {
@@ -1139,13 +1167,13 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     borderWidth: 1,
-    borderColor: ClearLensColors.borderLight,
+    borderColor: cl.borderLight,
   },
   chartBenchmarkText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.semiBold,
   },
   rangePillRow: {
@@ -1159,18 +1187,18 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   rangePillActive: {
-    backgroundColor: ClearLensColors.navy,
+    backgroundColor: cl.navy,
   },
   rangePillText: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.semiBold,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   rangePillTextActive: {
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
   chartLoading: {
     height: 160,
@@ -1193,7 +1221,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: JOURNEY_Y_AXIS_WIDTH - 7,
     textAlign: 'right',
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontSize: 10,
   },
   xAxisLabel: {
@@ -1201,7 +1229,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 54,
     textAlign: 'center',
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontSize: 10,
   },
   chartTouchLayer: {
@@ -1213,9 +1241,9 @@ const styles = StyleSheet.create({
     minHeight: JOURNEY_TOOLTIP_HEIGHT,
     padding: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     gap: 4,
     ...ClearLensShadow,
     shadowOpacity: 0.09,
@@ -1223,7 +1251,7 @@ const styles = StyleSheet.create({
   },
   pointerDate: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.semiBold,
     marginBottom: 2,
   },
@@ -1240,16 +1268,16 @@ const styles = StyleSheet.create({
   pointerText: {
     ...ClearLensTypography.caption,
     flex: 1,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   pointerValue: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   chartAxis: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontSize: 10,
   },
   legendWrap: {
@@ -1269,7 +1297,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   moversGrid: {
     flexDirection: 'row',
@@ -1283,18 +1311,18 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
   },
   moverCardPositive: {
-    borderLeftColor: ClearLensColors.emerald,
-    backgroundColor: ClearLensColors.surface,
+    borderLeftColor: cl.emerald,
+    backgroundColor: cl.surface,
   },
   moverCardNegative: {
     borderLeftColor: CLEAR_LENS_RED,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
   },
   moverPositiveLabel: {
-    color: ClearLensSemanticColors.sentiment.positiveText,
+    color: tokens.semantic.sentiment.positiveText,
   },
   moverNegativeLabel: {
-    color: ClearLensSemanticColors.sentiment.negativeText,
+    color: tokens.semantic.sentiment.negativeText,
   },
   moverCopyBlock: {
     gap: ClearLensSpacing.xs,
@@ -1302,7 +1330,7 @@ const styles = StyleSheet.create({
   moverName: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.semiBold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     minHeight: 40,
   },
   moverStatsRow: {
@@ -1327,7 +1355,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     overflow: 'hidden',
     flexDirection: 'row',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   allocationSegment: {
     height: '100%',
@@ -1353,18 +1381,18 @@ const styles = StyleSheet.create({
   },
   allocationLabel: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   allocationValue: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     minWidth: 54,
     textAlign: 'right',
   },
   allocationMoney: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     minWidth: 72,
     textAlign: 'right',
   },
@@ -1377,9 +1405,9 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
     padding: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.lg,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     ...ClearLensShadow,
   },
   entryIcon: {
@@ -1388,7 +1416,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   entryCopy: {
     flex: 1,
@@ -1396,11 +1424,11 @@ const styles = StyleSheet.create({
   },
   entryTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   entrySubtitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   centered: {
     flex: 1,
@@ -1411,19 +1439,19 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   banner: {
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: ClearLensColors.mint,
+    borderColor: cl.mint,
     paddingHorizontal: ClearLensSpacing.md,
     paddingVertical: ClearLensSpacing.sm,
   },
   bannerText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.slate,
+    color: cl.slate,
   },
   emptyState: {
     flex: 1,
@@ -1438,16 +1466,16 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   emptyTitle: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     textAlign: 'center',
   },
   emptyText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     textAlign: 'center',
   },
   primaryButton: {
@@ -1456,11 +1484,11 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
   },
   primaryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.bold,
   },
   secondaryButton: {
@@ -1469,13 +1497,14 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
   },
   secondaryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
 });
+}

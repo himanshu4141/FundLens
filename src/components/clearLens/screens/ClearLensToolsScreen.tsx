@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,12 +10,13 @@ import {
 import { useToolsFeatureFlags } from '@/src/hooks/useToolsFeatureFlags';
 import { useIsDesktop } from '@/src/components/responsive';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,6 +46,8 @@ export function ClearLensToolsScreen() {
   const router = useRouter();
   const flags = useToolsFeatureFlags();
   const isDesktop = useIsDesktop();
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
 
   const sections: ToolSection[] = [
     {
@@ -161,6 +164,8 @@ export function ClearLensToolsScreen() {
 // ---------------------------------------------------------------------------
 
 function ToolCard({ tool, onPress }: { tool: ToolDef; onPress: () => void }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const isAvailable = tool.status === 'available';
 
   const content = (
@@ -169,7 +174,7 @@ function ToolCard({ tool, onPress }: { tool: ToolDef; onPress: () => void }) {
         <Ionicons
           name={tool.icon}
           size={22}
-          color={isAvailable ? ClearLensColors.emerald : ClearLensColors.textTertiary}
+          color={isAvailable ? tokens.colors.emerald : tokens.colors.textTertiary}
         />
       </View>
       <View style={styles.toolInfo}>
@@ -178,7 +183,7 @@ function ToolCard({ tool, onPress }: { tool: ToolDef; onPress: () => void }) {
       </View>
       <View style={styles.toolTrailing}>
         {isAvailable ? (
-          <Ionicons name="chevron-forward" size={18} color={ClearLensColors.emerald} />
+          <Ionicons name="chevron-forward" size={18} color={tokens.colors.emerald} />
         ) : (
           <View style={styles.comingSoonPill}>
             <Text style={styles.comingSoonText}>Soon</Text>
@@ -203,7 +208,9 @@ function ToolCard({ tool, onPress }: { tool: ToolDef; onPress: () => void }) {
 // Styles
 // ---------------------------------------------------------------------------
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scrollContent: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingTop: ClearLensSpacing.xs,
@@ -216,23 +223,23 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   title: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   subtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   section: {
     gap: ClearLensSpacing.sm,
   },
   sectionLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     letterSpacing: 1.2,
     paddingHorizontal: ClearLensSpacing.xs,
   },
@@ -250,7 +257,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: ClearLensRadii.sm,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -261,14 +268,14 @@ const styles = StyleSheet.create({
   },
   toolName: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   toolNameMuted: {
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   toolSubtitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   toolTrailing: {
     flexShrink: 0,
@@ -279,24 +286,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.sm,
     paddingVertical: 3,
     borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     borderWidth: 1,
-    borderColor: ClearLensColors.borderLight,
+    borderColor: cl.borderLight,
   },
   comingSoonText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 10,
     lineHeight: 14,
     letterSpacing: 0.5,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   disclaimer: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textAlign: 'center',
     paddingHorizontal: ClearLensSpacing.md,
     lineHeight: 17,
   },
 });
+}
 

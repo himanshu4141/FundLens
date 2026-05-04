@@ -38,7 +38,9 @@ import {
   ClearLensSpacing,
   ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import {
   formatClearLensCurrencyDelta,
   formatClearLensPercentDelta,
@@ -119,6 +121,8 @@ function AllocationOverview({
   largestPositionPct: number | null;
   segments: AllocationSegment[];
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <ClearLensCard style={styles.overviewCard}>
       <Text style={styles.screenEyebrow}>Allocation overview</Text>
@@ -147,7 +151,7 @@ function AllocationOverview({
         </View>
       </View>
       <View style={styles.largestBox}>
-        <View style={[styles.allocationDot, { backgroundColor: ClearLensColors.emerald }]} />
+        <View style={[styles.allocationDot, { backgroundColor: tokens.colors.emerald }]} />
         <Text style={styles.largestPrefix}>Largest:</Text>
         <Text style={styles.largestName} numberOfLines={1}>{largestPosition}</Text>
         {largestPositionPct != null && (
@@ -175,15 +179,17 @@ export function FundListItem({
   onOpenTransactions: () => void;
   latestNavDate: string | null;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const { base, planBadge } = parseFundName(fund.schemeName);
   const gain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
   const gainPct = gain != null && fund.investedAmount > 0 ? (gain / fund.investedAmount) * 100 : null;
   const stale = navStaleness(latestNavDate);
   const isDebtLike = /debt|liquid|gilt|income|overnight|money market|ultra short/i.test(fund.schemeCategory);
-  const categoryColor = isDebtLike ? CLEAR_LENS_DEBT : ClearLensSemanticColors.asset.equity;
-  const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
-  const gainColor = (gain ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
-  const xirrColor = fund.returnXirr >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const categoryColor = isDebtLike ? CLEAR_LENS_DEBT : tokens.semantic.asset.equity;
+  const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? tokens.colors.emerald : CLEAR_LENS_RED;
+  const gainColor = (gain ?? 0) >= 0 ? tokens.colors.emerald : CLEAR_LENS_RED;
+  const xirrColor = fund.returnXirr >= 0 ? tokens.colors.emerald : CLEAR_LENS_RED;
   const xirrLabel = Number.isFinite(fund.returnXirr) ? `${formatXirr(fund.returnXirr)} p.a.` : '—';
   const sparklineData = fund.navHistory30d.map((point) => point.value);
 
@@ -203,7 +209,7 @@ export function FundListItem({
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.expandButton} onPress={onToggle} activeOpacity={0.75}>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={ClearLensColors.slate} />
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={tokens.colors.slate} />
         </TouchableOpacity>
       </View>
 
@@ -260,7 +266,7 @@ export function FundListItem({
                 <MetricRow
                   label="Booked P&L"
                   value={formatClearLensCurrencyDelta(fund.realizedGain)}
-                  color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
+                  color={fund.realizedGain >= 0 ? tokens.colors.emerald : CLEAR_LENS_RED}
                 />
               </>
             )}
@@ -280,9 +286,9 @@ export function FundListItem({
             onPress={onOpenTransactions}
             activeOpacity={0.76}
           >
-            <Ionicons name="receipt-outline" size={18} color={ClearLensColors.emeraldDeep} />
+            <Ionicons name="receipt-outline" size={18} color={tokens.colors.emeraldDeep} />
             <Text style={styles.transactionsActionText}>View transactions</Text>
-            <Ionicons name="arrow-forward" size={16} color={ClearLensColors.emeraldDeep} />
+            <Ionicons name="arrow-forward" size={16} color={tokens.colors.emeraldDeep} />
           </TouchableOpacity>
         </View>
       )}
@@ -301,6 +307,8 @@ function MetricRow({
   subvalue?: string;
   color?: string;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.metricRow}>
       <Text style={styles.metricRowLabel}>{label}</Text>
@@ -325,6 +333,8 @@ function SortBottomSheet({
   onSelect: (value: SortOption) => void;
   onClose: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [draft, setDraft] = useState<SortOption>(selected);
 
   useEffect(() => {
@@ -346,7 +356,7 @@ function SortBottomSheet({
             >
               <View style={styles.sheetOptionLeft}>
                 <View style={styles.sheetIcon}>
-                  <Ionicons name={option.icon} size={18} color={ClearLensColors.slate} />
+                  <Ionicons name={option.icon} size={18} color={tokens.colors.slate} />
                 </View>
                 <Text style={styles.sheetRowText}>{option.label}</Text>
               </View>
@@ -372,6 +382,8 @@ function SortBottomSheet({
 }
 
 function FundsBottomNav() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const items: {
     route: FundsBottomNavRoute;
@@ -399,7 +411,7 @@ function FundsBottomNav() {
             <Ionicons
               name={item.icon}
               size={24}
-              color={active ? ClearLensColors.emerald : ClearLensColors.textTertiary}
+              color={active ? tokens.colors.emerald : tokens.colors.textTertiary}
             />
             <Text style={[styles.bottomNavLabel, active && styles.bottomNavLabelActive]} numberOfLines={1}>
               {item.label}
@@ -418,6 +430,8 @@ export function ClearLensFundsScreen({ insideTab = false }: { insideTab?: boolea
 }
 
 function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -520,12 +534,12 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
       .map((fund, index) => ({
         id: fund.id,
         pct: allocationPctByFundId.get(fund.id) ?? 0,
-        color: ClearLensSemanticColors.fundAllocation[
-          index % ClearLensSemanticColors.fundAllocation.length
+        color: tokens.semantic.fundAllocation[
+          index % tokens.semantic.fundAllocation.length
         ],
       }))
       .filter((segment) => segment.pct > 0),
-    [allocationPctByFundId, valueSortedFunds],
+    [allocationPctByFundId, valueSortedFunds, tokens.semantic.fundAllocation],
   );
 
   async function handleSync() {
@@ -561,7 +575,7 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
       />
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="large" color={tokens.colors.emerald} />
         </View>
       ) : (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -580,17 +594,17 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
 
           <View style={styles.controls}>
             <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={18} color={ClearLensColors.textTertiary} />
+              <Ionicons name="search-outline" size={18} color={tokens.colors.textTertiary} />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search funds"
-                placeholderTextColor={ClearLensColors.textTertiary}
+                placeholderTextColor={tokens.colors.textTertiary}
                 style={styles.searchInput}
               />
             </View>
             <TouchableOpacity style={styles.sortButton} onPress={() => setSortMenuOpen(true)}>
-              <Ionicons name="swap-vertical-outline" size={18} color={ClearLensColors.navy} />
+              <Ionicons name="swap-vertical-outline" size={18} color={tokens.colors.navy} />
               <Text style={styles.sortButtonText} numberOfLines={1}>{sortLabel}</Text>
             </TouchableOpacity>
           </View>
@@ -625,7 +639,9 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scrollView: {
     flex: 1,
   },
@@ -639,18 +655,18 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   heroSubtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   overviewCard: {
     gap: ClearLensSpacing.sm,
   },
   screenEyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   overviewGrid: {
@@ -663,7 +679,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     overflow: 'hidden',
     flexDirection: 'row',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   allocationStripSegment: {
     height: '100%',
@@ -675,21 +691,21 @@ const styles = StyleSheet.create({
   overviewDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
   },
   metricLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   metricCaption: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.medium,
   },
   overviewValue: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   largestBox: {
     minHeight: 44,
@@ -699,7 +715,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
   },
   allocationDot: {
     width: 9,
@@ -708,17 +724,17 @@ const styles = StyleSheet.create({
   },
   largestPrefix: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   largestName: {
     ...ClearLensTypography.bodySmall,
     flex: 1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   largestPct: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   controls: {
@@ -729,9 +745,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 46,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     paddingHorizontal: ClearLensSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -740,16 +756,16 @@ const styles = StyleSheet.create({
   searchInput: {
     ...ClearLensTypography.body,
     flex: 1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     paddingVertical: 0,
   },
   sortButton: {
     minHeight: 44,
     maxWidth: 188,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     paddingHorizontal: ClearLensSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -759,7 +775,7 @@ const styles = StyleSheet.create({
   sortButtonText: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   listHeader: {
     flexDirection: 'row',
@@ -768,11 +784,11 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   listCount: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   fundCard: {
     gap: ClearLensSpacing.sm,
@@ -797,12 +813,12 @@ const styles = StyleSheet.create({
   },
   fundName: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   fundMeta: {
     ...ClearLensTypography.caption,
     fontFamily: ClearLensFonts.semiBold,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   valueBlock: {
     alignItems: 'flex-end',
@@ -811,11 +827,11 @@ const styles = StyleSheet.create({
   },
   fundValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   shareText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   expandButton: {
@@ -832,7 +848,7 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.md,
     paddingTop: ClearLensSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   compactMetric: {
     flexDirection: 'row',
@@ -841,18 +857,18 @@ const styles = StyleSheet.create({
   },
   compactMetricLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   compactMetricValue: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   expandedPanel: {
     marginTop: ClearLensSpacing.md,
     paddingTop: ClearLensSpacing.md,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
     gap: ClearLensSpacing.md,
   },
   expandedRows: {
@@ -871,7 +887,7 @@ const styles = StyleSheet.create({
   },
   metricRowLabel: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   metricRowValueBlock: {
@@ -880,7 +896,7 @@ const styles = StyleSheet.create({
   },
   metricRowValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
     textAlign: 'right',
   },
@@ -902,7 +918,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
     overflow: 'hidden',
   },
   transactionsAction: {
@@ -910,8 +926,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.borderLight,
-    backgroundColor: ClearLensColors.surface,
+    borderColor: cl.borderLight,
+    backgroundColor: cl.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -919,22 +935,22 @@ const styles = StyleSheet.create({
   },
   transactionsActionText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: ClearLensSemanticColors.overlay.backdrop,
+    backgroundColor: tokens.semantic.overlay.backdrop,
   },
   sheet: {
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderTopLeftRadius: ClearLensRadii.xl,
     borderTopRightRadius: ClearLensRadii.xl,
     paddingTop: ClearLensSpacing.sm,
     paddingBottom: ClearLensSpacing.lg,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     ...ClearLensShadow,
   },
   sheetHandle: {
@@ -943,11 +959,11 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignSelf: 'center',
     marginBottom: ClearLensSpacing.sm,
-    backgroundColor: ClearLensColors.border,
+    backgroundColor: cl.border,
   },
   sheetTitle: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.sm,
   },
@@ -961,7 +977,7 @@ const styles = StyleSheet.create({
   },
   sheetDivider: {
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   sheetOptionLeft: {
     flex: 1,
@@ -975,11 +991,11 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   sheetRowText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.medium,
   },
   radioOuter: {
@@ -987,18 +1003,18 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: ClearLensColors.textTertiary,
+    borderColor: cl.textTertiary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterActive: {
-    borderColor: ClearLensColors.emerald,
+    borderColor: cl.emerald,
   },
   radioInner: {
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
   },
   applyButton: {
     minHeight: 48,
@@ -1007,11 +1023,11 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
   },
   applyButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.bold,
   },
   centered: {
@@ -1022,8 +1038,8 @@ const styles = StyleSheet.create({
   bottomNav: {
     minHeight: 96,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
-    backgroundColor: ClearLensColors.surface,
+    borderTopColor: cl.borderLight,
+    backgroundColor: cl.surface,
     paddingTop: 7,
     paddingBottom: Platform.OS === 'web' ? 48 : 18,
     paddingHorizontal: ClearLensSpacing.sm,
@@ -1037,10 +1053,11 @@ const styles = StyleSheet.create({
   },
   bottomNavLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   bottomNavLabelActive: {
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
   },
 });
+}

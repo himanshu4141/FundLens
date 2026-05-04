@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -19,7 +19,9 @@ import {
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { useAppStore, type GoalReturnPreset } from '@/src/store/appStore';
 import {
   buildGoalProjectionSeries,
@@ -39,6 +41,8 @@ const TAB_OPTIONS: { value: TabKey; label: string }[] = [
 ];
 
 export function ClearLensGoalSummaryScreen() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
@@ -140,10 +144,10 @@ export function ClearLensGoalSummaryScreen() {
             activeOpacity={0.75}
           >
             <Text style={styles.editText}>Edit goal</Text>
-            <Ionicons name="chevron-forward" size={14} color={ClearLensColors.emerald} />
+            <Ionicons name="chevron-forward" size={14} color={tokens.colors.emerald} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.deleteRow} onPress={confirmDelete} activeOpacity={0.75}>
-            <Ionicons name="trash-outline" size={14} color={ClearLensColors.negative} />
+            <Ionicons name="trash-outline" size={14} color={tokens.colors.negative} />
             <Text style={styles.deleteText}>Delete goal</Text>
           </TouchableOpacity>
         </View>
@@ -177,6 +181,8 @@ function EstimateTab({
   presetRate: number;
   chartWidth: number;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const gapAbs = Math.abs(plan.gap);
 
   return (
@@ -186,7 +192,7 @@ function EstimateTab({
         <Ionicons
           name={plan.onTrack ? 'checkmark-circle' : 'alert-circle'}
           size={20}
-          color={plan.onTrack ? ClearLensColors.positive : ClearLensColors.warning}
+          color={plan.onTrack ? tokens.colors.positive : tokens.colors.warning}
         />
         <Text style={[styles.bannerText, plan.onTrack ? styles.bannerTextGreen : styles.bannerTextAmber]}>
           {plan.onTrack
@@ -217,8 +223,8 @@ function EstimateTab({
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Projected path</Text>
           <View style={styles.chartLegend}>
-            <LegendDot color={ClearLensColors.emerald} label="Corpus" />
-            <LegendDot color={ClearLensColors.navy} label="Invested" dashed />
+            <LegendDot color={tokens.colors.emerald} label="Corpus" />
+            <LegendDot color={tokens.colors.navy} label="Invested" dashed />
           </View>
           <GoalProjectionChart
             points={series}
@@ -243,6 +249,8 @@ function ScenariosTab({
   rates: Record<GoalReturnPreset, number>;
   returnAssumptions: { cautious: number; balanced: number; growth: number };
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const presets: GoalReturnPreset[] = ['cautious', 'balanced', 'growth'];
 
   return (
@@ -286,6 +294,8 @@ function ScenarioRow({
   requiredMonthly: number;
   isSelected: boolean;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={[styles.scenarioRow, isSelected && styles.scenarioRowSelected]}>
       <View style={styles.scenarioLeft}>
@@ -311,6 +321,8 @@ function DelayScenarioCard({
   planInput: GoalPlanInput;
   rates: Record<GoalReturnPreset, number>;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const delayedYears = Math.max(0, planInput.years - 2);
   const delayedInput: GoalPlanInput = { ...planInput, years: delayedYears };
   const base = computeGoalPlan(planInput, rates);
@@ -343,14 +355,16 @@ function Row({
   highlight?: boolean;
   tone?: 'positive' | 'negative';
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={[
         styles.rowValue,
         highlight && styles.rowValueHighlight,
-        tone === 'positive' && { color: ClearLensColors.positive },
-        tone === 'negative' && { color: ClearLensColors.negative },
+        tone === 'positive' && { color: tokens.colors.positive },
+        tone === 'negative' && { color: tokens.colors.negative },
       ]}>
         {value}
       </Text>
@@ -359,6 +373,8 @@ function Row({
 }
 
 function RowDivider() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return <View style={styles.rowDivider} />;
 }
 
@@ -371,6 +387,8 @@ function LegendDot({
   label: string;
   dashed?: boolean;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.legendItem}>
       <View style={[
@@ -500,7 +518,9 @@ function formatCompact(value: number): string {
 // Styles
 // ---------------------------------------------------------------------------
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scrollContent: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingTop: ClearLensSpacing.xs,
@@ -514,14 +534,14 @@ const styles = StyleSheet.create({
   },
   notFoundText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   tabRow: {
     paddingBottom: ClearLensSpacing.xs,
   },
   sectionLabel: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     marginTop: ClearLensSpacing.xs,
   },
   banner: {
@@ -533,33 +553,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   bannerGreen: {
-    backgroundColor: ClearLensColors.positiveBg,
-    borderColor: ClearLensColors.positive,
+    backgroundColor: cl.positiveBg,
+    borderColor: cl.positive,
   },
   bannerAmber: {
-    backgroundColor: ClearLensColors.warningBg,
-    borderColor: ClearLensColors.amber,
+    backgroundColor: cl.warningBg,
+    borderColor: cl.amber,
   },
   bannerText: {
     ...ClearLensTypography.bodySmall,
     flex: 1,
     lineHeight: 18,
   },
-  bannerTextGreen: { color: ClearLensColors.positive },
-  bannerTextAmber: { color: ClearLensColors.warning },
+  bannerTextGreen: { color: cl.positive },
+  bannerTextAmber: { color: cl.warning },
 
   card: {
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderRadius: ClearLensRadii.lg,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     ...ClearLensShadow,
     overflow: 'hidden',
     paddingVertical: ClearLensSpacing.xs,
   },
   cardTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xs,
   },
@@ -573,22 +593,22 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     flex: 1,
   },
   rowValue: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 14,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     textAlign: 'right',
   },
   rowValueHighlight: {
     fontSize: 16,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
     marginHorizontal: ClearLensSpacing.md,
   },
 
@@ -600,16 +620,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   scenarioRowSelected: {
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   scenarioLeft: { gap: 2 },
   scenarioLabel: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   scenarioRate: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   scenarioRight: {
     flexDirection: 'row',
@@ -619,15 +639,15 @@ const styles = StyleSheet.create({
   scenarioSip: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 15,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   scenarioMo: {
     fontFamily: ClearLensFonts.regular,
     fontSize: 12,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   selectedBadge: {
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: ClearLensRadii.sm,
@@ -635,7 +655,7 @@ const styles = StyleSheet.create({
   selectedBadgeText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 10,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
 
   chartLegend: {
@@ -656,7 +676,7 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
 
   actionRows: {
@@ -672,7 +692,7 @@ const styles = StyleSheet.create({
   editText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 14,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
   },
   deleteRow: {
     flexDirection: 'row',
@@ -684,14 +704,15 @@ const styles = StyleSheet.create({
   deleteText: {
     fontFamily: ClearLensFonts.medium,
     fontSize: 14,
-    color: ClearLensColors.negative,
+    color: cl.negative,
   },
   disclaimer: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textAlign: 'center',
     paddingHorizontal: ClearLensSpacing.sm,
     lineHeight: 17,
     marginTop: ClearLensSpacing.xs,
   },
 });
+}

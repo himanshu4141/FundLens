@@ -22,9 +22,10 @@ import {
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
-  ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { formatCurrency } from '@/src/utils/formatting';
 import {
   directionLabel,
@@ -49,6 +50,8 @@ function DetailRow({
   value: string;
   tone?: 'positive' | 'muted';
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -83,11 +86,13 @@ function topColorFor(transaction: PortfolioTransaction): string {
 }
 
 function ExplanationCard({ transaction }: { transaction: PortfolioTransaction }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <ClearLensCard style={styles.explainerCard}>
       <View style={styles.explainerTitleRow}>
         <Text style={styles.sectionTitle}>How FundLens uses this</Text>
-        <Ionicons name="information-circle-outline" size={18} color={ClearLensColors.textTertiary} />
+        <Ionicons name="information-circle-outline" size={18} color={tokens.colors.textTertiary} />
       </View>
       <DetailRow
         label="Included in invested amount"
@@ -110,6 +115,8 @@ function ExplanationCard({ transaction }: { transaction: PortfolioTransaction })
 }
 
 export default function MoneyTrailDetailScreen() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [exportResult, setExportResult] = useState<string | null>(null);
@@ -146,11 +153,11 @@ export default function MoneyTrailDetailScreen() {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="large" color={tokens.colors.emerald} />
         </View>
       ) : !transaction ? (
         <View style={styles.centered}>
-          <Ionicons name="document-text-outline" size={40} color={ClearLensColors.textTertiary} />
+          <Ionicons name="document-text-outline" size={40} color={tokens.colors.textTertiary} />
           <Text style={styles.emptyTitle}>Transaction not found</Text>
           <Text style={styles.emptyText}>It may have been removed by a newer CAS import.</Text>
         </View>
@@ -162,7 +169,7 @@ export default function MoneyTrailDetailScreen() {
           </View>
           <ClearLensCard style={styles.heroCard}>
             <View style={styles.heroTop}>
-              <View style={[styles.heroIcon, { backgroundColor: transaction.hiddenByDefault ? ClearLensColors.grey50 : ClearLensColors.mint50 }]}>
+              <View style={[styles.heroIcon, { backgroundColor: transaction.hiddenByDefault ? tokens.colors.grey50 : tokens.colors.mint50 }]}>
                 <Ionicons name={topIconFor(transaction)} size={21} color={topColorFor(transaction)} />
               </View>
               <View style={styles.heroTitleBlock}>
@@ -219,11 +226,11 @@ export default function MoneyTrailDetailScreen() {
 
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.secondaryButton} onPress={() => handleShare(transaction)} activeOpacity={0.76}>
-              <Ionicons name="share-social-outline" size={18} color={ClearLensColors.navy} />
+              <Ionicons name="share-social-outline" size={18} color={tokens.colors.navy} />
               <Text style={styles.secondaryButtonText}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.primaryButton} onPress={() => handleExport(transaction)} activeOpacity={0.82}>
-              <Ionicons name="download-outline" size={18} color={ClearLensColors.textOnDark} />
+              <Ionicons name="download-outline" size={18} color={tokens.colors.textOnDark} />
               <Text style={styles.primaryButtonText}>Export CSV</Text>
             </TouchableOpacity>
           </View>
@@ -234,7 +241,9 @@ export default function MoneyTrailDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
@@ -273,23 +282,23 @@ const styles = StyleSheet.create({
   },
   transactionType: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   directionLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   statusPill: {
     minHeight: 28,
     paddingHorizontal: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusPillText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   amountBlock: {
@@ -297,7 +306,7 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   amountValue: {
     ...ClearLensTypography.h1,
@@ -307,13 +316,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   detailRow: {
     minHeight: 36,
     paddingVertical: ClearLensSpacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: ClearLensColors.borderLight,
+    borderBottomColor: cl.borderLight,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -322,39 +331,39 @@ const styles = StyleSheet.create({
   detailLabel: {
     ...ClearLensTypography.bodySmall,
     flex: 1,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   detailValue: {
     ...ClearLensTypography.bodySmall,
     flex: 1,
     textAlign: 'right',
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.semiBold,
   },
   detailPositive: {
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
   },
   detailMuted: {
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   partialBox: {
     padding: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     gap: 3,
   },
   partialTitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   partialText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   explainerCard: {
     gap: ClearLensSpacing.sm,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
   },
   explainerTitleRow: {
     flexDirection: 'row',
@@ -363,7 +372,7 @@ const styles = StyleSheet.create({
   },
   explainerText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   actionRow: {
     flexDirection: 'row',
@@ -374,8 +383,8 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
-    backgroundColor: ClearLensColors.surface,
+    borderColor: cl.border,
+    backgroundColor: cl.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -385,7 +394,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 48,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.emeraldDeep,
+    backgroundColor: cl.emeraldDeep,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -393,33 +402,33 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   primaryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.bold,
   },
   exportResult: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     textAlign: 'center',
   },
   errorBox: {
     padding: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.negativeBg,
+    backgroundColor: cl.negativeBg,
     gap: 2,
   },
   errorBoxTitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensSemanticColors.sentiment.negativeText,
+    color: tokens.semantic.sentiment.negativeText,
     fontFamily: ClearLensFonts.bold,
   },
   errorBoxText: {
     ...ClearLensTypography.caption,
-    color: ClearLensSemanticColors.sentiment.negativeText,
+    color: tokens.semantic.sentiment.negativeText,
   },
   centered: {
     flex: 1,
@@ -430,11 +439,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   emptyText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     textAlign: 'center',
   },
 });
+}

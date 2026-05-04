@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -27,7 +27,9 @@ import {
   ClearLensSpacing,
   ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 const CLEAR_LENS_ORANGE = ClearLensSemanticColors.asset.debt;
 const DONUT_SIZE = 104;
@@ -49,6 +51,8 @@ function ExposureCard({
   total?: number;
   disclosure?: string;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const max = Math.max(...rows.map((row) => row.pct), 1);
 
   return (
@@ -88,6 +92,8 @@ function DonutMixCard({
   total: number;
   disclosure?: string;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const radius = (DONUT_SIZE - DONUT_STROKE) / 2;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
@@ -110,7 +116,7 @@ function DonutMixCard({
               cx={DONUT_SIZE / 2}
               cy={DONUT_SIZE / 2}
               r={radius}
-              stroke={ClearLensColors.surfaceSoft}
+              stroke={tokens.colors.surfaceSoft}
               strokeWidth={DONUT_STROKE}
               fill="none"
             />
@@ -165,6 +171,8 @@ function HoldingsCard({
 }: {
   holdings: { name: string; portfolioWeight: number; value: number }[];
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [page, setPage] = useState(0);
   const visibleHoldings = holdings.slice(0, 30);
   const pageCount = Math.max(1, Math.ceil(visibleHoldings.length / 10));
@@ -198,7 +206,7 @@ function HoldingsCard({
             onPress={() => setPage((current) => Math.max(0, current - 1))}
             activeOpacity={0.75}
           >
-            <Ionicons name="chevron-back" size={18} color={clampedPage === 0 ? ClearLensColors.textTertiary : ClearLensColors.navy} />
+            <Ionicons name="chevron-back" size={18} color={clampedPage === 0 ? tokens.colors.textTertiary : tokens.colors.navy} />
           </TouchableOpacity>
           <Text style={styles.pageIndicator}>{clampedPage + 1} / {pageCount}</Text>
           <TouchableOpacity
@@ -207,7 +215,7 @@ function HoldingsCard({
             onPress={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
             activeOpacity={0.75}
           >
-            <Ionicons name="chevron-forward" size={18} color={clampedPage >= pageCount - 1 ? ClearLensColors.textTertiary : ClearLensColors.navy} />
+            <Ionicons name="chevron-forward" size={18} color={clampedPage >= pageCount - 1 ? tokens.colors.textTertiary : tokens.colors.navy} />
           </TouchableOpacity>
         </View>
       )}
@@ -226,6 +234,8 @@ function DebtCashCard({
   cashPct: number;
   debtFunds: InsightDebtFund[];
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const rows = [
     {
       label: 'Debt',
@@ -288,6 +298,8 @@ function DebtCashCard({
 }
 
 function PendingCard({ title, onSync, isSyncing }: { title: string; onSync: () => void; isSyncing: boolean }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <ClearLensCard style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
@@ -296,9 +308,9 @@ function PendingCard({ title, onSync, isSyncing }: { title: string; onSync: () =
       </Text>
       <TouchableOpacity style={styles.syncButton} onPress={onSync} disabled={isSyncing}>
         {isSyncing ? (
-          <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="small" color={tokens.colors.emerald} />
         ) : (
-          <Ionicons name="refresh-outline" size={16} color={ClearLensColors.emerald} />
+          <Ionicons name="refresh-outline" size={16} color={tokens.colors.emerald} />
         )}
         <Text style={styles.syncButtonText}>{isSyncing ? 'Syncing' : 'Sync now'}</Text>
       </TouchableOpacity>
@@ -307,6 +319,8 @@ function PendingCard({ title, onSync, isSyncing }: { title: string; onSync: () =
 }
 
 export function ClearLensPortfolioInsightsScreen() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { defaultBenchmarkSymbol } = useAppStore();
   const { data, isLoading: portfolioLoading } = usePortfolio(defaultBenchmarkSymbol);
@@ -335,24 +349,24 @@ export function ClearLensPortfolioInsightsScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {isSyncing && (
           <View style={styles.infoBanner}>
-            <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+            <ActivityIndicator size="small" color={tokens.colors.emerald} />
             <Text style={styles.infoBannerText}>Syncing composition data from AMFI disclosures.</Text>
           </View>
         )}
         {isStale && !isSyncing && (
           <TouchableOpacity style={styles.infoBanner} onPress={() => triggerSync()}>
-            <Ionicons name="refresh-outline" size={16} color={ClearLensColors.emerald} />
+            <Ionicons name="refresh-outline" size={16} color={tokens.colors.emerald} />
             <Text style={styles.infoBannerText}>Disclosure data may be outdated. Tap to refresh.</Text>
           </TouchableOpacity>
         )}
 
         {portfolioLoading || isLoading || (hasNoData && isSyncing) || (shouldBootstrapInsights && !didAutoTrigger.current) ? (
           <View style={styles.centeredCard}>
-            <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+            <ActivityIndicator size="large" color={tokens.colors.emerald} />
           </View>
         ) : !insights ? (
           <ClearLensCard style={styles.emptyCard}>
-            <Ionicons name="pie-chart-outline" size={36} color={ClearLensColors.emerald} />
+            <Ionicons name="pie-chart-outline" size={36} color={tokens.colors.emerald} />
             <Text style={styles.emptyTitle}>No insights yet</Text>
             <Text style={styles.pendingText}>Load fund composition data to see allocation, sectors, and top holdings.</Text>
             <TouchableOpacity style={styles.primaryButton} onPress={() => triggerSync()}>
@@ -374,9 +388,9 @@ export function ClearLensPortfolioInsightsScreen() {
               total={insights.totalValue}
               disclosure={disclosure}
               rows={[
-                { label: 'Equity', pct: insights.assetMix.equity, color: ClearLensSemanticColors.asset.equity },
-                { label: 'Debt', pct: insights.assetMix.debt, color: ClearLensSemanticColors.asset.debt },
-                { label: 'Cash & Others', pct: insights.assetMix.cash + insights.assetMix.other, color: ClearLensSemanticColors.asset.cash },
+                { label: 'Equity', pct: insights.assetMix.equity, color: tokens.semantic.asset.equity },
+                { label: 'Debt', pct: insights.assetMix.debt, color: tokens.semantic.asset.debt },
+                { label: 'Cash & Others', pct: insights.assetMix.cash + insights.assetMix.other, color: tokens.semantic.asset.cash },
               ]}
             />
 
@@ -395,9 +409,9 @@ export function ClearLensPortfolioInsightsScreen() {
               title="Market-cap mix"
               total={insights.totalValue * (insights.assetMix.equity / 100)}
               rows={[
-                { label: 'Large Cap', pct: insights.marketCapMix.large, color: ClearLensSemanticColors.marketCap.large },
-                { label: 'Mid Cap', pct: insights.marketCapMix.mid, color: ClearLensSemanticColors.marketCap.mid },
-                { label: 'Small Cap', pct: insights.marketCapMix.small, color: ClearLensSemanticColors.marketCap.small },
+                { label: 'Large Cap', pct: insights.marketCapMix.large, color: tokens.semantic.marketCap.large },
+                { label: 'Mid Cap', pct: insights.marketCapMix.mid, color: tokens.semantic.marketCap.mid },
+                { label: 'Small Cap', pct: insights.marketCapMix.small, color: tokens.semantic.marketCap.small },
               ]}
             />
 
@@ -408,7 +422,7 @@ export function ClearLensPortfolioInsightsScreen() {
                   label: sector.sector,
                   pct: sector.weight,
                   value: sector.value,
-                  color: ClearLensColors.emerald,
+                  color: tokens.colors.emerald,
                 }))}
               />
             ) : (
@@ -427,7 +441,9 @@ export function ClearLensPortfolioInsightsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
@@ -443,11 +459,11 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   heroSubtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   card: {
     gap: ClearLensSpacing.md,
@@ -464,18 +480,18 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   cardMeta: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   stackedBar: {
     height: 12,
     borderRadius: ClearLensRadii.full,
     overflow: 'hidden',
     flexDirection: 'row',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   stackedSegment: {
     height: '100%',
@@ -504,11 +520,11 @@ const styles = StyleSheet.create({
   },
   donutCenterValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   donutCenterLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   donutRows: {
     flex: 1,
@@ -528,14 +544,14 @@ const styles = StyleSheet.create({
   },
   donutPct: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
     minWidth: 48,
     textAlign: 'right',
   },
   donutValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     minWidth: 68,
     textAlign: 'right',
   },
@@ -555,19 +571,19 @@ const styles = StyleSheet.create({
   },
   rowName: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     flex: 1,
   },
   exposureValue: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontVariant: ['tabular-nums'],
   },
   track: {
     height: 6,
     borderRadius: ClearLensRadii.full,
     overflow: 'hidden',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   trackFill: {
     height: '100%',
@@ -576,11 +592,11 @@ const styles = StyleSheet.create({
   rowPct: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   rowValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     width: 74,
     textAlign: 'right',
   },
@@ -592,30 +608,30 @@ const styles = StyleSheet.create({
   },
   divider: {
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   holdingRank: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     width: 20,
     textAlign: 'center',
   },
   holdingName: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     flex: 1,
     fontFamily: ClearLensFonts.semiBold,
   },
   holdingPct: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
     width: 58,
     textAlign: 'right',
   },
   holdingValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     width: 72,
     textAlign: 'right',
   },
@@ -632,21 +648,21 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   paginationButtonDisabled: {
     opacity: 0.45,
   },
   pageIndicator: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
     minWidth: 36,
     textAlign: 'center',
   },
   pendingText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   debtSummaryRow: {
     flexDirection: 'row',
@@ -655,7 +671,7 @@ const styles = StyleSheet.create({
   debtSummaryItem: {
     flex: 1,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     padding: ClearLensSpacing.sm,
     gap: 4,
   },
@@ -669,23 +685,23 @@ const styles = StyleSheet.create({
   },
   debtPct: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   debtLabel: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     fontFamily: ClearLensFonts.semiBold,
   },
   debtValue: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   debtFundList: {
     gap: ClearLensSpacing.xs,
   },
   debtSectionLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   debtFundRow: {
@@ -702,12 +718,12 @@ const styles = StyleSheet.create({
   },
   debtFundName: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.semiBold,
   },
   debtFundShare: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   debtFundMetrics: {
     alignItems: 'flex-end',
@@ -715,7 +731,7 @@ const styles = StyleSheet.create({
   },
   debtFundMetric: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     fontFamily: ClearLensFonts.semiBold,
   },
   syncButton: {
@@ -726,12 +742,12 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   syncButtonText: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensSemanticColors.sentiment.positiveText,
+    color: tokens.semantic.sentiment.positiveText,
   },
   infoBanner: {
     flexDirection: 'row',
@@ -739,11 +755,11 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
     padding: ClearLensSpacing.md,
     borderRadius: ClearLensRadii.lg,
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   infoBannerText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.slate,
+    color: cl.slate,
     flex: 1,
   },
   centeredCard: {
@@ -757,7 +773,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     textAlign: 'center',
   },
   primaryButton: {
@@ -766,11 +782,12 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
   },
   primaryButtonText: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
 });
+}

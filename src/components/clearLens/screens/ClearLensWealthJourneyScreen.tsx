@@ -34,7 +34,9 @@ import {
   ClearLensSpacing,
   ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { usePortfolio } from '@/src/hooks/usePortfolio';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -125,6 +127,8 @@ function ValueField({
   chips: ChoiceChip[];
   max?: number;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [draft, setDraft] = useState(String(value));
 
   useEffect(() => {
@@ -158,7 +162,7 @@ function ValueField({
           returnKeyType="done"
         />
         {suffix ? <Text style={styles.fieldAffix}>{suffix}</Text> : null}
-        <Ionicons name="pencil-outline" size={16} color={ClearLensColors.textTertiary} />
+        <Ionicons name="pencil-outline" size={16} color={tokens.colors.textTertiary} />
       </View>
       <View style={styles.chipRow}>
         {chips.map((chip) => {
@@ -194,6 +198,8 @@ function ReturnPresetPicker({
   onPresetChange: (key: Exclude<WealthJourneyReturnPreset, 'custom'>, value: number) => void;
   onCustomChange: (value: number) => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [draft, setDraft] = useState(String(value));
 
   useEffect(() => {
@@ -246,7 +252,7 @@ function ReturnPresetPicker({
           returnKeyType="done"
         />
         <Text style={styles.fieldAffix}>% p.a.</Text>
-        <Ionicons name="pencil-outline" size={16} color={ClearLensColors.textTertiary} />
+        <Ionicons name="pencil-outline" size={16} color={tokens.colors.textTertiary} />
       </View>
     </View>
   );
@@ -369,9 +375,11 @@ function JourneyLineChart({
 }
 
 function ChartPlaceholder({ height }: { height: number }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={[styles.chartPlaceholder, { height }]}>
-      <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+      <ActivityIndicator size="small" color={tokens.colors.emerald} />
     </View>
   );
 }
@@ -385,6 +393,8 @@ function SnapshotMetric({
   value: string;
   tone?: 'positive' | 'neutral';
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.snapshotMetric}>
       <Text style={styles.metricLabel}>{label}</Text>
@@ -422,6 +432,8 @@ function SipEditorModal({
   onManual: () => void;
   onSaveManual: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const insets = useSafeAreaInsets();
   const manualDraftValue = parseFloat(draft.replace(/[^0-9.]/g, ''));
   const sheetBodyStyle = [
@@ -447,7 +459,7 @@ function SipEditorModal({
                     : 'Review monthly SIP'}
               </Text>
               <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-                <Ionicons name="close" size={20} color={ClearLensColors.slate} />
+                <Ionicons name="close" size={20} color={tokens.colors.slate} />
               </TouchableOpacity>
             </View>
 
@@ -469,7 +481,7 @@ function SipEditorModal({
                   keyboardType="numeric"
                   returnKeyType="done"
                 />
-                <Ionicons name="pencil-outline" size={16} color={ClearLensColors.emerald} />
+                <Ionicons name="pencil-outline" size={16} color={tokens.colors.emerald} />
               </View>
               <Text style={styles.sheetFinePrint}>
                 This only changes your Wealth Journey estimate. It does not change your portfolio data.
@@ -559,6 +571,8 @@ function SipEditorModal({
 }
 
 export function ClearLensWealthJourneyScreen() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const isFocused = useIsFocused();
   const { width: viewportWidth } = useWindowDimensions();
@@ -892,11 +906,11 @@ export function ClearLensWealthJourneyScreen() {
         )}
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendLine, { backgroundColor: ClearLensSemanticColors.chart.benchmark }]} />
+            <View style={[styles.legendLine, { backgroundColor: tokens.semantic.chart.benchmark }]} />
             <Text style={styles.legendText}>Current plan</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: ClearLensSemanticColors.chart.portfolio }]} />
+            <View style={[styles.legendDot, { backgroundColor: tokens.semantic.chart.portfolio }]} />
             <Text style={styles.legendText}>Adjusted plan</Text>
           </View>
         </View>
@@ -917,7 +931,7 @@ export function ClearLensWealthJourneyScreen() {
   function renderProjectionDisclaimer() {
     return (
       <View style={styles.disclaimer}>
-        <Ionicons name="information-circle-outline" size={15} color={ClearLensColors.textTertiary} />
+        <Ionicons name="information-circle-outline" size={15} color={tokens.colors.textTertiary} />
         <Text style={styles.disclaimerText}>
           This is a projection, not a promise. Markets go up and down. Results can be higher or lower than shown. Returns are nominal, pre-tax. Inflation is not adjusted unless stated.
         </Text>
@@ -986,7 +1000,7 @@ export function ClearLensWealthJourneyScreen() {
   function renderWithdrawalPathNote() {
     return (
       <View style={styles.projectionNote}>
-        <Ionicons name="bulb-outline" size={16} color={ClearLensColors.emeraldDeep} />
+        <Ionicons name="bulb-outline" size={16} color={tokens.colors.emeraldDeep} />
         <Text style={styles.infoBannerText}>
           This path leaves <Text style={styles.inlineStrong}>{formatCurrency(withdrawalProjection.endCorpus)}</Text> after {retirementDurationYears} years.
         </Text>
@@ -1026,7 +1040,7 @@ export function ClearLensWealthJourneyScreen() {
 
       {portfolioLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="large" color={tokens.colors.emerald} />
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -1061,7 +1075,7 @@ export function ClearLensWealthJourneyScreen() {
                   <SnapshotMetric label="XIRR" value={summary ? `${(summary.xirr * 100).toFixed(2)}%` : '—'} tone="positive" />
                 </View>
                 <View style={styles.infoBanner}>
-                  <Ionicons name="checkmark-circle-outline" size={16} color={ClearLensColors.emeraldDeep} />
+                  <Ionicons name="checkmark-circle-outline" size={16} color={tokens.colors.emeraldDeep} />
                   <Text style={styles.infoBannerText}>
                     {detectedSip > 0 ? 'Detected from recurring buys in the last 6 months.' : 'Add your SIP assumption to personalize projections.'}
                   </Text>
@@ -1098,7 +1112,7 @@ export function ClearLensWealthJourneyScreen() {
                 accessibilityLabel="Explore more tools"
               >
                 <Text style={styles.exploreToolsLabel}>Explore more tools</Text>
-                <Ionicons name="chevron-forward" size={16} color={ClearLensColors.emerald} />
+                <Ionicons name="chevron-forward" size={16} color={tokens.colors.emerald} />
               </TouchableOpacity>
             </>
           )}
@@ -1217,7 +1231,9 @@ export function ClearLensWealthJourneyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
@@ -1241,11 +1257,11 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   heroSubtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   snapshotCard: {
     gap: ClearLensSpacing.md,
@@ -1262,11 +1278,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   sectionSubtitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   editButton: {
     minHeight: 32,
@@ -1275,11 +1291,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
   },
   editButtonText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   snapshotGrid: {
@@ -1287,7 +1303,7 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
     paddingTop: ClearLensSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   snapshotMetric: {
     flex: 1,
@@ -1295,23 +1311,23 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   snapshotValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   positiveText: {
-    color: ClearLensSemanticColors.sentiment.positive,
+    color: tokens.semantic.sentiment.positive,
   },
   negativeText: {
-    color: ClearLensSemanticColors.sentiment.negative,
+    color: tokens.semantic.sentiment.negative,
   },
   infoBanner: {
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
     padding: ClearLensSpacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1320,11 +1336,11 @@ const styles = StyleSheet.create({
   infoBannerText: {
     ...ClearLensTypography.caption,
     flex: 1,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   inlineLink: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   planHeader: {
@@ -1340,7 +1356,7 @@ const styles = StyleSheet.create({
   },
   resultHero: {
     ...ClearLensTypography.hero,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   badge: {
     borderRadius: ClearLensRadii.full,
@@ -1349,39 +1365,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
   },
   badgeDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
   },
   badgeText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   chartAxisText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   pointerLabel: {
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     padding: ClearLensSpacing.sm,
     ...ClearLensShadow,
   },
   pointerDate: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   pointerSeriesText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   legendRow: {
     flexDirection: 'row',
@@ -1405,14 +1421,14 @@ const styles = StyleSheet.create({
   },
   legendText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   milestoneGrid: {
     flexDirection: 'row',
     gap: ClearLensSpacing.sm,
     paddingTop: ClearLensSpacing.md,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   milestoneCell: {
     flex: 1,
@@ -1420,7 +1436,7 @@ const styles = StyleSheet.create({
   },
   milestoneValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   rightMetric: {
@@ -1428,19 +1444,19 @@ const styles = StyleSheet.create({
   },
   largeMetric: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   primaryButton: {
     minHeight: 48,
     borderRadius: ClearLensRadii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
     paddingHorizontal: ClearLensSpacing.md,
   },
   primaryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.bold,
   },
   exploreToolsRow: {
@@ -1452,7 +1468,7 @@ const styles = StyleSheet.create({
   },
   exploreToolsLabel: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   secondaryButton: {
@@ -1460,14 +1476,14 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     paddingHorizontal: ClearLensSpacing.md,
   },
   secondaryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   textButton: {
@@ -1479,12 +1495,12 @@ const styles = StyleSheet.create({
   },
   textButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   centerSubtitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textAlign: 'center',
   },
   formSection: {
@@ -1492,7 +1508,7 @@ const styles = StyleSheet.create({
   },
   formSectionTitle: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   fieldBlock: {
@@ -1503,19 +1519,19 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     fontFamily: ClearLensFonts.medium,
   },
   fieldHelper: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   fieldShell: {
     minHeight: 48,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     paddingHorizontal: ClearLensSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1524,12 +1540,12 @@ const styles = StyleSheet.create({
   fieldInput: {
     ...ClearLensTypography.h3,
     flex: 1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     paddingVertical: 0,
   },
   fieldAffix: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   chipRow: {
@@ -1541,23 +1557,23 @@ const styles = StyleSheet.create({
     minHeight: 36,
     borderRadius: ClearLensRadii.full,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
-    backgroundColor: ClearLensColors.surface,
+    borderColor: cl.border,
+    backgroundColor: cl.surface,
     paddingHorizontal: ClearLensSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   choiceChipActive: {
-    backgroundColor: ClearLensColors.navy,
-    borderColor: ClearLensColors.navy,
+    backgroundColor: cl.navy,
+    borderColor: cl.navy,
   },
   choiceChipText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     fontFamily: ClearLensFonts.bold,
   },
   choiceChipTextActive: {
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
   returnGrid: {
     flexDirection: 'row',
@@ -1568,27 +1584,27 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
-    backgroundColor: ClearLensColors.surface,
+    borderColor: cl.border,
+    backgroundColor: cl.surface,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   returnCardActive: {
-    backgroundColor: ClearLensColors.navy,
-    borderColor: ClearLensColors.navy,
+    backgroundColor: cl.navy,
+    borderColor: cl.navy,
   },
   returnCardLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   returnCardValue: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   returnCardLabelActive: {
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
   twoColumnGrid: {
     flexDirection: 'row',
@@ -1598,7 +1614,7 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
     paddingTop: ClearLensSpacing.md,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   withdrawalMetricGrid: {
     flexDirection: 'row',
@@ -1622,12 +1638,12 @@ const styles = StyleSheet.create({
   withdrawalMetricBox: {
     flex: 1,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     padding: ClearLensSpacing.sm,
     gap: 3,
   },
   withdrawalIncomeBox: {
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
   },
   withdrawalDetailRow: {
     flexDirection: 'row',
@@ -1635,7 +1651,7 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.md,
     paddingTop: ClearLensSpacing.md,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   resultRow: {
     flexDirection: 'row',
@@ -1644,11 +1660,11 @@ const styles = StyleSheet.create({
   },
   resultRowLabel: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   resultRowValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   disclaimer: {
@@ -1660,23 +1676,23 @@ const styles = StyleSheet.create({
   disclaimerText: {
     ...ClearLensTypography.caption,
     flex: 1,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   projectionNote: {
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
     padding: ClearLensSpacing.md,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: ClearLensSpacing.sm,
   },
   inlineStrong: {
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: ClearLensSemanticColors.overlay.backdrop,
+    backgroundColor: tokens.semantic.overlay.backdrop,
     justifyContent: 'flex-end',
   },
   modalKeyboardView: {
@@ -1687,7 +1703,7 @@ const styles = StyleSheet.create({
     maxHeight: '88%',
     borderTopLeftRadius: ClearLensRadii.xl,
     borderTopRightRadius: ClearLensRadii.xl,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     ...ClearLensShadow,
   },
   sheetHeader: {
@@ -1697,11 +1713,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: ClearLensColors.borderLight,
+    borderBottomColor: cl.borderLight,
   },
   sheetTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   iconButton: {
     width: 36,
@@ -1720,26 +1736,26 @@ const styles = StyleSheet.create({
   },
   sheetCopy: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   sheetFinePrint: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   sheetSectionTitle: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   detectedBox: {
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     padding: ClearLensSpacing.sm,
     gap: ClearLensSpacing.xs,
   },
   detectedValue: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   recurringList: {
     gap: ClearLensSpacing.xs,
@@ -1753,21 +1769,21 @@ const styles = StyleSheet.create({
   },
   recurringRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: ClearLensColors.borderLight,
+    borderBottomColor: cl.borderLight,
   },
   recurringName: {
     ...ClearLensTypography.bodySmall,
     flex: 1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   recurringValue: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.bold,
   },
   recurringMore: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   sheetActions: {
     flexDirection: 'row',
@@ -1778,3 +1794,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+}

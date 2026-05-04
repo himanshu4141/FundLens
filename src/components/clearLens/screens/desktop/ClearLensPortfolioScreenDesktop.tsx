@@ -21,14 +21,17 @@ import { useSession } from '@/src/hooks/useSession';
 import { useAppStore } from '@/src/store/appStore';
 import { MaxContentWidth } from '@/src/components/responsive';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 export function ClearLensPortfolioScreenDesktop() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -47,7 +50,7 @@ export function ClearLensPortfolioScreenDesktop() {
   if (isLoading) {
     return (
       <CenteredFrame>
-        <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+        <ActivityIndicator size="large" color={tokens.colors.emerald} />
       </CenteredFrame>
     );
   }
@@ -126,7 +129,7 @@ export function ClearLensPortfolioScreenDesktop() {
               />
             ) : insightsLoading ? (
               <ClearLensCard style={styles.sidePanelLoading}>
-                <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+                <ActivityIndicator size="small" color={tokens.colors.emerald} />
               </ClearLensCard>
             ) : null}
 
@@ -137,7 +140,7 @@ export function ClearLensPortfolioScreenDesktop() {
               />
             ) : moneyTrailLoading ? (
               <ClearLensCard style={styles.sidePanelLoading}>
-                <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+                <ActivityIndicator size="small" color={tokens.colors.emerald} />
               </ClearLensCard>
             ) : null}
 
@@ -147,13 +150,13 @@ export function ClearLensPortfolioScreenDesktop() {
               activeOpacity={0.78}
             >
               <View style={styles.exploreIcon}>
-                <Ionicons name="calculator-outline" size={18} color={ClearLensColors.emerald} />
+                <Ionicons name="calculator-outline" size={18} color={tokens.colors.emerald} />
               </View>
               <View style={styles.exploreCopy}>
                 <Text style={styles.exploreTitle}>Wealth Journey</Text>
                 <Text style={styles.exploreSub}>Project where your portfolio is headed.</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
+              <Ionicons name="chevron-forward" size={16} color={tokens.colors.textTertiary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -163,6 +166,8 @@ export function ClearLensPortfolioScreenDesktop() {
 }
 
 function CenteredFrame({ children }: { children: React.ReactNode }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.centered}>
       <View style={styles.centeredCard}>{children}</View>
@@ -170,10 +175,12 @@ function CenteredFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     flex: 1,
-    backgroundColor: ClearLensColors.background,
+    backgroundColor: cl.background,
   },
   scrollContent: {
     paddingHorizontal: ClearLensSpacing.xl,
@@ -192,16 +199,16 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   title: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   subtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   gridTwoCol: {
     flexDirection: 'row',
@@ -227,10 +234,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderRadius: ClearLensRadii.lg,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     paddingHorizontal: ClearLensSpacing.md,
     paddingVertical: ClearLensSpacing.sm,
   },
@@ -240,7 +247,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.mint50,
+    backgroundColor: cl.mint50,
   },
   exploreCopy: {
     flex: 1,
@@ -248,12 +255,12 @@ const styles = StyleSheet.create({
   },
   exploreTitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.semiBold,
   },
   exploreSub: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   centered: {
     flex: 1,
@@ -269,7 +276,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   retryButton: {
     minHeight: 42,
@@ -277,11 +284,12 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
   },
   retryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.bold,
   },
 });
+}

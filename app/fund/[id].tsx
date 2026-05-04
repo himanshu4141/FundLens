@@ -29,7 +29,7 @@ import { computeQuarterlyReturns } from '@/src/utils/quarterlyReturns';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
-import { useTheme } from '@/src/context/ThemeContext';
+import { useTheme, useClearLensTokens } from '@/src/context/ThemeContext';
 import {
   ClearLensCard,
   ClearLensHeader,
@@ -43,6 +43,7 @@ import {
   ClearLensSpacing,
   ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 import {
   formatClearLensCurrencyDelta,
@@ -1655,13 +1656,15 @@ function ClearLensFundDetailScreen() {
   const { data, isLoading, isError } = useFundDetail(id);
   const { session } = useSession();
   const userId = session?.user.id;
+  const tokens = useClearLensTokens();
+  const clearDetailStyles = useMemo(() => makeClearDetailStyles(tokens), [tokens]);
 
   if (isLoading) {
     return (
       <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
         <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
-          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="large" color={tokens.colors.emerald} />
         </View>
       </ClearLensScreen>
     );
@@ -1672,7 +1675,7 @@ function ClearLensFundDetailScreen() {
       <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
         <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
-          <Ionicons name="alert-circle-outline" size={40} color={ClearLensColors.textTertiary} />
+          <Ionicons name="alert-circle-outline" size={40} color={tokens.colors.textTertiary} />
           <Text style={clearDetailStyles.errorText}>Couldn&apos;t load fund data</Text>
         </View>
       </ClearLensScreen>
@@ -1727,7 +1730,7 @@ function ClearLensFundDetailScreen() {
               {gain !== null && gainPct !== null && (
                 <View style={clearDetailStyles.signalCell}>
                   <Text style={clearDetailStyles.statLabel}>Gain</Text>
-                  <Text style={[clearDetailStyles.signalValue, { color: gain >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative }]}>
+                  <Text style={[clearDetailStyles.signalValue, { color: gain >= 0 ? tokens.colors.emeraldDeep : tokens.colors.negative }]}>
                     {formatClearLensCurrencyDelta(gain)}
                     <Text style={clearDetailStyles.signalInline}> ({formatClearLensPercentDelta(gainPct, 1)})</Text>
                   </Text>
@@ -1740,7 +1743,7 @@ function ClearLensFundDetailScreen() {
                 <View style={clearDetailStyles.signalCell}>
                   <Text style={clearDetailStyles.statLabel}>XIRR</Text>
                   <View style={clearDetailStyles.xirrSignalLine}>
-                    <Text style={[clearDetailStyles.signalValue, { color: data.fundXirr >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative }]}>
+                    <Text style={[clearDetailStyles.signalValue, { color: data.fundXirr >= 0 ? tokens.colors.emeraldDeep : tokens.colors.negative }]}>
                       {formatXirr(data.fundXirr)}
                     </Text>
                     <Text style={clearDetailStyles.xirrHint}>p.a.</Text>
@@ -1762,7 +1765,7 @@ function ClearLensFundDetailScreen() {
                 <Text
                   style={[
                     clearDetailStyles.realizedValue,
-                    { color: data.realizedGain >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative },
+                    { color: data.realizedGain >= 0 ? tokens.colors.emeraldDeep : tokens.colors.negative },
                   ]}
                 >
                   {formatClearLensCurrencyDelta(data.realizedGain)}
@@ -1776,9 +1779,9 @@ function ClearLensFundDetailScreen() {
             onPress={() => router.push(`/money-trail?fundId=${data.id}`)}
             activeOpacity={0.76}
           >
-            <Ionicons name="receipt-outline" size={18} color={ClearLensColors.emeraldDeep} />
+            <Ionicons name="receipt-outline" size={18} color={tokens.colors.emeraldDeep} />
             <Text style={clearDetailStyles.transactionsActionText}>View fund transactions</Text>
-            <Ionicons name="arrow-forward" size={16} color={ClearLensColors.emeraldDeep} />
+            <Ionicons name="arrow-forward" size={16} color={tokens.colors.emeraldDeep} />
           </TouchableOpacity>
         </ClearLensCard>
 
@@ -1838,7 +1841,9 @@ export default function FundDetailScreen() {
   );
 }
 
-const clearDetailStyles = StyleSheet.create({
+function makeClearDetailStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
@@ -1852,7 +1857,7 @@ const clearDetailStyles = StyleSheet.create({
   },
   errorText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   heroCard: {
     gap: ClearLensSpacing.md,
@@ -1868,11 +1873,11 @@ const clearDetailStyles = StyleSheet.create({
   },
   fundName: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   category: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   statsRow: {
@@ -1885,18 +1890,18 @@ const clearDetailStyles = StyleSheet.create({
   },
   statLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
     fontSize: 10,
     letterSpacing: 0.7,
   },
   statValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   statHint: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontStyle: 'italic',
   },
   gainRow: {
@@ -1912,7 +1917,7 @@ const clearDetailStyles = StyleSheet.create({
     minHeight: 56,
     padding: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
@@ -1924,7 +1929,7 @@ const clearDetailStyles = StyleSheet.create({
   signalDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: ClearLensColors.mint,
+    backgroundColor: cl.mint,
   },
   signalValue: {
     ...ClearLensTypography.h3,
@@ -1937,7 +1942,7 @@ const clearDetailStyles = StyleSheet.create({
     minHeight: 56,
     padding: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
@@ -1948,14 +1953,14 @@ const clearDetailStyles = StyleSheet.create({
   },
   realizedValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   transactionsAction: {
     minHeight: 46,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.borderLight,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    borderColor: cl.borderLight,
+    backgroundColor: cl.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1963,7 +1968,7 @@ const clearDetailStyles = StyleSheet.create({
   },
   transactionsActionText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   xirrSignalLine: {
@@ -1983,7 +1988,7 @@ const clearDetailStyles = StyleSheet.create({
   },
   xirrHint: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   benchmarkPill: {
     minHeight: 40,
@@ -1994,27 +1999,28 @@ const clearDetailStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   benchmarkPillNegative: {
-    backgroundColor: ClearLensSemanticColors.sentiment.negativeSurface,
+    backgroundColor: tokens.semantic.sentiment.negativeSurface,
   },
   benchmarkPillText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensSemanticColors.sentiment.positiveText,
+    color: tokens.semantic.sentiment.positiveText,
     fontFamily: ClearLensFonts.semiBold,
   },
   benchmarkPillTextNegative: {
-    color: ClearLensSemanticColors.sentiment.negativeText,
+    color: tokens.semantic.sentiment.negativeText,
   },
   noteCard: {
     marginHorizontal: ClearLensSpacing.md,
   },
   noteText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
 });
+}
 
 function makeStyles(colors: AppColors) {
   return StyleSheet.create({
