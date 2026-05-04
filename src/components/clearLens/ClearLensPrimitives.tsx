@@ -71,6 +71,39 @@ export function ClearLensHeader({
   rightAction?: { icon: string; onPress: () => void; tint?: string };
 }) {
   const accountInitial = getAccountInitial(accountLabel);
+  const { layout } = useResponsiveLayout();
+  const isDesktop = layout === 'desktop';
+
+  // On desktop the sidebar already shows the logo, account avatar, and quick
+  // actions. Suppress the in-screen header in those cases — only render when
+  // there's a back button or an explicit right action that the sidebar can't
+  // surface (e.g. screen-specific overflow). When there's nothing meaningful
+  // left, render nothing at all so the screen body sits flush.
+  if (isDesktop) {
+    const hasContent = !!onPressBack || !!rightAction || !!title;
+    if (!hasContent) return null;
+    return (
+      <View style={styles.header}>
+        {onPressBack ? (
+          <TouchableOpacity onPress={onPressBack} style={styles.iconButton} activeOpacity={0.75}>
+            <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconButtonGhost} />
+        )}
+
+        {title ? <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text> : <View style={styles.headerSpacer} />}
+
+        {rightAction ? (
+          <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.75}>
+            <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? ClearLensColors.navy} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconButtonGhost} />
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.header}>

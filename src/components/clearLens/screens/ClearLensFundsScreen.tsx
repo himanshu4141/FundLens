@@ -244,15 +244,26 @@ function FundListItem({
             <MetricRow
               label="Gain / Loss"
               value={gain != null ? formatClearLensCurrencyDelta(gain) : '—'}
-              subvalue={gain != null && gainPct != null ? `(${formatClearLensPercentDelta(gainPct, 1)})` : undefined}
+              // Gain value already carries the ▲/▼ arrow — strip the second arrow
+              // off the percent so the line reads "▲ +₹11.86L (+75.4%)" instead
+              // of "▲ +₹11.86L (▲ +75.4%)".
+              subvalue={
+                gain != null && gainPct != null
+                  ? `(${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)`
+                  : undefined
+              }
               color={gainColor}
             />
-            <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
-            <MetricRow
-              label="Booked P&L"
-              value={formatClearLensCurrencyDelta(fund.realizedGain)}
-              color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
-            />
+            {(fund.realizedAmount > 0 || fund.realizedGain !== 0) && (
+              <>
+                <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
+                <MetricRow
+                  label="Booked P&L"
+                  value={formatClearLensCurrencyDelta(fund.realizedGain)}
+                  color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
+                />
+              </>
+            )}
           </View>
 
           {sparklineData.length >= 2 && (
@@ -290,9 +301,12 @@ function MetricRow({
   return (
     <View style={styles.metricRow}>
       <Text style={styles.metricRowLabel}>{label}</Text>
-      <Text style={[styles.metricRowValue, { color }]}>
-        {value}{subvalue ? ` ${subvalue}` : ''}
-      </Text>
+      <View style={styles.metricRowValueBlock}>
+        <Text style={[styles.metricRowValue, { color }]} numberOfLines={1}>{value}</Text>
+        {subvalue ? (
+          <Text style={[styles.metricRowSubvalue, { color }]} numberOfLines={1}>{subvalue}</Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -892,13 +906,20 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
+  metricRowValueBlock: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+  },
   metricRowValue: {
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.navy,
     fontFamily: ClearLensFonts.bold,
     textAlign: 'right',
-    flexShrink: 1,
-    flexWrap: 'wrap',
+  },
+  metricRowSubvalue: {
+    ...ClearLensTypography.caption,
+    textAlign: 'right',
+    marginTop: 1,
   },
   sparklinePanel: {
     minHeight: 62,

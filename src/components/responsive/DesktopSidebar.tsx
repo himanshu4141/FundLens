@@ -226,6 +226,8 @@ function getAccountInitial(label?: string | null): string {
 const styles = StyleSheet.create({
   sidebar: {
     width: SidebarWidth,
+    alignSelf: 'stretch',
+    height: '100%',
     backgroundColor: ClearLensColors.surface,
     borderRightWidth: 1,
     borderRightColor: ClearLensColors.borderLight,

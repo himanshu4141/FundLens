@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { ClearLensCard } from '@/src/components/clearLens/ClearLensPrimitives';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
-import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
+import { useAppStore } from '@/src/store/appStore';
 import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
@@ -59,8 +59,6 @@ export function ClearLensFundsScreenDesktop() {
   const summary = data?.summary ?? null;
   const { insights } = usePortfolioInsights(fundCards);
   const benchmarkXirr = summary?.marketXirr ?? 0;
-  const benchmarkLabel =
-    BENCHMARK_OPTIONS.find((option) => option.symbol === defaultBenchmarkSymbol)?.label ?? defaultBenchmarkSymbol;
 
   const allocationPctByFundId = useMemo(() => {
     const map = new Map<string, number>();
@@ -102,8 +100,43 @@ export function ClearLensFundsScreenDesktop() {
     });
   }, [benchmarkXirr, fundCards, searchQuery, sortBy]);
 
-  const ahead = sortedFunds.filter((fund) => fund.returnXirr - benchmarkXirr > 0).length;
-  const behind = sortedFunds.length - ahead;
+  const fundsWithValue = useMemo(
+    () => fundCards.filter((fund) => fund.currentValue != null && fund.currentValue > 0),
+    [fundCards],
+  );
+  const valueSortedFunds = useMemo(
+    () => [...fundsWithValue].sort((a, b) => sortableNumber(b.currentValue) - sortableNumber(a.currentValue)),
+    [fundsWithValue],
+  );
+  const allocationSegments = useMemo(
+    () =>
+      valueSortedFunds.map((fund, index) => ({
+        id: fund.id,
+        pct: allocationPctByFundId.get(fund.id) ?? 0,
+        color: ClearLensSemanticColors.fundAllocation[
+          index % ClearLensSemanticColors.fundAllocation.length
+        ],
+      })).filter((segment) => segment.pct > 0),
+    [allocationPctByFundId, valueSortedFunds],
+  );
+  const largestFund = valueSortedFunds[0] ?? null;
+  const largestPct = largestFund ? allocationPctByFundId.get(largestFund.id) ?? null : null;
+  const top3Pct = valueSortedFunds
+    .slice(0, 3)
+    .reduce((sum, fund) => sum + (allocationPctByFundId.get(fund.id) ?? 0), 0);
+
+  // Today's mover within the user's funds — leaderboard / laggard for the day,
+  // not a portfolio metric.
+  const fundsWithDaily = useMemo(
+    () => fundCards.filter((fund) => fund.dailyChangePct != null),
+    [fundCards],
+  );
+  const dailySorted = useMemo(
+    () => [...fundsWithDaily].sort((a, b) => (b.dailyChangePct ?? 0) - (a.dailyChangePct ?? 0)),
+    [fundsWithDaily],
+  );
+  const todaysBest = dailySorted[0] ?? null;
+  const todaysWorst = dailySorted.length > 1 ? dailySorted[dailySorted.length - 1] : null;
 
   if (isLoading) {
     return (
@@ -123,36 +156,72 @@ export function ClearLensFundsScreenDesktop() {
         <View style={styles.titleBlock}>
           <Text style={styles.eyebrow}>Funds</Text>
           <Text style={styles.title}>Your Funds</Text>
-          <Text style={styles.subtitle}>Search, sort, and compare every holding against {benchmarkLabel}.</Text>
+          <Text style={styles.subtitle}>
+            How your {fundCards.length} holding{fundCards.length === 1 ? '' : 's'} stack up — concentration, daily movers, and per-fund metrics.
+          </Text>
         </View>
 
-        {summary && (
+        {summary && fundCards.length > 0 && (
           <ClearLensCard style={styles.summaryCard}>
+            <Text style={styles.summaryEyebrow}>Allocation overview</Text>
+
+            {allocationSegments.length > 0 && (
+              <View style={styles.allocationStrip}>
+                {allocationSegments.map((segment) => (
+                  <View
+                    key={segment.id}
+                    style={[
+                      styles.allocationSegment,
+                      { flex: Math.max(segment.pct, 1), backgroundColor: segment.color },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+
             <View style={styles.summaryGrid}>
               <SummaryMetric label="Holdings" value={String(fundCards.length)} />
               <View style={styles.summaryDivider} />
               <SummaryMetric
-                label="Portfolio value"
-                value={formatCurrency(summary.totalValue)}
+                label="Top 3 concentration"
+                value={`${top3Pct.toFixed(1)}%`}
               />
               <View style={styles.summaryDivider} />
-              <SummaryMetric
-                label="Your XIRR"
-                value={formatXirr(summary.xirr)}
-                tone={summary.xirr - summary.marketXirr >= 0 ? 'positive' : 'negative'}
-              />
-              <View style={styles.summaryDivider} />
-              <SummaryMetric
-                label={`vs ${benchmarkLabel}`}
-                value={formatXirr(summary.marketXirr)}
-              />
-              <View style={styles.summaryDivider} />
-              <SummaryMetric
-                label="Ahead / behind"
-                value={`${ahead} · ${behind}`}
-                tone={ahead >= behind ? 'positive' : 'negative'}
-              />
+              <View style={styles.summaryMetricWide}>
+                <Text style={styles.summaryLabel}>Largest holding</Text>
+                {largestFund ? (
+                  <>
+                    <Text style={styles.summaryValue} numberOfLines={1}>
+                      {parseFundName(largestFund.schemeName).base}
+                    </Text>
+                    <Text style={styles.summarySub} numberOfLines={1}>
+                      {largestPct != null ? `${largestPct.toFixed(1)}% of portfolio` : '—'}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.summaryValue}>—</Text>
+                )}
+              </View>
             </View>
+
+            {(todaysBest || todaysWorst) && (
+              <View style={styles.summaryMoversRow}>
+                {todaysBest && (
+                  <MoverChip
+                    label="Today's best"
+                    fund={todaysBest}
+                    tone="positive"
+                  />
+                )}
+                {todaysWorst && todaysWorst.id !== todaysBest?.id && (
+                  <MoverChip
+                    label="Today's worst"
+                    fund={todaysWorst}
+                    tone="negative"
+                  />
+                )}
+              </View>
+            )}
           </ClearLensCard>
         )}
 
@@ -234,6 +303,29 @@ function SummaryMetric({
   );
 }
 
+function MoverChip({
+  label,
+  fund,
+  tone,
+}: {
+  label: string;
+  fund: FundCardData;
+  tone: 'positive' | 'negative';
+}) {
+  const color = tone === 'positive' ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const surface = tone === 'positive'
+    ? ClearLensSemanticColors.sentiment.positiveSurface
+    : ClearLensSemanticColors.sentiment.negativeSurface;
+  const pct = fund.dailyChangePct ?? 0;
+  return (
+    <View style={[styles.moverChip, { backgroundColor: surface }]}>
+      <Text style={[styles.moverChipLabel, { color }]} numberOfLines={1}>{label}</Text>
+      <Text style={styles.moverChipName} numberOfLines={1}>{parseFundName(fund.schemeName).base}</Text>
+      <Text style={[styles.moverChipDelta, { color }]}>{formatClearLensPercentDelta(pct)}</Text>
+    </View>
+  );
+}
+
 function FundDesktopCard({
   fund,
   portfolioPct,
@@ -248,8 +340,8 @@ function FundDesktopCard({
   const { base, planBadge } = parseFundName(fund.schemeName);
   const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
   const alphaPpRaw = (fund.returnXirr - benchmarkXirr) * 100;
-  // Round before sign-deciding so a value that rounds to 0.0 doesn't render as "-0.0 pp"
-  // with a red badge — those rounding cases are visually neutral, not negative.
+  // Round before sign-deciding so a value that rounds to 0.0 renders neutrally
+  // ("±0.0 pp") rather than negative ("-0.0 pp") with a red badge.
   const alphaPp = Math.round(alphaPpRaw * 10) / 10;
   const ahead = alphaPp >= 0;
   const xirrColor = ahead ? ClearLensColors.emerald : CLEAR_LENS_RED;
@@ -258,15 +350,20 @@ function FundDesktopCard({
   const accentColor = isDebtLike
     ? ClearLensSemanticColors.asset.debt
     : ClearLensSemanticColors.asset.equity;
+  const gain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
+  const gainPct = gain != null && fund.investedAmount > 0 ? (gain / fund.investedAmount) * 100 : null;
+  const gainColor = (gain ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
 
   return (
     <TouchableOpacity onPress={onOpen} activeOpacity={0.78} style={styles.cardOuter}>
       <ClearLensCard style={[styles.fundCard, { borderLeftColor: accentColor }]}>
+        {/* Title row */}
         <View style={styles.cardTop}>
           <View style={styles.cardName}>
             <Text style={styles.cardTitle} numberOfLines={2}>{base}</Text>
             <Text style={styles.cardMeta} numberOfLines={1}>
               {fund.schemeCategory}{planBadge ? ` · ${planBadge}` : ''}
+              {portfolioPct != null ? ` · ${portfolioPct.toFixed(1)}% of portfolio` : ''}
             </Text>
           </View>
           <View
@@ -276,35 +373,53 @@ function FundDesktopCard({
             ]}
           >
             <Text style={[styles.alphaBadgeText, { color: xirrColor }]}>
-              {alphaSign}{Math.abs(alphaPp).toFixed(1)} pp
+              {alphaSign}{Math.abs(alphaPp).toFixed(1)} pp vs benchmark
             </Text>
           </View>
         </View>
 
-        <View style={styles.metricsRow}>
-          <MetricCell
-            label="Current value"
-            value={fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}
-          />
-          <MetricCell label="XIRR" value={formatXirr(fund.returnXirr)} valueColor={xirrColor} />
-          <MetricCell
-            label="Today"
-            value={fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
-            valueColor={dailyColor}
-          />
-          <MetricCell
-            label="Allocation"
-            value={portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'}
-          />
+        {/* Primary metric — current value */}
+        <View style={styles.primaryRow}>
+          <View style={styles.primaryValueBlock}>
+            <Text style={styles.primaryLabel}>Current value</Text>
+            <Text style={styles.primaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}
+            </Text>
+          </View>
+
+          {/* Secondary stats — smaller, equally spaced */}
+          <View style={styles.secondaryStats}>
+            <SecondaryStat
+              label="XIRR"
+              value={formatXirr(fund.returnXirr)}
+              valueColor={xirrColor}
+            />
+            <SecondaryStat
+              label="Today"
+              value={fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
+              valueColor={dailyColor}
+            />
+          </View>
         </View>
 
+        {/* Footer — explicit Invested vs Gain split */}
         <View style={styles.cardFooter}>
-          <Text style={styles.footerText} numberOfLines={1}>
-            Invested {formatCurrency(fund.investedAmount)}
-            {fund.currentValue != null && fund.investedAmount > 0
-              ? ` · Gain ${formatClearLensCurrencyDelta(fund.currentValue - fund.investedAmount)}`
-              : ''}
-          </Text>
+          <View style={styles.footerCell}>
+            <Text style={styles.footerLabel}>Invested</Text>
+            <Text style={styles.footerValue} numberOfLines={1}>{formatCurrency(fund.investedAmount)}</Text>
+          </View>
+          <View style={styles.footerDivider} />
+          <View style={styles.footerCell}>
+            <Text style={styles.footerLabel}>Gain</Text>
+            {gain != null ? (
+              <Text style={[styles.footerValue, { color: gainColor }]} numberOfLines={1}>
+                {formatClearLensCurrencyDelta(gain)}
+                {gainPct != null ? ` (${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)` : ''}
+              </Text>
+            ) : (
+              <Text style={styles.footerValue}>—</Text>
+            )}
+          </View>
           <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
         </View>
       </ClearLensCard>
@@ -312,7 +427,7 @@ function FundDesktopCard({
   );
 }
 
-function MetricCell({
+function SecondaryStat({
   label,
   value,
   valueColor = ClearLensColors.navy,
@@ -322,16 +437,9 @@ function MetricCell({
   valueColor?: string;
 }) {
   return (
-    <View style={styles.metricCell}>
-      <Text style={styles.metricLabel} numberOfLines={1}>{label}</Text>
-      <Text
-        style={[styles.metricValue, { color: valueColor }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.85}
-      >
-        {value}
-      </Text>
+    <View style={styles.secondaryStat}>
+      <Text style={styles.secondaryLabel}>{label}</Text>
+      <Text style={[styles.secondaryValue, { color: valueColor }]} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
@@ -370,6 +478,22 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     paddingVertical: ClearLensSpacing.md,
+    gap: ClearLensSpacing.md,
+  },
+  summaryEyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  allocationStrip: {
+    height: 12,
+    borderRadius: ClearLensRadii.full,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    backgroundColor: ClearLensColors.surfaceSoft,
+  },
+  allocationSegment: {
+    height: '100%',
   },
   summaryGrid: {
     flexDirection: 'row',
@@ -380,6 +504,12 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: ClearLensSpacing.sm,
   },
+  summaryMetricWide: {
+    flex: 2,
+    gap: 4,
+    paddingHorizontal: ClearLensSpacing.sm,
+    minWidth: 0,
+  },
   summaryLabel: {
     ...ClearLensTypography.label,
     color: ClearLensColors.textTertiary,
@@ -388,11 +518,42 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...ClearLensTypography.h3,
     fontFamily: ClearLensFonts.bold,
+    color: ClearLensColors.navy,
+  },
+  summarySub: {
+    ...ClearLensTypography.caption,
+    color: ClearLensColors.textTertiary,
   },
   summaryDivider: {
     width: 1,
     backgroundColor: ClearLensColors.borderLight,
     marginHorizontal: ClearLensSpacing.sm,
+  },
+  summaryMoversRow: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.sm,
+  },
+  moverChip: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: ClearLensSpacing.md,
+    paddingVertical: ClearLensSpacing.sm,
+    borderRadius: ClearLensRadii.md,
+    gap: 2,
+  },
+  moverChipLabel: {
+    ...ClearLensTypography.label,
+    textTransform: 'uppercase',
+    fontFamily: ClearLensFonts.bold,
+  },
+  moverChipName: {
+    ...ClearLensTypography.bodySmall,
+    color: ClearLensColors.navy,
+    fontFamily: ClearLensFonts.semiBold,
+  },
+  moverChipDelta: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.bold,
   },
   controls: {
     gap: ClearLensSpacing.sm,
@@ -494,39 +655,75 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.caption,
     fontFamily: ClearLensFonts.bold,
   },
-  metricsRow: {
+  primaryRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: ClearLensSpacing.sm,
-    marginTop: 4,
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
+    marginTop: ClearLensSpacing.sm,
   },
-  metricCell: {
+  primaryValueBlock: {
     flex: 1,
     minWidth: 0,
     gap: 2,
   },
-  metricLabel: {
+  primaryLabel: {
     ...ClearLensTypography.label,
     color: ClearLensColors.textTertiary,
     textTransform: 'uppercase',
   },
-  metricValue: {
+  primaryValue: {
+    fontFamily: ClearLensFonts.extraBold,
+    fontSize: 28,
+    lineHeight: 32,
+    color: ClearLensColors.navy,
+  },
+  secondaryStats: {
+    flexDirection: 'row',
+    gap: ClearLensSpacing.lg,
+    alignItems: 'flex-end',
+  },
+  secondaryStat: {
+    gap: 2,
+    alignItems: 'flex-end',
+  },
+  secondaryLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  secondaryValue: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: ClearLensSpacing.md,
     marginTop: 'auto',
-    paddingTop: ClearLensSpacing.xs,
+    paddingTop: ClearLensSpacing.sm,
     borderTopWidth: 1,
     borderTopColor: ClearLensColors.borderLight,
   },
-  footerText: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textSecondary,
+  footerCell: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  footerDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: ClearLensColors.borderLight,
+  },
+  footerLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  footerValue: {
+    ...ClearLensTypography.bodySmall,
+    fontFamily: ClearLensFonts.bold,
+    color: ClearLensColors.navy,
   },
   emptyCard: {
     width: '100%',

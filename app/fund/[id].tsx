@@ -1303,6 +1303,11 @@ function makeDonutStyles(colors: AppColors) {
       marginTop: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
+      // The donut + info pair is compact; on desktop the parent frame is
+      // ~920 px wide so capping the card keeps the content from drifting
+      // in a sea of whitespace.
+      maxWidth: 460,
+      alignSelf: 'flex-start',
     },
     title: {
       ...Typography.label,
