@@ -58,7 +58,8 @@ module.exports = ({ config }) => {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#0A1430',
+        monochromeImage: './assets/images/monochrome-icon.png',
+        backgroundColor: '#ffffff',
       },
       package: variantConfig.androidPackage,
       softwareKeyboardLayoutMode: 'resize',
