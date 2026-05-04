@@ -13,7 +13,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { G, Line as SvgLine, Path as SvgPath, Text as SvgText } from 'react-native-svg';
 import { ClearLensHeader, ClearLensScreen, ClearLensSegmentedControl } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
@@ -411,6 +410,11 @@ function GoalProjectionChart({
   points: ProjectionPoint[];
   chartWidth: number;
 }) {
+  const tokens = useClearLensTokens();
+  // `invested` is rendered as a baseline reference line. `c.navy` flips to
+  // near-white in dark, which collides with the corpus colour we want to lead
+  // with — use the dark-stable hero surface tinted text colour instead.
+  const investedStroke = tokens.colors.textTertiary;
   const chartHeight = 180;
   const plotTop = 12;
   const plotBottom = 28;
@@ -452,7 +456,7 @@ function GoalProjectionChart({
             x2={plotLeft + plotWidth}
             y1={tick.y}
             y2={tick.y}
-            stroke={ClearLensColors.borderLight}
+            stroke={tokens.colors.borderLight}
             strokeWidth={0.5}
           />
           <SvgText
@@ -460,7 +464,7 @@ function GoalProjectionChart({
             y={tick.y + 4}
             textAnchor="end"
             fontSize={9}
-            fill={ClearLensColors.textTertiary}
+            fill={tokens.colors.textTertiary}
           >
             {formatCompact(tick.value)}
           </SvgText>
@@ -469,7 +473,7 @@ function GoalProjectionChart({
 
       <SvgPath
         d={pathFor(points.map((p) => p.invested))}
-        stroke={ClearLensColors.navy}
+        stroke={investedStroke}
         strokeWidth={1.5}
         strokeDasharray="4 3"
         fill="none"
@@ -478,7 +482,7 @@ function GoalProjectionChart({
 
       <SvgPath
         d={pathFor(points.map((p) => p.corpus))}
-        stroke={ClearLensColors.emerald}
+        stroke={tokens.colors.emerald}
         strokeWidth={2}
         fill="none"
       />
@@ -493,7 +497,7 @@ function GoalProjectionChart({
             y={chartHeight - 6}
             textAnchor="middle"
             fontSize={9}
-            fill={ClearLensColors.textTertiary}
+            fill={tokens.colors.textTertiary}
           >
             {yearLabel === 0 ? 'Now' : `${yearLabel}y`}
           </SvgText>

@@ -27,12 +27,10 @@ import {
   ClearLensSegmentedControl,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
-  ClearLensSemanticColors,
   ClearLensTypography,
   type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
@@ -273,6 +271,7 @@ function JourneyLineChart({
   labels: string[];
   pointerHeight: number;
 }) {
+  const tokens = useClearLensTokens();
   const hasSecondSeries = !!data2 && data2.length > 0;
   const chartHeight = compact ? 210 : pointerHeight;
   const plotTop = 12;
@@ -314,14 +313,14 @@ function JourneyLineChart({
               x2={plotLeft + plotWidth}
               y1={y}
               y2={y}
-              stroke={tick === 0 ? ClearLensColors.border : ClearLensColors.borderLight}
+              stroke={tick === 0 ? tokens.colors.border : tokens.colors.borderLight}
               strokeWidth={1}
               strokeDasharray={tick === 0 ? undefined : '4 8'}
             />
             <SvgText
               x={plotLeft - 10}
               y={y + 4}
-              fill={ClearLensColors.textTertiary}
+              fill={tokens.colors.textTertiary}
               fontSize={11}
               fontWeight="600"
               textAnchor="end"
@@ -336,7 +335,7 @@ function JourneyLineChart({
         <SvgPath
           d={pathFor(data)}
           fill="none"
-          stroke={hasSecondSeries ? ClearLensSemanticColors.chart.benchmark : ClearLensSemanticColors.chart.portfolio}
+          stroke={hasSecondSeries ? tokens.semantic.chart.benchmark : tokens.semantic.chart.portfolio}
           strokeWidth={hasSecondSeries ? 2.5 : 3}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -346,7 +345,7 @@ function JourneyLineChart({
         <SvgPath
           d={pathFor(data2)}
           fill="none"
-          stroke={ClearLensSemanticColors.chart.portfolio}
+          stroke={tokens.semantic.chart.portfolio}
           strokeWidth={3}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -361,7 +360,7 @@ function JourneyLineChart({
             key={`${point.label}-${index}`}
             x={xFor(index, data.length)}
             y={chartHeight - 8}
-            fill={ClearLensColors.textTertiary}
+            fill={tokens.colors.textTertiary}
             fontSize={11}
             fontWeight="600"
             textAnchor={index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'middle'}
@@ -1252,7 +1251,7 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   heroEyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   heroTitle: {
