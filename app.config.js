@@ -53,11 +53,12 @@ module.exports = ({ config }) => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: variantConfig.iosBundleIdentifier,
+      icon: './assets/images/icon.png',
     },
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#0A1430',
       },
       package: variantConfig.androidPackage,
       softwareKeyboardLayoutMode: 'resize',

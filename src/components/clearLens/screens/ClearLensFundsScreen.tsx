@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -1012,12 +1013,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bottomNav: {
-    minHeight: 84,
+    minHeight: 96,
     borderTopWidth: 1,
     borderTopColor: ClearLensColors.borderLight,
     backgroundColor: ClearLensColors.surface,
     paddingTop: 7,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'web' ? 48 : 18,
     paddingHorizontal: ClearLensSpacing.sm,
     flexDirection: 'row',
   },
