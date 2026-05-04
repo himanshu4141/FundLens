@@ -20,13 +20,14 @@ import { navStaleness } from '@/src/utils/navUtils';
 import type { FundCardData } from '@/src/hooks/usePortfolio';
 import type { InsightFundAllocation } from '@/src/types/app';
 
-type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
+type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'dailyChange' | 'alphabetical';
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'currentValue', label: 'Current value' },
   { value: 'invested', label: 'Invested' },
   { value: 'xirr', label: 'XIRR' },
   { value: 'benchmarkLead', label: 'Lead vs benchmark' },
+  { value: 'dailyChange', label: '1 day change' },
   { value: 'alphabetical', label: 'Alphabetical' },
 ];
 
@@ -369,6 +370,8 @@ function ClassicFundsScreen() {
         return funds.sort((a, b) => sortableNumber(b.returnXirr) - sortableNumber(a.returnXirr));
       case 'benchmarkLead':
         return funds.sort((a, b) => benchmarkLeadValue(b.returnXirr) - benchmarkLeadValue(a.returnXirr));
+      case 'dailyChange':
+        return funds.sort((a, b) => sortableNumber(b.dailyChangePct) - sortableNumber(a.dailyChangePct));
       case 'alphabetical':
         return funds.sort((a, b) =>
           parseFundName(a.schemeName).base.localeCompare(parseFundName(b.schemeName).base),
