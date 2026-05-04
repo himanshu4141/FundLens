@@ -534,13 +534,19 @@ function SipEditorModal({
                 </View>
               )}
               <View style={styles.sheetActions}>
-                <TouchableOpacity style={styles.primaryButton} onPress={onUseDetected}>
+                <TouchableOpacity
+                  style={[styles.secondaryButton, styles.sheetActionItem]}
+                  onPress={onManual}
+                >
+                  <Text style={styles.secondaryButtonText}>Enter manually</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.primaryButton, styles.sheetActionItem]}
+                  onPress={onUseDetected}
+                >
                   <Text style={styles.primaryButtonText}>
                     {hasDetectedSip ? 'Use detected SIP' : 'Keep monthly SIP'}
                   </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryButton} onPress={onManual}>
-                  <Text style={styles.secondaryButtonText}>Enter manually</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1757,6 +1763,11 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
   },
   sheetActions: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
     gap: ClearLensSpacing.sm,
+  },
+  sheetActionItem: {
+    flex: 1,
   },
 });

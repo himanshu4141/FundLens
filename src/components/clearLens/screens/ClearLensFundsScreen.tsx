@@ -782,14 +782,15 @@ const styles = StyleSheet.create({
   },
   fundTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: ClearLensSpacing.xs,
   },
   fundMainTap: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: ClearLensSpacing.sm,
+    minWidth: 0,
   },
   fundNameBlock: {
     flex: 1,
@@ -897,6 +898,7 @@ const styles = StyleSheet.create({
     fontFamily: ClearLensFonts.bold,
     textAlign: 'right',
     flexShrink: 1,
+    flexWrap: 'wrap',
   },
   sparklinePanel: {
     minHeight: 62,

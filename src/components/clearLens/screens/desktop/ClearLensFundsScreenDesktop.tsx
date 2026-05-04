@@ -247,8 +247,13 @@ function FundDesktopCard({
 }) {
   const { base, planBadge } = parseFundName(fund.schemeName);
   const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
-  const xirrColor = fund.returnXirr - benchmarkXirr >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
-  const alphaPp = (fund.returnXirr - benchmarkXirr) * 100;
+  const alphaPpRaw = (fund.returnXirr - benchmarkXirr) * 100;
+  // Round before sign-deciding so a value that rounds to 0.0 doesn't render as "-0.0 pp"
+  // with a red badge — those rounding cases are visually neutral, not negative.
+  const alphaPp = Math.round(alphaPpRaw * 10) / 10;
+  const ahead = alphaPp >= 0;
+  const xirrColor = ahead ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const alphaSign = alphaPp > 0 ? '+' : alphaPp < 0 ? '' : '±';
   const isDebtLike = /debt|liquid|gilt|income|overnight|money market|ultra short/i.test(fund.schemeCategory);
   const accentColor = isDebtLike
     ? ClearLensSemanticColors.asset.debt
@@ -267,40 +272,34 @@ function FundDesktopCard({
           <View
             style={[
               styles.alphaBadge,
-              { backgroundColor: alphaPp >= 0 ? ClearLensSemanticColors.sentiment.positiveSurface : ClearLensSemanticColors.sentiment.negativeSurface },
+              { backgroundColor: ahead ? ClearLensSemanticColors.sentiment.positiveSurface : ClearLensSemanticColors.sentiment.negativeSurface },
             ]}
           >
             <Text style={[styles.alphaBadgeText, { color: xirrColor }]}>
-              {alphaPp >= 0 ? '+' : ''}{alphaPp.toFixed(1)} pp
+              {alphaSign}{Math.abs(alphaPp).toFixed(1)} pp
             </Text>
           </View>
         </View>
 
         <View style={styles.metricsRow}>
-          <View style={styles.metricCell}>
-            <Text style={styles.metricLabel}>Current value</Text>
-            <Text style={styles.metricValue}>
-              {fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}
-            </Text>
-          </View>
-          <View style={styles.metricCell}>
-            <Text style={styles.metricLabel}>XIRR</Text>
-            <Text style={[styles.metricValue, { color: xirrColor }]}>{formatXirr(fund.returnXirr)}</Text>
-          </View>
-          <View style={styles.metricCell}>
-            <Text style={styles.metricLabel}>Today</Text>
-            <Text style={[styles.metricValue, { color: dailyColor }]}>
-              {fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
-            </Text>
-          </View>
-          <View style={styles.metricCell}>
-            <Text style={styles.metricLabel}>Allocation</Text>
-            <Text style={styles.metricValue}>{portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'}</Text>
-          </View>
+          <MetricCell
+            label="Current value"
+            value={fund.currentValue != null ? formatCurrency(fund.currentValue) : 'NAV pending'}
+          />
+          <MetricCell label="XIRR" value={formatXirr(fund.returnXirr)} valueColor={xirrColor} />
+          <MetricCell
+            label="Today"
+            value={fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
+            valueColor={dailyColor}
+          />
+          <MetricCell
+            label="Allocation"
+            value={portfolioPct != null ? `${portfolioPct.toFixed(1)}%` : '—'}
+          />
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.footerText}>
+          <Text style={styles.footerText} numberOfLines={1}>
             Invested {formatCurrency(fund.investedAmount)}
             {fund.currentValue != null && fund.investedAmount > 0
               ? ` · Gain ${formatClearLensCurrencyDelta(fund.currentValue - fund.investedAmount)}`
@@ -310,6 +309,30 @@ function FundDesktopCard({
         </View>
       </ClearLensCard>
     </TouchableOpacity>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  valueColor = ClearLensColors.navy,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <View style={styles.metricCell}>
+      <Text style={styles.metricLabel} numberOfLines={1}>{label}</Text>
+      <Text
+        style={[styles.metricValue, { color: valueColor }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -436,9 +459,9 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.md,
   },
   cardOuter: {
-    flexBasis: '48%',
+    flexBasis: 0,
     flexGrow: 1,
-    minWidth: 320,
+    minWidth: 360,
   },
   fundCard: {
     gap: ClearLensSpacing.sm,
@@ -473,12 +496,13 @@ const styles = StyleSheet.create({
   },
   metricsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: ClearLensSpacing.md,
+    alignItems: 'flex-start',
+    gap: ClearLensSpacing.sm,
     marginTop: 4,
   },
   metricCell: {
-    minWidth: 100,
+    flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   metricLabel: {
