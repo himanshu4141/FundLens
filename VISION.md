@@ -1,4 +1,4 @@
-# FundLens — Vision and Mission
+# FolioLens — Vision and Mission
 
 ## The Problem
 

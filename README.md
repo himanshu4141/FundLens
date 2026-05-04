@@ -1,29 +1,27 @@
-# FundLens
+# FolioLens
 
 Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see XIRR, inspect composition, and model future outcomes.
+
+For the why-and-what, read [VISION.md](./VISION.md).
+For the how-it-runs, read [docs/INFRASTRUCTURE.md](./docs/INFRASTRUCTURE.md).
 
 ---
 
 ## What works now
 
-- Magic link authentication (sign in / sign out) and **Google OAuth** — sign in with your Google account as an alternative; connect Google to an existing account from Settings
-- Optional local-only dev auth shortcut backed by a seeded demo user
-- **Import portfolio** — enter your CAS registrar email and request a CAS via CASParser, or upload a CAS PDF directly; supports CAMS / KFintech / MFCentral PDFs (password = PAN) and CDSL / NSDL demat CAS PDFs (password = PAN + date of birth); type is auto-detected from the PDF content; failed SIPs (REVERSAL transactions) are correctly excluded so they never create phantom holdings
-- **Portfolio / Home screen** — Clear Lens is the default: dark value hero, NAV staleness context, XIRR vs configurable benchmark, investment journey chart with `1M`/`3M`/`6M`/`1Y`/`3Y`/`All` ranges, top movers, allocation preview, Portfolio Insights entry, Your Funds entry, and Wealth Journey path; classic remains selectable in Settings
-- **Money Trail** — Clear Lens transaction history built from CAS imports, with portfolio preview by Indian financial year, quick action entry, fund-specific entry points, summary totals, search, filters, sorting, transaction detail, and CSV export of the visible filtered list
-- **Fund detail** — polished holding header with current value, gain/loss, XIRR (SIP-adjusted, annualised), clearer composition cards/tables, and one clean history-aware back path; Performance tab with period-consistent fund vs benchmark comparison, per-fund benchmark selector, interactive crosshair, crosshair-synced return summary; NAV History tab with 4dp precision; both charts have Y-axis labels and fit all data within the container
-- **Leaderboard** — Clear Lens ranked leaders / laggards view with benchmark-aware scoring, alpha summary, benchmark selector, loading/empty/error states, and classic fallback
-- **Wealth Journey** — Clear Lens summary-first planning flow based on your current corpus, detected SIP pace with separate review/edit, future-SIP targeting, expected-return presets, top-ups, withdrawal scenarios, inflation-adjusted context, side-by-side current-vs-adjusted results, and withdrawal drawdown view
-- **Tools Hub / Goal Planner** — Clear Lens tools entry from Portfolio and Wealth Journey, with Goal Planner creation, saved goal summaries, conservative growth defaults, and feature-flagged coming-soon cards
-- **Settings** — account info, **Connected Accounts** (shows linked providers; connect Google to an existing magic-link account), inbound CAS address, PDF upload shortcut, Preferences section with default benchmark picker and design theme, sign out
-- **Portfolio Insights** — one-tap access from the Portfolio screen to asset mix, market cap distribution, sector exposure, debt/cash mix, top holdings, and fund allocation; two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer); prominent "estimated" banner when showing category-derived data; auto-syncs when data is >35 days old
-- **Shared scheme catalog** — scheme metadata and composition caches are now stored once per `scheme_code`, so future users can reuse known fund data instead of rebuilding duplicate per-user copies; the catalog also captures future-use `mfdata` fields like family linkage, declared benchmark text, risk label, Morningstar rating, and related variants
-- **Screen-family navigation** — Portfolio / Leaderboard / Wealth Journey are the primary tabs; Settings and Compare are hidden from the tab bar; utility screens use a lighter back-title header; Fund Detail relies on one clear history-aware back path
-- **Your Funds** — dedicated screen listing all holdings with shared fund cards, portfolio-allocation context, a mobile-friendly sort sheet, and in-memory sorting by current value, invested amount, XIRR, benchmark lead, or alphabetical order
-- **Clear Lens design mode** — Clear Lens is the default Focus Ring design; Settings can switch back to the current/classic design, and the choice persists across restarts while the app name remains FundLens
-- **Preview usage metrics** — EAS Insights support is enabled via `expo-insights`, so once the preview apps are rebuilt and installed you can see usage trends for the preview streams in Expo
-- **Data sync** — NAV and benchmark index data synced via parallel fetch (Promise.allSettled) on pg_cron; completes in <30s regardless of scheme count
-- Full CI/CD: typecheck + lint + coverage in CI, EAS Update on every PR, Supabase migration replay validation on PRs, linked-project migration/schema validation before Supabase deploys on merge to main, and hardened preview publishing for Vercel / EAS export hangs
+- **Auth** — magic-link sign-in (via Resend on `foliolens.in`) and Google OAuth. Existing magic-link accounts can connect Google from Settings → Connected Accounts.
+- **Import portfolio** — upload a CAS PDF directly from the app (CAMS / KFintech / MFCentral with PAN password; CDSL / NSDL with PAN+DOB). The (currently in-flight) wizard rewrites onboarding into a 4-step flow that explains each step and links out to the portals via in-app browser. Auto-refresh via Resend Inbound (`cas+<token>@foliolens.in`) is the next phase.
+- **Portfolio / Home screen** — Clear Lens design: hero value, NAV staleness context, XIRR vs configurable benchmark, investment-vs-benchmark chart with `1M / 3M / 6M / 1Y / 3Y / All` ranges, top movers, allocation preview, Portfolio Insights entry, Your Funds entry, Wealth Journey, Money Trail preview.
+- **Money Trail** — every transaction with a hero summary, by-financial-year mini chart (tap a bar to see invested / withdrawn for that year), simplified type filter chips (Investment / Withdrawal / Switch / Dividend / Failed / Other), search, sort, CSV export, scroll-to-top FAB. Hero respects only date-range / fund scope; drill-down filters never empty out summary tiles.
+- **Fund detail** — current value, gain/loss, SIP-adjusted XIRR, composition cards, Performance tab with crosshair-synced fund-vs-benchmark return, NAV history.
+- **Leaderboard** — benchmark-aware leaders / laggards.
+- **Wealth Journey** — corpus-first planning: detected SIP pace, future-SIP targeting, top-ups, withdrawal scenarios, inflation-adjusted side-by-side projections.
+- **Tools Hub / Goal Planner** — saved goals with conservative growth defaults; M2/M3/M4 stacked behind feature flags.
+- **Settings** — account, Connected Accounts, Preferences (default benchmark, theme), in-app Help & FAQs (opens `foliolens.in/faq.html` in an in-app browser), native Request a feature / Report an issue forms with optional screenshot attachment.
+- **Portfolio Insights** — asset mix, market cap, sector exposure, debt / cash mix, top holdings, fund allocation. Two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer, refreshed by `sync-fund-portfolios`).
+- **Shared scheme catalog** — scheme metadata cached once per `scheme_code` so future users reuse known fund data.
+- **Three-flavour mobile** — `production`, `preview-main`, `preview-pr` Android builds, each on its own EAS channel, scheme, and bundle ID.
+- **Production gating** — `main` only ever updates DEV; production releases require an explicit `v*` git tag. See [docs/INFRASTRUCTURE.md](./docs/INFRASTRUCTURE.md#branching-merging-releasing) for the full release flow.
 
 ---
 
@@ -43,68 +41,62 @@ Track your Indian mutual fund portfolio against benchmarks. Import from CAS, see
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/FundLens.git
-cd FundLens
+git clone https://github.com/himanshu4141/FolioLens.git
+cd FolioLens
 npm install
 ```
 
 ### 2. Environment variables
 
-Copy `.env.example` to `.env.local` and fill in your values:
+Copy `.env.example` to `.env.local` and fill in values:
 
 ```bash
 cp .env.example .env.local
 ```
 
 ```env
-EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+# Pick the values for whichever Supabase project you want to develop against.
+# DEV is the default; PROD secrets only belong in CI.
+EXPO_PUBLIC_SUPABASE_URL=https://imkgazlrxtlhkfptkzjc.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+EXPO_PUBLIC_APP_BASE_URL=https://foliolens-dev.vercel.app
 ```
-
-Get these from your [Supabase project](https://supabase.com/dashboard) → Settings → API.
-
-> **Note:** Supabase now uses **publishable keys** (format: `sb_publishable_...`) instead of the old `anon` key. See the [migration announcement](https://github.com/orgs/supabase/discussions/29260).
 
 ### 3. Start the app
 
 ```bash
-npm start        # opens Expo dev server — scan QR with Expo Go
-npm run web      # runs in browser at localhost:8081
-npm run android  # opens Android emulator or connected device
+npm start         # Expo dev server → scan QR with Expo Go
+npm run web       # localhost:8081
+npm run android   # connected device / emulator
 ```
 
-### 3a. Optional: local dev auth shortcut + demo portfolio
+### 3a. Optional: dev auth shortcut + demo portfolio
 
-If you want to test the app end to end without waiting for magic-link emails or using a real portfolio:
+If you want to test end-to-end without waiting for magic-link emails:
 
-1. Set these in `.env.local`:
+1. Set in `.env.local`:
 
-```env
-EXPO_PUBLIC_ENABLE_DEV_AUTH_BYPASS=true
-EXPO_PUBLIC_DEV_AUTH_EMAIL=demo@fundlens.local
-EXPO_PUBLIC_DEV_AUTH_PASSWORD=change-me-local-only
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-```
+   ```env
+   EXPO_PUBLIC_ENABLE_DEV_AUTH_BYPASS=true
+   EXPO_PUBLIC_DEV_AUTH_EMAIL=demo@foliolens.local
+   EXPO_PUBLIC_DEV_AUTH_PASSWORD=change-me-local-only
+   SUPABASE_SERVICE_ROLE_KEY=<dev service role key>
+   ```
 
 2. Seed the demo user and portfolio:
 
-```bash
-npm run seed:demo
-```
+   ```bash
+   npm run seed:demo
+   ```
 
-3. Start the app locally. On the sign-in screen, a dev-only `Continue as demo user` shortcut will appear on localhost / dev builds.
-
-Notes:
-- This shortcut is intended for local development only.
-- Do not enable it in production or shared preview environments.
-- Private real CAS files can be kept under `fixtures/private/`, which is git-ignored.
+3. On the sign-in screen, a `Continue as demo user` shortcut appears on localhost / dev builds. Real CAS files for testing can be kept under `fixtures/private/` (git-ignored).
 
 ### 4. Supabase schema
 
-The schema is already deployed to the project. If you fork and use a new Supabase project, push the migrations:
+Migrations live under `supabase/migrations/`. To target the DEV project from a fork:
 
 ```bash
-supabase link --project-ref your-project-ref
+supabase link --project-ref imkgazlrxtlhkfptkzjc
 supabase db push
 ```
 
@@ -116,97 +108,31 @@ npm run gen:types
 
 ---
 
-## Android APK (install on your phone)
+## Android APKs (install on your phone)
 
-Build the stable preview APK via EAS:
-
-```bash
-eas build --profile preview-main --platform android
-```
-
-Build the rolling PR preview APK via EAS:
+Three flavours, one project. Each has its own scheme, bundle ID, and EAS Update channel:
 
 ```bash
-eas build --profile preview-pr --platform android
+eas build --profile preview-pr   --platform android  # rolling PR review build (foliolens-pr)
+eas build --profile preview-main --platform android  # stable beta build      (foliolens-main)
+eas build --profile production   --platform android  # tagged release build   (foliolens-production)
 ```
 
-After ~20 minutes, EAS prints a download link. Open it on your phone, download the APK, and install it. You only need to rebuild when native code changes; JS changes deploy instantly via `eas update`.
-
-Recommended device setup during active development:
-
-- Install `preview-main` once as your stable shareable preview app
-- Install `preview-pr` once as your rolling PR review app
-- `main` merges publish OTA updates to the `main` stream for `FundLens Main`
-- PR commits publish OTA updates to the `pr-builds` stream for `FundLens PR`
+EAS prints a download link; install the APK directly. JS-only changes flow as OTA updates — no rebuild needed unless native modules changed.
 
 ---
 
-## Auth: Magic Link
+## Auth: magic link + Google
 
-1. Open the app → enter your email → tap "Send secure link →"
-2. Check your inbox → tap the link
-3. The link opens your installed FundLens app and signs you in automatically
+Magic-link flows through Resend SMTP on `foliolens.in`. Google OAuth uses two Google Cloud Web Client IDs (one per Supabase project). The exact redirect-URL list and dashboard config lives in [docs/INFRASTRUCTURE.md](./docs/INFRASTRUCTURE.md#google-oauth) — re-read that file when adding a new build variant.
 
-The app scheme varies by installed build (`fundlens`, `fundlens-main`, `fundlens-pr`, etc.) and is configured in [app.config.js](/Users/hyadav/code/personal/FundLens/app.config.js).
+The native scheme depends on which APK is installed:
 
----
-
-## Auth: Google OAuth
-
-Tap "Continue with Google" on the sign-in screen. The app opens an in-app browser (or redirects on web), you authenticate with Google, and the app completes sign-in automatically.
-
-**Existing accounts:** if your Google email matches an existing magic-link account, Supabase auto-links the two identities and you see a confirmation. If you signed in via magic link first, go to Settings → Connected Accounts → Connect to add Google afterwards.
-
-### Setup required (one-time, in dashboards)
-
-**1. Google Cloud Console**
-
-- Create an OAuth 2.0 Web Client ID at [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials.
-- Add these to **Authorized redirect URIs**:
-  - `https://<your-project-ref>.supabase.co/auth/v1/callback`
-
-**2. Supabase Dashboard**
-
-- Go to Auth → Providers → Google → enable and paste the Client ID and Client Secret.
-- Go to Auth → URL Configuration:
-  - set `Site URL` to `https://fund-lens.vercel.app`
-  - add these exact `Redirect URLs`:
-
-  | Environment | URL |
-  |---|---|
-  | Production web bridge | `https://fund-lens.vercel.app/auth/confirm` |
-  | Production web OAuth | `https://fund-lens.vercel.app/auth/callback` |
-  | Vercel preview bridge | `https://fund-lens-*.vercel.app/auth/confirm` |
-  | Vercel preview OAuth | `https://fund-lens-*.vercel.app/auth/callback` |
-  | Local web dev bridge | `http://localhost:8081/auth/confirm` |
-  | Local web dev OAuth | `http://localhost:8081/auth/callback` |
-  | Local Expo web bridge | `http://localhost:19006/auth/confirm` |
-  | Local Expo web OAuth | `http://localhost:19006/auth/callback` |
-  | Native production app bridge | `fundlens://auth/confirm` |
-  | Native production app OAuth | `fundlens://auth/callback` |
-  | Native main preview bridge | `fundlens-main://auth/confirm` |
-  | Native main preview OAuth | `fundlens-main://auth/callback` |
-  | Native PR preview bridge | `fundlens-pr://auth/confirm` |
-  | Native PR preview OAuth | `fundlens-pr://auth/callback` |
-
-Notes:
-- `/auth/confirm` is used by the magic-link/native bridge flow
-- `/auth/callback` is used by Google OAuth
-- we intentionally avoid the broader `https://*.vercel.app/**` wildcard and only allow preview URLs matching this project’s naming pattern
-
-**3. Local web development (`npm run web`)**
-
-For Google login to work at `http://localhost:8081`, add `http://localhost:8081/auth/callback` to both lists above (Supabase Redirect URLs **and** Google Cloud Console Authorized redirect URIs).
-
-No `.env.local` changes are needed — the client reads the Google OAuth configuration from Supabase automatically.
-
-**Native local testing**
-
-Google OAuth on native requires a build that has the right app scheme registered. Expo Go cannot be used. Options:
-
-- Build a development client: `eas build --profile development --platform android` (or `ios`)
-- Install the stable preview app: `eas build --profile preview-main --platform android`
-- Install the rolling PR preview app: `eas build --profile preview-pr --platform android`
+| Variant | Scheme |
+|---------|--------|
+| `production` | `foliolens://` |
+| `preview-main` | `foliolens-main://` |
+| `preview-pr` | `foliolens-pr://` |
 
 ---
 
@@ -214,77 +140,61 @@ Google OAuth on native requires a build that has the right app scheme registered
 
 | Trigger | Workflow | What it does |
 |---|---|---|
-| Pull request | `pr-preview.yml` | `tsc`, `eslint`, `eas update` to the shared `pr-builds` stream for the installed `FundLens PR` app, posts update comment |
-| Pull request | `supabase-validate.yml` | Rebuilds the local Supabase DB from migrations and lints the resulting public schema |
-| Merge to main | `production.yml` | `tsc`, `eslint`, `eas update` to both the shared `main` preview stream and the existing `production` stream |
-| Merge to main | Vercel (automatic) | `expo export --platform web` → deploys to Vercel |
-| Merge to main | `supabase-deploy.yml` | Validates local replay + linked migration/schema parity, then deploys edge functions and runs migrations (triggers when `supabase/` paths change) |
+| PR open / commit | `pr-preview.yml` | typecheck + lint + tests + EAS update to `foliolens-pr` (DEV Supabase) |
+| PR commit on `supabase/**` | `supabase-validate.yml` | local migration replay + `db lint` |
+| Push to `main` | `main-deploy.yml` | typecheck + lint + tests + EAS update to `foliolens-main` (DEV Supabase) |
+| Push to `main` on `supabase/**` | `supabase-deploy-dev.yml` | deploy Edge Functions + push migrations to DEV |
+| Manual dispatch | `supabase-deploy-prod.yml` | deploy Edge Functions + push migrations to PROD |
+| Tag `v*` push | `production-release.yml` | EAS update to `foliolens-production` + Vercel prod deploy |
+| Monthly cron + manual | `sync-amfi-portfolios.yml` | refresh AMFI portfolio composition disclosures (DEV + PROD in parallel) |
 
-## Preview Metrics
-
-Expo currently gives you two levels of visibility:
-
-- EAS Update already provides high-level adoption/usage signals from update requests
-- `expo-insights` adds more precise app-launch usage metrics and app-version breakdowns in the Expo dashboard
-
-Current setup:
-
-- `expo-insights` is installed in this project
-- metrics begin flowing after you create and install fresh native builds that include the package
-- view them in Expo Dashboard → Project → Insights
-
-Practical implication:
-
-- rebuild and reinstall `preview-main` and `preview-pr` once after this change
-- after that, the `FundLens Main` preview app is the right stream to monitor for friend/family/focus-group usage
-
-**Required GitHub secrets:**
-- `EXPO_TOKEN` — from expo.dev → Account Settings → Access Tokens
-- `EXPO_PUBLIC_SUPABASE_URL` — your Supabase project URL
-- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — your Supabase publishable key
-- `SUPABASE_ACCESS_TOKEN` — from supabase.com → Account → Access Tokens
-- `SUPABASE_PROJECT_REF` — your project ref (e.g. `imkgazlrxtlhkfptkzjc`)
-- `SUPABASE_DB_URL` — from Supabase Dashboard → Settings → Database → Connection string (direct)
+For the full secret matrix and per-environment service map, see [docs/INFRASTRUCTURE.md](./docs/INFRASTRUCTURE.md).
 
 ---
 
 ## Project structure
 
 ```
-app/               Expo Router screens
-  _layout.tsx      Root layout: providers + auth gate
-  auth/            Sign in, confirm, and OAuth callback screens
-  (tabs)/          Portfolio, Leaderboard, Wealth Journey (+ hidden Settings / legacy Compare routes)
-  funds.tsx        Dedicated "Your Funds" screen
-  fund/[id].tsx    Fund detail
-  portfolio-insights.tsx  Portfolio composition detail screen
-  onboarding/      CAS import flows
+app/                          Expo Router screens
+  _layout.tsx                 Root layout (providers + auth gate)
+  auth/                       Sign in, confirm, OAuth callback
+  (tabs)/                     Portfolio, Leaderboard, Wealth Journey, hidden Settings / Compare
+  funds.tsx                   Your Funds list
+  fund/[id].tsx               Fund detail
+  money-trail/                Money Trail list + transaction detail
+  onboarding/                 4-step CAS import wizard + standalone PDF upload
+  portfolio-insights.tsx      Portfolio composition detail
+  tools/                      Tools Hub + Goal Planner
 src/
-  components/      Shared UI components
-  hooks/           useSession, usePortfolio, useFundDetail, usePortfolioInsights, ...
-  lib/             supabase.ts, queryClient.ts
-  types/           database.types.ts (auto-generated), app.ts
-  utils/           xirr.ts, formatCurrency.ts, cashflows.ts, filterToWindow.ts, authUtils.ts
+  components/                 Shared UI (FeedbackSheet, AppOverflowMenu, ClearLens primitives, …)
+  hooks/                      useSession, usePortfolio, useFundDetail, usePortfolioInsights, …
+  lib/                        supabase.ts, queryClient.ts
+  types/                      database.types.ts (generated), app.ts
+  utils/                      xirr.ts, formatCurrency.ts, moneyTrail.ts, onboardingDraft.ts, casPdfUpload.ts, casInboxToken.ts, …
 supabase/
-  functions/       Edge Functions: sync-nav, sync-index, cas-webhook, sync-fund-portfolios
-  migrations/      SQL migrations
+  functions/                  Edge Functions: parse-cas-pdf, cas-webhook-resend, sync-nav, sync-index, sync-fund-portfolios, sync-fund-meta, …
+  migrations/                 SQL migrations (single source of truth for schema)
+  templates/                  Email templates (synced manually into Supabase Auth dashboards)
 docs/
-  plans/           ExecPlan documents per milestone
-.github/workflows/ CI/CD (pr-preview, production, supabase-deploy)
+  INFRASTRUCTURE.md           ← canonical reference for services, environments, workflows
+  TECH-DISCOVERY.md           ← data model + integration deep dive
+  SCREENS.md                  ← UX surface area
+  ROADMAP.md                  ← what's shipped / what's next
+  plans/                      ExecPlans (active under per-phase folders, shipped under archive/)
+.github/workflows/            CI/CD
 ```
 
 ---
 
-## Milestones
+## Phase status
 
-| # | Branch | Description |
-|---|---|---|
-| 1 | `milestone/1-foundation` | App skeleton, auth, schema, CI/CD |
-| 2 | `milestone/2-data-pipeline` | Edge Functions: sync-nav, sync-index, Supabase deploy workflow |
-| 3 | `milestone/3-onboarding` | CAS import via CASParser inbound email, PDF upload |
-| 4 | `milestone/4-home-screen` | Portfolio total, XIRR vs benchmark, fund cards |
-| 5 | `milestone/5-fund-detail` | Fund vs benchmark chart, NAV history, time windows |
-| 6 | `milestone/6-compare` | Multi-fund comparison chart and metrics table |
-| 7 | `milestone/7-improvements` | Settings screen, smart import, hourly cron |
-| 8 | `milestone/8-google-login` | Google OAuth sign-in, account linking |
-| 9 | `claude/portfolio-insights-feature-ciUhb` | Portfolio Insights: asset mix, market cap, sectors, top holdings |
+| Phase | Status |
+|-------|--------|
+| 1 Foundation | Shipped (auth, schema, base CI) |
+| 2 Data pipeline + portfolio (M1–M9 + M11) | Shipped |
+| 3 Clear Lens design system | Shipped |
+| 4 Tools Hub | M0 + M1 (Goal Planner) shipped; M2–M4 stacked |
+| 5 CAS onboarding redesign | M1 wizard in flight (PR #92); M2 Resend Inbound backend in flight (PR #93) |
+| 6 (planned) | MFCentral OAuth — partner agreement track |
+
+Active ExecPlans live under `docs/plans/<phase>/`. Shipped plans move to `docs/plans/archive/`.

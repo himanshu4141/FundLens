@@ -1,0 +1,296 @@
+# FolioLens Infrastructure
+
+
+This document is the canonical reference for how FolioLens runs in production and development. It covers every service the app touches, the boundaries between dev and prod, the workflows that ship code and data, and the manual config that lives outside the repo. Read this when joining the project, when adding new infra, or when something in CI/CD breaks.
+
+
+## High-level picture
+
+
+FolioLens has **two fully isolated environments** — DEV and PROD — that share no data, no users, and no auth tokens. Each environment has its own Supabase project, its own Vercel project, its own Google OAuth client, its own EAS Update channels, and its own native app variant. They do share **one** of each platform account (Supabase, Vercel, Resend, Expo, Google Cloud), but resources inside those accounts are split.
+
+
+The mobile app exists in three flavours so we can ship safely:
+
+
+| Build | Source of code | Source of data | Audience |
+|-------|----------------|----------------|----------|
+| `production` | `foliolens-production` EAS channel (only updated on tag push) | PROD Supabase | Beta users |
+| `preview-main` | `foliolens-main` EAS channel (updated on every `main` merge) | DEV Supabase | Early testers (you + friends) |
+| `preview-pr` | `foliolens-pr` EAS channel (updated on every PR commit) | DEV Supabase | PR reviewers |
+
+
+The web app at `https://app.foliolens.in` runs the same Expo Router code, exported via `expo export --platform web` and served by Vercel. The PROD Vercel project is **disconnected from GitHub** so it only deploys when the production-release workflow pushes it; the DEV Vercel project auto-deploys every PR (preview) and every `main` merge (production).
+
+
+## Domain map
+
+
+| Domain | Hosted on | Purpose |
+|--------|-----------|---------|
+| `foliolens.in` | Cloudflare | Marketing landing page + privacy / FAQ |
+| `app.foliolens.in` | Vercel (PROD project: `foliolens`) | Production web app |
+| `foliolens-dev.vercel.app` | Vercel (DEV project: `foliolens-dev`) | Dev web app + PR previews |
+| `<*>.vercel.app` | Vercel (DEV project) | Per-PR preview URLs |
+| `cas+<token>@foliolens.in` | Resend Inbound (M2 incoming) | Per-user CAS forwarding inbox |
+| `noreply@foliolens.in` | Resend SMTP (PROD) | Magic-link + transactional email — prod |
+| `noreply-dev@foliolens.in` | Resend SMTP (DEV) | Magic-link + transactional email — dev |
+
+
+## The two Supabase projects
+
+
+Both run Postgres 17, the same schema (kept in sync via migrations under `supabase/migrations/`), and the same set of Edge Functions. They differ only in user data, auth credentials, and SMTP sender.
+
+
+| | DEV project | PROD project |
+|---|---|---|
+| Reference | `imkgazlrxtlhkfptkzjc` | `ohcaaioabjvzewfysqgh` |
+| URL | `https://imkgazlrxtlhkfptkzjc.supabase.co` | `https://ohcaaioabjvzewfysqgh.supabase.co` |
+| Site URL (Auth) | `https://foliolens-dev.vercel.app` | `https://app.foliolens.in` |
+| Magic-link sender | `noreply-dev@foliolens.in` (FolioLens Dev) | `noreply@foliolens.in` (FolioLens) |
+| Google OAuth client | DEV-specific Web Client ID | PROD-specific Web Client ID |
+| Migrations applied by | `supabase-deploy-dev.yml` (auto on main merge) | `supabase-deploy-prod.yml` (manual workflow_dispatch) |
+| Edge functions deployed by | same workflow | same workflow |
+| Native scheme allowlist | `foliolens-dev://`, `foliolens-main://`, `foliolens-pr://` | `foliolens://` |
+
+
+### What lives in Supabase
+
+
+- **Auth** — magic-link + Google OAuth. PKCE flow on native. JWT-based sessions stored client-side.
+- **Database** — `user_profile`, `cas_import`, `cas_inbound_session`, `fund_portfolio_composition`, `nav_history`, `index_history`, `scheme_master`, `user_feedback`, plus per-user views (e.g. `fund`).
+- **Edge Functions** — listed below.
+- **Storage** — currently one bucket: `user-feedback-attachments` (private, 10 MB cap, image MIME types only).
+- **pg_cron** — scheduled NAV / index / fund-meta sync jobs (see Edge Functions table).
+
+
+### Edge Functions
+
+
+| Function | Trigger | Purpose | Status |
+|---------|---------|---------|--------|
+| `parse-cas-pdf` | Native upload from app | Forwards a binary PDF to the Vercel-hosted Python parser, then runs `_shared/import-cas.ts` | Active |
+| `cas-webhook` | CASParser inbound-email webhook | Receives parsed CAS payload from CASParser and imports it | **Deprecated, replaced by `cas-webhook-resend`** (still on disk while M2.6 retires call sites) |
+| `cas-webhook-resend` | Resend Inbound webhook | Receives raw inbound email + base64 PDF attachments, looks up user via `cas_inbox_token`, calls Vercel parser, imports | M2 (PR #93) |
+| `request-cas` | App "Sync portfolio" tap | Triggers KFintech CAS email via CASParser API | **Deprecated**, retired in M2.6 |
+| `create-inbound-session` | First onboarding | Creates a per-user CASParser inbound mailbox | **Deprecated**, retired in M2.6 |
+| `sync-nav` | pg_cron (hourly) | Pulls NAV history from mfapi.in for every active scheme | Active |
+| `sync-index` | pg_cron (hourly) | Pulls benchmark index closes from yahoo finance | Active |
+| `sync-fund-portfolios` | pg_cron (monthly) | Pulls AMFI portfolio composition disclosures | Active |
+| `sync-fund-meta` | pg_cron (daily) | Refreshes scheme metadata (AUM, expense ratio, risk) | Active |
+
+
+All cron-triggered functions are deployed with `--no-verify-jwt` because pg_cron has no JWT to send.
+
+
+## Vercel projects
+
+
+| | DEV project (`foliolens-dev`) | PROD project (`foliolens`) |
+|---|---|---|
+| Project ID | `prj_EQ1YcOJeh9nzDnjk4mdPRi4y7zOR` | `prj_mjY4K0rYmgNhoGMyJ5oC9xMLcTAi` |
+| Team | `team_HeMWH6xlqe2BOC0NpT85uZPV` (one team for both) |
+| GitHub integration | Connected — auto-deploys main as production, every PR as a preview | **Disconnected** — only deploys via `production-release.yml` on tag push |
+| Production domain | `foliolens-dev.vercel.app` | `app.foliolens.in` (CNAME from Cloudflare) |
+| Build command | `expo export --platform web` (default for Expo template) | same |
+| Env vars (build-time) | `_DEV` values for `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `EXPO_PUBLIC_APP_BASE_URL` | `_PROD` values for the same |
+
+
+## Resend
+
+
+Single Resend account on the verified domain `foliolens.in`. Used for two purposes:
+
+
+1. **Outbound** — Supabase Auth's SMTP setting points at `smtp.resend.com:465` and uses a Resend SMTP key. Two different Resend "addresses" / sender names are configured per Supabase project so dev and prod emails don't blur.
+2. **Inbound** (M2) — a Resend Inbound Route catches `cas+*@foliolens.in` and POSTs to `cas-webhook-resend`. The webhook secret lives at `RESEND_INBOUND_SECRET` on each Supabase Edge runtime separately, so prod and dev receive their own emails.
+
+
+DNS for `foliolens.in` lives at the registrar; Cloudflare proxies the apex (landing page) and lets `app.foliolens.in` pass through unproxied to Vercel. SPF / DKIM / DMARC are managed in Resend's domain panel.
+
+
+## Expo / EAS
+
+
+Single expo.dev account. One project (`fa824fc9-9add-418b-8959-eeeeb693b7b5`, slug `foliolens`) hosts every flavour. Variants are picked at build time via the `APP_VARIANT` env var, which `app.config.js` maps onto:
+
+
+| Variant | Scheme | Bundle ID | EAS channel |
+|---------|--------|-----------|-------------|
+| `production` | `foliolens://` | `com.foliolens.app` | `foliolens-production` |
+| `preview-main` | `foliolens-main://` | `com.foliolens.app.preview-main` | `foliolens-main` |
+| `preview-pr` | `foliolens-pr://` | `com.foliolens.app.preview-pr` | `foliolens-pr` |
+| `development` | `foliolens-dev://` | `com.foliolens.app.dev` | `development` |
+
+
+Build-time env vars (the `EXPO_PUBLIC_*` ones baked into the JS bundle) come from **expo.dev → Project → Environment Variables**, scoped to one of three EAS environments:
+
+
+- `production` env → PROD Supabase + `https://app.foliolens.in`
+- `preview` env → DEV Supabase + `https://foliolens-dev.vercel.app`
+- `development` env → DEV Supabase + local dev server URLs
+
+
+GitHub Actions overrides these for OTA updates by passing the workflow's `_PROD` or `_DEV` GitHub secrets at runtime — that way OTA bundles always land with values matching the channel they ship to.
+
+
+## Google OAuth
+
+
+Two OAuth Web Client IDs live in **a single Google Cloud project**. Each has the matching Supabase callback as its only Authorized Redirect URI:
+
+
+| Client | Authorized redirect URI |
+|--------|--------------------------|
+| FolioLens-Dev | `https://imkgazlrxtlhkfptkzjc.supabase.co/auth/v1/callback` |
+| FolioLens | `https://ohcaaioabjvzewfysqgh.supabase.co/auth/v1/callback` |
+
+
+The OAuth consent screen is in **Testing** mode with External user type. The "App name" is set to `FolioLens` but Google still falls back to showing the Supabase host on the consent screen until brand verification is complete (blocked on having published privacy / terms pages on `foliolens.in`).
+
+
+## GitHub Actions workflows
+
+
+All workflows live under `.github/workflows/`. The intent is that **PRs and `main` merges only ever touch DEV**, and **production is gated behind an explicit git tag**.
+
+
+| Workflow | Trigger | What it does |
+|---------|---------|---|
+| `pr-preview.yml` | PR open / commit | typecheck + lint + tests + EAS update to `foliolens-pr` (DEV Supabase). Comments the OTA update IDs onto the PR. |
+| `supabase-validate.yml` | PR commit (only when `supabase/**` changes) | Spins up local Supabase, replays migrations, lints `public` schema. Read-only. |
+| `main-deploy.yml` | Push to `main` | typecheck + lint + tests + EAS update to `foliolens-main` (DEV Supabase). |
+| `supabase-deploy-dev.yml` | Push to `main` (only when `supabase/**` changes) | Deploys all Edge Functions and pushes migrations to DEV Supabase. |
+| `supabase-deploy-prod.yml` | `workflow_dispatch` only (manual button) | Validates parity, deploys functions, pushes migrations to PROD Supabase. |
+| `production-release.yml` | Tag push `v*` (also `workflow_dispatch`) | typecheck + lint + tests + EAS update to `foliolens-production` + Vercel prod deploy via CLI. |
+| `sync-amfi-portfolios.yml` | Monthly cron + manual dispatch | Runs `scripts/sync-amfi-portfolios.mjs` against DEV and PROD in parallel matrix jobs. |
+
+
+### What does **not** trigger automatically
+
+
+- Production EAS update — only on `v*` tag push
+- Production Vercel deploy — only on `v*` tag push (project is disconnected from GitHub)
+- Production Supabase migration / function deploy — only via `workflow_dispatch`
+
+
+This three-way gate is deliberate. A bad commit on `main` updates DEV but cannot touch any production user.
+
+
+## Secrets matrix
+
+
+All secrets are stored in **GitHub Actions repository secrets**.
+
+
+| Secret | Used by | Notes |
+|--------|---------|-------|
+| `EXPO_TOKEN` | All EAS-using workflows | Single token, scoped to the FolioLens Expo account |
+| `SUPABASE_ACCESS_TOKEN` | All Supabase workflows | Personal access token, scoped to both projects |
+| `SUPABASE_PROJECT_REF_DEV` | dev deploy / sync workflows | `imkgazlrxtlhkfptkzjc` |
+| `SUPABASE_PROJECT_REF_PROD` | prod deploy / sync workflows | `ohcaaioabjvzewfysqgh` |
+| `EXPO_PUBLIC_SUPABASE_URL_DEV` | preview / main / dev workflows | DEV Supabase URL |
+| `EXPO_PUBLIC_SUPABASE_URL_PROD` | production-release | PROD Supabase URL |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY_DEV` / `_PROD` | same as above | anon keys |
+| `EXPO_PUBLIC_APP_BASE_URL_DEV` / `_PROD` | same as above | `foliolens-dev.vercel.app` / `app.foliolens.in` |
+| `SUPABASE_SECRET_KEY_DEV` / `_PROD` | `sync-amfi-portfolios.yml` | Service-role keys for server-to-server access |
+| `VERCEL_TOKEN` | `production-release.yml` | Personal access token from Vercel → Account → Tokens |
+| `VERCEL_ORG_ID` | `production-release.yml` | `team_HeMWH6xlqe2BOC0NpT85uZPV` |
+| `VERCEL_PROJECT_ID_PROD` | `production-release.yml` | `prj_mjY4K0rYmgNhoGMyJ5oC9xMLcTAi` |
+
+
+On the Edge Function runtime (Supabase Dashboard → Functions → Secrets), the following are set per project:
+
+
+| Secret | DEV | PROD |
+|--------|-----|------|
+| `APP_BASE_URL` | `https://foliolens-dev.vercel.app` | `https://app.foliolens.in` |
+| `CAS_PARSER_SHARED_SECRET` | shared with the Vercel Python parser | same |
+| `CASPARSER_API_KEY` | (deprecated, kept until M2.6) | (deprecated, kept until M2.6) |
+| `EODHD_API_KEY` | only set if EOD-style index data needed | same |
+| `RESEND_INBOUND_SECRET` | M2: Resend Inbound webhook signing secret | same |
+| `VERCEL_PROTECTION_BYPASS_TOKEN` | only when Vercel protection is enabled | same |
+
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are auto-provided by Supabase to every Edge Function — never set them manually.
+
+
+## Branching, merging, releasing
+
+
+### Daily flow
+
+
+1. Cut a feature branch off `main`
+2. Open a PR — `pr-preview.yml` ships an OTA update to the `foliolens-pr` channel; PR Vercel preview goes live
+3. Merge to `main` (squash) — `main-deploy.yml` ships an OTA update to `foliolens-main`; `foliolens-dev` Vercel auto-deploys; if `supabase/**` changed, `supabase-deploy-dev.yml` applies the migration / functions
+4. Beta testers on the `preview-main` Android APK get the update on next launch
+
+
+### Producing a release
+
+
+1. Confirm `main` is green and beta-tested via the `preview-main` build
+2. If new migrations or Edge Functions changed, run **Deploy Supabase (Prod)** from the Actions tab and wait for it to go green
+3. `git tag v0.X.Y && git push origin v0.X.Y`
+4. `production-release.yml` ships:
+   - JS bundle to the `foliolens-production` EAS channel
+   - Web app to the `foliolens` Vercel project (`app.foliolens.in`)
+5. Beta users on the `production` Android APK pull the OTA on next launch
+
+
+There is **no** automatic prod release. Tagging is the explicit human-in-the-loop gate.
+
+
+## Manual prerequisites that live outside the repo
+
+
+These are configured once and rarely change. If you spin up a fresh fork, you'll need to redo them.
+
+
+| Where | What |
+|-------|------|
+| Supabase Dashboard → DEV → Auth → URL Configuration | Site URL + redirect URL list (one entry per native scheme + Vercel preview wildcard) |
+| Supabase Dashboard → PROD → Auth → URL Configuration | Site URL + redirect URL list (only `foliolens://` and `app.foliolens.in/**`) |
+| Supabase Dashboard → both projects → Auth → Email Templates → Magic Link | Paste the contents of `supabase/templates/magic_link.html`; set Subject |
+| Supabase Dashboard → both projects → Auth → Providers → Google | Enable, paste the matching Google Cloud OAuth Client ID + Secret |
+| Supabase Dashboard → both projects → Functions → Secrets | Set per-project secrets from the table above |
+| Resend Dashboard → Domains → `foliolens.in` | DKIM, SPF, DMARC verified; sender addresses configured |
+| Resend Dashboard → Inbound (M2) | Add MX records on `foliolens.in`, create Inbound Route `cas+*@foliolens.in` → both project webhooks |
+| Google Cloud Console → OAuth consent screen | App name + support email + privacy / terms URLs (TODO once landing-page legal pages are live) |
+| Cloudflare → DNS for `foliolens.in` | A / AAAA records for apex (landing page) + CNAME for `app` → Vercel + Resend MX records |
+| Vercel → `foliolens` project → Settings → Git | Disconnected from GitHub. Re-connecting accidentally would resume auto-deploys on every push and break the manual-only release gate. |
+| Vercel → both projects → Settings → Domains | DEV: `foliolens-dev.vercel.app` (auto). PROD: `app.foliolens.in` (custom). |
+| expo.dev → Environment Variables | DEV / preview / production envs each have their `EXPO_PUBLIC_*` values |
+
+
+## Observability
+
+
+- **Supabase Logs** — Auth, Edge Function, and Database logs viewable in the dashboard. Auth log level is set to "errors only" by default; set to "info" temporarily when debugging sign-in flows.
+- **Vercel Logs** — only the dev project receives meaningful traffic; prod logs are sparse since the app is mostly RN with thin web shell.
+- **Expo Insights** — `expo-insights` is in the bundle. App-launch counts, OTA update reach, and version distribution show up at expo.dev → Project → Insights.
+- **Supabase Dashboard → Database → Cron Jobs** — confirms each pg_cron job is firing on schedule.
+- **Resend Dashboard → Logs** — outbound delivery and inbound webhook firing per email.
+
+
+## Cost summary (rough)
+
+
+- Supabase: free tier per project, with paid backup retention if needed
+- Vercel: hobby tier; bumps to Pro if we ever exceed 100 GB / mo bandwidth
+- Resend: free tier (3K emails / mo) — well above expected volume during beta
+- Expo: free tier with a paid Production plan; EAS Update is included
+- Cloudflare: free tier
+- Google OAuth: free
+- Vercel Python parser: deployed to the same `foliolens` Vercel project's Serverless Functions — counts toward Vercel's Hobby execution-time budget
+
+
+## Out of scope (for now)
+
+
+- Multi-region failover — single-region Supabase + Vercel is sufficient at this volume
+- Read-replica / staging tier — DEV serves both purposes today
+- App store submission — internal-distribution APKs are the channel for beta; iOS TestFlight submission is queued behind paid Apple Developer setup
+- MFCentral OAuth integration — separate Phase 6 milestone, requires a partner agreement
