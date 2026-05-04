@@ -43,6 +43,8 @@ import {
   formatClearLensCurrencyDelta,
   formatClearLensPercentDelta,
 } from '@/src/utils/clearLensFormat';
+import { useResponsiveLayout } from '@/src/components/responsive';
+import { ClearLensFundsScreenDesktop } from '@/src/components/clearLens/screens/desktop/ClearLensFundsScreenDesktop';
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'dailyChange' | 'alphabetical';
 type AllocationSegment = { id: string; pct: number; color: string };
@@ -413,6 +415,12 @@ function FundsBottomNav() {
 }
 
 export function ClearLensFundsScreen({ insideTab = false }: { insideTab?: boolean }) {
+  const { layout } = useResponsiveLayout();
+  if (layout === 'desktop') return <ClearLensFundsScreenDesktop />;
+  return <ClearLensFundsScreenMobile insideTab={insideTab} />;
+}
+
+function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean }) {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;

@@ -50,6 +50,8 @@ import {
   formatClearLensCurrencyDelta,
   formatClearLensPercentDelta,
 } from '@/src/utils/clearLensFormat';
+import { useResponsiveLayout } from '@/src/components/responsive';
+import { ClearLensPortfolioScreenDesktop } from '@/src/components/clearLens/screens/desktop/ClearLensPortfolioScreenDesktop';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - ClearLensSpacing.md * 2 - ClearLensSpacing.md * 2;
@@ -79,7 +81,7 @@ function formatSignedChange(amount: number, pct: number): string {
   return `${formatClearLensCurrencyDelta(amount)} (${formatClearLensPercentDelta(pct)})`;
 }
 
-function PortfolioHero({
+export function PortfolioHero({
   totalValue,
   totalInvested,
   dailyChangeAmount,
@@ -126,7 +128,7 @@ function PortfolioHero({
   );
 }
 
-function BenchmarkComparisonCard({
+export function BenchmarkComparisonCard({
   xirr,
   marketXirr,
   benchmarkSymbol,
@@ -359,7 +361,7 @@ function buildJourneyPath(
     .join(' ');
 }
 
-function InvestmentVsBenchmarkChart({
+export function InvestmentVsBenchmarkChart({
   funds,
   userId,
   benchmarkSymbol,
@@ -645,7 +647,7 @@ function Legend({ color, label }: { color: string; label: string }) {
   );
 }
 
-function MoversRow({ fundCards }: { fundCards: FundCardData[] }) {
+export function MoversRow({ fundCards }: { fundCards: FundCardData[] }) {
   const withDailyChange = fundCards.filter((fund) => fund.dailyChangePct !== null && fund.currentValue !== null);
   if (withDailyChange.length < 2) return null;
 
@@ -706,7 +708,7 @@ function MoverCard({
   );
 }
 
-function AssetAllocationPreview({
+export function AssetAllocationPreview({
   totalValue,
   equityPct,
   debtPct,
@@ -749,7 +751,7 @@ function AssetAllocationPreview({
   );
 }
 
-function EntryRows({
+export function EntryRows({
   onInsights,
   onFunds,
   onTools,
@@ -807,7 +809,7 @@ function EntryRow({
   );
 }
 
-function EmptyState({ onImport }: { onImport: () => void }) {
+export function PortfolioEmptyState({ onImport }: { onImport: () => void }) {
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIcon}>
@@ -825,6 +827,12 @@ function EmptyState({ onImport }: { onImport: () => void }) {
 }
 
 export function ClearLensPortfolioScreen() {
+  const { layout } = useResponsiveLayout();
+  if (layout === 'desktop') return <ClearLensPortfolioScreenDesktop />;
+  return <ClearLensPortfolioScreenMobile />;
+}
+
+function ClearLensPortfolioScreenMobile() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -912,7 +920,7 @@ export function ClearLensPortfolioScreen() {
           </TouchableOpacity>
         </View>
       ) : !summary || fundCards.length === 0 ? (
-        <EmptyState onImport={() => router.push('/onboarding')} />
+        <PortfolioEmptyState onImport={() => router.push('/onboarding')} />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}

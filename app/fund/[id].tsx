@@ -53,9 +53,14 @@ import {
 import type { AppColors } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
+import { ResponsiveRouteFrame } from '@/src/components/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - 32;
+// On desktop the screen sits inside a centered max-width frame (see
+// ClearLensScreen.desktopMaxWidth, set to 920 below). Cap the chart base
+// width to that frame so the chart doesn't overflow the column.
+const FUND_DETAIL_DESKTOP_MAX = 920;
+const CHART_WIDTH = Math.min(SCREEN_WIDTH, FUND_DETAIL_DESKTOP_MAX) - 32;
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
@@ -1794,7 +1799,7 @@ function ClearLensFundDetailScreen() {
 
   if (isLoading) {
     return (
-      <ClearLensScreen>
+      <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
         <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
           <ActivityIndicator size="large" color={ClearLensColors.emerald} />
@@ -1805,7 +1810,7 @@ function ClearLensFundDetailScreen() {
 
   if (isError || !data) {
     return (
-      <ClearLensScreen>
+      <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
         <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
           <Ionicons name="alert-circle-outline" size={40} color={ClearLensColors.textTertiary} />
@@ -1824,7 +1829,7 @@ function ClearLensFundDetailScreen() {
   const hasRealizedActivity = data.realizedAmount > 0 || data.redeemedUnits > 0;
 
   return (
-    <ClearLensScreen>
+    <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
       <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
       <ScrollView contentContainerStyle={clearDetailStyles.scroll} showsVerticalScrollIndicator={false}>
         <ClearLensCard style={clearDetailStyles.heroCard}>
@@ -1968,10 +1973,10 @@ function ClearLensFundDetailScreen() {
 export default function FundDetailScreen() {
   const { isClearLens } = useAppDesignMode();
   return (
-    <>
+    <ResponsiveRouteFrame>
       <Stack.Screen options={{ headerShown: !isClearLens, title: '' }} />
       {isClearLens ? <ClearLensFundDetailScreen /> : <ClassicFundDetailScreen />}
-    </>
+    </ResponsiveRouteFrame>
   );
 }
 

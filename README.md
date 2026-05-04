@@ -20,6 +20,7 @@ For the how-it-runs, read [docs/INFRASTRUCTURE.md](./docs/INFRASTRUCTURE.md).
 - **Settings** — account, Connected Accounts, Preferences (default benchmark, theme), in-app Help & FAQs (opens `foliolens.in/faq.html` in an in-app browser), native Request a feature / Report an issue forms with optional screenshot attachment.
 - **Portfolio Insights** — asset mix, market cap, sector exposure, debt / cash mix, top holdings, fund allocation. Two-layer data: SEBI category rules (instant) + AMFI monthly disclosure (richer, refreshed by `sync-fund-portfolios`).
 - **Shared scheme catalog** — scheme metadata cached once per `scheme_code` so future users reuse known fund data.
+- **Desktop web shell** — at viewports ≥ 1024 px the app renders a Clear Lens left sidebar (logo, primary nav, quick actions, account row) instead of the bottom tab bar; Portfolio shows a 2-column dashboard, Funds shows a multi-column responsive grid, Wealth Journey / Fund Detail / Money Trail / Portfolio Insights / Tools / Settings render as a centered Clear Lens column with the sidebar; auth and onboarding render as a centered card on a navy background; mobile web and the iOS / Android binaries are unchanged.
 - **Three-flavour mobile** — `production`, `preview-main`, `preview-pr` Android builds, each on its own EAS channel, scheme, and bundle ID.
 - **Production gating** — `main` only ever updates DEV; production releases require an explicit `v*` git tag. See [docs/INFRASTRUCTURE.md](./docs/INFRASTRUCTURE.md#branching-merging-releasing) for the full release flow.
 

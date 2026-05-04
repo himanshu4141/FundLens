@@ -16,6 +16,7 @@ import {
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import { useMoneyTrail } from '@/src/hooks/useMoneyTrail';
+import { ResponsiveRouteFrame } from '@/src/components/responsive';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -138,6 +139,7 @@ export default function MoneyTrailDetailScreen() {
   }
 
   return (
+    <ResponsiveRouteFrame>
     <ClearLensScreen>
       <Stack.Screen options={{ headerShown: false }} />
       <ClearLensHeader title="Transaction details" onPressBack={() => router.back()} />
@@ -224,6 +226,7 @@ export default function MoneyTrailDetailScreen() {
         </ScrollView>
       )}
     </ClearLensScreen>
+    </ResponsiveRouteFrame>
   );
 }
 

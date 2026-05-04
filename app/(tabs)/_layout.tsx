@@ -1,14 +1,27 @@
-import { Tabs } from 'expo-router';
+import { Slot, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context/ThemeContext';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { ClearLensColors, ClearLensFonts } from '@/src/constants/clearLensTheme';
+import { DesktopShell, useResponsiveLayout } from '@/src/components/responsive';
 
 export default function TabLayout() {
   const { colors } = useTheme();
   const { isClearLens } = useAppDesignMode();
   const insets = useSafeAreaInsets();
+  const { layout } = useResponsiveLayout();
+
+  // On desktop web (≥1024px), replace the bottom tab navigator with a Clear Lens
+  // sidebar shell. Each tab screen still mounts via Expo Router's <Slot />, and
+  // takes responsibility for laying out its own desktop content frame.
+  if (layout === 'desktop') {
+    return (
+      <DesktopShell framed={false}>
+        <Slot />
+      </DesktopShell>
+    );
+  }
   const activeTint = isClearLens ? ClearLensColors.emerald : colors.primary;
   const inactiveTint = isClearLens ? ClearLensColors.textTertiary : colors.textTertiary;
   const borderTopColor = isClearLens ? ClearLensColors.borderLight : colors.borderLight;

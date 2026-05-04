@@ -17,8 +17,31 @@ import {
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
+import { useResponsiveLayout } from '@/src/components/responsive/useResponsiveLayout';
 
-export function ClearLensScreen({ children }: { children: ReactNode }) {
+/**
+ * When `desktopMaxWidth` is set and the viewport is desktop, the screen content
+ * is constrained to that width and centered horizontally so screens that share
+ * a single mobile-style column don't stretch across the desktop content area.
+ * Defaults to 760 (a comfortable single-column reading width).
+ */
+export function ClearLensScreen({
+  children,
+  desktopMaxWidth = 760,
+}: {
+  children: ReactNode;
+  desktopMaxWidth?: number;
+}) {
+  const { layout } = useResponsiveLayout();
+  if (layout === 'desktop') {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={[styles.desktopFrame, { maxWidth: desktopMaxWidth }]}>
+          {children}
+        </View>
+      </SafeAreaView>
+    );
+  }
   return <SafeAreaView style={styles.screen}>{children}</SafeAreaView>;
 }
 
@@ -173,6 +196,11 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: ClearLensColors.background,
+  },
+  desktopFrame: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
   },
   card: {
     backgroundColor: ClearLensColors.surface,

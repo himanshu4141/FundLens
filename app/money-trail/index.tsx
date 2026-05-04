@@ -19,6 +19,7 @@ import {
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import { useMoneyTrail } from '@/src/hooks/useMoneyTrail';
+import { ResponsiveRouteFrame } from '@/src/components/responsive';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -852,6 +853,7 @@ export default function MoneyTrailScreen() {
   }
 
   return (
+    <ResponsiveRouteFrame>
     <ClearLensScreen>
       <Stack.Screen options={{ headerShown: false }} />
       <ClearLensHeader title="Money Trail" onPressBack={() => router.back()} />
@@ -985,6 +987,7 @@ export default function MoneyTrailScreen() {
         </TouchableOpacity>
       ) : null}
     </ClearLensScreen>
+    </ResponsiveRouteFrame>
   );
 }
 

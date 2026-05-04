@@ -22,6 +22,7 @@ import { GoogleIcon } from '@/src/components/GoogleIcon';
 import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { useResponsiveLayout } from '@/src/components/responsive';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 import {
   ClearLensColors,
@@ -51,6 +52,8 @@ const CL_VALUE_PROPS = [
 export default function SignInScreen() {
   const router = useRouter();
   const { isClearLens } = useAppDesignMode();
+  const { layout } = useResponsiveLayout();
+  const isDesktop = layout === 'desktop';
   const [email, setEmail] = useState('');
   const [loadingMode, setLoadingMode] = useState<'magic' | 'google' | 'demo' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -153,14 +156,15 @@ export default function SignInScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={clStyles.scroll}
+          contentContainerStyle={[clStyles.scroll, isDesktop && clStyles.scrollDesktop]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <View style={isDesktop ? clStyles.cardDesktop : clStyles.cardMobile}>
           {/* Hero */}
           <LinearGradient
             colors={[ClearLensColors.navy, ClearLensColors.slate]}
-            style={clStyles.hero}
+            style={[clStyles.hero, isDesktop && clStyles.heroDesktop]}
           >
             <FolioLensLogo size={36} light showWordmark />
 
@@ -295,6 +299,7 @@ export default function SignInScreen() {
                 Your data is private and encrypted. We never share it.
               </Text>
             </View>
+          </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -656,6 +661,31 @@ const clStyles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
+  },
+  scrollDesktop: {
+    paddingVertical: ClearLensSpacing.xl,
+    paddingHorizontal: ClearLensSpacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100%',
+  } as never,
+  cardMobile: {
+    flex: 1,
+  },
+  cardDesktop: {
+    width: '100%',
+    maxWidth: 460,
+    backgroundColor: ClearLensColors.surface,
+    borderRadius: ClearLensRadii.xl,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 32,
+    elevation: 12,
+  },
+  heroDesktop: {
+    paddingTop: ClearLensSpacing.xl,
   },
 
   hero: {

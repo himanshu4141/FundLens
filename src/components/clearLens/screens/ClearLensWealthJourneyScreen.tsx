@@ -773,7 +773,11 @@ export function ClearLensWealthJourneyScreen() {
     [postRetirementReturn, projectedCorpus, retirementDurationYears, withdrawalRate],
   );
 
-  const screenWidth = Math.max(320, viewportWidth || 360);
+  // On desktop the screen is constrained by ClearLensScreen's desktopMaxWidth
+  // (760 px). Cap the chart width to that, otherwise it would size from the raw
+  // viewport (≥1024 px) and overflow the centered column.
+  const rawWidth = Math.max(320, viewportWidth || 360);
+  const screenWidth = Math.min(rawWidth, 760);
   const compact = screenWidth <= 430;
   const chartWidth = Math.max(250, screenWidth - ClearLensSpacing.md * 4 - 8);
   const visibleGrowthYears = useMemo(() => buildVisibleYears(yearsToRetirement), [yearsToRetirement]);
