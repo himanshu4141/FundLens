@@ -40,22 +40,14 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Verify linked schema parity
-        shell: bash
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          set -euo pipefail
-          supabase db diff --linked --schema public > /tmp/supabase-diff.log 2>&1 || {
-            cat /tmp/supabase-diff.log
-            exit 1
-          }
-
-          if grep -Eiq '^(create|alter|drop|comment|grant|revoke|set|select|insert|update|delete|do|begin|commit)\b' /tmp/supabase-diff.log; then
-            echo "Supabase schema drift detected:"
-            cat /tmp/supabase-diff.log
-            exit 1
-          fi
+      # Note: a previous version of this job ran `supabase db diff --linked`
+      # and grepped its output for any DDL keyword as a "drift detector".
+      # That check is structurally the same direction-flipped form of the
+      # parity script above and triggers a false positive every time the
+      # deploy includes a new migration not yet on the remote (which is
+      # the entire reason a deploy runs). The parity script catches the
+      # only direction that's actually dangerous — out-of-band changes
+      # added directly on the remote — so the diff step has been removed.
 
   deploy-functions:
     name: Deploy Edge Functions
