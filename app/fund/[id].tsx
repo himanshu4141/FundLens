@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Dimensions,
   Linking,
   useWindowDimensions,
 } from 'react-native';
@@ -56,12 +55,14 @@ import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
 import { ResponsiveRouteFrame } from '@/src/components/responsive';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // On desktop the screen sits inside a centered max-width frame (see
-// ClearLensScreen.desktopMaxWidth, set to 920 below). Cap the chart base
-// width to that frame so the chart doesn't overflow the column.
+// ClearLensScreen.desktopMaxWidth, set to 920 below). Charts cap their
+// own width to this constant so they don't overflow the column.
+// Each chart derives its live width from useWindowDimensions inside its
+// component so that resizing the browser updates the chart in real time —
+// the old module-scope CHART_WIDTH constant captured the viewport once at
+// JS load time and left the chart stuck at the original size.
 const FUND_DETAIL_DESKTOP_MAX = 920;
-const CHART_WIDTH = Math.min(SCREEN_WIDTH, FUND_DETAIL_DESKTOP_MAX) - 32;
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
@@ -139,6 +140,11 @@ function PerformanceTab({
   const { colors } = useTheme();
   const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  // Live viewport width — module-scope CHART_WIDTH is captured once at JS
+  // load time, so on web it would leave the chart at the original size when
+  // the window is resized. Recompute against the current viewport instead.
+  const { width: viewportWidth } = useWindowDimensions();
+  const liveChartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32;
   const benchmarkColor = isClearLens ? ClearLensColors.slate : colors.warning;
   const positiveMetricColor = isClearLens ? ClearLensColors.emerald : colors.positive;
   const negativeMetricColor = isClearLens ? ClearLensColors.negative : colors.negative;
@@ -250,7 +256,7 @@ function PerformanceTab({
   // Spacing: fit all sampled points exactly within the chart body (no overflow / no scroll).
   // chart body width = total width passed to LineChart minus y-axis label area
   const PERF_Y_AXIS_W = 32;
-  const perfChartBodyW = CHART_WIDTH - 32 - PERF_Y_AXIS_W; // 32 = card padding (16×2)
+  const perfChartBodyW = liveChartWidth - 32 - PERF_Y_AXIS_W; // 32 = card padding (16×2)
   const perfSpacing = sampledNav.length > 1 ? Math.max(8, (perfChartBodyW - 16) / (sampledNav.length - 1)) : 20;
 
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
@@ -416,7 +422,7 @@ function PerformanceTab({
     const actualChartBottom = Math.max(0, actualYMin - actualYPad);
     const actualChartRange = Math.max(1, actualChartTop - actualChartBottom);
     const ACTUAL_Y_AXIS_W = 54;
-    const actualChartW = CHART_WIDTH - 32 - ACTUAL_Y_AXIS_W - 8;
+    const actualChartW = liveChartWidth - 32 - ACTUAL_Y_AXIS_W - 8;
     const actualSpacing =
       points.length > 1 ? Math.max(8, (actualChartW - 16) / (points.length - 1)) : 20;
     const actualLabelInterval = Math.max(1, Math.floor(points.length / 5));
@@ -786,6 +792,8 @@ function PerformanceTab({
 function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const { width: viewportWidth } = useWindowDimensions();
+  const liveChartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32;
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const filtered = filterToWindow(navHistory, window);
 
@@ -817,7 +825,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   const navChartMin = navYMin - navYPad;
 
   const NAV_Y_AXIS_W = 44;
-  const navChartBodyW = CHART_WIDTH - 32 - NAV_Y_AXIS_W;
+  const navChartBodyW = liveChartWidth - 32 - NAV_Y_AXIS_W;
   const navSpacing = sampledFiltered.length > 1 ? Math.max(8, (navChartBodyW - 16) / (sampledFiltered.length - 1)) : 20;
   const formatNavYLabel = useCallback((v: string) => {
     const n = Number(v);
