@@ -5,7 +5,9 @@ This file defines how coding agents should plan and execute work in this reposit
 
 ## Project State
 
-Phase 1 (foundation) and Phase 2 milestones M1–M9 and M11 are all shipped to `main`. The app has magic-link + Google auth, CAS import (email forwarding + local PDF), home screen with XIRR/benchmark, fund detail, leaderboard, wealth simulator, A/B theme toggle, and portfolio insights (asset mix, sectors, holdings). All ExecPlans are archived in `docs/plans/archive/`. There is no active plan — create a new one for the next feature.
+Phases 1–3 are fully shipped: foundation, the Phase 2 data pipeline (M1–M9 + M11), and the Clear Lens design system. Phase 4 (Tools Hub) has M0 + M1 (Goal Planner) shipped; M2–M4 are stacked PRs. Phase 5 (CAS onboarding redesign) is in flight — M1 wizard at PR #92, M2 Resend Inbound backend at PR #93. The app has magic-link + Google auth, the upload-first onboarding wizard, home screen with XIRR / benchmark / Money Trail preview, fund detail, leaderboard, wealth simulator, portfolio insights, native feedback form with screenshot attachments, and three EAS-channel build flavours (production / preview-main / preview-pr).
+
+Active ExecPlans live under `docs/plans/<phase>/`. Shipped plans move to `docs/plans/archive/`. The brand was renamed FundLens → FolioLens; expect old names only inside archive material.
 
 ## Repository Anchors
 
@@ -14,8 +16,9 @@ Read `VISION.md` at the start of every session. Read the others on-demand.
 | Read this | When you are... |
 |---|---|
 | `VISION.md` | Always — read this first |
+| `docs/INFRASTRUCTURE.md` | Anything that touches CI/CD, environments, secrets, Supabase / Vercel / Resend / Expo config, or domain routing |
 | `docs/SCREENS.md` | Building or changing any UI, navigation, or screen layout |
-| `docs/TECH-DISCOVERY.md` | Touching infra, DB schema, third-party integrations, or the data pipeline |
+| `docs/TECH-DISCOVERY.md` | Touching DB schema, third-party data sources, or the data pipeline |
 
 ## ExecPlans
 When writing complex features, multi-day efforts, or significant refactors, use an ExecPlan as described in `docs/process/PLANS.md` from design through implementation.
