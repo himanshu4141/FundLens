@@ -1042,8 +1042,9 @@ export function ClearLensWealthJourneyScreen() {
           {screenMode === 'home' && (
             <>
               <View style={styles.heroCopy}>
-                <Text style={styles.heroTitle}>Wealth Journey</Text>
-                <Text style={styles.heroSubtitle}>Plan today. See your future with clarity.</Text>
+                <Text style={styles.heroEyebrow}>Wealth Journey</Text>
+                <Text style={styles.heroTitle}>Plan today, with clarity</Text>
+                <Text style={styles.heroSubtitle}>See where your money is headed under your current pace.</Text>
               </View>
 
               <ClearLensCard style={styles.snapshotCard}>
@@ -1230,7 +1231,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroCopy: {
-    gap: ClearLensSpacing.xs,
+    gap: 4,
+  },
+  heroEyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
   },
   heroTitle: {
     ...ClearLensTypography.h1,

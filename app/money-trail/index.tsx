@@ -19,7 +19,7 @@ import {
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import { useMoneyTrail } from '@/src/hooks/useMoneyTrail';
-import { ResponsiveRouteFrame } from '@/src/components/responsive';
+import { ResponsiveRouteFrame, useIsDesktop } from '@/src/components/responsive';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -766,6 +766,7 @@ const SCROLL_TOP_THRESHOLD = 480;
 
 export default function MoneyTrailScreen() {
   const router = useRouter();
+  const isDesktop = useIsDesktop();
   const params = useLocalSearchParams<{ fundId?: string }>();
   const requestedFundId = typeof params.fundId === 'string' ? params.fundId : undefined;
   const didApplyFundParam = useRef(false);
@@ -856,7 +857,9 @@ export default function MoneyTrailScreen() {
     <ResponsiveRouteFrame>
     <ClearLensScreen>
       <Stack.Screen options={{ headerShown: false }} />
-      <ClearLensHeader title="Money Trail" onPressBack={() => router.back()} />
+      {/* Sidebar already exposes Money Trail in Quick Actions on desktop, so
+          we don't need an in-screen back button there. */}
+      {isDesktop ? null : <ClearLensHeader onPressBack={() => router.back()} />}
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -881,7 +884,8 @@ export default function MoneyTrailScreen() {
           }}
         >
           <View style={styles.titleBlock}>
-            <Text style={styles.title}>Money Trail</Text>
+            <Text style={styles.eyebrow}>Money Trail</Text>
+            <Text style={styles.title}>Where every rupee went</Text>
             <Text style={styles.subtitle}>Every investment, withdrawal, switch, and dividend in your portfolio.</Text>
           </View>
 
@@ -999,6 +1003,11 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     gap: 4,
+  },
+  eyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
   },
   title: {
     ...ClearLensTypography.h1,

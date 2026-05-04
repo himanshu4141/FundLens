@@ -1805,7 +1805,7 @@ function ClearLensFundDetailScreen() {
   if (isLoading) {
     return (
       <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
-        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+        <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
           <ActivityIndicator size="large" color={ClearLensColors.emerald} />
         </View>
@@ -1816,7 +1816,7 @@ function ClearLensFundDetailScreen() {
   if (isError || !data) {
     return (
       <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
-        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+        <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
           <Ionicons name="alert-circle-outline" size={40} color={ClearLensColors.textTertiary} />
           <Text style={clearDetailStyles.errorText}>Couldn&apos;t load fund data</Text>
@@ -1835,7 +1835,7 @@ function ClearLensFundDetailScreen() {
 
   return (
     <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
-      <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+      <ClearLensHeader onPressBack={() => router.back()} />
       <ScrollView contentContainerStyle={clearDetailStyles.scroll} showsVerticalScrollIndicator={false}>
         <ClearLensCard style={clearDetailStyles.heroCard}>
           <View style={clearDetailStyles.heroTitleRow}>

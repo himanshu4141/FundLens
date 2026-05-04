@@ -142,7 +142,7 @@ export default function MoneyTrailDetailScreen() {
     <ResponsiveRouteFrame>
     <ClearLensScreen>
       <Stack.Screen options={{ headerShown: false }} />
-      <ClearLensHeader title="Transaction details" onPressBack={() => router.back()} />
+      <ClearLensHeader onPressBack={() => router.back()} />
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -156,6 +156,10 @@ export default function MoneyTrailDetailScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.eyebrow}>Money Trail</Text>
+            <Text style={styles.title}>Transaction details</Text>
+          </View>
           <ClearLensCard style={styles.heroCard}>
             <View style={styles.heroTop}>
               <View style={[styles.heroIcon, { backgroundColor: transaction.hiddenByDefault ? ClearLensColors.grey50 : ClearLensColors.mint50 }]}>
@@ -235,6 +239,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
     gap: ClearLensSpacing.md,
+  },
+  titleBlock: {
+    gap: 4,
+  },
+  eyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
+  },
+  title: {
+    ...ClearLensTypography.h1,
+    color: ClearLensColors.navy,
   },
   heroCard: {
     gap: ClearLensSpacing.md,

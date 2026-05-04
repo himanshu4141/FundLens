@@ -58,7 +58,10 @@ export function ClearLensCard({
 export function ClearLensHeader({
   onPressMenu,
   onPressBack,
-  title,
+  // `title` is accepted for backwards compat with callers still passing it,
+  // but never rendered — every screen body owns its h1 to keep title
+  // placement consistent across mobile and desktop.
+  title: _title,
   showTagline = false,
   accountLabel,
   rightAction,
@@ -117,7 +120,7 @@ export function ClearLensHeader({
         <FolioLensLogo size={34} showTagline={showTagline} />
       )}
 
-      {title ? <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text> : <View style={styles.headerSpacer} />}
+      <View style={styles.headerSpacer} />
 
       {rightAction ? (
         <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.75}>

@@ -8,6 +8,7 @@ import {
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import { useToolsFeatureFlags } from '@/src/hooks/useToolsFeatureFlags';
+import { useIsDesktop } from '@/src/components/responsive';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -43,6 +44,7 @@ interface ToolSection {
 export function ClearLensToolsScreen() {
   const router = useRouter();
   const flags = useToolsFeatureFlags();
+  const isDesktop = useIsDesktop();
 
   const sections: ToolSection[] = [
     {
@@ -120,7 +122,8 @@ export function ClearLensToolsScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="Tools" onPressBack={() => router.back()} />
+      {/* Sidebar already exposes Tools in Quick Actions on desktop. */}
+      {isDesktop ? null : <ClearLensHeader onPressBack={() => router.back()} />}
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}

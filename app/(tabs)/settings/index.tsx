@@ -157,8 +157,9 @@ function ClearLensHub() {
     <SafeAreaView style={hubStyles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={hubStyles.content}>
         <View style={hubStyles.header}>
-          <Text style={hubStyles.heading}>Settings</Text>
-          <Text style={hubStyles.subheading}>Manage your account, data and preferences</Text>
+          <Text style={hubStyles.eyebrow}>Settings</Text>
+          <Text style={hubStyles.heading}>Account & preferences</Text>
+          <Text style={hubStyles.subheading}>Manage your account, data, and how the app behaves.</Text>
         </View>
 
         <View style={hubStyles.card}>
@@ -204,7 +205,12 @@ function ClearLensHub() {
 const hubStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: ClearLensColors.background },
   content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.md },
-  header: { gap: ClearLensSpacing.xs, paddingVertical: ClearLensSpacing.sm },
+  header: { gap: 4, paddingVertical: ClearLensSpacing.sm },
+  eyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
+  },
   heading: {
     ...ClearLensTypography.h1,
     fontFamily: ClearLensFonts.extraBold,
