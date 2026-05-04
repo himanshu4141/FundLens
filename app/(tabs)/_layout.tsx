@@ -39,10 +39,12 @@ export default function TabLayout() {
           elevation: 0,
           shadowOpacity: 0,
           // Give the icon + label stack enough vertical room on phone-sized
-          // viewports where font metrics tend to clip label descenders.
+          // viewports where font metrics tend to clip label descenders. The
+          // bar grows tall enough to fit a two-line label ("Wealth Journey")
+          // on narrow widths without clipping the icon above it.
           paddingTop: isClearLens ? 6 : 8,
           paddingBottom: Math.max(insets.bottom, isClearLens ? 10 : 14),
-          height: (isClearLens ? 68 : 76) + Math.max(insets.bottom, isClearLens ? 10 : 14),
+          height: (isClearLens ? 78 : 86) + Math.max(insets.bottom, isClearLens ? 10 : 14),
         },
         // Force each visible tab item to fill its fair share of the bar width
         // and center content so icons don't bunch left on wider screens / web
@@ -57,12 +59,13 @@ export default function TabLayout() {
           marginTop: 2,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
           fontFamily: isClearLens ? ClearLensFonts.semiBold : undefined,
-          lineHeight: 16,
-          marginTop: isClearLens ? 1 : 2,
+          lineHeight: 14,
+          marginTop: isClearLens ? 2 : 3,
           marginBottom: isClearLens ? 0 : 2,
+          textAlign: 'center',
         },
       }}
     >

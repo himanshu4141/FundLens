@@ -143,15 +143,15 @@ export function ClearLensPortfolioScreenDesktop() {
 
             <TouchableOpacity
               style={styles.exploreCard}
-              onPress={() => router.push('/portfolio-insights')}
+              onPress={() => router.push('/(tabs)/wealth-journey' as never)}
               activeOpacity={0.78}
             >
               <View style={styles.exploreIcon}>
-                <Ionicons name="analytics-outline" size={18} color={ClearLensColors.emerald} />
+                <Ionicons name="calculator-outline" size={18} color={ClearLensColors.emerald} />
               </View>
               <View style={styles.exploreCopy}>
-                <Text style={styles.exploreTitle}>Portfolio Insights</Text>
-                <Text style={styles.exploreSub}>Asset mix, sectors, top holdings.</Text>
+                <Text style={styles.exploreTitle}>Wealth Journey</Text>
+                <Text style={styles.exploreSub}>Project where your portfolio is headed.</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
             </TouchableOpacity>
