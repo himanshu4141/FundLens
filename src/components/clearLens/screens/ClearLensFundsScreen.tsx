@@ -158,7 +158,7 @@ function AllocationOverview({
   );
 }
 
-function FundListItem({
+export function FundListItem({
   fund,
   portfolioPct,
   expanded,
@@ -224,22 +224,22 @@ function FundListItem({
 
       {expanded && (
         <View style={styles.expandedPanel}>
-          <View style={styles.quickMetrics}>
-            <DetailCell
+          {/* Every row uses the same label-left / value-right pattern so the
+              two "key" metrics (Today, XIRR) align with the breakdown rows
+              underneath. */}
+          <View style={styles.expandedRows}>
+            <MetricRow
               label="Today"
               value={fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
-              subvalue={fund.dailyChangeAmount != null ? `${formatClearLensCurrencyDelta(fund.dailyChangeAmount)}${stale.stale ? ` · ${stale.label}` : ''}` : undefined}
+              subvalue={
+                fund.dailyChangeAmount != null
+                  ? `${formatClearLensCurrencyDelta(fund.dailyChangeAmount)}${stale.stale ? ` · ${stale.label}` : ''}`
+                  : undefined
+              }
               color={dailyColor}
             />
-            <View style={styles.quickDivider} />
-            <DetailCell
-              label="XIRR"
-              value={xirrLabel}
-              color={xirrColor}
-            />
-          </View>
-
-          <View style={styles.expandedRows}>
+            <MetricRow label="XIRR" value={xirrLabel} color={xirrColor} />
+            <View style={styles.metricRowDivider} />
             <MetricRow label="Invested (SIP)" value={formatCurrency(fund.investedAmount)} />
             <MetricRow
               label="Gain / Loss"
@@ -267,8 +267,11 @@ function FundListItem({
           </View>
 
           {sparklineData.length >= 2 && (
-            <View style={styles.sparklinePanel}>
-              <FundSparkline data={sparklineData} color={categoryColor} />
+            <View style={styles.sparklineBlock}>
+              <Text style={styles.sparklineLabel}>NAV · last 30 days</Text>
+              <View style={styles.sparklinePanel}>
+                <FundSparkline data={sparklineData} color={categoryColor} />
+              </View>
             </View>
           )}
 
@@ -307,26 +310,6 @@ function MetricRow({
           <Text style={[styles.metricRowSubvalue, { color }]} numberOfLines={1}>{subvalue}</Text>
         ) : null}
       </View>
-    </View>
-  );
-}
-
-function DetailCell({
-  label,
-  value,
-  subvalue,
-  color = ClearLensColors.navy,
-}: {
-  label: string;
-  value: string;
-  subvalue?: string;
-  color?: string;
-}) {
-  return (
-    <View style={styles.detailCell}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.detailValue, { color }]}>{value}</Text>
-      {subvalue ? <Text style={[styles.detailSubvalue, { color }]}>{subvalue}</Text> : null}
     </View>
   );
 }
@@ -870,30 +853,13 @@ const styles = StyleSheet.create({
     borderTopColor: ClearLensColors.borderLight,
     gap: ClearLensSpacing.md,
   },
-  quickMetrics: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  quickDivider: {
-    width: 1,
-    marginRight: ClearLensSpacing.md,
-    backgroundColor: ClearLensColors.borderLight,
-  },
-  detailCell: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: ClearLensSpacing.md,
-    gap: 3,
-  },
-  detailValue: {
-    ...ClearLensTypography.h3,
-    fontFamily: ClearLensFonts.bold,
-  },
-  detailSubvalue: {
-    ...ClearLensTypography.caption,
-  },
   expandedRows: {
     gap: ClearLensSpacing.sm,
+  },
+  metricRowDivider: {
+    height: 1,
+    backgroundColor: ClearLensColors.borderLight,
+    marginVertical: 2,
   },
   metricRow: {
     flexDirection: 'row',
@@ -920,6 +886,14 @@ const styles = StyleSheet.create({
     ...ClearLensTypography.caption,
     textAlign: 'right',
     marginTop: 1,
+  },
+  sparklineBlock: {
+    gap: 4,
+  },
+  sparklineLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
   },
   sparklinePanel: {
     minHeight: 62,
