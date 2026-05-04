@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -43,7 +44,7 @@ import {
   formatClearLensPercentDelta,
 } from '@/src/utils/clearLensFormat';
 
-type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'alphabetical';
+type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'dailyChange' | 'alphabetical';
 type AllocationSegment = { id: string; pct: number; color: string };
 type FundsBottomNavRoute = 'portfolio' | 'funds' | 'wealth';
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
@@ -56,6 +57,7 @@ const SORT_OPTIONS: { value: SortOption; label: string; icon: keyof typeof Ionic
   { value: 'invested', label: 'Invested', icon: 'calendar-outline' },
   { value: 'xirr', label: 'XIRR', icon: 'analytics-outline' },
   { value: 'benchmarkLead', label: 'Lead vs benchmark', icon: 'rocket-outline' },
+  { value: 'dailyChange', label: '1 day change', icon: 'flash-outline' },
   { value: 'alphabetical', label: 'Alphabetical', icon: 'text-outline' },
 ];
 
@@ -490,6 +492,8 @@ export function ClearLensFundsScreen({ insideTab = false }: { insideTab?: boolea
           return sortableNumber(b.returnXirr) - sortableNumber(a.returnXirr);
         case 'benchmarkLead':
           return sortableNumber(b.returnXirr - benchmarkXirr) - sortableNumber(a.returnXirr - benchmarkXirr);
+        case 'dailyChange':
+          return sortableNumber(b.dailyChangePct) - sortableNumber(a.dailyChangePct);
         case 'alphabetical':
           return parseFundName(a.schemeName).base.localeCompare(parseFundName(b.schemeName).base);
         case 'currentValue':
@@ -1009,12 +1013,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bottomNav: {
-    minHeight: 76,
+    minHeight: 96,
     borderTopWidth: 1,
     borderTopColor: ClearLensColors.borderLight,
     backgroundColor: ClearLensColors.surface,
     paddingTop: 7,
-    paddingBottom: 10,
+    paddingBottom: Platform.OS === 'web' ? 48 : 18,
     paddingHorizontal: ClearLensSpacing.sm,
     flexDirection: 'row',
   },
