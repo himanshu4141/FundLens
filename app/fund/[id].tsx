@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Dimensions,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -53,9 +53,16 @@ import {
 import type { AppColors } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
+import { ResponsiveRouteFrame } from '@/src/components/responsive';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - 32;
+// On desktop the screen sits inside a centered max-width frame (see
+// ClearLensScreen.desktopMaxWidth, set to 920 below). Charts cap their
+// own width to this constant so they don't overflow the column.
+// Each chart derives its live width from useWindowDimensions inside its
+// component so that resizing the browser updates the chart in real time —
+// the old module-scope CHART_WIDTH constant captured the viewport once at
+// JS load time and left the chart stuck at the original size.
+const FUND_DETAIL_DESKTOP_MAX = 920;
 
 const TIME_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 
@@ -133,6 +140,11 @@ function PerformanceTab({
   const { colors } = useTheme();
   const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  // Live viewport width — module-scope CHART_WIDTH is captured once at JS
+  // load time, so on web it would leave the chart at the original size when
+  // the window is resized. Recompute against the current viewport instead.
+  const { width: viewportWidth } = useWindowDimensions();
+  const liveChartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32;
   const benchmarkColor = isClearLens ? ClearLensColors.slate : colors.warning;
   const positiveMetricColor = isClearLens ? ClearLensColors.emerald : colors.positive;
   const negativeMetricColor = isClearLens ? ClearLensColors.negative : colors.negative;
@@ -244,7 +256,7 @@ function PerformanceTab({
   // Spacing: fit all sampled points exactly within the chart body (no overflow / no scroll).
   // chart body width = total width passed to LineChart minus y-axis label area
   const PERF_Y_AXIS_W = 32;
-  const perfChartBodyW = CHART_WIDTH - 32 - PERF_Y_AXIS_W; // 32 = card padding (16×2)
+  const perfChartBodyW = liveChartWidth - 32 - PERF_Y_AXIS_W; // 32 = card padding (16×2)
   const perfSpacing = sampledNav.length > 1 ? Math.max(8, (perfChartBodyW - 16) / (sampledNav.length - 1)) : 20;
 
   const labelInterval = Math.max(1, Math.floor(sampledNav.length / 5));
@@ -410,7 +422,7 @@ function PerformanceTab({
     const actualChartBottom = Math.max(0, actualYMin - actualYPad);
     const actualChartRange = Math.max(1, actualChartTop - actualChartBottom);
     const ACTUAL_Y_AXIS_W = 54;
-    const actualChartW = CHART_WIDTH - 32 - ACTUAL_Y_AXIS_W - 8;
+    const actualChartW = liveChartWidth - 32 - ACTUAL_Y_AXIS_W - 8;
     const actualSpacing =
       points.length > 1 ? Math.max(8, (actualChartW - 16) / (points.length - 1)) : 20;
     const actualLabelInterval = Math.max(1, Math.floor(points.length / 5));
@@ -780,6 +792,8 @@ function PerformanceTab({
 function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const { width: viewportWidth } = useWindowDimensions();
+  const liveChartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32;
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const filtered = filterToWindow(navHistory, window);
 
@@ -811,7 +825,7 @@ function NavHistoryTab({ navHistory }: { navHistory: { date: string; value: numb
   const navChartMin = navYMin - navYPad;
 
   const NAV_Y_AXIS_W = 44;
-  const navChartBodyW = CHART_WIDTH - 32 - NAV_Y_AXIS_W;
+  const navChartBodyW = liveChartWidth - 32 - NAV_Y_AXIS_W;
   const navSpacing = sampledFiltered.length > 1 ? Math.max(8, (navChartBodyW - 16) / (sampledFiltered.length - 1)) : 20;
   const formatNavYLabel = useCallback((v: string) => {
     const n = Number(v);
@@ -994,7 +1008,12 @@ function makeTechStyles(colors: AppColors) {
       borderColor: colors.border,
     },
     clearLensCard: {
-      marginHorizontal: 0,
+      // The sibling NavHistoryTab adds its own paddingHorizontal:16 inside
+      // its own container, so its chart card sits 32 px from the viewport
+      // edge. This card sits directly under the same ScrollView (16 px
+      // padding) so without the extra margin it ends up 16 px wider on each
+      // side — matching the parent indent fixes the visual mismatch.
+      marginHorizontal: ClearLensSpacing.md,
       marginTop: 0,
       borderRadius: ClearLensRadii.lg,
       borderColor: ClearLensColors.border,
@@ -1052,13 +1071,19 @@ function makeTechStyles(colors: AppColors) {
 function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; value: number }[] }) {
   const { colors } = useTheme();
   const gs = useMemo(() => makeGrowthStyles(colors), [colors]);
+  // Use the live viewport width rather than the module-scope CHART_WIDTH.
+  // The module-scope value is captured once when the JS bundle loads, so on
+  // web it reflects whatever the browser was at on first paint — resizing
+  // afterwards leaves the chart rendered at the stale (often desktop) width
+  // and bars get clipped by the mobile viewport.
+  const { width: viewportWidth } = useWindowDimensions();
+  const chartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32 - 64;
   const bars = computeQuarterlyReturns(navHistory, colors.positive, colors.negative);
   if (bars.length < 2) return null;
 
   const vals = bars.map((b) => Math.abs(b.value));
   const maxAbs = Math.max(...vals, 1);
   const chartMax = Math.ceil(maxAbs * 1.2);
-  const chartWidth = CHART_WIDTH - 64;
   const chartHeight = 176;
   const plotTop = 18;
   const plotBottom = 34;
@@ -1067,8 +1092,11 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
   const plotWidth = chartWidth - plotLeft - plotRight;
   const plotHeight = chartHeight - plotTop - plotBottom;
   const zeroY = plotTop + plotHeight / 2;
-  const barGap = 7;
-  const barWidth = Math.max(12, Math.min(20, (plotWidth - barGap * (bars.length - 1)) / bars.length));
+  // Each bar gets an equal slot across the full plot width so the cluster
+  // doesn't cling to the left edge on wide viewports. The bar itself stays
+  // capped between 12 px and 28 px and is centered within its slot.
+  const slotWidth = plotWidth / bars.length;
+  const barWidth = Math.max(12, Math.min(28, slotWidth - 8));
   const xLabelEvery = bars.length <= 8 ? 1 : 2;
 
   function yFor(value: number): number {
@@ -1108,7 +1136,7 @@ function GrowthConsistencyChart({ navHistory }: { navHistory: { date: string; va
             );
           })}
           {bars.map((bar, index) => {
-            const x = plotLeft + index * (barWidth + barGap);
+            const x = plotLeft + index * slotWidth + (slotWidth - barWidth) / 2;
             const positive = bar.value >= 0;
             const y = positive ? yFor(bar.value) : zeroY;
             const height = Math.max(3, Math.abs(yFor(bar.value) - zeroY));
@@ -1298,6 +1326,11 @@ function makeDonutStyles(colors: AppColors) {
       marginTop: Spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
+      // The donut + info pair is compact; on desktop the parent frame is
+      // ~920 px wide so capping the card keeps the content from drifting
+      // in a sea of whitespace.
+      maxWidth: 460,
+      alignSelf: 'flex-start',
     },
     title: {
       ...Typography.label,
@@ -1794,8 +1827,8 @@ function ClearLensFundDetailScreen() {
 
   if (isLoading) {
     return (
-      <ClearLensScreen>
-        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+      <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
+        <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
           <ActivityIndicator size="large" color={ClearLensColors.emerald} />
         </View>
@@ -1805,8 +1838,8 @@ function ClearLensFundDetailScreen() {
 
   if (isError || !data) {
     return (
-      <ClearLensScreen>
-        <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+      <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
+        <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
           <Ionicons name="alert-circle-outline" size={40} color={ClearLensColors.textTertiary} />
           <Text style={clearDetailStyles.errorText}>Couldn&apos;t load fund data</Text>
@@ -1824,8 +1857,8 @@ function ClearLensFundDetailScreen() {
   const hasRealizedActivity = data.realizedAmount > 0 || data.redeemedUnits > 0;
 
   return (
-    <ClearLensScreen>
-      <ClearLensHeader title="Fund Detail" onPressBack={() => router.back()} />
+    <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
+      <ClearLensHeader onPressBack={() => router.back()} />
       <ScrollView contentContainerStyle={clearDetailStyles.scroll} showsVerticalScrollIndicator={false}>
         <ClearLensCard style={clearDetailStyles.heroCard}>
           <View style={clearDetailStyles.heroTitleRow}>
@@ -1968,10 +2001,10 @@ function ClearLensFundDetailScreen() {
 export default function FundDetailScreen() {
   const { isClearLens } = useAppDesignMode();
   return (
-    <>
+    <ResponsiveRouteFrame>
       <Stack.Screen options={{ headerShown: !isClearLens, title: '' }} />
       {isClearLens ? <ClearLensFundDetailScreen /> : <ClassicFundDetailScreen />}
-    </>
+    </ResponsiveRouteFrame>
   );
 }
 

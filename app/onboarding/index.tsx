@@ -22,6 +22,7 @@ import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { useTheme, type AppColors } from '@/src/context/ThemeContext';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { Colors as ClassicColors, Radii, Spacing, Typography } from '@/src/constants/theme';
+import { DesktopFormFrame } from '@/src/components/responsive';
 import {
   ClearLensColors,
   ClearLensRadii,
@@ -288,6 +289,14 @@ function SetupComplete({
 // ── First-time setup view ─────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
+  return (
+    <DesktopFormFrame>
+      <OnboardingScreenInner />
+    </DesktopFormFrame>
+  );
+}
+
+function OnboardingScreenInner() {
   const router = useRouter();
   const { session } = useSession();
   const queryClient = useQueryClient();

@@ -534,13 +534,19 @@ function SipEditorModal({
                 </View>
               )}
               <View style={styles.sheetActions}>
-                <TouchableOpacity style={styles.primaryButton} onPress={onUseDetected}>
+                <TouchableOpacity
+                  style={[styles.secondaryButton, styles.sheetActionItem]}
+                  onPress={onManual}
+                >
+                  <Text style={styles.secondaryButtonText}>Enter manually</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.primaryButton, styles.sheetActionItem]}
+                  onPress={onUseDetected}
+                >
                   <Text style={styles.primaryButtonText}>
                     {hasDetectedSip ? 'Use detected SIP' : 'Keep monthly SIP'}
                   </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryButton} onPress={onManual}>
-                  <Text style={styles.secondaryButtonText}>Enter manually</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -773,7 +779,11 @@ export function ClearLensWealthJourneyScreen() {
     [postRetirementReturn, projectedCorpus, retirementDurationYears, withdrawalRate],
   );
 
-  const screenWidth = Math.max(320, viewportWidth || 360);
+  // On desktop the screen is constrained by ClearLensScreen's desktopMaxWidth
+  // (760 px). Cap the chart width to that, otherwise it would size from the raw
+  // viewport (≥1024 px) and overflow the centered column.
+  const rawWidth = Math.max(320, viewportWidth || 360);
+  const screenWidth = Math.min(rawWidth, 760);
   const compact = screenWidth <= 430;
   const chartWidth = Math.max(250, screenWidth - ClearLensSpacing.md * 4 - 8);
   const visibleGrowthYears = useMemo(() => buildVisibleYears(yearsToRetirement), [yearsToRetirement]);
@@ -1010,6 +1020,7 @@ export function ClearLensWealthJourneyScreen() {
         onSync={handleSync}
         onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
         onMoneyTrail={() => router.push('/money-trail')}
+        onTools={() => router.push('/tools' as never)}
         onSettings={() => router.push('/(tabs)/settings')}
       />
 
@@ -1032,8 +1043,9 @@ export function ClearLensWealthJourneyScreen() {
           {screenMode === 'home' && (
             <>
               <View style={styles.heroCopy}>
-                <Text style={styles.heroTitle}>Wealth Journey</Text>
-                <Text style={styles.heroSubtitle}>Plan today. See your future with clarity.</Text>
+                <Text style={styles.heroEyebrow}>Wealth Journey</Text>
+                <Text style={styles.heroTitle}>Plan today, with clarity</Text>
+                <Text style={styles.heroSubtitle}>See where your money is headed under your current pace.</Text>
               </View>
 
               <ClearLensCard style={styles.snapshotCard}>
@@ -1220,7 +1232,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroCopy: {
-    gap: ClearLensSpacing.xs,
+    gap: 4,
+  },
+  heroEyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
   },
   heroTitle: {
     ...ClearLensTypography.h1,
@@ -1753,6 +1770,11 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
   },
   sheetActions: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
     gap: ClearLensSpacing.sm,
+  },
+  sheetActionItem: {
+    flex: 1,
   },
 });

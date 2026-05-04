@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/src/components/Logo';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { useResponsiveLayout } from '@/src/components/responsive';
 import { getAppScheme } from '@/src/utils/appScheme';
 import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
 import {
@@ -31,6 +32,8 @@ const CL_TIPS = [
 export default function ConfirmScreen() {
   const router = useRouter();
   const { isClearLens } = useAppDesignMode();
+  const { layout } = useResponsiveLayout();
+  const isDesktop = layout === 'desktop';
   const { scheme, email } = useLocalSearchParams<{ scheme?: string; email?: string }>();
   const targetScheme = typeof scheme === 'string' && scheme.length > 0 ? scheme : getAppScheme();
   const displayEmail = typeof email === 'string' && email.length > 0 ? email : null;
@@ -62,7 +65,7 @@ export default function ConfirmScreen() {
         </View>
 
         <ScrollView
-          contentContainerStyle={clStyles.scrollContent}
+          contentContainerStyle={[clStyles.scrollContent, isDesktop && clStyles.scrollContentDesktop]}
           showsVerticalScrollIndicator={false}
         >
           {/* Envelope illustration */}
@@ -307,6 +310,12 @@ const clStyles = StyleSheet.create({
     paddingBottom: ClearLensSpacing.xxl,
     gap: ClearLensSpacing.md,
   },
+  scrollContentDesktop: {
+    maxWidth: 460,
+    width: '100%',
+    alignSelf: 'center',
+    justifyContent: 'center',
+  } as never,
 
   illustrationWrap: {
     marginBottom: ClearLensSpacing.sm,

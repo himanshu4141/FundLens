@@ -50,7 +50,7 @@ export function ClearLensGoalSummaryScreen() {
   if (!goal) {
     return (
       <ClearLensScreen>
-        <ClearLensHeader title="Goal" onPressBack={() => router.back()} />
+        <ClearLensHeader onPressBack={() => router.back()} />
         <View style={styles.center}>
           <Text style={styles.notFoundText}>Goal not found.</Text>
         </View>

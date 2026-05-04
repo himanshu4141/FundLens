@@ -76,7 +76,7 @@ export function ClearLensCreateGoalScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title={isEditing ? 'Edit Goal' : 'New Goal'} onPressBack={() => router.back()} />
+      <ClearLensHeader onPressBack={() => router.back()} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -87,6 +87,10 @@ export function ClearLensCreateGoalScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.titleBlock}>
+            <Text style={styles.eyebrow}>Goal Planner</Text>
+            <Text style={styles.title}>{isEditing ? 'Edit goal' : 'New goal'}</Text>
+          </View>
           <View style={styles.card}>
             <InputRow label="Goal name">
               <TextInput
@@ -210,6 +214,19 @@ const styles = StyleSheet.create({
     paddingTop: ClearLensSpacing.xs,
     paddingBottom: ClearLensSpacing.xxl,
     gap: ClearLensSpacing.md,
+  },
+  titleBlock: {
+    gap: 4,
+    paddingHorizontal: ClearLensSpacing.xs,
+  },
+  eyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
+  },
+  title: {
+    ...ClearLensTypography.h1,
+    color: ClearLensColors.navy,
   },
   card: {
     backgroundColor: ClearLensColors.surface,

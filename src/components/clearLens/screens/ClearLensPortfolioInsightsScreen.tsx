@@ -331,7 +331,7 @@ export function ClearLensPortfolioInsightsScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="Portfolio Insights" onPressBack={() => router.back()} />
+      <ClearLensHeader onPressBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {isSyncing && (
           <View style={styles.infoBanner}>
@@ -362,6 +362,7 @@ export function ClearLensPortfolioInsightsScreen() {
         ) : (
           <>
             <View style={styles.heroCopy}>
+              <Text style={styles.heroEyebrow}>Portfolio Insights</Text>
               <Text style={styles.heroTitle}>What you own</Text>
               <Text style={styles.heroSubtitle}>
                 See your portfolio mix, concentration, sectors, and top holdings in one place.
@@ -433,7 +434,12 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.md,
   },
   heroCopy: {
-    gap: ClearLensSpacing.xs,
+    gap: 4,
+  },
+  heroEyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
   },
   heroTitle: {
     ...ClearLensTypography.h1,

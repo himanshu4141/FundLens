@@ -22,6 +22,7 @@ import { MarketCapCard } from '@/src/components/insights/MarketCapCard';
 import { SectorCard } from '@/src/components/insights/SectorCard';
 import { TopHoldingsCard } from '@/src/components/insights/TopHoldingsCard';
 import { Ionicons } from '@expo/vector-icons';
+import { ResponsiveRouteFrame } from '@/src/components/responsive';
 
 function ClassicPortfolioInsightsScreen() {
   const { colors } = useTheme();
@@ -171,10 +172,10 @@ function ClassicPortfolioInsightsScreen() {
 export default function PortfolioInsightsScreen() {
   const { isClearLens } = useAppDesignMode();
   return (
-    <>
+    <ResponsiveRouteFrame>
       <Stack.Screen options={{ headerShown: !isClearLens, title: 'Portfolio Insights' }} />
       {isClearLens ? <ClearLensPortfolioInsightsScreen /> : <ClassicPortfolioInsightsScreen />}
-    </>
+    </ResponsiveRouteFrame>
   );
 }
 

@@ -17,8 +17,31 @@ import {
   ClearLensTypography,
 } from '@/src/constants/clearLensTheme';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
+import { useResponsiveLayout } from '@/src/components/responsive/useResponsiveLayout';
 
-export function ClearLensScreen({ children }: { children: ReactNode }) {
+/**
+ * When `desktopMaxWidth` is set and the viewport is desktop, the screen content
+ * is constrained to that width and centered horizontally so screens that share
+ * a single mobile-style column don't stretch across the desktop content area.
+ * Defaults to 760 (a comfortable single-column reading width).
+ */
+export function ClearLensScreen({
+  children,
+  desktopMaxWidth = 760,
+}: {
+  children: ReactNode;
+  desktopMaxWidth?: number;
+}) {
+  const { layout } = useResponsiveLayout();
+  if (layout === 'desktop') {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={[styles.desktopFrame, { maxWidth: desktopMaxWidth }]}>
+          {children}
+        </View>
+      </SafeAreaView>
+    );
+  }
   return <SafeAreaView style={styles.screen}>{children}</SafeAreaView>;
 }
 
@@ -35,7 +58,10 @@ export function ClearLensCard({
 export function ClearLensHeader({
   onPressMenu,
   onPressBack,
-  title,
+  // `title` is accepted for backwards compat with callers still passing it,
+  // but never rendered — every screen body owns its h1 to keep title
+  // placement consistent across mobile and desktop.
+  title: _title,
   showTagline = false,
   accountLabel,
   rightAction,
@@ -48,18 +74,52 @@ export function ClearLensHeader({
   rightAction?: { icon: string; onPress: () => void; tint?: string };
 }) {
   const accountInitial = getAccountInitial(accountLabel);
+  const { layout } = useResponsiveLayout();
+  const isDesktop = layout === 'desktop';
+
+  // On desktop the sidebar owns the logo + account, and each screen body
+  // renders its own h1/title. Render the header only when a back button or
+  // right action is present — and even then suppress the title to avoid the
+  // duplicate-title pattern (e.g. centered "Money Trail" header above an h1
+  // "Money Trail" inside the body). The bar becomes a slim chrome strip with
+  // just the navigation affordance.
+  if (isDesktop) {
+    const hasNav = !!onPressBack || !!rightAction;
+    if (!hasNav) return null;
+    return (
+      <View style={[styles.header, styles.headerDesktopChrome]}>
+        {onPressBack ? (
+          <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.7} accessibilityLabel="Go back">
+            <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconButtonGhost} />
+        )}
+
+        <View style={styles.headerSpacer} />
+
+        {rightAction ? (
+          <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.7}>
+            <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? ClearLensColors.navy} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconButtonGhost} />
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.header}>
       {onPressBack ? (
-        <TouchableOpacity onPress={onPressBack} style={styles.iconButton} activeOpacity={0.75}>
+        <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.7} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
         </TouchableOpacity>
       ) : (
         <FolioLensLogo size={34} showTagline={showTagline} />
       )}
 
-      {title ? <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text> : <View style={styles.headerSpacer} />}
+      <View style={styles.headerSpacer} />
 
       {rightAction ? (
         <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.75}>
@@ -174,6 +234,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: ClearLensColors.background,
   },
+  desktopFrame: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
+  },
   card: {
     backgroundColor: ClearLensColors.surface,
     borderRadius: ClearLensRadii.lg,
@@ -191,6 +256,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
     backgroundColor: ClearLensColors.background,
+  },
+  headerDesktopChrome: {
+    minHeight: 44,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  // Matches UtilityHeader's `clearBackBtn` so the back affordance reads the
+  // same on every screen (Settings sub-pages use UtilityHeader; the rest use
+  // ClearLensHeader). 38 px circle, white surface, 1 px navy border.
+  backChip: {
+    width: 38,
+    height: 38,
+    borderRadius: ClearLensRadii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ClearLensColors.surface,
+    borderWidth: 1,
+    borderColor: ClearLensColors.border,
   },
   headerTitle: {
     ...ClearLensTypography.h3,

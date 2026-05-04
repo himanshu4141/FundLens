@@ -4,7 +4,9 @@
 
 Clear Lens is the default FundLens interface. It is a calm mobile-first system for novice mutual fund investors: portfolio signal first, plain-language labels, restrained chrome, and consistent benchmark context.
 
-Classic remains selectable in Settings.
+The system is responsive: the same Clear Lens tokens, primitives, and screens render on phones, mobile web, iOS, Android, and a purpose-built desktop web shell at viewports ≥ 1024 px. Native binaries always render mobile.
+
+Classic remains selectable in Settings (mobile only).
 
 ## Principles
 
@@ -82,10 +84,43 @@ Primary screens should compose these primitives before adding screen-specific st
 
 ## Screen Patterns
 
-- Primary tabs: logo/header, concise title copy where needed, stacked cards, overflow menu.
-- Utility screens: back-title header, card-based forms, clear primary action.
-- Modals and sort sheets: bottom sheet, icon/radio rows where relevant, explicit apply/save action.
+- Primary tabs: logo/header, concise title copy where needed, stacked cards, overflow menu (mobile) / sidebar (desktop).
+- Utility screens: back-chip chrome only on desktop (the body owns the title); back-title header on mobile.
+- Modals and sort sheets: bottom sheet, icon/radio rows where relevant, explicit apply/save action. Long-form modals (feedback) use a sticky footer for the primary action.
 - Empty states: one icon, one title, one plain next action.
+
+### Title block (consistent across screens)
+
+Every primary screen uses the same body-level title block:
+
+- Eyebrow: `ClearLensTypography.label` in `ClearLensColors.emerald`, ALL CAPS — the screen name.
+- H1: `ClearLensTypography.h1` in `ClearLensColors.navy` — the screen's purpose copy ("Your dashboard", "Plan today, with clarity", "Where every rupee went").
+- Subtitle: `ClearLensTypography.body` in `ClearLensColors.textSecondary` — one short explanatory sentence.
+
+`ClearLensHeader` accepts a `title` prop for backwards compatibility but never renders it — the body always owns the screen h1 so titles never duplicate.
+
+### Back chip
+
+The same back chip appears wherever back navigation is needed: 38 px circle, white surface, 1 px navy border, 22 px chevron-back glyph. `ClearLensHeader.backChip` and `UtilityHeader.clearBackBtn` are aligned. On desktop, screens that are reachable directly from the sidebar (Money Trail, Tools) suppress the back chip; screens with no sidebar entry (Fund Detail, Money Trail [id], Portfolio Insights, Goal Planner) keep it.
+
+## Responsive layout
+
+The breakpoint is **1024 px** (`DESKTOP_MIN_WIDTH`). Below that — and on every native binary regardless of width — the app renders mobile layouts. At and above, the desktop shell activates.
+
+Desktop primitives live under `src/components/responsive/`:
+
+- `useResponsiveLayout()` / `useIsDesktop()` — runtime branch using `useWindowDimensions` (reactive on resize) + `Platform.OS` (native always mobile).
+- `DesktopShell` — sidebar + content area frame, used outside of `(tabs)`.
+- `DesktopSidebar` — 240 px left rail with logo, primary nav, Quick Actions, account row → Settings.
+- `ResponsiveRouteFrame` — wraps an out-of-tabs route with the sidebar shell on desktop, returns children unchanged on mobile.
+- `DesktopFormFrame` — onboarding-style 720 px column inside the sidebar shell.
+- `ClearLensScreen.desktopMaxWidth` (default 760, Fund Detail uses 920) — caps body content width on desktop.
+
+Layout rules:
+
+- The single `<Tabs>` navigator stays mounted in both layouts. Desktop hides the bottom bar with `display: none` and the sidebar renders as a row sibling — resizing across the breakpoint preserves the active route.
+- Charts that need a width should read `useWindowDimensions().width` and clamp to `FUND_DETAIL_DESKTOP_MAX` (920) — the legacy module-scope `CHART_WIDTH` constant is captured once at JS load and breaks on resize.
+- Quick Actions menu (`AppOverflowMenu`) requires `onMoneyTrail` and `onTools` at the type level so all call sites surface the same items. The desktop sidebar exposes the same actions natively.
 
 ## States
 

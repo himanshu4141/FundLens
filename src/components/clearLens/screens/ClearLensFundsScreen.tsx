@@ -43,6 +43,8 @@ import {
   formatClearLensCurrencyDelta,
   formatClearLensPercentDelta,
 } from '@/src/utils/clearLensFormat';
+import { useResponsiveLayout } from '@/src/components/responsive';
+import { ClearLensFundsScreenDesktop } from '@/src/components/clearLens/screens/desktop/ClearLensFundsScreenDesktop';
 
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'dailyChange' | 'alphabetical';
 type AllocationSegment = { id: string; pct: number; color: string };
@@ -156,7 +158,7 @@ function AllocationOverview({
   );
 }
 
-function FundListItem({
+export function FundListItem({
   fund,
   portfolioPct,
   expanded,
@@ -222,40 +224,54 @@ function FundListItem({
 
       {expanded && (
         <View style={styles.expandedPanel}>
-          <View style={styles.quickMetrics}>
-            <DetailCell
+          {/* Every row uses the same label-left / value-right pattern so the
+              two "key" metrics (Today, XIRR) align with the breakdown rows
+              underneath. */}
+          <View style={styles.expandedRows}>
+            <MetricRow
               label="Today"
               value={fund.dailyChangePct != null ? formatClearLensPercentDelta(fund.dailyChangePct) : '—'}
-              subvalue={fund.dailyChangeAmount != null ? `${formatClearLensCurrencyDelta(fund.dailyChangeAmount)}${stale.stale ? ` · ${stale.label}` : ''}` : undefined}
+              subvalue={
+                fund.dailyChangeAmount != null
+                  ? `${formatClearLensCurrencyDelta(fund.dailyChangeAmount)}${stale.stale ? ` · ${stale.label}` : ''}`
+                  : undefined
+              }
               color={dailyColor}
             />
-            <View style={styles.quickDivider} />
-            <DetailCell
-              label="XIRR"
-              value={xirrLabel}
-              color={xirrColor}
-            />
-          </View>
-
-          <View style={styles.expandedRows}>
+            <MetricRow label="XIRR" value={xirrLabel} color={xirrColor} />
+            <View style={styles.metricRowDivider} />
             <MetricRow label="Invested (SIP)" value={formatCurrency(fund.investedAmount)} />
             <MetricRow
               label="Gain / Loss"
               value={gain != null ? formatClearLensCurrencyDelta(gain) : '—'}
-              subvalue={gain != null && gainPct != null ? `(${formatClearLensPercentDelta(gainPct, 1)})` : undefined}
+              // Gain value already carries the ▲/▼ arrow — strip the second arrow
+              // off the percent so the line reads "▲ +₹11.86L (+75.4%)" instead
+              // of "▲ +₹11.86L (▲ +75.4%)".
+              subvalue={
+                gain != null && gainPct != null
+                  ? `(${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)`
+                  : undefined
+              }
               color={gainColor}
             />
-            <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
-            <MetricRow
-              label="Booked P&L"
-              value={formatClearLensCurrencyDelta(fund.realizedGain)}
-              color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
-            />
+            {(fund.realizedAmount > 0 || fund.realizedGain !== 0) && (
+              <>
+                <MetricRow label="Redeemed" value={formatCurrency(fund.realizedAmount)} />
+                <MetricRow
+                  label="Booked P&L"
+                  value={formatClearLensCurrencyDelta(fund.realizedGain)}
+                  color={fund.realizedGain >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED}
+                />
+              </>
+            )}
           </View>
 
           {sparklineData.length >= 2 && (
-            <View style={styles.sparklinePanel}>
-              <FundSparkline data={sparklineData} color={categoryColor} />
+            <View style={styles.sparklineBlock}>
+              <Text style={styles.sparklineLabel}>NAV · last 30 days</Text>
+              <View style={styles.sparklinePanel}>
+                <FundSparkline data={sparklineData} color={categoryColor} />
+              </View>
             </View>
           )}
 
@@ -288,29 +304,12 @@ function MetricRow({
   return (
     <View style={styles.metricRow}>
       <Text style={styles.metricRowLabel}>{label}</Text>
-      <Text style={[styles.metricRowValue, { color }]}>
-        {value}{subvalue ? ` ${subvalue}` : ''}
-      </Text>
-    </View>
-  );
-}
-
-function DetailCell({
-  label,
-  value,
-  subvalue,
-  color = ClearLensColors.navy,
-}: {
-  label: string;
-  value: string;
-  subvalue?: string;
-  color?: string;
-}) {
-  return (
-    <View style={styles.detailCell}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.detailValue, { color }]}>{value}</Text>
-      {subvalue ? <Text style={[styles.detailSubvalue, { color }]}>{subvalue}</Text> : null}
+      <View style={styles.metricRowValueBlock}>
+        <Text style={[styles.metricRowValue, { color }]} numberOfLines={1}>{value}</Text>
+        {subvalue ? (
+          <Text style={[styles.metricRowSubvalue, { color }]} numberOfLines={1}>{subvalue}</Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -413,6 +412,12 @@ function FundsBottomNav() {
 }
 
 export function ClearLensFundsScreen({ insideTab = false }: { insideTab?: boolean }) {
+  const { layout } = useResponsiveLayout();
+  if (layout === 'desktop') return <ClearLensFundsScreenDesktop />;
+  return <ClearLensFundsScreenMobile insideTab={insideTab} />;
+}
+
+function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean }) {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -550,6 +555,8 @@ export function ClearLensFundsScreen({ insideTab = false }: { insideTab?: boolea
         onClose={() => setOverflowOpen(false)}
         onSync={handleSync}
         onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onMoneyTrail={() => router.push('/money-trail')}
+        onTools={() => router.push('/tools' as never)}
         onSettings={() => router.push('/(tabs)/settings')}
       />
       {isLoading ? (
@@ -774,14 +781,15 @@ const styles = StyleSheet.create({
   },
   fundTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: ClearLensSpacing.xs,
   },
   fundMainTap: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: ClearLensSpacing.sm,
+    minWidth: 0,
   },
   fundNameBlock: {
     flex: 1,
@@ -847,30 +855,13 @@ const styles = StyleSheet.create({
     borderTopColor: ClearLensColors.borderLight,
     gap: ClearLensSpacing.md,
   },
-  quickMetrics: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  quickDivider: {
-    width: 1,
-    marginRight: ClearLensSpacing.md,
-    backgroundColor: ClearLensColors.borderLight,
-  },
-  detailCell: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: ClearLensSpacing.md,
-    gap: 3,
-  },
-  detailValue: {
-    ...ClearLensTypography.h3,
-    fontFamily: ClearLensFonts.bold,
-  },
-  detailSubvalue: {
-    ...ClearLensTypography.caption,
-  },
   expandedRows: {
     gap: ClearLensSpacing.sm,
+  },
+  metricRowDivider: {
+    height: 1,
+    backgroundColor: ClearLensColors.borderLight,
+    marginVertical: 2,
   },
   metricRow: {
     flexDirection: 'row',
@@ -883,12 +874,28 @@ const styles = StyleSheet.create({
     color: ClearLensColors.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
+  metricRowValueBlock: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+  },
   metricRowValue: {
     ...ClearLensTypography.bodySmall,
     color: ClearLensColors.navy,
     fontFamily: ClearLensFonts.bold,
     textAlign: 'right',
-    flexShrink: 1,
+  },
+  metricRowSubvalue: {
+    ...ClearLensTypography.caption,
+    textAlign: 'right',
+    marginTop: 1,
+  },
+  sparklineBlock: {
+    gap: 4,
+  },
+  sparklineLabel: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.textTertiary,
+    textTransform: 'uppercase',
   },
   sparklinePanel: {
     minHeight: 62,

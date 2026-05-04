@@ -23,6 +23,7 @@ import { useSession } from '@/src/hooks/useSession';
 import Logo from '@/src/components/Logo';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { Radii, Spacing, Typography } from '@/src/constants/theme';
+import { DesktopFormFrame } from '@/src/components/responsive';
 import { useTheme, type AppColors } from '@/src/context/ThemeContext';
 import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import {
@@ -218,6 +219,7 @@ export default function PDFScreen() {
   }
 
   return (
+    <DesktopFormFrame>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {isClearLens ? (
         <View style={[styles.hero, styles.heroClearLens]}>
@@ -364,6 +366,7 @@ export default function PDFScreen() {
         <Text style={styles.backLinkText}>Back to import options</Text>
       </TouchableOpacity>
     </ScrollView>
+    </DesktopFormFrame>
   );
 }
 

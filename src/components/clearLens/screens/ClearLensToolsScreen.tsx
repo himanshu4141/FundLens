@@ -8,6 +8,7 @@ import {
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import { useToolsFeatureFlags } from '@/src/hooks/useToolsFeatureFlags';
+import { useIsDesktop } from '@/src/components/responsive';
 import {
   ClearLensColors,
   ClearLensFonts,
@@ -43,6 +44,7 @@ interface ToolSection {
 export function ClearLensToolsScreen() {
   const router = useRouter();
   const flags = useToolsFeatureFlags();
+  const isDesktop = useIsDesktop();
 
   const sections: ToolSection[] = [
     {
@@ -120,12 +122,21 @@ export function ClearLensToolsScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="Tools" onPressBack={() => router.back()} />
+      {/* Sidebar already exposes Tools in Quick Actions on desktop. */}
+      {isDesktop ? null : <ClearLensHeader onPressBack={() => router.back()} />}
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.titleBlock}>
+          <Text style={styles.eyebrow}>Tools</Text>
+          <Text style={styles.title}>Plan, project, and explore</Text>
+          <Text style={styles.subtitle}>
+            Tools that help you plan future contributions, set goals, and understand fund mechanics.
+          </Text>
+        </View>
+
         {sections.map((section) => (
           <View key={section.label} style={styles.section}>
             <Text style={styles.sectionLabel}>{section.label}</Text>
@@ -198,6 +209,23 @@ const styles = StyleSheet.create({
     paddingTop: ClearLensSpacing.xs,
     paddingBottom: ClearLensSpacing.xxl,
     gap: ClearLensSpacing.lg,
+  },
+  titleBlock: {
+    gap: 4,
+    paddingHorizontal: ClearLensSpacing.xs,
+  },
+  eyebrow: {
+    ...ClearLensTypography.label,
+    color: ClearLensColors.emerald,
+    textTransform: 'uppercase',
+  },
+  title: {
+    ...ClearLensTypography.h1,
+    color: ClearLensColors.navy,
+  },
+  subtitle: {
+    ...ClearLensTypography.body,
+    color: ClearLensColors.textSecondary,
   },
   section: {
     gap: ClearLensSpacing.sm,

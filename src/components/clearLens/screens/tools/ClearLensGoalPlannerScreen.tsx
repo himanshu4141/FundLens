@@ -28,7 +28,7 @@ export function ClearLensGoalPlannerScreen() {
   if (goals.length === 0) {
     return (
       <ClearLensScreen>
-        <ClearLensHeader title="Goal Planner" onPressBack={() => router.back()} />
+        <ClearLensHeader onPressBack={() => router.back()} />
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
             <Ionicons name="flag-outline" size={36} color={ClearLensColors.textTertiary} />
@@ -48,7 +48,7 @@ export function ClearLensGoalPlannerScreen() {
 
   return (
     <ClearLensScreen>
-      <ClearLensHeader title="Goal Planner" onPressBack={() => router.back()} />
+      <ClearLensHeader onPressBack={() => router.back()} />
       <FlatList
         data={goals}
         keyExtractor={(item) => item.id}
