@@ -300,7 +300,7 @@ function MetricRow({
   label,
   value,
   subvalue,
-  color = ClearLensColors.navy,
+  color,
 }: {
   label: string;
   value: string;
@@ -309,13 +309,17 @@ function MetricRow({
 }) {
   const tokens = useClearLensTokens();
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  // The previous default of `ClearLensColors.navy` froze to the LIGHT navy
+  // (#0A1430), which renders black-on-black on the dark surface. Resolve the
+  // default through the live tokens so it tracks the active scheme.
+  const resolvedColor = color ?? tokens.colors.textPrimary;
   return (
     <View style={styles.metricRow}>
       <Text style={styles.metricRowLabel}>{label}</Text>
       <View style={styles.metricRowValueBlock}>
-        <Text style={[styles.metricRowValue, { color }]} numberOfLines={1}>{value}</Text>
+        <Text style={[styles.metricRowValue, { color: resolvedColor }]} numberOfLines={1}>{value}</Text>
         {subvalue ? (
-          <Text style={[styles.metricRowSubvalue, { color }]} numberOfLines={1}>{subvalue}</Text>
+          <Text style={[styles.metricRowSubvalue, { color: resolvedColor }]} numberOfLines={1}>{subvalue}</Text>
         ) : null}
       </View>
     </View>
