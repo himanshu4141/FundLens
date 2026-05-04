@@ -1,6 +1,7 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { ClearLensColors, ClearLensSpacing } from '@/src/constants/clearLensTheme';
+import { ClearLensSpacing, type ClearLensTokens } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { useResponsiveLayout } from './useResponsiveLayout';
 import { ResponsiveRouteFrame } from './ResponsiveRouteFrame';
 
@@ -21,6 +22,8 @@ export function DesktopFormFrame({
   maxWidth?: number;
 }) {
   const { layout } = useResponsiveLayout();
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   if (layout !== 'desktop') return <>{children}</>;
   return (
     <ResponsiveRouteFrame>
@@ -29,12 +32,14 @@ export function DesktopFormFrame({
   );
 }
 
-const styles = StyleSheet.create({
-  frame: {
-    flex: 1,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: ClearLensSpacing.md,
-    backgroundColor: ClearLensColors.background,
-  },
-});
+function makeStyles(tokens: ClearLensTokens) {
+  return StyleSheet.create({
+    frame: {
+      flex: 1,
+      width: '100%',
+      alignSelf: 'center',
+      paddingHorizontal: ClearLensSpacing.md,
+      backgroundColor: tokens.colors.background,
+    },
+  });
+}

@@ -3,8 +3,14 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type WealthJourneyReturnPreset = 'cautious' | 'balanced' | 'growth' | 'custom';
-export type AppDesignMode = 'classic' | 'clearLens';
+export type AppColorScheme = 'light' | 'dark' | 'system';
 export type GoalReturnPreset = 'cautious' | 'balanced' | 'growth';
+
+const VALID_COLOR_SCHEMES: readonly AppColorScheme[] = ['light', 'dark', 'system'];
+
+function sanitizeColorScheme(value: unknown, fallback: AppColorScheme = 'system'): AppColorScheme {
+  return VALID_COLOR_SCHEMES.includes(value as AppColorScheme) ? (value as AppColorScheme) : fallback;
+}
 
 // ---------------------------------------------------------------------------
 // Tools flags
@@ -264,8 +270,8 @@ const DEFAULT_WEALTH_JOURNEY_STATE: WealthJourneyState = {
 export interface AppStore {
   defaultBenchmarkSymbol: string;
   setDefaultBenchmarkSymbol: (symbol: string) => void;
-  appDesignMode: AppDesignMode;
-  setAppDesignMode: (mode: AppDesignMode) => void;
+  appColorScheme: AppColorScheme;
+  setAppColorScheme: (scheme: AppColorScheme) => void;
   wealthJourney: WealthJourneyState;
   updateWealthJourney: (patch: Partial<WealthJourneyState>) => void;
   resetWealthJourney: () => void;
@@ -280,12 +286,15 @@ export interface AppStore {
 
 type PersistedAppStore = Partial<AppStore> & {
   designVariant?: 'v1' | 'v2';
+  // Removed in v5; the field is read here only to detect legacy persisted state
+  // that was migrated to the always-on Clear Lens design.
+  appDesignMode?: 'classic' | 'clearLens';
 };
 
 export function migratePersistedAppState(persistedState: unknown): Partial<AppStore> {
   if (!persistedState || typeof persistedState !== 'object') {
     return {
-      appDesignMode: 'clearLens',
+      appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
@@ -293,12 +302,10 @@ export function migratePersistedAppState(persistedState: unknown): Partial<AppSt
   }
 
   const state = persistedState as PersistedAppStore;
-  const appDesignMode: AppDesignMode =
-    state.appDesignMode === 'classic' ? 'classic' : 'clearLens';
 
   return {
     defaultBenchmarkSymbol: state.defaultBenchmarkSymbol ?? '^NSEI',
-    appDesignMode,
+    appColorScheme: sanitizeColorScheme(state.appColorScheme),
     wealthJourney: sanitizeWealthJourneyState({
       ...DEFAULT_WEALTH_JOURNEY_STATE,
       ...(state.wealthJourney ?? {}),
@@ -313,8 +320,8 @@ export const useAppStore = create<AppStore>()(
     (set) => ({
       defaultBenchmarkSymbol: '^NSEI',
       setDefaultBenchmarkSymbol: (symbol) => set({ defaultBenchmarkSymbol: symbol }),
-      appDesignMode: 'clearLens' as AppDesignMode,
-      setAppDesignMode: (mode) => set({ appDesignMode: mode }),
+      appColorScheme: 'system' as AppColorScheme,
+      setAppColorScheme: (scheme) => set({ appColorScheme: sanitizeColorScheme(scheme) }),
       wealthJourney: DEFAULT_WEALTH_JOURNEY_STATE,
       updateWealthJourney: (patch) =>
         set((state) => {
@@ -349,7 +356,7 @@ export const useAppStore = create<AppStore>()(
     {
       name: 'foliolens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 4,
+      version: 5,
       migrate: migratePersistedAppState,
       merge: (persistedState, currentState) => {
         const state =
@@ -359,7 +366,7 @@ export const useAppStore = create<AppStore>()(
         return {
           ...currentState,
           defaultBenchmarkSymbol: state.defaultBenchmarkSymbol ?? currentState.defaultBenchmarkSymbol,
-          appDesignMode: state.appDesignMode === 'classic' ? 'classic' : 'clearLens',
+          appColorScheme: sanitizeColorScheme(state.appColorScheme, currentState.appColorScheme),
           wealthJourney: sanitizeWealthJourneyState({
             ...DEFAULT_WEALTH_JOURNEY_STATE,
             ...(state.wealthJourney ?? {}),
@@ -370,7 +377,7 @@ export const useAppStore = create<AppStore>()(
       },
       partialize: (state) => ({
         defaultBenchmarkSymbol: state.defaultBenchmarkSymbol,
-        appDesignMode: state.appDesignMode,
+        appColorScheme: state.appColorScheme,
         wealthJourney: state.wealthJourney,
         returnAssumptions: state.returnAssumptions,
         goals: state.goals,

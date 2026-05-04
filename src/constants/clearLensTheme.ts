@@ -1,4 +1,50 @@
-export const ClearLensColors = {
+/**
+ * Clear Lens design tokens — colours, typography, spacing, radii.
+ *
+ * Two colour schemes share the same shape:
+ *   - ClearLensLightColors (the original light theme)
+ *   - ClearLensDarkColors  (added for the in-app dark mode)
+ *
+ * `ClearLensColors` is exported as the LIGHT palette for back-compat with
+ * any module that imported it directly. Components that need to react to a
+ * runtime scheme change should consume `useClearLensTokens()` from
+ * `@/src/context/ThemeContext` instead.
+ */
+
+export type ClearLensColorScheme = 'light' | 'dark';
+
+export interface ClearLensColorTokens {
+  navy: string;
+  slate: string;
+  emerald: string;
+  emeraldDeep: string;
+  mint: string;
+  mint50: string;
+  lightGrey: string;
+  grey50: string;
+  background: string;
+  surface: string;
+  surfaceSoft: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  positive: string;
+  negative: string;
+  negativeBg: string;
+  positiveBg: string;
+  amber: string;
+  warning: string;
+  warningBg: string;
+  accountSurface: string;
+  accountBorder: string;
+  border: string;
+  borderLight: string;
+  textOnDark: string;
+  textOnDarkMuted: string;
+  shadow: string;
+}
+
+export const ClearLensLightColors: ClearLensColorTokens = {
   navy: '#0A1430',
   slate: '#263248',
   emerald: '#10B981',
@@ -29,55 +75,214 @@ export const ClearLensColors = {
   shadow: '#0A1430',
 };
 
-export const ClearLensSemanticColors = {
-  asset: {
-    equity: ClearLensColors.emerald,
-    debt: ClearLensColors.amber,
-    cash: ClearLensColors.mint,
-    other: ClearLensColors.lightGrey,
-  },
-  marketCap: {
-    large: ClearLensColors.navy,
-    mid: ClearLensColors.emerald,
-    small: ClearLensColors.amber,
-    other: ClearLensColors.lightGrey,
-  },
+export const ClearLensDarkColors: ClearLensColorTokens = {
+  // Brand stays recognisable; "navy" inverts to a near-white so existing
+  // headings/values keep contrast against the dark canvas.
+  navy: '#F2F5FB',
+  slate: '#C5CFE0',
+  emerald: '#34D399',
+  emeraldDeep: '#10B981',
+  mint: '#064E3B',
+  mint50: '#0E2F25',
+  lightGrey: '#26314A',
+  grey50: '#1A2238',
+  background: '#0A1226',
+  surface: '#121B33',
+  surfaceSoft: '#19223D',
+  textPrimary: '#F2F5FB',
+  textSecondary: '#C5CFE0',
+  textTertiary: '#8C9BB8',
+  positive: '#34D399',
+  negative: '#F87171',
+  negativeBg: '#3A1A1F',
+  positiveBg: '#0E3324',
+  amber: '#FBBF24',
+  warning: '#F59E0B',
+  warningBg: '#3A2A0E',
+  accountSurface: '#2A2418',
+  accountBorder: '#4A4030',
+  border: '#27314A',
+  borderLight: '#1F2840',
+  textOnDark: '#FFFFFF',
+  textOnDarkMuted: '#BAC6D8',
+  shadow: '#000000',
+};
+
+export interface ClearLensSemanticTokens {
+  asset: { equity: string; debt: string; cash: string; other: string };
+  marketCap: { large: string; mid: string; small: string; other: string };
   chart: {
-    fund: ClearLensColors.emerald,
-    portfolio: ClearLensColors.emerald,
-    benchmark: ClearLensColors.slate,
-    invested: ClearLensColors.navy,
-    neutral: ClearLensColors.textTertiary,
-  },
-  fundAllocation: [
-    ClearLensColors.emerald,
-    ClearLensColors.navy,
-    ClearLensColors.amber,
-    ClearLensColors.negative,
-    ClearLensColors.slate,
-    ClearLensColors.mint,
-  ],
+    fund: string;
+    portfolio: string;
+    benchmark: string;
+    invested: string;
+    neutral: string;
+  };
+  fundAllocation: readonly string[];
   sentiment: {
-    positive: ClearLensColors.positive,
-    negative: ClearLensColors.negative,
-    positiveText: '#087A5B',
-    negativeText: '#B91C1C',
-    positiveSurface: ClearLensColors.positiveBg,
-    negativeSurface: ClearLensColors.negativeBg,
-  },
+    positive: string;
+    negative: string;
+    positiveText: string;
+    negativeText: string;
+    positiveSurface: string;
+    negativeSurface: string;
+  };
   state: {
-    loading: ClearLensColors.emerald,
-    success: ClearLensColors.emerald,
-    warning: ClearLensColors.amber,
-    danger: ClearLensColors.negative,
-    emptyIcon: ClearLensColors.emerald,
-  },
+    loading: string;
+    success: string;
+    warning: string;
+    danger: string;
+    emptyIcon: string;
+  };
   overlay: {
-    backdrop: 'rgba(10,20,48,0.34)',
-    darkDivider: 'rgba(255,255,255,0.28)',
-    focusRing: 'rgba(16,185,129,0.25)',
-  },
-} as const;
+    backdrop: string;
+    darkDivider: string;
+    focusRing: string;
+  };
+}
+
+function buildSemanticColors(c: ClearLensColorTokens, scheme: ClearLensColorScheme): ClearLensSemanticTokens {
+  return {
+    asset: {
+      equity: c.emerald,
+      debt: c.amber,
+      cash: c.mint,
+      other: c.lightGrey,
+    },
+    marketCap: {
+      large: c.navy,
+      mid: c.emerald,
+      small: c.amber,
+      other: c.lightGrey,
+    },
+    chart: {
+      fund: c.emerald,
+      portfolio: c.emerald,
+      benchmark: c.slate,
+      invested: c.navy,
+      neutral: c.textTertiary,
+    },
+    fundAllocation: [c.emerald, c.navy, c.amber, c.negative, c.slate, c.mint],
+    sentiment: {
+      positive: c.positive,
+      negative: c.negative,
+      positiveText: scheme === 'dark' ? '#A7F3D0' : '#087A5B',
+      negativeText: scheme === 'dark' ? '#FCA5A5' : '#B91C1C',
+      positiveSurface: c.positiveBg,
+      negativeSurface: c.negativeBg,
+    },
+    state: {
+      loading: c.emerald,
+      success: c.emerald,
+      warning: c.amber,
+      danger: c.negative,
+      emptyIcon: c.emerald,
+    },
+    overlay: {
+      backdrop: scheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(10,20,48,0.34)',
+      darkDivider: 'rgba(255,255,255,0.28)',
+      focusRing: 'rgba(16,185,129,0.25)',
+    },
+  };
+}
+
+export const ClearLensLightSemanticColors: ClearLensSemanticTokens = buildSemanticColors(
+  ClearLensLightColors,
+  'light',
+);
+
+export const ClearLensDarkSemanticColors: ClearLensSemanticTokens = buildSemanticColors(
+  ClearLensDarkColors,
+  'dark',
+);
+
+export interface ClearLensCompatibleTokens {
+  primary: string;
+  primaryDark: string;
+  primaryLight: string;
+  positive: string;
+  negative: string;
+  warning: string;
+  background: string;
+  surface: string;
+  surfaceAlt: string;
+  border: string;
+  borderLight: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  textOnDark: string;
+  gradientHero: [string, string];
+  gradientHeader: [string, string];
+}
+
+function buildCompatibleColors(c: ClearLensColorTokens, scheme: ClearLensColorScheme): ClearLensCompatibleTokens {
+  const heroStart = scheme === 'dark' ? '#040A1A' : c.navy;
+  const heroEnd = scheme === 'dark' ? '#0F1A33' : c.slate;
+  return {
+    primary: c.emerald,
+    primaryDark: scheme === 'dark' ? c.surface : c.navy,
+    primaryLight: c.mint,
+    positive: c.emerald,
+    negative: c.negative,
+    warning: c.warning,
+    background: c.background,
+    surface: c.surface,
+    surfaceAlt: c.surfaceSoft,
+    border: c.border,
+    borderLight: c.borderLight,
+    textPrimary: c.textPrimary,
+    textSecondary: c.textSecondary,
+    textTertiary: c.textTertiary,
+    textOnDark: c.textOnDark,
+    gradientHero: [heroStart, heroEnd],
+    gradientHeader: [heroStart, heroEnd],
+  };
+}
+
+export const ClearLensLightCompatibleColors: ClearLensCompatibleTokens = buildCompatibleColors(
+  ClearLensLightColors,
+  'light',
+);
+
+export const ClearLensDarkCompatibleColors: ClearLensCompatibleTokens = buildCompatibleColors(
+  ClearLensDarkColors,
+  'dark',
+);
+
+// Back-compat re-exports — modules that imported these directly continue to
+// receive the LIGHT palette. To support a runtime scheme switch, switch the
+// importer to `useClearLensTokens()` (see `@/src/context/ThemeContext`).
+export const ClearLensColors = ClearLensLightColors;
+export const ClearLensSemanticColors = ClearLensLightSemanticColors;
+export const ClearLensCompatibleColors = ClearLensLightCompatibleColors;
+
+export interface ClearLensTokens {
+  scheme: ClearLensColorScheme;
+  colors: ClearLensColorTokens;
+  semantic: ClearLensSemanticTokens;
+  compatible: ClearLensCompatibleTokens;
+}
+
+export const ClearLensLightTokens: ClearLensTokens = {
+  scheme: 'light',
+  colors: ClearLensLightColors,
+  semantic: ClearLensLightSemanticColors,
+  compatible: ClearLensLightCompatibleColors,
+};
+
+export const ClearLensDarkTokens: ClearLensTokens = {
+  scheme: 'dark',
+  colors: ClearLensDarkColors,
+  semantic: ClearLensDarkSemanticColors,
+  compatible: ClearLensDarkCompatibleColors,
+};
+
+export function getClearLensTokens(scheme: ClearLensColorScheme): ClearLensTokens {
+  return scheme === 'dark' ? ClearLensDarkTokens : ClearLensLightTokens;
+}
+
+// ─── Layout/typography tokens (scheme-agnostic) ─────────────────────────────
 
 export const ClearLensSpacing = {
   xs: 4,
@@ -156,29 +361,9 @@ export const ClearLensTypography = {
 };
 
 export const ClearLensShadow = {
-  shadowColor: ClearLensColors.shadow,
+  shadowColor: ClearLensLightColors.shadow,
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.07,
   shadowRadius: 20,
   elevation: 3,
-};
-
-export const ClearLensCompatibleColors = {
-  primary: ClearLensColors.emerald,
-  primaryDark: ClearLensColors.navy,
-  primaryLight: ClearLensColors.mint,
-  positive: ClearLensColors.emerald,
-  negative: ClearLensColors.negative,
-  warning: ClearLensColors.warning,
-  background: ClearLensColors.background,
-  surface: ClearLensColors.surface,
-  surfaceAlt: ClearLensColors.surfaceSoft,
-  border: ClearLensColors.border,
-  borderLight: ClearLensColors.borderLight,
-  textPrimary: ClearLensColors.textPrimary,
-  textSecondary: ClearLensColors.textSecondary,
-  textTertiary: ClearLensColors.textTertiary,
-  textOnDark: ClearLensColors.textOnDark,
-  gradientHero: [ClearLensColors.navy, ClearLensColors.slate] as [string, string],
-  gradientHeader: [ClearLensColors.navy, ClearLensColors.slate] as [string, string],
 };

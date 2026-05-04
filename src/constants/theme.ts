@@ -1,41 +1,17 @@
 /**
- * FundLens design tokens — single source of truth for colours, spacing, and typography.
+ * Shared layout tokens — spacing, radii, and typography scales.
  *
- * Palette: deep forest teal primary — growth, patience, long-term investing.
- * Teal is visually distinct from the semantic green (gains/losses) while
- * encoding the product's core meaning: wealth that grows over time.
+ * The Classic colour palette that used to live alongside these tokens has been
+ * removed in favour of `clearLensTheme.ts`. Use `useClearLensTokens()` from
+ * `@/src/context/ThemeContext` for any colour the active scheme should drive,
+ * or import the static `ClearLensFonts`/`ClearLensSpacing` constants directly
+ * for layout values.
+ *
+ * These structural tokens are kept here for back-compat with components that
+ * still pass `Spacing`, `Radii`, or `Typography` to local makeStyles factories.
+ * Prefer the Clear Lens equivalents (`ClearLensSpacing`, `ClearLensRadii`,
+ * `ClearLensTypography`) when adding new code.
  */
-
-export const Colors = {
-  // Brand
-  primary: '#0f6b57',      // Deep forest teal — growth, patience, long-term
-  primaryDark: '#0a4a3c',  // Darker teal — pressed states, gradient start
-  primaryLight: '#edfaf6', // Very light tint — banners, highlights
-
-  // Semantic
-  positive: '#16a34a', // Green — gains, beats benchmark (distinct from brand teal)
-  negative: '#dc2626', // Red — losses, lags benchmark
-  warning: '#d97706',  // Amber — caution states
-
-  // Surfaces
-  background: '#f8fafc',  // Off-white page bg
-  surface: '#ffffff',      // Card / panel bg
-  surfaceAlt: '#fafbfc',  // Subtle alt surface
-
-  // Borders
-  border: '#e2e8f0',
-  borderLight: '#f1f5f9',
-
-  // Text
-  textPrimary: '#0f172a',   // Headings, important values
-  textSecondary: '#475569', // Body text, descriptions
-  textTertiary: '#94a3b8',  // Labels, placeholders, meta
-  textOnDark: '#ffffff',
-
-  // Gradients (start/end for LinearGradient)
-  gradientHero: ['#0f172a', '#1e3a5f'] as [string, string],
-  gradientHeader: ['#0a2e25', '#0f6b57'] as [string, string], // immersive dark forest → teal
-};
 
 export const Spacing = {
   xs: 4,

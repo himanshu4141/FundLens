@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import {
   Text,
   TouchableOpacity,
@@ -10,12 +10,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  ClearLensColors,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { useResponsiveLayout } from '@/src/components/responsive/useResponsiveLayout';
 
@@ -33,6 +34,8 @@ export function ClearLensScreen({
   desktopMaxWidth?: number;
 }) {
   const { layout } = useResponsiveLayout();
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   if (layout === 'desktop') {
     return (
       <SafeAreaView style={styles.screen}>
@@ -52,6 +55,8 @@ export function ClearLensCard({
   children: ReactNode;
   style?: ViewStyle | ViewStyle[];
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -74,6 +79,9 @@ export function ClearLensHeader({
   rightAction?: { icon: string; onPress: () => void; tint?: string };
 }) {
   const accountInitial = getAccountInitial(accountLabel);
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const cl = tokens.colors;
   const { layout } = useResponsiveLayout();
   const isDesktop = layout === 'desktop';
 
@@ -90,7 +98,7 @@ export function ClearLensHeader({
       <View style={[styles.header, styles.headerDesktopChrome]}>
         {onPressBack ? (
           <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.7} accessibilityLabel="Go back">
-            <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
+            <Ionicons name="chevron-back" size={22} color={cl.navy} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
@@ -100,7 +108,7 @@ export function ClearLensHeader({
 
         {rightAction ? (
           <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.7}>
-            <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? ClearLensColors.navy} />
+            <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? cl.navy} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
@@ -113,7 +121,7 @@ export function ClearLensHeader({
     <View style={styles.header}>
       {onPressBack ? (
         <TouchableOpacity onPress={onPressBack} style={styles.backChip} activeOpacity={0.7} accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={22} color={ClearLensColors.navy} />
+          <Ionicons name="chevron-back" size={22} color={cl.navy} />
         </TouchableOpacity>
       ) : (
         <FolioLensLogo size={34} showTagline={showTagline} />
@@ -123,7 +131,7 @@ export function ClearLensHeader({
 
       {rightAction ? (
         <TouchableOpacity onPress={rightAction.onPress} style={styles.iconButton} activeOpacity={0.75}>
-          <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? ClearLensColors.navy} />
+          <Ionicons name={rightAction.icon as never} size={22} color={rightAction.tint ?? cl.navy} />
         </TouchableOpacity>
       ) : onPressMenu ? (
         <TouchableOpacity
@@ -160,6 +168,8 @@ export function ClearLensSegmentedControl<T extends string>({
   selected: T;
   onChange: (value: T) => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.segmented}>
       {options.map((option) => {
@@ -192,12 +202,15 @@ export function ClearLensMetricCard({
   tone?: 'positive' | 'negative' | 'neutral';
   sublabel?: string;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const cl = tokens.colors;
   const valueStyle: TextStyle =
     tone === 'positive'
-      ? { color: ClearLensColors.emerald }
+      ? { color: cl.emerald }
       : tone === 'negative'
-        ? { color: ClearLensColors.negative }
-        : { color: ClearLensColors.navy };
+        ? { color: cl.negative }
+        : { color: cl.navy };
 
   return (
     <View style={styles.metricCard}>
@@ -217,6 +230,8 @@ export function ClearLensPill({
   active?: boolean;
   onPress?: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <TouchableOpacity
       disabled={!onPress}
@@ -229,154 +244,145 @@ export function ClearLensPill({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: ClearLensColors.background,
-  },
-  desktopFrame: {
-    flex: 1,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  card: {
-    backgroundColor: ClearLensColors.surface,
-    borderRadius: ClearLensRadii.lg,
-    borderWidth: 1,
-    borderColor: ClearLensColors.border,
-    padding: ClearLensSpacing.md,
-    ...ClearLensShadow,
-  },
-  header: {
-    minHeight: 58,
-    paddingHorizontal: ClearLensSpacing.md,
-    paddingTop: 2,
-    paddingBottom: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.sm,
-    backgroundColor: ClearLensColors.background,
-  },
-  headerDesktopChrome: {
-    minHeight: 44,
-    paddingTop: 4,
-    paddingBottom: 4,
-  },
-  // Matches UtilityHeader's `clearBackBtn` so the back affordance reads the
-  // same on every screen (Settings sub-pages use UtilityHeader; the rest use
-  // ClearLensHeader). 38 px circle, white surface, 1 px navy border.
-  backChip: {
-    width: 38,
-    height: 38,
-    borderRadius: ClearLensRadii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ClearLensColors.surface,
-    borderWidth: 1,
-    borderColor: ClearLensColors.border,
-  },
-  headerTitle: {
-    ...ClearLensTypography.h3,
-    flex: 1,
-    color: ClearLensColors.navy,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: ClearLensRadii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  iconButtonGhost: {
-    width: 40,
-    height: 40,
-  },
-  accountButton: {
-    width: 34,
-    height: 34,
-    borderRadius: ClearLensRadii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ClearLensColors.accountSurface,
-    borderWidth: 1,
-    borderColor: ClearLensColors.accountBorder,
-  },
-  accountInitial: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.slate,
-    fontWeight: '700',
-  },
-  segmented: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-    gap: 4,
-  },
-  segment: {
-    flex: 1,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: ClearLensRadii.sm,
-  },
-  segmentActive: {
-    backgroundColor: ClearLensColors.navy,
-    borderWidth: 1,
-    borderColor: ClearLensColors.navy,
-    ...ClearLensShadow,
-    shadowOpacity: 0.04,
-    elevation: 1,
-  },
-  segmentText: {
-    ...ClearLensTypography.bodySmall,
-    fontWeight: '600',
-    color: ClearLensColors.textTertiary,
-  },
-  segmentTextActive: {
-    color: ClearLensColors.textOnDark,
-  },
-  metricCard: {
-    flex: 1,
-    padding: ClearLensSpacing.sm,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-    gap: 3,
-  },
-  metricLabel: {
-    ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
-    textTransform: 'uppercase',
-  },
-  metricValue: {
-    ...ClearLensTypography.h3,
-  },
-  metricSub: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
-  },
-  pill: {
-    minHeight: 38,
-    paddingHorizontal: ClearLensSpacing.md,
-    borderRadius: ClearLensRadii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ClearLensColors.surfaceSoft,
-  },
-  pillActive: {
-    backgroundColor: ClearLensColors.navy,
-  },
-  pillText: {
-    ...ClearLensTypography.bodySmall,
-    fontWeight: '600',
-    color: ClearLensColors.textTertiary,
-  },
-  pillTextActive: {
-    color: ClearLensColors.textOnDark,
-  },
-});
+
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: cl.background,
+    },
+    desktopFrame: {
+      flex: 1,
+      width: '100%',
+      alignSelf: 'center',
+    },
+    card: {
+      backgroundColor: cl.surface,
+      borderRadius: ClearLensRadii.lg,
+      borderWidth: 1,
+      borderColor: cl.border,
+      padding: ClearLensSpacing.md,
+      ...ClearLensShadow,
+    },
+    header: {
+      minHeight: 58,
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingTop: 2,
+      paddingBottom: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      backgroundColor: cl.background,
+    },
+    headerDesktopChrome: {
+      minHeight: 44,
+      paddingTop: 4,
+      paddingBottom: 4,
+    },
+    // Matches UtilityHeader's `clearBackBtn` so the back affordance reads the
+    // same on every screen (Settings sub-pages use UtilityHeader; the rest use
+    // ClearLensHeader). 38 px circle, surface fill, 1 px border.
+    backChip: {
+      width: 38,
+      height: 38,
+      borderRadius: ClearLensRadii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: cl.surface,
+      borderWidth: 1,
+      borderColor: cl.border,
+    },
+    headerTitle: {
+      ...ClearLensTypography.h3,
+      flex: 1,
+      color: cl.navy,
+      textAlign: 'center',
+    },
+    headerSpacer: { flex: 1 },
+    iconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: ClearLensRadii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+    },
+    iconButtonGhost: { width: 40, height: 40 },
+    accountButton: {
+      width: 34,
+      height: 34,
+      borderRadius: ClearLensRadii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: cl.accountSurface,
+      borderWidth: 1,
+      borderColor: cl.accountBorder,
+    },
+    accountInitial: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.slate,
+      fontWeight: '700',
+    },
+    segmented: {
+      flexDirection: 'row',
+      padding: 4,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.surfaceSoft,
+      gap: 4,
+    },
+    segment: {
+      flex: 1,
+      minHeight: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: ClearLensRadii.sm,
+    },
+    segmentActive: {
+      backgroundColor: cl.navy,
+      borderWidth: 1,
+      borderColor: cl.navy,
+      ...ClearLensShadow,
+      shadowOpacity: 0.04,
+      elevation: 1,
+    },
+    segmentText: {
+      ...ClearLensTypography.bodySmall,
+      fontWeight: '600',
+      color: cl.textTertiary,
+    },
+    segmentTextActive: { color: cl.textOnDark },
+    metricCard: {
+      flex: 1,
+      padding: ClearLensSpacing.sm,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.surfaceSoft,
+      gap: 3,
+    },
+    metricLabel: {
+      ...ClearLensTypography.label,
+      color: cl.textTertiary,
+      textTransform: 'uppercase',
+    },
+    metricValue: { ...ClearLensTypography.h3 },
+    metricSub: {
+      ...ClearLensTypography.caption,
+      color: cl.textTertiary,
+    },
+    pill: {
+      minHeight: 38,
+      paddingHorizontal: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: cl.surfaceSoft,
+    },
+    pillActive: { backgroundColor: cl.navy },
+    pillText: {
+      ...ClearLensTypography.bodySmall,
+      fontWeight: '600',
+      color: cl.textTertiary,
+    },
+    pillTextActive: { color: cl.textOnDark },
+  });
+}

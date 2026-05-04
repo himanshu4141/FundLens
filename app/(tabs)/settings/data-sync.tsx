@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { useTheme } from '@/src/context/ThemeContext';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { navStatusBadge } from './index';
 import {
@@ -24,7 +24,8 @@ import {
 } from '@/src/constants/clearLensTheme';
 
 export default function DataSyncScreen() {
-  const { colors } = useTheme();
+  const tokens = useClearLensTokens();
+  const colors = tokens.colors;
   const queryClient = useQueryClient();
   const styles = useMemo(() => makeStyles(), []);
 

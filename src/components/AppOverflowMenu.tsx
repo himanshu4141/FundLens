@@ -1,16 +1,15 @@
+import { useMemo } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/src/context/ThemeContext';
-import { Radii, Spacing } from '@/src/constants/theme';
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
@@ -49,10 +48,9 @@ export function AppOverflowMenu({
   onSettings,
   onTools,
 }: AppOverflowMenuProps) {
-  const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
-  const activeColors = isClearLens ? ClearLensColors : colors;
-  const dangerColor = isClearLens ? ClearLensColors.negative : colors.negative;
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const cl = tokens.colors;
 
   function dismissAnd(action: () => void) {
     return () => {
@@ -69,8 +67,6 @@ export function AppOverflowMenu({
     }
   }
 
-  // Grouped, semantically ordered: data actions first (sync/import),
-  // navigation in the middle (trail/tools/settings), destructive at the bottom.
   const dataActions: RowConfig[] = [
     {
       key: 'sync',
@@ -106,42 +102,33 @@ export function AppOverflowMenu({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, isClearLens && styles.clearBackdrop]} onPress={onClose}>
-        <Pressable
-          style={[
-            styles.sheet,
-            isClearLens && styles.clearSheet,
-            { backgroundColor: activeColors.surface, borderColor: activeColors.border },
-          ]}
-          onPress={(event) => event.stopPropagation()}
-        >
-          <View style={[styles.sheetHandle, { backgroundColor: activeColors.border }]} />
-          <Text style={[styles.sheetTitle, isClearLens && styles.clearSheetTitle, { color: activeColors.textPrimary }]}>
-            Quick actions
-          </Text>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Quick actions</Text>
 
           <RowGroup
             rows={dataActions}
-            isClearLens={isClearLens}
-            activeColors={activeColors}
-            primaryColor={isClearLens ? ClearLensColors.emerald : colors.primary}
-            dangerColor={dangerColor}
+            styles={styles}
+            primaryColor={cl.emerald}
+            dangerColor={cl.negative}
+            textColor={cl.textPrimary}
           />
-          <View style={[styles.groupDivider, { backgroundColor: activeColors.border }]} />
+          <View style={styles.groupDivider} />
           <RowGroup
             rows={navActions}
-            isClearLens={isClearLens}
-            activeColors={activeColors}
-            primaryColor={isClearLens ? ClearLensColors.emerald : colors.primary}
-            dangerColor={dangerColor}
+            styles={styles}
+            primaryColor={cl.emerald}
+            dangerColor={cl.negative}
+            textColor={cl.textPrimary}
           />
-          <View style={[styles.groupDivider, { backgroundColor: activeColors.border }]} />
+          <View style={styles.groupDivider} />
           <RowGroup
             rows={destructiveActions}
-            isClearLens={isClearLens}
-            activeColors={activeColors}
-            primaryColor={isClearLens ? ClearLensColors.emerald : colors.primary}
-            dangerColor={dangerColor}
+            styles={styles}
+            primaryColor={cl.emerald}
+            dangerColor={cl.negative}
+            textColor={cl.textPrimary}
           />
         </Pressable>
       </Pressable>
@@ -151,25 +138,25 @@ export function AppOverflowMenu({
 
 function RowGroup({
   rows,
-  isClearLens,
-  activeColors,
+  styles,
   primaryColor,
   dangerColor,
+  textColor,
 }: {
   rows: RowConfig[];
-  isClearLens: boolean;
-  activeColors: { textPrimary: string };
+  styles: ReturnType<typeof makeStyles>;
   primaryColor: string;
   dangerColor: string;
+  textColor: string;
 }) {
   return (
     <View>
       {rows.map((row) => {
-        const labelColor = row.danger ? dangerColor : activeColors.textPrimary;
+        const labelColor = row.danger ? dangerColor : textColor;
         return (
           <TouchableOpacity
             key={row.key}
-            style={[styles.item, isClearLens && styles.clearItem]}
+            style={styles.item}
             onPress={row.onPress}
             disabled={row.disabled}
             activeOpacity={0.76}
@@ -181,15 +168,7 @@ function RowGroup({
                 <Ionicons name={row.icon} size={20} color={labelColor} />
               )}
             </View>
-            <Text
-              style={[
-                styles.itemText,
-                isClearLens && styles.clearItemText,
-                { color: labelColor },
-              ]}
-            >
-              {row.label}
-            </Text>
+            <Text style={[styles.itemText, { color: labelColor }]}>{row.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -197,79 +176,61 @@ function RowGroup({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.28)',
-  },
-  clearBackdrop: {
-    backgroundColor: 'rgba(10, 20, 48, 0.28)',
-  },
-  sheet: {
-    borderWidth: 1,
-    borderTopLeftRadius: Radii.xl,
-    borderTopRightRadius: Radii.xl,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.lg,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  clearSheet: {
-    borderTopLeftRadius: ClearLensRadii.xl,
-    borderTopRightRadius: ClearLensRadii.xl,
-    paddingTop: ClearLensSpacing.sm,
-    paddingBottom: ClearLensSpacing.lg,
-    ...ClearLensShadow,
-  },
-  sheetHandle: {
-    width: 44,
-    height: 4,
-    borderRadius: 999,
-    alignSelf: 'center',
-    marginBottom: Spacing.sm,
-  },
-  sheetTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  clearSheetTitle: {
-    ...ClearLensTypography.h2,
-    fontFamily: ClearLensFonts.bold,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-  },
-  clearItem: {
-    paddingHorizontal: ClearLensSpacing.md,
-    paddingVertical: 12,
-  },
-  itemIcon: {
-    width: 24,
-    alignItems: 'center',
-  },
-  itemText: {
-    fontSize: 15,
-    fontWeight: '500',
-    flex: 1,
-  },
-  clearItemText: {
-    ...ClearLensTypography.body,
-    fontFamily: ClearLensFonts.medium,
-  },
-  groupDivider: {
-    height: 1,
-    marginHorizontal: Spacing.md,
-    marginVertical: 6,
-  },
-});
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: tokens.semantic.overlay.backdrop,
+    },
+    sheet: {
+      borderWidth: 1,
+      borderTopLeftRadius: ClearLensRadii.xl,
+      borderTopRightRadius: ClearLensRadii.xl,
+      paddingTop: ClearLensSpacing.sm,
+      paddingBottom: ClearLensSpacing.lg,
+      overflow: 'hidden',
+      backgroundColor: cl.surface,
+      borderColor: cl.border,
+      ...ClearLensShadow,
+    },
+    sheetHandle: {
+      width: 44,
+      height: 4,
+      borderRadius: 999,
+      alignSelf: 'center',
+      marginBottom: ClearLensSpacing.sm,
+      backgroundColor: cl.border,
+    },
+    sheetTitle: {
+      ...ClearLensTypography.h2,
+      fontFamily: ClearLensFonts.bold,
+      color: cl.textPrimary,
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingBottom: ClearLensSpacing.sm,
+    },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingVertical: 12,
+    },
+    itemIcon: {
+      width: 24,
+      alignItems: 'center',
+    },
+    itemText: {
+      ...ClearLensTypography.body,
+      fontFamily: ClearLensFonts.medium,
+      flex: 1,
+    },
+    groupDivider: {
+      height: 1,
+      marginHorizontal: ClearLensSpacing.md,
+      marginVertical: 6,
+      backgroundColor: cl.border,
+    },
+  });
+}

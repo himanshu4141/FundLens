@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,16 @@ import {
 import * as Linking from 'expo-linking';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
-import Logo from '@/src/components/Logo';
+import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { getAppScheme, getNativeExchangeCallbackUrl } from '@/src/utils/appScheme';
 import { parseSessionFromUrl } from '@/src/utils/authUtils';
-import { Colors, Spacing, Radii, Typography } from '@/src/constants/theme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
+import {
+  ClearLensRadii,
+  ClearLensSpacing,
+  ClearLensTypography,
+  type ClearLensTokens,
+} from '@/src/constants/clearLensTheme';
 
 type CallbackState = 'exchanging' | 'linked' | 'error';
 
@@ -24,6 +30,9 @@ interface ErrorState {
 
 export default function OAuthCallbackScreen() {
   const router = useRouter();
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const cl = tokens.colors;
   const { code, error: oauthError, error_description, scheme, callbackUrl } = useLocalSearchParams<{
     code?: string;
     error?: string;
@@ -158,8 +167,8 @@ export default function OAuthCallbackScreen() {
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
-        <Logo size={44} showWordmark />
-        <ActivityIndicator size="large" color={Colors.primary} style={styles.spinner} />
+        <FolioLensLogo size={44} showWordmark />
+        <ActivityIndicator size="large" color={cl.emerald} style={styles.spinner} />
         <Text style={styles.loadingText}>Signing you in…</Text>
       </View>
     );
@@ -169,7 +178,7 @@ export default function OAuthCallbackScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.logoArea}>
-          <Logo size={44} showWordmark />
+          <FolioLensLogo size={44} showWordmark />
         </View>
 
         <View style={styles.messageCard}>
@@ -196,7 +205,7 @@ export default function OAuthCallbackScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.logoArea}>
-          <Logo size={44} showWordmark />
+          <FolioLensLogo size={44} showWordmark />
         </View>
 
         <View style={[styles.messageCard, styles.successCard]}>
@@ -207,7 +216,7 @@ export default function OAuthCallbackScreen() {
           </Text>
         </View>
 
-        <ActivityIndicator color={Colors.primary} />
+        <ActivityIndicator color={cl.emerald} />
         <Text style={styles.loadingText}>Taking you in…</Text>
       </View>
     );
@@ -216,69 +225,72 @@ export default function OAuthCallbackScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.logoArea}>
-        <Logo size={44} showWordmark />
+        <FolioLensLogo size={44} showWordmark />
       </View>
-      <ActivityIndicator size="large" color={Colors.primary} style={styles.spinner} />
+      <ActivityIndicator size="large" color={cl.emerald} style={styles.spinner} />
       <Text style={styles.loadingText}>Completing sign-in…</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
-  },
-  logoArea: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 48,
-    left: Spacing.lg,
-  },
-  spinner: {
-    marginVertical: Spacing.sm,
-  },
-  loadingText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  messageCard: {
-    backgroundColor: Colors.background,
-    borderRadius: Radii.md,
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  successCard: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
-  },
-  cardTitle: {
-    ...Typography.h2,
-    color: Colors.textPrimary,
-  },
-  cardBody: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    lineHeight: 22,
-  },
-  primaryBtn: {
-    height: 52,
-    backgroundColor: Colors.primary,
-    borderRadius: Radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  primaryBtnText: {
-    color: Colors.textOnDark,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: cl.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: ClearLensSpacing.xl,
+      gap: ClearLensSpacing.md,
+    },
+    logoArea: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 60 : 48,
+      left: ClearLensSpacing.lg,
+    },
+    spinner: {
+      marginVertical: ClearLensSpacing.sm,
+    },
+    loadingText: {
+      ...ClearLensTypography.body,
+      color: cl.textSecondary,
+      textAlign: 'center',
+    },
+    messageCard: {
+      backgroundColor: cl.surface,
+      borderRadius: ClearLensRadii.md,
+      padding: ClearLensSpacing.lg,
+      gap: ClearLensSpacing.sm,
+      width: '100%',
+      borderWidth: 1,
+      borderColor: cl.border,
+    },
+    successCard: {
+      backgroundColor: cl.positiveBg,
+      borderColor: cl.mint,
+    },
+    cardTitle: {
+      ...ClearLensTypography.h2,
+      color: cl.textPrimary,
+    },
+    cardBody: {
+      ...ClearLensTypography.body,
+      color: cl.textSecondary,
+      lineHeight: 22,
+    },
+    primaryBtn: {
+      height: 52,
+      backgroundColor: cl.emerald,
+      borderRadius: ClearLensRadii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+    },
+    primaryBtnText: {
+      color: cl.textOnDark,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+  });
+}

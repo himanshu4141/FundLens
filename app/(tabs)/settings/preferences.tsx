@@ -13,21 +13,24 @@ import {
   useAppStore,
   BENCHMARK_OPTIONS,
   DEFAULT_RETURN_ASSUMPTIONS,
+  type AppColorScheme,
   type ReturnAssumptions,
 } from '@/src/store/appStore';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
+import { useTheme, useClearLensTokens } from '@/src/context/ThemeContext';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 
-const DESIGN_OPTIONS = [
-  { value: 'classic' as const, label: 'Current design', desc: 'Classic FolioLens look' },
-  { value: 'clearLens' as const, label: 'Clear Lens design', desc: 'New clean and minimal design' },
+const THEME_OPTIONS: { value: AppColorScheme; label: string; desc: string; icon: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap }[] = [
+  { value: 'light', label: 'Light', desc: 'Always use the light Clear Lens palette', icon: 'sunny-outline' },
+  { value: 'dark', label: 'Dark', desc: 'Always use the new dark Clear Lens palette', icon: 'moon-outline' },
+  { value: 'system', label: 'System', desc: 'Match the system appearance', icon: 'phone-portrait-outline' },
 ];
 
 const PRESET_KEYS: { key: keyof ReturnAssumptions; label: string }[] = [
@@ -37,18 +40,18 @@ const PRESET_KEYS: { key: keyof ReturnAssumptions; label: string }[] = [
 ];
 
 export default function PreferencesScreen() {
-  const styles = useMemo(() => makeStyles(), []);
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const cl = tokens.colors;
+  const { colorScheme, resolvedScheme, setColorScheme } = useTheme();
   const {
     defaultBenchmarkSymbol,
     setDefaultBenchmarkSymbol,
-    appDesignMode,
-    setAppDesignMode,
     returnAssumptions,
     setReturnAssumption,
   } = useAppStore();
   const [saved, setSaved] = useState(false);
 
-  // Draft state for return assumption inputs (string to allow mid-edit values)
   const [assumptionDrafts, setAssumptionDrafts] = useState<Record<keyof ReturnAssumptions, string>>(
     {
       cautious: String(returnAssumptions.cautious),
@@ -74,7 +77,6 @@ export default function PreferencesScreen() {
       setAssumptionDrafts((prev) => ({ ...prev, [key]: String(Number(value.toFixed(1))) }));
       showSaved();
     } else {
-      // Revert to stored value on invalid input
       setAssumptionDrafts((prev) => ({ ...prev, [key]: String(returnAssumptions[key]) }));
     }
   }
@@ -97,12 +99,45 @@ export default function PreferencesScreen() {
       <UtilityHeader title="Preferences" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-
-        {/* Default benchmark */}
+        {/* Theme */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>Default Benchmark</Text>
+          <Text style={styles.sectionLabel}>Appearance</Text>
           {saved && <Text style={styles.savedBadge}>✓ Saved</Text>}
         </View>
+        <Text style={styles.sectionDesc}>
+          {colorScheme === 'system'
+            ? `Following system — currently ${resolvedScheme}.`
+            : `Always use the ${colorScheme} Clear Lens palette.`}
+        </Text>
+        <View style={styles.card}>
+          {THEME_OPTIONS.map((option, idx) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[styles.row, idx > 0 && styles.borderTop]}
+              onPress={() => {
+                setColorScheme(option.value);
+                showSaved();
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.iconBubble}>
+                <Ionicons name={option.icon} size={18} color={cl.emerald} />
+              </View>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowValue}>{option.label}</Text>
+                <Text style={styles.rowSub}>{option.desc}</Text>
+              </View>
+              <Ionicons
+                name={colorScheme === option.value ? 'radio-button-on' : 'radio-button-off'}
+                size={20}
+                color={colorScheme === option.value ? cl.emerald : cl.textTertiary}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Default benchmark */}
+        <Text style={[styles.sectionLabel, { marginTop: ClearLensSpacing.md }]}>Default Benchmark</Text>
         <Text style={styles.sectionDesc}>
           Used for &ldquo;You vs Market&rdquo; on the home screen
         </Text>
@@ -116,7 +151,7 @@ export default function PreferencesScreen() {
             >
               <Text style={[styles.rowValue, { flex: 1 }]}>{opt.label}</Text>
               {defaultBenchmarkSymbol === opt.symbol && (
-                <Ionicons name="checkmark" size={18} color={ClearLensColors.emerald} />
+                <Ionicons name="checkmark" size={18} color={cl.emerald} />
               )}
             </TouchableOpacity>
           ))}
@@ -152,37 +187,15 @@ export default function PreferencesScreen() {
             </View>
           ))}
         </View>
-
-        {/* App design */}
-        <Text style={[styles.sectionLabel, { marginTop: ClearLensSpacing.md }]}>App Design</Text>
-        <View style={styles.card}>
-          {DESIGN_OPTIONS.map((option, idx) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[styles.row, idx > 0 && styles.borderTop]}
-              onPress={() => setAppDesignMode(option.value)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.rowLeft}>
-                <Text style={styles.rowValue}>{option.label}</Text>
-                <Text style={styles.rowSub}>{option.desc}</Text>
-              </View>
-              <Ionicons
-                name={appDesignMode === option.value ? 'radio-button-on' : 'radio-button-off'}
-                size={20}
-                color={appDesignMode === option.value ? ClearLensColors.emerald : ClearLensColors.textTertiary}
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function makeStyles() {
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: ClearLensColors.background },
+    container: { flex: 1, backgroundColor: cl.background },
     content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.xs, paddingBottom: ClearLensSpacing.xxl },
 
     sectionHeaderRow: {
@@ -193,31 +206,31 @@ function makeStyles() {
     },
     sectionLabel: {
       ...ClearLensTypography.label,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       textTransform: 'uppercase',
       marginBottom: 2,
     },
     sectionDesc: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       marginBottom: ClearLensSpacing.xs,
     },
     savedBadge: {
       ...ClearLensTypography.caption,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.emerald,
+      color: cl.emerald,
     },
     resetLink: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.emerald,
+      color: cl.emerald,
       fontFamily: ClearLensFonts.semiBold,
     },
 
     card: {
-      backgroundColor: ClearLensColors.surface,
+      backgroundColor: cl.surface,
       borderRadius: ClearLensRadii.lg,
       borderWidth: 1,
-      borderColor: ClearLensColors.border,
+      borderColor: cl.border,
       overflow: 'hidden',
       ...ClearLensShadow,
     },
@@ -229,15 +242,23 @@ function makeStyles() {
       paddingVertical: 14,
       gap: ClearLensSpacing.md,
     },
-    borderTop: { borderTopWidth: 1, borderTopColor: ClearLensColors.borderLight },
+    borderTop: { borderTopWidth: 1, borderTopColor: cl.borderLight },
     rowLeft: { flex: 1, gap: 3 },
     rowValue: {
       ...ClearLensTypography.h3,
-      color: ClearLensColors.navy,
+      color: cl.navy,
     },
     rowSub: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
+    },
+    iconBubble: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: cl.mint50,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     assumptionInputWrap: {
@@ -248,20 +269,20 @@ function makeStyles() {
     assumptionInput: {
       fontFamily: ClearLensFonts.semiBold,
       fontSize: 15,
-      color: ClearLensColors.navy,
+      color: cl.navy,
       borderWidth: 1,
-      borderColor: ClearLensColors.borderLight,
+      borderColor: cl.borderLight,
       borderRadius: ClearLensRadii.sm,
       paddingHorizontal: ClearLensSpacing.sm,
       paddingVertical: 6,
       width: 52,
       textAlign: 'right',
-      backgroundColor: ClearLensColors.surfaceSoft,
+      backgroundColor: cl.surfaceSoft,
     },
     assumptionUnit: {
       fontFamily: ClearLensFonts.semiBold,
       fontSize: 15,
-      color: ClearLensColors.textSecondary,
+      color: cl.textSecondary,
     },
   });
 }

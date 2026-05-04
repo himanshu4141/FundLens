@@ -9,7 +9,6 @@ import {
   Linking,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart, PieChart } from 'react-native-gifted-charts';
@@ -31,7 +30,6 @@ import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
 import { useTheme } from '@/src/context/ThemeContext';
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import {
   ClearLensCard,
   ClearLensHeader,
@@ -102,7 +100,6 @@ function TimeWindowSelector({
   onChange: (w: TimeWindow) => void;
 }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={s.windowRow}>
@@ -112,7 +109,7 @@ function TimeWindowSelector({
           style={[
             s.windowPill,
             selected === w && s.windowPillActive,
-            selected === w && isClearLens && { backgroundColor: ClearLensColors.navy },
+            selected === w && { backgroundColor: ClearLensColors.navy },
           ]}
           onPress={() => onChange(w)}
           activeOpacity={0.75}
@@ -138,16 +135,15 @@ function PerformanceTab({
   userId?: string;
 }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
   // Live viewport width — module-scope CHART_WIDTH is captured once at JS
   // load time, so on web it would leave the chart at the original size when
   // the window is resized. Recompute against the current viewport instead.
   const { width: viewportWidth } = useWindowDimensions();
   const liveChartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32;
-  const benchmarkColor = isClearLens ? ClearLensColors.slate : colors.warning;
-  const positiveMetricColor = isClearLens ? ClearLensColors.emerald : colors.positive;
-  const negativeMetricColor = isClearLens ? ClearLensColors.negative : colors.negative;
+  const benchmarkColor = ClearLensColors.slate;
+  const positiveMetricColor = ClearLensColors.emerald;
+  const negativeMetricColor = ClearLensColors.negative;
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
@@ -281,8 +277,6 @@ function PerformanceTab({
   const navReturn = ((latestNav - 100) / 100) * 100;
   const benchmarkReturn = ((latestBenchmark - 100) / 100) * 100;
   const benchmarkReturnColor = benchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor;
-  const isAhead = isFinite(navReturn) && isFinite(benchmarkReturn) && navReturn >= benchmarkReturn;
-  const diff = navReturn - benchmarkReturn;
 
   // Values to show in the summary below the chart.
   // When crosshair is active, show the hovered values; otherwise show end-of-period.
@@ -396,7 +390,7 @@ function PerformanceTab({
       <View style={s.tabContent}>
         <TimeWindowSelector selected={window} onChange={setWindow} />
         <View style={s.chartCard}>
-          <ActivityIndicator size="small" color={isClearLens ? ClearLensColors.emerald : colors.primary} />
+          <ActivityIndicator size="small" color={ClearLensColors.emerald} />
         </View>
       </View>
     );
@@ -499,7 +493,7 @@ function PerformanceTab({
               style={[
                 s.benchmarkPill,
                 selectedSymbol === opt.symbol && s.benchmarkPillActive,
-                selectedSymbol === opt.symbol && isClearLens && { backgroundColor: ClearLensColors.navy },
+                selectedSymbol === opt.symbol && { backgroundColor: ClearLensColors.navy },
               ]}
               onPress={() => setSelectedSymbol(opt.symbol)}
               activeOpacity={0.75}
@@ -641,28 +635,6 @@ function PerformanceTab({
             </>
           )}
         </View>
-        {hasBenchmarkData && !isClearLens && (
-          <View
-            style={[
-              s.verdictRow,
-              isClearLens && {
-                marginTop: 0,
-                paddingHorizontal: ClearLensSpacing.sm,
-                paddingVertical: ClearLensSpacing.sm,
-                borderTopWidth: 0,
-                borderRadius: ClearLensRadii.md,
-                backgroundColor: isAhead
-                  ? ClearLensSemanticColors.sentiment.positiveSurface
-                  : ClearLensSemanticColors.sentiment.negativeSurface,
-              },
-            ]}
-          >
-            <Text style={[s.verdictText, { color: isAhead ? positiveMetricColor : negativeMetricColor }]}>
-              {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
-              {' by '}{Math.abs(diff).toFixed(1)}% vs {selectedLabel}
-            </Text>
-          </View>
-        )}
       </View>
 
       <TimeWindowSelector selected={window} onChange={setWindow} />
@@ -679,7 +651,7 @@ function PerformanceTab({
             style={[
               s.benchmarkPill,
               selectedSymbol === opt.symbol && s.benchmarkPillActive,
-              selectedSymbol === opt.symbol && isClearLens && { backgroundColor: ClearLensColors.navy },
+              selectedSymbol === opt.symbol && { backgroundColor: ClearLensColors.navy },
             ]}
             onPress={() => setSelectedSymbol(opt.symbol)}
             activeOpacity={0.75}
@@ -952,7 +924,6 @@ function TechnicalDetailsCard({
   isin: string | null;
 }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
   const ts = useMemo(() => makeTechStyles(colors), [colors]);
   const metaStatus = fundMetaSyncedAt
     ? `as of ${formatNavDate(fundMetaSyncedAt.split('T')[0] ?? fundMetaSyncedAt)}`
@@ -966,7 +937,7 @@ function TechnicalDetailsCard({
   }
 
   return (
-    <View style={[ts.card, isClearLens && ts.clearLensCard]}>
+    <View style={[ts.card, ts.clearLensCard]}>
       <Text style={ts.title}>Technical Details</Text>
       <Text style={ts.metaStatus}>{metaStatus}</Text>
       <View style={ts.row}>
@@ -1395,27 +1366,26 @@ function makeDonutStyles(colors: AppColors) {
 
 function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const cs = useMemo(() => makeCompStyles(colors), [colors]);
   const { composition, isLoading } = useFundComposition(schemeCode);
   const compAssetColors = useMemo(
     () => ({
-      equity: isClearLens ? ClearLensSemanticColors.asset.equity : colors.positive,
-      debt: isClearLens ? ClearLensSemanticColors.asset.debt : colors.primaryDark,
-      cash: isClearLens ? ClearLensSemanticColors.asset.cash : colors.primaryLight,
-      other: isClearLens ? ClearLensSemanticColors.asset.other : colors.borderLight,
+      equity: ClearLensSemanticColors.asset.equity,
+      debt: ClearLensSemanticColors.asset.debt,
+      cash: ClearLensSemanticColors.asset.cash,
+      other: ClearLensSemanticColors.asset.other,
     }),
-    [colors.borderLight, colors.positive, colors.primaryDark, colors.primaryLight, isClearLens],
+    [],
   );
   const compCapColors = useMemo(
     () => ({
-      large: isClearLens ? ClearLensSemanticColors.marketCap.large : colors.primaryDark,
-      mid: isClearLens ? ClearLensSemanticColors.marketCap.mid : colors.positive,
-      small: isClearLens ? ClearLensSemanticColors.marketCap.small : colors.textSecondary,
-      other: isClearLens ? ClearLensSemanticColors.marketCap.other : colors.borderLight,
+      large: ClearLensSemanticColors.marketCap.large,
+      mid: ClearLensSemanticColors.marketCap.mid,
+      small: ClearLensSemanticColors.marketCap.small,
+      other: ClearLensSemanticColors.marketCap.other,
     }),
-    [colors.borderLight, colors.positive, colors.primaryDark, colors.textSecondary, isClearLens],
+    [],
   );
 
   if (isLoading) {
@@ -1675,145 +1645,6 @@ function makeCompStyles(colors: AppColors) {
   });
 }
 
-// ---------------------------------------------------------------------------
-
-function ClassicFundDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
-  const { colors } = useTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  const [activeTab, setActiveTab] = useState<'performance' | 'nav' | 'composition'>('performance');
-  const { data, isLoading, isError } = useFundDetail(id);
-
-  return (
-    <SafeAreaView style={s.container} edges={['bottom']}>
-      {isLoading ? (
-        <View style={s.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : isError || !data ? (
-        <View style={s.centered}>
-          <Ionicons name="alert-circle-outline" size={40} color={colors.textTertiary} />
-          <Text style={s.errorText}>Couldn&apos;t load fund data</Text>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.backLink}>Go back</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* ── Fund header card ── */}
-          {(() => {
-            const latestNavDate = data.navHistory[data.navHistory.length - 1]?.date ?? null;
-            const todayIso = new Date().toISOString().split('T')[0];
-            const navIsStale = latestNavDate !== null && latestNavDate !== todayIso;
-            const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
-            const gainPct = gain !== null && data.investedAmount > 0
-              ? (gain / data.investedAmount) * 100 : null;
-            const gainPositive = gain !== null ? gain >= 0 : true;
-            return (
-              <View style={s.fundHeader}>
-                <Text style={s.fundName}>{data.schemeName}</Text>
-                <Text style={s.fundCategory}>{data.schemeCategory}</Text>
-
-                <View style={s.holdingRow}>
-                  <View style={s.holdingStat}>
-                    <Text style={s.statLabel}>Current Value</Text>
-                    {data.currentValue !== null ? (
-                      <>
-                        <Text style={s.holdingValue}>{formatCurrency(data.currentValue)}</Text>
-                        {navIsStale && (
-                          <Text style={s.navStaleLabel}>as of {formatNavDate(latestNavDate!)}</Text>
-                        )}
-                      </>
-                    ) : (
-                      <Text style={s.holdingValuePending}>NAV pending</Text>
-                    )}
-                  </View>
-                  <View style={s.holdingStat}>
-                    <Text style={s.statLabel}>Cost basis</Text>
-                    <Text style={s.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
-                  </View>
-                  <View style={s.holdingStat}>
-                    <Text style={s.statLabel}>Units</Text>
-                    <Text style={s.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
-                  </View>
-                </View>
-
-                {/* Gain / Loss row */}
-                {gain !== null && gainPct !== null && (
-                  <View style={s.gainRow}>
-                    <Text style={s.statLabel}>Gain / Loss</Text>
-                    <Text style={[s.gainValue, { color: gainPositive ? colors.positive : colors.negative }]}>
-                      {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))}{' '}
-                      ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%)
-                    </Text>
-                  </View>
-                )}
-
-                {/* XIRR row — SIP-adjusted annualised return */}
-                {isFinite(data.fundXirr) && (
-                  <View style={s.xirrHeaderRow}>
-                    <Text style={s.statLabel}>XIRR</Text>
-                    <Text style={[s.xirrHeaderValue, { color: data.fundXirr >= 0 ? colors.positive : colors.negative }]}>
-                      {formatXirr(data.fundXirr)}
-                    </Text>
-                    <Text style={s.xirrHeaderHint}> · SIP-adjusted, annualised</Text>
-                  </View>
-                )}
-
-              </View>
-            );
-          })()}
-
-          {/* ── Tab bar ── */}
-          <View style={s.tabBar}>
-            {(['performance', 'nav', 'composition'] as const).map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                style={[s.tab, activeTab === tab && s.tabActive]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.75}
-              >
-                <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
-                  {tab === 'performance' ? 'Performance' : tab === 'nav' ? 'NAV History' : 'Composition'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {activeTab === 'performance' ? (
-            <PerformanceTab
-              navHistory={data.navHistory}
-              defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
-            />
-          ) : activeTab === 'nav' ? (
-            <NavHistoryTab navHistory={data.navHistory} />
-          ) : (
-            <FundCompositionTab schemeCode={data.schemeCode} />
-          )}
-
-          <TechnicalDetailsCard
-            expenseRatio={data.expenseRatio}
-            aumCr={data.aumCr}
-            minSipAmount={data.minSipAmount}
-            fundMetaSyncedAt={data.fundMetaSyncedAt}
-            schemeCode={data.schemeCode}
-            isin={data.isin}
-          />
-
-          <GrowthConsistencyChart navHistory={data.navHistory} />
-
-          <PortfolioHealthDonut
-            fundId={data.id}
-            currentValue={data.currentValue}
-          />
-
-          <View style={s.bottomPad} />
-        </ScrollView>
-      )}
-    </SafeAreaView>
-  );
-}
 
 type ClearLensFundTab = 'performance' | 'nav' | 'composition';
 
@@ -1999,11 +1830,10 @@ function ClearLensFundDetailScreen() {
 }
 
 export default function FundDetailScreen() {
-  const { isClearLens } = useAppDesignMode();
   return (
     <ResponsiveRouteFrame>
-      <Stack.Screen options={{ headerShown: !isClearLens, title: '' }} />
-      {isClearLens ? <ClearLensFundDetailScreen /> : <ClassicFundDetailScreen />}
+      <Stack.Screen options={{ headerShown: false, title: '' }} />
+      <ClearLensFundDetailScreen />
     </ResponsiveRouteFrame>
   );
 }

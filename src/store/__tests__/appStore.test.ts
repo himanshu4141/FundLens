@@ -38,47 +38,74 @@ describe('BENCHMARK_OPTIONS', () => {
   });
 });
 
-describe('appDesignMode persistence migration', () => {
-  it('defaults missing persisted state to Clear Lens and initializes Wealth Journey state', () => {
+describe('appColorScheme persistence migration', () => {
+  it('defaults missing persisted state to system colour scheme and initializes Wealth Journey state', () => {
     expect(migratePersistedAppState(null)).toEqual({
-      appDesignMode: 'clearLens',
+      appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
     });
   });
 
-  it('preserves clearLens mode when already stored', () => {
+  it('preserves a stored light scheme', () => {
+    expect(migratePersistedAppState({ appColorScheme: 'light' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appColorScheme: 'light',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
+    });
+  });
+
+  it('preserves a stored dark scheme', () => {
+    expect(migratePersistedAppState({ appColorScheme: 'dark' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appColorScheme: 'dark',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
+    });
+  });
+
+  it('falls back to system for unknown scheme values', () => {
+    expect(migratePersistedAppState({ appColorScheme: 'sepia' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appColorScheme: 'system',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
+    });
+  });
+
+  it('drops the legacy appDesignMode field and resets to system colour scheme', () => {
     expect(migratePersistedAppState({ appDesignMode: 'clearLens' })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
-      appDesignMode: 'clearLens',
+      appColorScheme: 'system',
+      wealthJourney: DEFAULT_WEALTH_JOURNEY,
+      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
+      goals: [],
+    });
+    expect(migratePersistedAppState({ appDesignMode: 'classic' })).toEqual({
+      defaultBenchmarkSymbol: '^NSEI',
+      appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
     });
   });
 
-  it('migrates old Editorial v1/v2 designVariant values to Clear Lens', () => {
+  it('migrates old Editorial v1/v2 designVariant values to system colour scheme', () => {
     expect(migratePersistedAppState({ designVariant: 'v1' })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
-      appDesignMode: 'clearLens',
+      appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
     });
     expect(migratePersistedAppState({ designVariant: 'v2' })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
-      appDesignMode: 'clearLens',
-      wealthJourney: DEFAULT_WEALTH_JOURNEY,
-      returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
-      goals: [],
-    });
-  });
-
-  it('preserves explicit classic mode when stored', () => {
-    expect(migratePersistedAppState({ appDesignMode: 'classic' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
-      appDesignMode: 'classic',
+      appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
@@ -88,7 +115,7 @@ describe('appDesignMode persistence migration', () => {
   it('preserves benchmark preference during migration', () => {
     expect(migratePersistedAppState({ defaultBenchmarkSymbol: '^BSESN', designVariant: 'v2' })).toEqual({
       defaultBenchmarkSymbol: '^BSESN',
-      appDesignMode: 'clearLens',
+      appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
@@ -97,7 +124,7 @@ describe('appDesignMode persistence migration', () => {
 
   it('preserves existing Wealth Journey state during migration', () => {
     expect(migratePersistedAppState({
-      appDesignMode: 'clearLens',
+      appColorScheme: 'light',
       wealthJourney: {
         hasOpened: true,
         hasSavedPlan: true,
@@ -107,7 +134,7 @@ describe('appDesignMode persistence migration', () => {
       },
     })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
-      appDesignMode: 'clearLens',
+      appColorScheme: 'light',
       wealthJourney: {
         ...DEFAULT_WEALTH_JOURNEY,
         hasOpened: true,
@@ -123,7 +150,7 @@ describe('appDesignMode persistence migration', () => {
 
   it('sanitizes out-of-range Wealth Journey values during migration', () => {
     expect(migratePersistedAppState({
-      appDesignMode: 'clearLens',
+      appColorScheme: 'dark',
       wealthJourney: {
         hasOpened: true,
         hasSavedPlan: true,
@@ -140,7 +167,7 @@ describe('appDesignMode persistence migration', () => {
       },
     })).toEqual({
       defaultBenchmarkSymbol: '^NSEI',
-      appDesignMode: 'clearLens',
+      appColorScheme: 'dark',
       wealthJourney: {
         ...DEFAULT_WEALTH_JOURNEY,
         hasOpened: true,

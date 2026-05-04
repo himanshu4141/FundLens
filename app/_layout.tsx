@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import * as SystemUI from 'expo-system-ui';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -17,7 +18,7 @@ import {
 import { queryClient } from '@/src/lib/queryClient';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
-import { ThemeProvider } from '@/src/context/ThemeContext';
+import { ThemeProvider, useTheme } from '@/src/context/ThemeContext';
 import { parseSessionFromUrl } from '@/src/utils/authUtils';
 
 // Required for expo-web-browser openAuthSessionAsync to complete on Android.
@@ -102,21 +103,42 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-      <SafeAreaProvider>
-        <StatusBar style="auto" />
-        <AuthGate>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="auth" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="fund/[id]" options={{ headerShown: true, title: '' }} />
-            <Stack.Screen name="money-trail" options={{ headerShown: false }} />
-            <Stack.Screen name="portfolio-insights" options={{ headerShown: true, title: 'Portfolio Insights' }} />
-            <Stack.Screen name="onboarding" />
-            <Stack.Screen name="tools" />
-          </Stack>
-        </AuthGate>
-      </SafeAreaProvider>
+        <ThemedAppShell />
       </ThemeProvider>
     </QueryClientProvider>
+  );
+}
+
+function ThemedAppShell() {
+  const { resolvedScheme, clearLens } = useTheme();
+
+  useEffect(() => {
+    // Sync the underlying system UI background so the splash transition and
+    // pull-to-refresh halo match the resolved scheme.
+    SystemUI.setBackgroundColorAsync(clearLens.colors.background).catch(() => {});
+  }, [clearLens.colors.background]);
+
+  return (
+    <SafeAreaProvider>
+      <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />
+      {/*
+        The `key` forces a remount on scheme change so module-level
+        StyleSheet.create blocks (which capture token values once) re-evaluate
+        with the new palette. Cost: transient UI state (modals, scroll
+        position) resets when the user toggles light/dark — acceptable for a
+        rare preference change.
+      */}
+      <AuthGate key={resolvedScheme}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: clearLens.colors.background } }}>
+          <Stack.Screen name="auth" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="fund/[id]" options={{ headerShown: true, title: '' }} />
+          <Stack.Screen name="money-trail" options={{ headerShown: false }} />
+          <Stack.Screen name="portfolio-insights" options={{ headerShown: true, title: 'Portfolio Insights' }} />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="tools" />
+        </Stack>
+      </AuthGate>
+    </SafeAreaProvider>
   );
 }

@@ -1,102 +1,45 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ScrollView,
-  ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
-import * as WebBrowser from 'expo-web-browser';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { useSession } from '@/src/hooks/useSession';
-import { useInboundSession } from '@/src/hooks/useInboundSession';
-import { useAppStore, BENCHMARK_OPTIONS } from '@/src/store/appStore';
-import { Spacing, Radii, Typography } from '@/src/constants/theme';
-import { useTheme } from '@/src/context/ThemeContext';
-import { GoogleIcon } from '@/src/components/GoogleIcon';
-import { UtilityHeader } from '@/src/components/UtilityHeader';
-import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
-import { parseOAuthCode } from '@/src/utils/authUtils';
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
-import type { AppColors } from '@/src/context/ThemeContext';
-
-// ── Shared helpers ────────────────────────────────────────────────────────────
-
-async function fetchProfile(userId: string) {
-  const { data } = await supabase
-    .from('user_profile')
-    .select('pan, kfintech_email')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return data ?? null;
-}
 
 export function maskPan(pan: string): string {
   if (pan.length !== 10) return pan;
   return pan.slice(0, 2) + '•'.repeat(6) + pan.slice(8);
 }
 
-export function navStatusBadge(navDate: string | null | undefined, colors: AppColors) {
-  if (!navDate) return { color: colors.textTertiary, dot: '#9ca3af', label: 'Unknown' };
+export function navStatusBadge(
+  navDate: string | null | undefined,
+  cl: ClearLensTokens['colors'],
+) {
+  if (!navDate) return { color: cl.textTertiary, dot: cl.textTertiary, label: 'Unknown' };
   const today = new Date().toISOString().split('T')[0];
   const diffMs = new Date(today).getTime() - new Date(navDate).getTime();
   const diffDays = Math.round(diffMs / 86_400_000);
   const d = new Date(navDate);
   const dateLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  if (diffDays <= 1) return { color: colors.positive, dot: colors.positive, label: 'Live' };
-  if (diffDays <= 3) return { color: '#d97706', dot: '#f59e0b', label: `Stale · ${dateLabel}` };
-  return { color: colors.negative, dot: colors.negative, label: `Outdated · ${dateLabel}` };
+  if (diffDays <= 1) return { color: cl.positive, dot: cl.positive, label: 'Live' };
+  if (diffDays <= 3) return { color: cl.warning, dot: cl.amber, label: `Stale · ${dateLabel}` };
+  return { color: cl.negative, dot: cl.negative, label: `Outdated · ${dateLabel}` };
 }
-
-function CopyRow({ label, value, sublabel }: { label: string; value: string; sublabel?: string }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeClassicStyles(colors), [colors]);
-  const [copied, setCopied] = useState(false);
-  async function handleCopy() {
-    await Clipboard.setStringAsync(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-  return (
-    <View style={styles.row}>
-      <View style={styles.rowLeft}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue} numberOfLines={1} selectable>{value}</Text>
-        {sublabel && <Text style={styles.rowSubLabel}>{sublabel}</Text>}
-      </View>
-      <TouchableOpacity onPress={handleCopy} style={[styles.actionBtn, copied && styles.actionBtnDone]}>
-        <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={copied ? colors.positive : colors.primary} />
-        <Text style={[styles.actionBtnText, copied && { color: colors.positive }]}>
-          {copied ? 'Copied' : 'Copy'}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function ClassicSectionHeader({ title }: { title: string }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeClassicStyles(colors), [colors]);
-  return <Text style={styles.sectionHeader}>{title}</Text>;
-}
-
-// ── ClearLens Hub ─────────────────────────────────────────────────────────────
 
 type HubRowProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -106,36 +49,40 @@ type HubRowProps = {
   statusColor?: string;
   onPress: () => void;
   isLast?: boolean;
+  styles: ReturnType<typeof makeHubStyles>;
+  cl: ClearLensTokens['colors'];
 };
 
-function HubRow({ icon, title, subtitle, statusLabel, statusColor, onPress, isLast }: HubRowProps) {
+function HubRow({ icon, title, subtitle, statusLabel, statusColor, onPress, isLast, styles, cl }: HubRowProps) {
   return (
     <TouchableOpacity
-      style={[hubStyles.row, !isLast && hubStyles.rowBorder]}
+      style={[styles.row, !isLast && styles.rowBorder]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={hubStyles.iconCircle}>
-        <Ionicons name={icon} size={20} color={ClearLensColors.emerald} />
+      <View style={styles.iconCircle}>
+        <Ionicons name={icon} size={20} color={cl.emerald} />
       </View>
-      <View style={hubStyles.rowContent}>
-        <Text style={hubStyles.rowTitle}>{title}</Text>
-        <Text style={hubStyles.rowSubtitle} numberOfLines={1}>{subtitle}</Text>
+      <View style={styles.rowContent}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowSubtitle} numberOfLines={1}>{subtitle}</Text>
         {statusLabel ? (
-          <View style={hubStyles.statusRow}>
-            <View style={[hubStyles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[hubStyles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+          <View style={styles.statusRow}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
           </View>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
+      <Ionicons name="chevron-forward" size={18} color={cl.textTertiary} />
     </TouchableOpacity>
   );
 }
 
-function ClearLensHub() {
+export default function SettingsScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeHubStyles(tokens), [tokens]);
+  const cl = tokens.colors;
 
   const { data: latestNavRow } = useQuery({
     queryKey: ['latest-nav-date'],
@@ -151,544 +98,141 @@ function ClearLensHub() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const navBadge = navStatusBadge(latestNavRow, colors);
-
-  return (
-    <SafeAreaView style={hubStyles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={hubStyles.content}>
-        <View style={hubStyles.frame}>
-        <View style={hubStyles.header}>
-          <Text style={hubStyles.eyebrow}>Settings</Text>
-          <Text style={hubStyles.heading}>Account & preferences</Text>
-          <Text style={hubStyles.subheading}>Manage your account, data, and how the app behaves.</Text>
-        </View>
-
-        <View style={hubStyles.card}>
-          <HubRow
-            icon="person-outline"
-            title="Account"
-            subtitle="Email, PAN, connected accounts"
-            onPress={() => router.push('/settings/account')}
-          />
-          <HubRow
-            icon="cloud-upload-outline"
-            title="Portfolio import"
-            subtitle="CAS email, import address, upload"
-            onPress={() => router.push('/settings/portfolio-import')}
-          />
-          <HubRow
-            icon="refresh-outline"
-            title="Data sync"
-            subtitle="NAV data status and manual sync"
-            statusLabel={navBadge.label}
-            statusColor={navBadge.dot}
-            onPress={() => router.push('/settings/data-sync')}
-          />
-          <HubRow
-            icon="options-outline"
-            title="Preferences"
-            subtitle="Benchmark, app design"
-            onPress={() => router.push('/settings/preferences')}
-          />
-          <HubRow
-            icon="information-circle-outline"
-            title="About & support"
-            subtitle="Version, updates and sign out"
-            onPress={() => router.push('/settings/about')}
-            isLast
-          />
-        </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-const hubStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: ClearLensColors.background },
-  // Cap inner column width so on desktop the cards don't stretch
-  // edge-to-edge of the content area. 760 px matches
-  // ClearLensScreen.desktopMaxWidth used by the other single-column
-  // screens (Wealth Journey, Money Trail, etc.).
-  content: {
-    padding: ClearLensSpacing.md,
-    alignItems: 'center',
-  },
-  frame: {
-    width: '100%',
-    maxWidth: 760,
-    gap: ClearLensSpacing.md,
-  },
-  header: { gap: 4, paddingVertical: ClearLensSpacing.sm },
-  eyebrow: {
-    ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
-    textTransform: 'uppercase',
-  },
-  heading: {
-    ...ClearLensTypography.h1,
-    fontFamily: ClearLensFonts.extraBold,
-    color: ClearLensColors.navy,
-  },
-  subheading: {
-    ...ClearLensTypography.body,
-    color: ClearLensColors.textTertiary,
-  },
-  card: {
-    backgroundColor: ClearLensColors.surface,
-    borderRadius: ClearLensRadii.lg,
-    borderWidth: 1,
-    borderColor: ClearLensColors.border,
-    overflow: 'hidden',
-    ...ClearLensShadow,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: ClearLensSpacing.md,
-    paddingVertical: ClearLensSpacing.md,
-    gap: ClearLensSpacing.md,
-  },
-  rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: ClearLensColors.borderLight,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.mint50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  rowContent: { flex: 1, gap: 2 },
-  rowTitle: {
-    ...ClearLensTypography.h3,
-    fontFamily: ClearLensFonts.semiBold,
-    color: ClearLensColors.navy,
-  },
-  rowSubtitle: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
-  },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { ...ClearLensTypography.caption, fontFamily: ClearLensFonts.semiBold },
-});
-
-// ── Classic settings (unchanged) ──────────────────────────────────────────────
-
-function ClassicSettings() {
-  const router = useRouter();
-  const { session } = useSession();
-  const userId = session?.user.id;
-  const queryClient = useQueryClient();
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeClassicStyles(colors), [colors]);
-
-  const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol, appDesignMode, setAppDesignMode } = useAppStore();
-  const [benchmarkSaved, setBenchmarkSaved] = useState(false);
-
-  const [linkingGoogle, setLinkingGoogle] = useState(false);
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const identities = session?.user?.identities ?? [];
-  const isGoogleLinked = identities.some((id: { provider: string }) => id.provider === 'google');
-  const googleIdentity = identities.find((id: { provider: string }) => id.provider === 'google');
-
-  async function handleLinkGoogle() {
-    setLinkError(null);
-    setLinkingGoogle(true);
-
-    const redirectTo = Platform.OS === 'web'
-      ? `${window.location.origin}/auth/callback`
-      : getNativeBridgeUrl('/auth/callback');
-
-    const { data, error } = await supabase.auth.linkIdentity({
-      provider: 'google',
-      options: { redirectTo, skipBrowserRedirect: Platform.OS !== 'web' },
-    });
-
-    if (error) { setLinkError(error.message); setLinkingGoogle(false); return; }
-
-    if (Platform.OS === 'web') {
-      if (data?.url) window.location.href = data.url;
-      return;
-    }
-
-    const result = await WebBrowser.openAuthSessionAsync(data.url, getNativeAuthOrigin());
-    setLinkingGoogle(false);
-
-    if (result.type === 'success') {
-      const code = parseOAuthCode(result.url);
-      if (code) {
-        router.push(`/auth/callback?code=${encodeURIComponent(code)}&callbackUrl=${encodeURIComponent(result.url)}`);
-      }
-    }
-  }
-
-  type SyncState = 'idle' | 'syncing' | 'done' | 'error';
-  const [syncState, setSyncState] = useState<SyncState>('idle');
-
-  async function handleSync() {
-    setSyncState('syncing');
-    supabase.functions.invoke('sync-fund-portfolios').catch(() => {});
-    supabase.functions.invoke('sync-fund-meta').catch(() => {});
-    const [navResult, idxResult] = await Promise.allSettled([
-      supabase.functions.invoke('sync-nav'),
-      supabase.functions.invoke('sync-index'),
-    ]);
-    const navOk = navResult.status === 'fulfilled' && !navResult.value.error;
-    const idxOk = idxResult.status === 'fulfilled' && !idxResult.value.error;
-    if (navOk || idxOk) {
-      await queryClient.invalidateQueries({ queryKey: ['latest-nav-date'] });
-      setSyncState('done');
-      setTimeout(() => setSyncState('idle'), 3000);
-    } else {
-      setSyncState('error');
-      setTimeout(() => setSyncState('idle'), 4000);
-    }
-  }
-
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['user-profile', userId],
-    queryFn: () => fetchProfile(userId!),
-    enabled: !!userId,
-  });
-
-  const { inboundEmail, isLoading: sessionLoading } = useInboundSession(userId);
-  const isLoading = profileLoading || sessionLoading;
-
-  const { data: latestNavRow } = useQuery({
-    queryKey: ['latest-nav-date'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('nav_history')
-        .select('nav_date')
-        .order('nav_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data?.nav_date as string | null ?? null;
-    },
-    staleTime: 10 * 60 * 1000,
-  });
-
-  const navBadge = navStatusBadge(latestNavRow, colors);
-
-  async function handleSignOut() {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out', style: 'destructive',
-        onPress: async () => {
-          const { error } = await supabase.auth.signOut();
-          if (error) Alert.alert('Error', error.message);
-        },
-      },
-    ]);
-  }
+  const navBadge = navStatusBadge(latestNavRow, cl);
 
   return (
     <SafeAreaView style={styles.container}>
-      <UtilityHeader title="Settings" />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <ClassicSectionHeader title="Account" />
-        <View style={styles.card}>
-          <View style={styles.accountBadge}>
-            <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={24} color={colors.primary} />
-            </View>
-            <View style={styles.accountInfo}>
-              <Text style={styles.accountEmail}>{session?.user.email ?? '—'}</Text>
-              <Text style={styles.accountMeta}>
-                {profile?.pan ? maskPan(profile.pan) : 'PAN not set'}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.editIconBtn}>
-              <Ionicons name="pencil-outline" size={16} color={colors.textTertiary} />
-            </TouchableOpacity>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <View style={styles.frame}>
+          <View style={styles.header}>
+            <Text style={styles.eyebrow}>Settings</Text>
+            <Text style={styles.heading}>Account & preferences</Text>
+            <Text style={styles.subheading}>Manage your account, data, and how the app behaves.</Text>
           </View>
 
-          {isLoading && (
-            <View style={[styles.row, { justifyContent: 'center' }]}>
-              <ActivityIndicator size="small" color={colors.textTertiary} />
-            </View>
-          )}
-
-          {!isLoading && profile?.kfintech_email && (
-            <View style={[styles.row, styles.borderTop]}>
-              <View style={styles.rowLeft}>
-                <Text style={styles.rowLabel}>CAS registrar email</Text>
-                <Text style={styles.rowValue} numberOfLines={1}>{profile.kfintech_email}</Text>
-              </View>
-              <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
-                <Text style={styles.actionBtnText}>Edit</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        <ClassicSectionHeader title="Connected Accounts" />
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.providerIconWrap}>
-              <Ionicons name="mail-outline" size={18} color={colors.textSecondary} />
-            </View>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowValue}>Email (magic link)</Text>
-              <Text style={styles.rowSubLabel}>{session?.user.email}</Text>
-            </View>
-            <View style={[styles.statusBadge, styles.connectedBadge]}>
-              <Text style={[styles.statusText, { color: colors.positive }]}>Connected</Text>
-            </View>
-          </View>
-
-          <View style={[styles.row, styles.borderTop]}>
-            <View style={styles.providerIconWrap}><GoogleIcon size={18} /></View>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowValue}>Google</Text>
-              {isGoogleLinked && (googleIdentity?.identity_data?.['email'] as string | undefined) ? (
-                <Text style={styles.rowSubLabel}>{googleIdentity?.identity_data?.['email'] as string}</Text>
-              ) : null}
-            </View>
-            {isGoogleLinked ? (
-              <View style={[styles.statusBadge, styles.connectedBadge]}>
-                <Text style={[styles.statusText, { color: colors.positive }]}>Connected</Text>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.actionBtn, linkingGoogle && { opacity: 0.6 }]}
-                onPress={handleLinkGoogle}
-                disabled={linkingGoogle}
-                activeOpacity={0.75}
-              >
-                {linkingGoogle
-                  ? <ActivityIndicator size="small" color={colors.primary} />
-                  : <Text style={styles.actionBtnText}>Connect</Text>}
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {linkError && (
-            <View style={[styles.row, styles.borderTop]}>
-              <Text style={[styles.rowSubLabel, { color: colors.negative, flex: 1 }]}>{linkError}</Text>
-            </View>
-          )}
-        </View>
-
-        {inboundEmail && (
-          <>
-            <ClassicSectionHeader title="Portfolio Import" />
-            <View style={styles.card}>
-              <CopyRow
-                label="Your import address"
-                value={inboundEmail}
-                sublabel="Forward your CAMS CAS email here to auto-import"
-              />
-              <View style={[styles.row, styles.borderTop]}>
-                <View style={styles.rowLeft}>
-                  <Text style={styles.rowLabel}>Upload a CAS PDF</Text>
-                  <Text style={styles.rowSubLabel}>Manually import from a downloaded PDF</Text>
-                </View>
-                <TouchableOpacity onPress={() => router.push('/onboarding/pdf')} style={styles.actionBtn}>
-                  <Ionicons name="cloud-upload-outline" size={14} color={colors.primary} />
-                  <Text style={styles.actionBtnText}>Upload</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </>
-        )}
-
-        <ClassicSectionHeader title="Data" />
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowLabel}>NAV data</Text>
-              <Text style={styles.rowSubLabel}>Updated hourly on weekdays via AMFI</Text>
-            </View>
-            <View style={styles.statusBadge}>
-              <View style={[styles.statusDot, { backgroundColor: navBadge.dot }]} />
-              <Text style={[styles.statusText, { color: navBadge.color }]}>{navBadge.label}</Text>
-            </View>
-          </View>
-          <View style={[styles.row, styles.borderTop]}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowLabel}>Manual sync</Text>
-              <Text style={styles.rowSubLabel}>
-                {syncState === 'done'
-                  ? 'Sync complete — NAV and index data updated'
-                  : syncState === 'error'
-                    ? 'Sync failed — check your connection and try again'
-                    : 'Fetch latest NAV, index, portfolio composition, and fund metadata'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={handleSync}
-              disabled={syncState === 'syncing'}
-              style={[
-                styles.actionBtn,
-                syncState === 'done' && styles.actionBtnDone,
-                syncState === 'error' && styles.actionBtnError,
-              ]}
-              activeOpacity={0.75}
-            >
-              {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons
-                  name={syncState === 'done' ? 'checkmark' : syncState === 'error' ? 'alert-circle-outline' : 'refresh-outline'}
-                  size={14}
-                  color={syncState === 'done' ? colors.positive : syncState === 'error' ? colors.negative : colors.primary}
-                />
-              )}
-              <Text style={[
-                styles.actionBtnText,
-                syncState === 'done' && { color: colors.positive },
-                syncState === 'error' && { color: colors.negative },
-              ]}>
-                {syncState === 'syncing' ? 'Syncing…' : syncState === 'done' ? 'Done' : syncState === 'error' ? 'Failed' : 'Sync now'}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.card}>
+            <HubRow
+              icon="person-outline"
+              title="Account"
+              subtitle="Email, PAN, connected accounts"
+              onPress={() => router.push('/settings/account')}
+              styles={styles}
+              cl={cl}
+            />
+            <HubRow
+              icon="cloud-upload-outline"
+              title="Portfolio import"
+              subtitle="CAS email, import address, upload"
+              onPress={() => router.push('/settings/portfolio-import')}
+              styles={styles}
+              cl={cl}
+            />
+            <HubRow
+              icon="refresh-outline"
+              title="Data sync"
+              subtitle="NAV data status and manual sync"
+              statusLabel={navBadge.label}
+              statusColor={navBadge.dot}
+              onPress={() => router.push('/settings/data-sync')}
+              styles={styles}
+              cl={cl}
+            />
+            <HubRow
+              icon="options-outline"
+              title="Preferences"
+              subtitle="Benchmark, appearance, return assumptions"
+              onPress={() => router.push('/settings/preferences')}
+              styles={styles}
+              cl={cl}
+            />
+            <HubRow
+              icon="information-circle-outline"
+              title="About & support"
+              subtitle="Version, updates and sign out"
+              onPress={() => router.push('/settings/about')}
+              styles={styles}
+              cl={cl}
+              isLast
+            />
           </View>
         </View>
-
-        <View style={styles.sectionHeaderRow}>
-          <ClassicSectionHeader title="Preferences" />
-          {benchmarkSaved && <Text style={styles.savedFeedback}>✓ Saved</Text>}
-        </View>
-        <View style={styles.card}>
-          <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: 6 }]}>
-            <Text style={styles.rowLabel}>Default Benchmark</Text>
-            <Text style={styles.rowSubLabel}>Used for &ldquo;You vs Market&rdquo; on the home screen</Text>
-          </View>
-          {BENCHMARK_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.symbol}
-              style={[styles.row, styles.borderTop]}
-              onPress={() => {
-                setDefaultBenchmarkSymbol(opt.symbol);
-                setBenchmarkSaved(true);
-                setTimeout(() => setBenchmarkSaved(false), 1500);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.rowValue, { flex: 1 }]}>{opt.label}</Text>
-              {defaultBenchmarkSymbol === opt.symbol && (
-                <Ionicons name="checkmark" size={16} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <ClassicSectionHeader title="App Design" />
-        <View style={styles.card}>
-          {([
-            { value: 'classic' as const, label: 'Current design' },
-            { value: 'clearLens' as const, label: 'New Clear Lens design' },
-          ]).map((option, idx) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[styles.row, idx > 0 && styles.borderTop]}
-              onPress={() => setAppDesignMode(option.value)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.rowValue, { flex: 1 }]}>{option.label}</Text>
-              <Ionicons
-                name={appDesignMode === option.value ? 'radio-button-on' : 'radio-button-off'}
-                size={20}
-                color={appDesignMode === option.value ? colors.primary : colors.textTertiary}
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <ClassicSectionHeader title="Account Actions" />
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
-            <Ionicons name="log-out-outline" size={18} color={colors.negative} />
-            <Text style={styles.signOutText}>Sign out</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.bottomPad} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function makeClassicStyles(colors: AppColors) {
+function makeHubStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    sectionHeader: {
-      ...Typography.label,
-      color: colors.textTertiary,
-      textTransform: 'uppercase',
-      marginTop: Spacing.lg,
-      marginBottom: Spacing.md,
-      marginHorizontal: Spacing.md,
+    container: { flex: 1, backgroundColor: cl.background },
+    // Cap inner column width so on desktop the cards don't stretch
+    // edge-to-edge of the content area. 760 px matches
+    // ClearLensScreen.desktopMaxWidth used by the other single-column
+    // screens (Wealth Journey, Money Trail, etc.).
+    content: {
+      padding: ClearLensSpacing.md,
+      alignItems: 'center',
     },
-    sectionHeaderRow: {
+    frame: {
+      width: '100%',
+      maxWidth: 760,
+      gap: ClearLensSpacing.md,
+    },
+    header: { gap: 4, paddingVertical: ClearLensSpacing.sm },
+    eyebrow: {
+      ...ClearLensTypography.label,
+      color: cl.emerald,
+      textTransform: 'uppercase',
+    },
+    heading: {
+      ...ClearLensTypography.h1,
+      fontFamily: ClearLensFonts.extraBold,
+      color: cl.navy,
+    },
+    subheading: {
+      ...ClearLensTypography.body,
+      color: cl.textTertiary,
+    },
+    card: {
+      backgroundColor: cl.surface,
+      borderRadius: ClearLensRadii.lg,
+      borderWidth: 1,
+      borderColor: cl.border,
+      overflow: 'hidden',
+      ...ClearLensShadow,
+    },
+    row: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingRight: Spacing.md,
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingVertical: ClearLensSpacing.md,
+      gap: ClearLensSpacing.md,
     },
-    savedFeedback: { fontSize: 12, color: colors.positive, fontWeight: '600', marginTop: Spacing.lg },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: Radii.lg,
-      marginHorizontal: Spacing.md,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.border,
+    rowBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: cl.borderLight,
     },
-    accountBadge: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: Spacing.md, paddingVertical: 14, gap: 12,
+    iconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: ClearLensRadii.full,
+      backgroundColor: cl.mint50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
     },
-    avatarCircle: {
-      width: 44, height: 44, borderRadius: 22,
-      backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
+    rowContent: { flex: 1, gap: 2 },
+    rowTitle: {
+      ...ClearLensTypography.h3,
+      fontFamily: ClearLensFonts.semiBold,
+      color: cl.navy,
     },
-    accountInfo: { flex: 1, gap: 2 },
-    accountEmail: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
-    accountMeta: { fontSize: 12, color: colors.textTertiary },
-    editIconBtn: { padding: 6 },
-    row: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: Spacing.md, paddingVertical: 13, gap: 12,
+    rowSubtitle: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.textTertiary,
     },
-    borderTop: { borderTopWidth: 1, borderTopColor: colors.borderLight },
-    rowLeft: { flex: 1, gap: 3 },
-    rowLabel: { ...Typography.label, color: colors.textTertiary, textTransform: 'uppercase' },
-    rowValue: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
-    rowSubLabel: { ...Typography.bodySmall, color: colors.textTertiary, marginTop: 1 },
-    actionBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: 10, paddingVertical: 6,
-      backgroundColor: colors.primaryLight, borderRadius: Radii.sm,
-    },
-    actionBtnDone: { backgroundColor: '#f0fdf4' },
-    actionBtnError: { backgroundColor: '#fef2f2' },
-    actionBtnText: { fontSize: 12, fontWeight: '600', color: colors.primary },
-    providerIconWrap: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-    connectedBadge: { backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radii.sm },
-    statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.positive },
-    statusText: { fontSize: 12, fontWeight: '600', color: colors.positive },
-    signOutRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 10,
-      paddingHorizontal: Spacing.md, paddingVertical: 15,
-    },
-    signOutText: { color: colors.negative, fontSize: 15, fontWeight: '600' },
-    bottomPad: { height: 40 },
+    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
+    statusText: { ...ClearLensTypography.caption, fontFamily: ClearLensFonts.semiBold },
   });
-}
-
-// ── Default export ─────────────────────────────────────────────────────────────
-
-export default function SettingsScreen() {
-  const { isClearLens } = useAppDesignMode();
-  if (isClearLens) return <ClearLensHub />;
-  return <ClassicSettings />;
 }
