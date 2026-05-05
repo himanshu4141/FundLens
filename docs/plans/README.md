@@ -8,6 +8,9 @@
 |---|---|---|
 | `phase-3-clear-lens-design-mode/M2-money-trail.md` | `feature/money-trail` | Money Trail transaction history on Clear Lens; portfolio preview, entry points, transaction browsing, detail, filters, sorting, CSV export, and calculation alignment |
 | `phase-3-clear-lens-design-mode/M3-dark-mode.md` | `claude/add-dark-theme-selection-hZil0` (PR #97) | Clear Lens dark scheme; Settings appearance picker (light / dark / system); Classic mode retired; live-token migration; theme-aware app icons (iOS dark/tinted, Android monochrome) and web favicon swap |
+| `phase-6-cas-onboarding/00-onboarding-redesign.md` | `docs/cas-onboarding-execplans` (PR #88) | Phase 6 overview — friendly 4-step CAS onboarding wizard, theme + desktop reality |
+| `phase-6-cas-onboarding/M1-friendly-upload-onboarding.md` | `feat/onboarding-wizard-m1` (PR #92) | M1 — wizard rewrite (Welcome / Identity / Import / Done), upload-first import, in-app browser portal flow |
+| `phase-6-cas-onboarding/M2-resend-inbound-auto-refresh.md` | `feat/cas-resend-inbound-m2` (PR #93) | M2 — per-user inbox token, Resend Inbound webhook, auto-refresh card, Settings row, retire CASParser |
 
 ---
 
