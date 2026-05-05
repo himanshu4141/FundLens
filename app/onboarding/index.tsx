@@ -54,11 +54,11 @@ type Cl = ClearLensTokens['colors'];
 const STEP_ORDER: OnboardingStep[] = ['welcome', 'identity', 'import', 'done'];
 
 // Both CAMS and KFintech issue a combined Consolidated Account Statement
-// covering every AMC (regardless of which RTA serviced the AMC). CAMS Online
-// is the recommended path because the form is a single page and asks for no
-// login — just PAN + email + DOB. KFintech also works but the flow is more
-// involved. MFCentral was the previous recommendation but offers no
-// advantage over CAMS for the CAS request itself and forces an account login.
+// covering every AMC (regardless of which RTA serviced the AMC). Both forms
+// are public and ask for PAN + email — no login required. CAMS Online is
+// listed first because its form is a single page; KFintech is functionally
+// equivalent. MFCentral was the previous recommendation but offers no
+// advantage over either RTA for the CAS request itself and forces login.
 const PORTAL_OPTIONS: {
   id: string;
   name: string;
@@ -70,14 +70,14 @@ const PORTAL_OPTIONS: {
     id: 'cams',
     name: 'CAMS Online',
     url: 'https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement',
-    description: 'Recommended — no login. Just PAN + email; the CAS arrives in 1–2 minutes.',
+    description: 'Recommended — no login. Single-page form: just PAN + email.',
     recommended: true,
   },
   {
     id: 'kfintech',
     name: 'KFintech',
     url: 'https://mfs.kfintech.com/investor/General/ConsolidatedAccountStatement',
-    description: 'Also works — the CAS is combined and covers every AMC. Mutual Funds → CAS → Email request.',
+    description: 'Also no login. Same combined CAS — useful if CAMS is having issues.',
   },
 ];
 
@@ -691,8 +691,20 @@ function ImportStep({
           </Pressable>
           <Text style={styles.stepTitle}>Get a fresh CAS</Text>
           <Text style={styles.stepBody}>
-            Pick a portal, log in, and request your statement. It lands in
-            your registered email in 1–2 minutes.
+            Either portal returns the same combined CAS — pick one, fill the
+            form, and the statement lands in your email in 1–2 minutes.
+          </Text>
+        </View>
+
+        <View style={styles.calloutCard}>
+          <Ionicons name="time-outline" size={18} color={cl.emeraldDeep} />
+          <Text style={styles.calloutText}>
+            <Text style={styles.bold}>Pick a date range that covers all your investments.</Text>{' '}
+            On both portals, set <Text style={styles.bold}>From</Text> to before
+            your first ever mutual-fund purchase (when in doubt, use{' '}
+            <Text style={styles.bold}>01/01/2000</Text>) and{' '}
+            <Text style={styles.bold}>To</Text> to today. Anything missed here
+            is missed forever — you can&apos;t merge two CASes later.
           </Text>
         </View>
 
@@ -1259,6 +1271,22 @@ function makeStyles(tokens: ClearLensTokens) {
       color: cl.emeraldDeep,
       fontFamily: ClearLensFonts.bold,
       letterSpacing: 0.4,
+    },
+    calloutCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.lg,
+      backgroundColor: cl.positiveBg,
+      borderWidth: 1,
+      borderColor: cl.mint,
+    },
+    calloutText: {
+      flex: 1,
+      ...ClearLensTypography.bodySmall,
+      color: cl.navy,
+      lineHeight: 18,
     },
     tipsCard: {
       padding: ClearLensSpacing.md,
