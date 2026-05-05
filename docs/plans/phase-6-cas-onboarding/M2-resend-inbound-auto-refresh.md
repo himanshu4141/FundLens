@@ -2,33 +2,74 @@
 
 ## Goal
 
-Replace the CASParser-based email forwarding flow with a self-hosted equivalent on `foliolens.in` using Resend's Inbound Routes. Each user gets a unique inbound address; emails sent there are parsed by our Edge Function and imported automatically. Removes a paid third-party dependency, lands import notifications inside our own infrastructure, and unlocks set-and-forget refresh for users willing to set up a Gmail filter once.
+Replace the CASParser-based email forwarding flow with a self-hosted equivalent on `foliolens.in` using Resend's Inbound Routes. Each user gets a unique inbound address; emails sent there are parsed by our Edge Function and imported automatically. Removes a paid third-party dependency, lands import notifications inside our own infrastructure, and unlocks one-tap (or fully-automatic, pending feasibility) refresh for users willing to forward their next CAS email.
 
 ## User Value
 
-Today, refreshing a portfolio means re-running the entire upload flow once a month. Most users won't bother. After M2, a user who completes a 30-second one-time Gmail filter setup never has to think about CAS again — every monthly RTA email lands in our webhook and the portfolio updates itself. We also retire the CASParser subscription, simplifying the bill and the codebase.
+Today, refreshing a portfolio means re-running the entire upload flow once a month. Most users won't bother. After M2, a user who forwards their next CAMS / KFintech CAS email one time gets that import done without re-uploading; if their mail client supports a verified auto-forward filter, every future CAS lands automatically and the portfolio updates itself. We also retire the CASParser subscription, simplifying the bill and the codebase.
 
 ## Context
 
 - **M1 must land first.** M2 adds the auto-refresh card to Step 3 of M1's wizard and a post-import nudge on Step 4.
-- The domain `foliolens.in` is already verified with Resend for outbound transactional email (magic-link sign-in). Inbound is a separate Resend product on the same domain — DNS adds two MX records, no other infra change.
+- The domain `foliolens.in` is already verified with Resend for outbound transactional email (magic-link sign-in). Inbound is a separate Resend product on the same domain — DNS adds two MX records.
+- We have **one Resend account and one verified domain** (`foliolens.in`) but **two app environments** (dev + preview, prod). M2 must namespace inbound addresses so dev / prod don't share users' tokens or routing — see "Dev / prod environment differentiation" below.
 - The current `cas-webhook` Edge Function on `main` accepts a CASParser-shaped payload and looks up the user via the `reference` field. Resend's payload shape is different and our webhook has to be rewritten.
 - Two CASParser-coupled Edge Functions exist on `main`: `request-cas` (programmatically asks KFintech to email a CAS) and `create-inbound-session` (creates a per-user CASParser inbound mailbox). Both are called from the legacy onboarding screen which M1 retires.
 - The `user_profile` table already has `pan`, `dob`, `kfintech_email`. M2 adds `cas_inbox_token`.
 - **Theme + desktop reality.** Like M1, M2's UI surfaces (auto-refresh card on Step 3, post-import nudge on Step 4, Settings row) must read colors from `useClearLensTokens()`, define styles inside `makeStyles(tokens)`, and render correctly inside the desktop sidebar shell.
 
+## Dev / prod environment differentiation
+
+Single domain, single Resend account, but the dev and prod app environments must each have their own inbound endpoint so a CAS email from a dev tester never lands in prod (and vice versa). The chosen scheme:
+
+| Env  | User-facing address                | Resend Inbound pattern        | Webhook target                                 |
+|------|-------------------------------------|-------------------------------|-------------------------------------------------|
+| Dev  | `cas+<token>@dev.foliolens.in`      | `cas+*@dev.foliolens.in`      | `https://<dev-project-ref>.supabase.co/functions/v1/cas-webhook-resend` |
+| Prod | `cas+<token>@foliolens.in`          | `cas+*@foliolens.in`          | `https://<prod-project-ref>.supabase.co/functions/v1/cas-webhook-resend` |
+
+A subdomain (`dev.foliolens.in`) was chosen over a tag prefix (`cas+dev_<token>@foliolens.in`) for two reasons:
+
+1. The `dev.` prefix is **immediately legible** to a tester pasting the address — no chance of mixing it up with a prod address copied from a different screen.
+2. Separate MX records mean the two routes are administratively isolated in Resend; a misconfigured dev route can never accidentally swallow prod inbound mail.
+
+DNS gains one extra MX record set (on `dev.foliolens.in`) but nothing else moves — both subdomains still go through the same Resend account. The signing secret is **per-route** (`RESEND_INBOUND_SECRET` set once on each Supabase project's edge runtime), so a leaked dev secret can never sign a prod webhook.
+
+The wizard / Settings UI builds the address from a single env-driven base. Client reads `EXPO_PUBLIC_INBOUND_DOMAIN` (defaults to `foliolens.in` so a missing var keeps prod working). Edge Function reads `INBOUND_DOMAIN` from `Deno.env` and parses the same value out of incoming `to` headers.
+
+## Auto-forward feasibility discovery
+
+The original M2 sketch leaned on a one-time Gmail / Outlook filter that auto-forwards every CAS email to the user's `cas+<token>` address. That assumed Gmail still allows arbitrary auto-forward filters. **It does not.** Since 2018, Gmail requires that the destination address either (a) be on a Google Workspace domain that has been allowlisted by the destination admin, or (b) confirm ownership by clicking a link Google emails to the destination address.
+
+For our setup, option (a) is unavailable (we are not a Google Workspace tenant for `foliolens.in`). Option (b) means the confirmation email lands at `cas+<token>@foliolens.in` (or `cas+<token>@dev.foliolens.in` on dev) — i.e. it hits our `cas-webhook-resend` Edge Function. We currently have no path to surface that confirmation link back to the user inside FolioLens.
+
+Outlook (consumer + Microsoft 365), Apple Mail / iCloud, and Yahoo Mail likely have similar verification flows; we have not yet confirmed each.
+
+### Discovery deliverables (M2.0, must complete before M2.4)
+
+- **Document each major mail client's auto-forward verification flow** (Gmail consumer, Gmail Workspace, Outlook.com, Microsoft 365, iCloud, Yahoo). For each: does it require destination verification, and if so, how is the verification email delivered.
+- **Decide one of three paths** based on what the discovery turns up:
+  1. **Auto-forward path remains viable.** The Edge Function detects a verification email (sender pattern `forwarding-noreply@google.com` etc.), extracts the confirmation link, surfaces it to the user via the Settings → Auto-refresh row.
+  2. **Manual-forward only.** Drop the auto-forward pitch entirely; M2.4's card pitches "Forward your next CAS email and your portfolio updates automatically — no auto-forward filter needed." User forwards each monthly CAS by hand. Still cheaper than re-uploading.
+  3. **Hybrid.** Try auto-forward; if the user's client doesn't support it, fall back to manual-forward instructions.
+- **Update the copy catalog in `00-onboarding-redesign.md` and the Settings hint copy** to match whichever path is chosen.
+
+This discovery unblocks M2.4 (auto-refresh card UX) and M2.5 (Settings row copy). Until it's done, the M2 backend (M2.1–M2.3, already shipped) continues to work — it processes whatever CAS emails arrive, regardless of how the user got them there. We can begin manual-forward testing on dev today without finalising the discovery.
+
 ## Assumptions
 
 - Resend Inbound is available on the existing FolioLens Resend account at no incremental cost for the volumes we expect (a few hundred users × ~1 email/month each). If it isn't, the same pattern works with Postmark, SendGrid Inbound Parse, or Cloudflare Email Routing — only the webhook adapter changes.
-- Resend Inbound supports plus-addressing or wildcard routing (`cas+anything@foliolens.in` → one webhook).
+- Resend Inbound supports plus-addressing or wildcard routing on a verified domain (`cas+*@<domain>` → one webhook).
 - The Vercel-hosted CAS PDF parser at `${APP_BASE_URL}/api/parse-cas-pdf` accepts raw PDF bytes (already true on main).
 - We are willing to delete `request-cas` (RTA email is no longer triggered server-side; user requests CAS themselves via the M1 portal flow).
+- Adding an MX record set on `dev.foliolens.in` is acceptable (Cloudflare DNS, ~5 min change, no impact on existing `foliolens.in` mail).
 
 ## Definitions
 
-- **Inbox token** — an 8-character random opaque string per user, e.g. `cas+a8k3z9p2@foliolens.in`. Drawn from a 32-char base32 alphabet that excludes visually ambiguous chars (`I L O 0 1`). Distinct from the user's UUID so it's safe to expose to Gmail filter UI.
-- **Resend Inbound Route** — a Resend dashboard configuration that points an inbound address (or pattern) at a webhook URL. We register one route: `cas+*@foliolens.in` → `https://<project-ref>.supabase.co/functions/v1/cas-webhook-resend`.
-- **Auto-forward filter** — a Gmail / Outlook filter the user creates that automatically forwards messages from `donotreply@camsonline.com` (etc.) to their inbox token address.
+- **Inbox token** — an 8-character random opaque string per user (e.g. `A8K3Z9P2`). Drawn from a 32-char base32 alphabet that excludes visually ambiguous chars (`I L O 0 1`).
+- **Inbound domain** — `foliolens.in` on prod, `dev.foliolens.in` on dev. Read from env, never hardcoded.
+- **Resend Inbound Route** — a Resend dashboard configuration that points an inbound address (or pattern) at a webhook URL. M2 needs one route per environment.
+- **Manual forward** — user opens the CAS email from CAMS/KFintech and taps Forward → pastes their `cas+<token>@…` address → sends. Works on every mail client without extra setup.
+- **Auto-forward filter** — a Gmail / Outlook rule that auto-forwards matching emails to the inbox token address. Subject to client-side verification (see "Auto-forward feasibility discovery" above).
 
 ## Scope
 
@@ -50,13 +91,13 @@ Today, refreshing a portfolio means re-running the entire upload flow once a mon
 
 ## Approach
 
-When a user completes M1, they have a portfolio. On the post-import screen we show a card "Set up auto-refresh". Tapping it surfaces a sheet with their personal forwarding address `cas+abc123@foliolens.in`, a Copy button, and a "Show me how" link that opens an explainer with platform-specific instructions for Gmail (auto-forward + filter) and Outlook (rule).
+When a user completes M1, they have a portfolio. On the post-import screen we show a card. Its copy and CTA depend on the M2.0 discovery outcome (auto-forward viable / manual-only / hybrid) — but in every variant the card surfaces the user's forwarding address (`cas+<token>@foliolens.in` on prod or `cas+<token>@dev.foliolens.in` on dev) and a Copy button. The address builder reads `EXPO_PUBLIC_INBOUND_DOMAIN` and never hardcodes a domain.
 
-On the backend side, a new Edge Function `cas-webhook-resend` accepts Resend's webhook payload, parses out the inbox token from `to`, resolves the user, then runs the same import path that M1's upload uses — namely POSTing the PDF bytes to the existing Vercel parser and handing the result to the shared `import-cas.ts` helper.
+On the backend side, a new Edge Function `cas-webhook-resend` accepts Resend's webhook payload, parses out the inbox token from `to` (matching against `Deno.env.get('INBOUND_DOMAIN')`), resolves the user, then runs the same import path that M1's upload uses — namely POSTing the PDF bytes to the existing Vercel parser and handing the result to the shared `import-cas.ts` helper.
 
 We deliberately keep the parsing path unified (one `parse-cas-pdf` Vercel endpoint, one `import-cas.ts` helper) so M1's upload and M2's email-in produce identical outcomes. Tests for the import path don't multiply.
 
-The signature verification on the webhook uses a timing-safe HMAC against the `RESEND_INBOUND_SECRET` and rejects unsigned / replayed requests with 401 before any side effects.
+The signature verification on the webhook uses a timing-safe HMAC against the per-route `RESEND_INBOUND_SECRET` and rejects unsigned / replayed requests with 401 before any side effects. Dev and prod each carry their own secret; a leaked dev secret can never sign a prod webhook.
 
 ## Alternatives Considered
 
@@ -66,46 +107,61 @@ The signature verification on the webhook uses a timing-safe HMAC against the `R
 
 ## Milestones
 
-### M2.1 — Schema + token generation
+### M2.0 — Auto-forward feasibility discovery (precedes UI work)
 
-- New migration `<timestamp>_user_profile_cas_inbox_token.sql`:
+- Document each major mail client's auto-forward verification flow (Gmail consumer, Gmail Workspace, Outlook.com, Microsoft 365, iCloud, Yahoo Mail).
+- Decide between auto-forward, manual-forward-only, or hybrid (see "Auto-forward feasibility discovery" above).
+- Update copy in `00-onboarding-redesign.md` to match the chosen path. Update M2.4's UX accordingly.
+- **Acceptance**: a written discovery note in this plan + an explicit decision recorded in the Decision Log section.
+
+### M2.1 — Schema + token generation [shipped on `feat/cas-resend-inbound-m2`]
+
+- Migration `20260504020000_user_profile_cas_inbox_token.sql`:
   - Adds `cas_inbox_token text unique` to `user_profile`.
   - Adds a function `gen_cas_inbox_token()` returning a random 8-char base32 string from alphabet `[A-HJKMNP-Z2-9]` (excludes `I L O 0 1`). 32⁸ ≈ 10¹² unique tokens.
   - Adds a `BEFORE INSERT` trigger that fills the column when null on row insert.
   - Backfills existing rows: `update user_profile set cas_inbox_token = gen_cas_inbox_token() where cas_inbox_token is null`.
   - Locks down the function: `revoke ... from public, anon, authenticated` then `grant execute ... to supabase_auth_admin` only.
-- Update `database.types.ts`.
+- `database.types.ts` updated.
 - **Acceptance**: every existing and new user has a unique 8-char `cas_inbox_token`; `select count(distinct cas_inbox_token) = count(*) from user_profile` is true.
 
-### M2.2 — Resend Inbound Route + DNS (manual, documented)
+### M2.2 — Resend Inbound Routes + DNS (manual, per environment)
 
-- Add MX records for `foliolens.in` per Resend's inbound docs.
-- Create a Resend Inbound Route: pattern `cas+*@foliolens.in`, webhook `https://<project-ref>.supabase.co/functions/v1/cas-webhook-resend`, signing secret `RESEND_INBOUND_SECRET`.
-- Set the secret on the prod and dev Supabase Edge runtime.
-- Smoke test: send an email with a small PDF attachment to `cas+TESTTOKEN@foliolens.in`, observe the webhook fire (function will 404 because user lookup fails — that's OK for smoke).
-- **Acceptance**: Resend dashboard shows the route receiving the test email and POSTing to the webhook.
+For each environment (dev, then prod), repeat:
 
-### M2.3 — Edge Function `cas-webhook-resend`
+- Add MX records for the environment's inbound subdomain on Cloudflare:
+  - **Dev**: MX records for `dev.foliolens.in` per Resend's inbound docs.
+  - **Prod**: MX records for `foliolens.in` per Resend's inbound docs.
+- Create a Resend Inbound Route per environment:
+  - **Dev**: pattern `cas+*@dev.foliolens.in`, webhook `https://imkgazlrxtlhkfptkzjc.supabase.co/functions/v1/cas-webhook-resend`, signing secret `RESEND_INBOUND_SECRET` (dev value).
+  - **Prod**: pattern `cas+*@foliolens.in`, webhook `https://ohcaaioabjvzewfysqgh.supabase.co/functions/v1/cas-webhook-resend`, signing secret `RESEND_INBOUND_SECRET` (prod value).
+- Set the per-route secret on the matching Supabase project's edge runtime: `RESEND_INBOUND_SECRET` plus `INBOUND_DOMAIN` (`dev.foliolens.in` or `foliolens.in` respectively).
+- Smoke test: send an email with a small PDF attachment to a `cas+TESTTOKEN@<env-domain>` address, observe the webhook fire (function will 404 because user lookup fails — that's OK for smoke).
+- **Acceptance**: Resend dashboard shows each route receiving its env's test email and POSTing to the matching webhook URL.
 
-- Create `supabase/functions/cas-webhook-resend/index.ts`:
-  - Verify Resend signature using `RESEND_INBOUND_SECRET` (timing-safe HMAC).
-  - Parse the To header, extract the `+token` portion (handle `Display Name <addr>` and bare `addr` forms).
-  - Look up `user_profile` by `cas_inbox_token`; reject 404 if no match.
-  - For each PDF attachment, decode base64 → POST to `${APP_BASE_URL}/api/parse-cas-pdf` with the user's PAN as password (and `cdsl_password` for CDSL/NSDL fallback).
-  - Run `importCASData` from `_shared/import-cas.ts`.
-  - Insert a `cas_import` row with `import_source = 'email'`.
-  - Return 200 on either success or expected user errors so Resend doesn't retry.
-- Deploy with `--no-verify-jwt` (Resend cannot send a Supabase JWT).
-- Add structured `[cas-webhook-resend]` logs at invocation, signature OK, user resolution, per-attachment, completion (per existing project convention).
-- **Acceptance**: dev test email with a real CAS PDF imports successfully; `cas_import` table reflects the run; tampered signature rejects with 401.
+### M2.3 — Edge Function `cas-webhook-resend` [shipped on `feat/cas-resend-inbound-m2`]
 
-### M2.4 — Wizard Step 3 auto-refresh card + post-import nudge
+- `supabase/functions/cas-webhook-resend/index.ts`:
+  - Reads `INBOUND_DOMAIN` from `Deno.env` and parses the `to` header against that domain (no hardcoded `foliolens.in`).
+  - Verifies Svix signature using `RESEND_INBOUND_SECRET` (timing-safe HMAC).
+  - Looks up `user_profile` by `cas_inbox_token`; rejects 404 if no match.
+  - For each PDF attachment, decodes base64 → POSTs to `${APP_BASE_URL}/api/parse-cas-pdf` with the user's PAN as password (and `cdsl_password` for CDSL/NSDL fallback).
+  - Runs `importCASData` from `_shared/import-cas.ts`.
+  - Inserts a `cas_import` row with `import_source = 'email'`.
+  - Returns 200 on either success or expected user errors so Resend doesn't retry.
+- Deployed with `--no-verify-jwt` (Resend cannot send a Supabase JWT).
+- Structured `[cas-webhook-resend]` logs at invocation, signature OK, user resolution, per-attachment, completion.
+- **Acceptance**: dev test email with a real CAS PDF imports successfully; `cas_import` table reflects the run; tampered signature rejects with 401; the function works against both dev and prod with no code change (only `INBOUND_DOMAIN` differs).
 
-- Replace the placeholder "auto-refresh" card slot in M1's Step 3 with the real flow.
-- Tapping opens a bottom sheet showing the user's address `cas+abc123@foliolens.in`, a Copy button, and a "Set up Gmail forwarding" CTA that opens an in-app browser (native) / new tab (web) to `https://mail.google.com/mail/u/0/#settings/filters` with on-screen instructions.
-- After M1.5's done step, show a single-card nudge "Set this up once and we'll keep your portfolio fresh" with the same sheet.
+### M2.4 — Wizard Step 3 forwarding card + post-import nudge
+
+- Stack on top of M1; replace the placeholder card slot on Step 3 with the chosen flow (per M2.0 discovery).
+- The card shows the user's address built from `EXPO_PUBLIC_INBOUND_DOMAIN`, a Copy button, and step-by-step instructions:
+  - **Manual-forward path (default if M2.0 lands on that)**: "Each time CAMS / KFintech emails you a CAS, tap Forward and paste this address. Your portfolio updates automatically."
+  - **Auto-forward path (if M2.0 confirms it works on a given client)**: explainer + a CTA that opens the client's filter UI in a new tab / in-app browser. The Edge Function surfaces the verification email's confirmation link to the user via the Settings row.
+- After M1.5's Done step, show a single-card nudge with the same sheet.
 - All colors via tokens; styles via `makeStyles(tokens)`. Verify in light + dark + system, on mobile + desktop.
-- **Acceptance**: a user can copy the address, set up a Gmail filter manually, and receive the auto-refresh next time CAMS emails them. Webhook fires; `cas_import` row appears.
+- **Acceptance**: a user can copy the address, forward a CAS email (or set up the filter), and receive the import. Webhook fires; `cas_import` row appears with `import_source = 'email'`.
 
 ### M2.5 — Settings hook + last-refresh
 

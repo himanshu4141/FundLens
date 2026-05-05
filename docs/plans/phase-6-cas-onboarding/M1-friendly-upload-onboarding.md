@@ -81,10 +81,14 @@ The whole wizard wraps in `<DesktopFormFrame>` so it occupies a 720 px column in
 - Rewrite `app/onboarding/index.tsx` to use `useReducer(reduceOnboarding, EMPTY_DRAFT)` + AsyncStorage hydration on mount.
 - Wrap root in `<DesktopFormFrame>`. All styles via `makeStyles(tokens)` + `useMemo`.
 - Progress component: 4 pills, active = `tokens.colors.emerald`, idle = `tokens.colors.borderLight`.
-- **Welcome step**: hero, copy from `00-onboarding-redesign.md`, single primary CTA "Get started".
-- **Identity step**: PAN field (auto-uppercase, max length 10, inline error on invalid), DOB field (DD/MM/YYYY or ISO via input, optional, hint "Required only for CDSL / NSDL PDFs"), email field pre-filled from `supabase.auth.getUser()`.
-- On Identity → Continue, `upsert` `{ user_id, pan, dob, kfintech_email: email }` into `user_profile`. Block advance on invalid PAN.
-- **Acceptance**: PAN saves to `user_profile`; refresh confirms persistence; invalid PAN inline-errors; DOB hint visible; layout passes light + dark + system + desktop ≥1024 px without regressions.
+- **Welcome step**: hero, copy from `00-onboarding-redesign.md`, single primary CTA "Get started". Skipped automatically when `user_profile.pan` is already saved (the wizard was reached via Settings → Restart import).
+- **Identity step**: PAN field, DOB field, email field. Behaviour depends on what's already saved on `user_profile`:
+  - **First-run (PAN null)**: PAN is editable (auto-uppercase, max length 10, inline error on invalid). DOB editable (DD/MM/YYYY or ISO, optional, hint "Required only for CDSL / NSDL PDFs"). Email pre-filled from `supabase.auth.getUser()`, editable.
+  - **Returning user (PAN saved, DOB null)**: PAN renders as a locked read-only display ("Saved" badge). DOB editable so the user can add it. Email editable.
+  - **Returning user (PAN + DOB both saved)**: Identity step is skipped entirely; the wizard mounts directly on Step 3 (Import). Saved values are visible on Settings → Account but never re-prompted in the wizard.
+- The wizard fetches `user_profile` via `useQuery` on mount and uses the result to decide which step to start on (Welcome → Identity → Import). It also hydrates the AsyncStorage draft so the live editor reflects what's already in the DB.
+- On Identity → Continue, the wizard `upsert`s only the fields that were editable in the form. Saved-and-locked PAN / DOB are left untouched; the upsert never overwrites a non-null PAN.
+- **Acceptance**: first-run user can save PAN; refresh confirms persistence; on relaunch the user lands directly on Step 3 (or Step 4 if `cas_import` exists). The Identity step never lets a user re-enter a PAN that's already saved. Settings → Account shows PAN as read-only with no Edit button. DOB is editable in Settings only when null. Layout passes light + dark + system + desktop ≥1024 px without regressions.
 
 ### M1.3 — Step 3 (Import) Upload path
 
@@ -101,13 +105,17 @@ The whole wizard wraps in `<DesktopFormFrame>` so it occupies a 720 px column in
 - Below the portal cards: a stationary instruction block "1) Log in. 2) Find 'Statements' or 'CAS'. 3) Request statement to your registered email. 4) Come back here."
 - **Acceptance**: tapping a portal opens a tab on web / in-app browser on native; closing surfaces the upload banner; tapping the banner runs the document-picker flow; portal cards survive the dark-mode flip.
 
-### M1.5 — Step 4 (Done) + entry-point routing + Settings re-import link
+### M1.5 — Step 4 (Done) + entry-point routing + Settings hardening
 
 - Done step: imported fund count, transaction count, primary CTA "Open portfolio" → `router.replace('/(tabs)')`. Secondary CTA (subdued): "Set up auto-refresh" → no-op text in M1, becomes the M2 nudge.
 - Entry-point logic: users with `pan` set who reopen the app land on `(tabs)`, not the wizard. The auth/onboarding redirect lives in the root layout — verify it still works post-rewrite.
-- Settings → Account: add a "Restart import" link that pushes the wizard. Useful for support cases and beta testers re-running the flow.
-- The standalone `app/onboarding/pdf.tsx` route stays — Settings → Restart import → "Upload another statement" continues to call it. Reskin it to match the wizard styling (same tokens, same `DesktopFormFrame`).
-- **Acceptance**: completed user does not see the wizard on relaunch; Settings → Restart import re-enters the wizard; profile fields persist; `pdf.tsx` looks consistent with the wizard in both schemes.
+- Settings → Account already has a "Restart import" entry point (`router.push('/onboarding')`). Update it so:
+  - The PAN row in Settings → Account is read-only with no Edit button (write-once).
+  - The DOB row shows an Add button only when `dob is null`; once set, the row becomes read-only.
+  - The kfintech_email row remains editable.
+  - The "Restart import" CTA pushes the wizard; the wizard's M1.2 logic handles the skip-to-Step-3 case based on existing PAN/DOB.
+- The standalone `app/onboarding/pdf.tsx` route stays — used both by the wizard's Upload card on web and as a direct deep-link target. Reskin verified during the rebase.
+- **Acceptance**: completed user does not see the wizard on relaunch; Settings → Restart import re-enters the wizard at Step 3 (skipping Welcome + Identity since PAN is saved); Settings PAN row shows no Edit button; Settings DOB row shows Add only when null; profile fields persist; `pdf.tsx` looks consistent with the wizard in both schemes.
 
 ### M1.6 — Validation + dev preview run-through
 

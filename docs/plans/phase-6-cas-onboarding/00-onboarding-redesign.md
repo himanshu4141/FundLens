@@ -6,10 +6,6 @@
 
 The CAS onboarding shipped with Phase 1 was a single linear page with three numbered steps (PAN → inbound address → request CAS). It worked but it threw three decisions at the user before the portfolio appeared, hid the simplest path (PDF upload) under "alternative", and never explained what a CAS is. Phase 6 replaces it with a friendly four-step wizard that leads with the fastest option (upload), explains the jargon in plain language, and treats the email-forwarding inbox as an optional advanced setup rather than the default route.
 
-## Phase Numbering Note
-
-Phase 5 is now **Desktop Web** (shipped via PR #95). The CAS onboarding redesign — originally drafted as Phase 5 in earlier branches — has been renumbered to **Phase 6** to reflect the actual repo state. Plans live under `docs/plans/phase-6-cas-onboarding/`.
-
 ## What "CAS" Means In Plain Language
 
 CAS stands for Consolidated Account Statement. India has two registrar-and-transfer agents (RTAs): CAMS and KFintech. Between them they run accounting for ~95% of mutual fund AMCs. A CAS is a free PDF a user can request from either RTA (or from MFCentral / CDSL / NSDL) that lists every mutual fund holding the user owns across every AMC, plus every transaction.
@@ -20,16 +16,35 @@ There is no API for CAS. The user must request it through one of the portals and
 
 ## The User Journey (target end state)
 
-1. New user opens FolioLens, signs in.
-2. Sees a 4-step onboarding wizard.
+### First-run user (no `pan` saved)
+
+1. User opens FolioLens, signs in.
+2. Sees the 4-step onboarding wizard.
 3. **Step 1 — Welcome**: tells them what a CAS is, why we need it, what stays private.
-4. **Step 2 — Identity**: PAN (required), DOB (optional, with hint about CDSL/NSDL), email (pre-filled from auth).
+4. **Step 2 — Identity**: PAN (required), DOB (optional, with hint about CDSL/NSDL), email (pre-filled from auth, editable). Once saved, **PAN and DOB become immutable** (see "PAN / DOB are write-once" below).
 5. **Step 3 — Import**: two cards in priority order.
    - **Upload a CAS PDF** (recommended, fastest)
    - **Get a fresh CAS** (guides to CAMS / KFintech / MFCentral via in-app browser)
 6. **Step 4 — Done**: portfolio loaded; nudges to set up auto-refresh.
 
 A third "Set up auto-refresh" card on Step 3 lands in **M2** alongside the Resend Inbound backend.
+
+### Returning user (Settings → Restart import)
+
+When a user with `pan` already saved enters the wizard from Settings → Account → Restart import:
+
+- Step 1 (Welcome) is skipped.
+- Step 2 (Identity) is skipped if both PAN and DOB are saved; if only PAN is saved (DOB null), Identity opens **with the PAN locked and only the DOB field editable** so the user can add it for CDSL/NSDL imports.
+- The wizard lands directly on Step 3 (Import) so the user can re-upload immediately.
+- Step 4 (Done) on success returns to the Portfolio tab.
+
+The Identity step never re-prompts for a saved PAN. Editing PAN / DOB is intentionally not exposed in the UI: PAN is the password to the user's CAS PDF, and a wrong PAN silently breaks every future import. If a user genuinely needs to change either field (rare — different family member, data-entry typo), we handle that as a support case via SQL update rather than a UI button. The kfintech-registered email and any other profile metadata remain editable from Settings.
+
+### PAN / DOB are write-once
+
+- PAN: required during first-run Identity step; rendered as a locked read-only display thereafter (with a "Saved" badge), in both the wizard and Settings → Account.
+- DOB: optional during first-run; if saved, locked thereafter; if skipped, can still be added later (write-once, not edit-once). Settings → Account shows an "Add" button only when `dob is null`; once set, the row becomes a read-only display.
+- The wizard auto-completes Step 2 when both fields are already populated and routes the user to Step 3.
 
 No WebView wrapping a third-party portal at any point. The Phase 4 attempt at that (PR #75) was closed. We use `expo-web-browser` (SFSafariViewController on iOS, Chrome Custom Tab on Android) for portals on native, and `Linking.openURL` for web — both return the user to FolioLens cleanly.
 
@@ -71,9 +86,11 @@ The wizard ships into a codebase that now has **dark mode** and a **desktop shel
 - Upload card body: "Got one already? Upload it now and we'll do the rest."
 - Request card title: "Get a fresh CAS"
 - Request card body: "We'll show you exactly what to do. Takes about 2 minutes."
-- Auto-refresh card title: "Set up auto-refresh (advanced)"
-- Auto-refresh card body: "Forward CAS emails to your private FolioLens address and never re-upload."
+- Auto-refresh card title: "Forward your next CAS (advanced)"
+- Auto-refresh card body: "Get a private FolioLens address. Each time CAMS/KFintech emails you a new CAS, forward it once — your portfolio updates automatically."
 - Done title: "Your portfolio is ready"
+
+> **Open question (M2):** the auto-refresh card originally pitched a one-time Gmail filter so the forwarding happens automatically forever. Gmail no longer permits auto-forward filters without verifying ownership of the destination address (the destination must click a confirmation email, which would land in the FolioLens inbound webhook — currently no path to surface that to the user). Outlook and Apple Mail likely have similar guards. **M2 must complete a feasibility discovery on auto-forward across the major mail clients before locking the copy/UX above.** If verified auto-forward turns out to be infeasible for most users, the card pivots to a "manual forward each time" pitch (still cheaper than re-uploading the PDF). See M2's "Auto-forward feasibility discovery" section.
 
 ## Out of Scope
 
