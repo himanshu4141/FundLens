@@ -20,6 +20,13 @@ export interface ClearLensColorTokens {
   emeraldDeep: string;
   mint: string;
   mint50: string;
+  /**
+   * Stable lavender used as a third chart-line hue (alongside emerald and
+   * slate) so "amount invested" / "net invested" sits on a different hue
+   * family from the portfolio (green) and benchmark (slate) lines. Tuned
+   * so it reads against both light and dark canvases.
+   */
+  lavender: string;
   lightGrey: string;
   grey50: string;
   background: string;
@@ -59,6 +66,10 @@ export const ClearLensLightColors: ClearLensColorTokens = {
   emeraldDeep: '#0EA372',
   mint: '#A7F3D0',
   mint50: '#ECFDF5',
+  // Saturated lavender — distinct from emerald (green) and slate (blue-grey)
+  // when used as a third chart-line hue. Tuned to read on the white card
+  // surface while still feeling muted enough for a baseline reference line.
+  lavender: '#6E73C4',
   lightGrey: '#E6EBF1',
   grey50: '#F2F4F8',
   background: '#FAFBFD',
@@ -98,6 +109,9 @@ export const ClearLensDarkColors: ClearLensColorTokens = {
   // it reads against the light surface, so we keep it stable.
   mint: '#A7F3D0',
   mint50: '#0E2F25',
+  // Pop lavender on the dark canvas — needs to be hue-distinct from slate
+  // (#C5CFE0) which is a near-neighbour blue-grey when desaturated.
+  lavender: '#A1A6F0',
   // `lightGrey` is consumed as a chart "other" segment colour and as a soft
   // border/muted accent. Pick a mid-grey that reads against the dark canvas
   // (the previous #26314A merged with the page bg — the "navy on navy" bar
@@ -172,21 +186,22 @@ function buildSemanticColors(c: ClearLensColorTokens, scheme: ClearLensColorSche
     asset: {
       equity: c.emerald,
       debt: c.amber,
-      cash: c.mint,
+      // `cash` was `c.mint` (a light green), which sat on the same hue family
+      // as Equity (emerald) and lost contrast in light mode. `slate` is a
+      // stable blue-grey in both schemes — distinct from emerald (green) and
+      // amber (orange) so the four asset buckets read as four distinct hues.
+      cash: c.slate,
       other: c.lightGrey,
     },
     marketCap: {
-      // Three-step ordering — Large (most saturated) → Mid → Small (warmest).
-      // `large` was `c.navy` historically, but `navy` flips to near-white in
-      // dark mode, leaving the bar indistinguishable from a light or dark
-      // canvas. We anchor on emerald instead.
-      //
-      // `mid` needs a hue that reads on BOTH canvases. Mint reads cleanly on
-      // dark but washes out on a white card; emeraldDeep works on white but
-      // sits very close to the Large emerald in dark. Resolve per-scheme:
-      // emeraldDeep in light, mint in dark.
-      large: c.emerald,
-      mid: scheme === 'dark' ? c.mint : c.emeraldDeep,
+      // Three-step ordering — Large (anchor) → Mid → Small (warmest). Three
+      // distinct hue families that all read in both schemes: brand-navy
+      // (heroSurface, stable across schemes) → emerald → amber. Earlier we
+      // tried `large=emerald, mid=emeraldDeep` (light) / `mid=mint` (dark) —
+      // but Large and Mid then sat on the same green hue family and were
+      // hard to tell apart, especially in light mode.
+      large: c.heroSurface,
+      mid: c.emerald,
       small: c.amber,
       other: c.lightGrey,
     },
@@ -194,9 +209,12 @@ function buildSemanticColors(c: ClearLensColorTokens, scheme: ClearLensColorSche
       fund: c.emerald,
       portfolio: c.emerald,
       benchmark: c.slate,
-      // `invested` is used as a baseline/reference fill on charts. Use the
-      // dark-stable hero surface so it never blends into the page bg in dark.
-      invested: c.heroSurface,
+      // `invested` is the baseline/reference series. Use a stable lavender
+      // so the three line colours sit on three different hue families
+      // (green/blue-grey/lavender), readable in both schemes. Earlier we
+      // used `heroSurface`, which blended with the dark page bg, and
+      // `slate`, which collided with `benchmark`.
+      invested: c.lavender,
       neutral: c.textTertiary,
     },
     // Palette used to colour fund allocation segments. The previous `c.navy`
