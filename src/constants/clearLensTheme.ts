@@ -1,15 +1,81 @@
-export const ClearLensColors = {
+/**
+ * Clear Lens design tokens — colours, typography, spacing, radii.
+ *
+ * Two colour schemes share the same shape:
+ *   - ClearLensLightColors (the original light theme)
+ *   - ClearLensDarkColors  (added for the in-app dark mode)
+ *
+ * `ClearLensColors` is exported as the LIGHT palette for back-compat with
+ * any module that imported it directly. Components that need to react to a
+ * runtime scheme change should consume `useClearLensTokens()` from
+ * `@/src/context/ThemeContext` instead.
+ */
+
+export type ClearLensColorScheme = 'light' | 'dark';
+
+export interface ClearLensColorTokens {
+  navy: string;
+  slate: string;
+  emerald: string;
+  emeraldDeep: string;
+  mint: string;
+  mint50: string;
+  /**
+   * Stable lavender used as a third chart-line hue (alongside emerald and
+   * slate) so "amount invested" / "net invested" sits on a different hue
+   * family from the portfolio (green) and benchmark (slate) lines. Tuned
+   * so it reads against both light and dark canvases.
+   */
+  lavender: string;
+  lightGrey: string;
+  grey50: string;
+  background: string;
+  surface: string;
+  surfaceSoft: string;
+  /**
+   * Brand-dark surface used by hero cards, active segment/pill backgrounds,
+   * and other places that want a distinctive dark accent. Stays dark in both
+   * light and dark modes — `navy` itself doubles as a flipping text colour,
+   * so anything that needs a stable dark surface should reach for this token
+   * instead.
+   */
+  heroSurface: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  positive: string;
+  negative: string;
+  negativeBg: string;
+  positiveBg: string;
+  amber: string;
+  warning: string;
+  warningBg: string;
+  accountSurface: string;
+  accountBorder: string;
+  border: string;
+  borderLight: string;
+  textOnDark: string;
+  textOnDarkMuted: string;
+  shadow: string;
+}
+
+export const ClearLensLightColors: ClearLensColorTokens = {
   navy: '#0A1430',
   slate: '#263248',
   emerald: '#10B981',
   emeraldDeep: '#0EA372',
   mint: '#A7F3D0',
   mint50: '#ECFDF5',
+  // Saturated lavender — distinct from emerald (green) and slate (blue-grey)
+  // when used as a third chart-line hue. Tuned to read on the white card
+  // surface while still feeling muted enough for a baseline reference line.
+  lavender: '#6E73C4',
   lightGrey: '#E6EBF1',
   grey50: '#F2F4F8',
   background: '#FAFBFD',
   surface: '#FFFFFF',
   surfaceSoft: '#F4F7FA',
+  heroSurface: '#0A1430',
   textPrimary: '#0A1430',
   textSecondary: '#263248',
   textTertiary: '#7B8AA3',
@@ -29,55 +95,253 @@ export const ClearLensColors = {
   shadow: '#0A1430',
 };
 
-export const ClearLensSemanticColors = {
-  asset: {
-    equity: ClearLensColors.emerald,
-    debt: ClearLensColors.amber,
-    cash: ClearLensColors.mint,
-    other: ClearLensColors.lightGrey,
-  },
-  marketCap: {
-    large: ClearLensColors.navy,
-    mid: ClearLensColors.emerald,
-    small: ClearLensColors.amber,
-    other: ClearLensColors.lightGrey,
-  },
+export const ClearLensDarkColors: ClearLensColorTokens = {
+  // `navy` doubles as the primary text colour, so it flips to near-white in
+  // dark mode. Anything that needs the deep brand-navy *surface* (hero cards,
+  // active pill backgrounds, segment-active state) reaches for `heroSurface`
+  // instead, which is brand-navy in both modes.
+  navy: '#F2F5FB',
+  slate: '#C5CFE0',
+  emerald: '#34D399',
+  emeraldDeep: '#10B981',
+  // `mint` is consumed both as a soft surface accent and as a token-on-dark
+  // accent in icons. Light mint reads against the dark canvas the same way
+  // it reads against the light surface, so we keep it stable.
+  mint: '#A7F3D0',
+  mint50: '#0E2F25',
+  // Pop lavender on the dark canvas — needs to be hue-distinct from slate
+  // (#C5CFE0) which is a near-neighbour blue-grey when desaturated.
+  lavender: '#A1A6F0',
+  // `lightGrey` is consumed as a chart "other" segment colour and as a soft
+  // border/muted accent. Pick a mid-grey that reads against the dark canvas
+  // (the previous #26314A merged with the page bg — the "navy on navy" bar
+  // chart bug surfaced from review).
+  lightGrey: '#4F5A78',
+  grey50: '#1A2238',
+  background: '#06101F',
+  surface: '#121B33',
+  surfaceSoft: '#19223D',
+  // Lifted dark navy that stands clearly above `surfaceSoft` (and the page
+  // bg) for active selections — the previous #1F2A4A was only a few % off
+  // from the surrounding surfaces, which made selected pills/chips/segments
+  // hard to spot in dark mode.
+  heroSurface: '#34416B',
+  textPrimary: '#F2F5FB',
+  textSecondary: '#C5CFE0',
+  textTertiary: '#8C9BB8',
+  positive: '#34D399',
+  negative: '#F87171',
+  // Slight saturation bump on the negative tint so the "Today's Worst" /
+  // negative-alpha badges read as red rather than muddy brown on the dark
+  // canvas. Pairs with the brighter `negative` (#F87171) for the text.
+  negativeBg: '#451B23',
+  positiveBg: '#0E3324',
+  amber: '#FBBF24',
+  warning: '#F59E0B',
+  warningBg: '#3A2A0E',
+  accountSurface: '#2A2418',
+  accountBorder: '#4A4030',
+  border: '#27314A',
+  borderLight: '#1F2840',
+  textOnDark: '#FFFFFF',
+  textOnDarkMuted: '#BAC6D8',
+  shadow: '#000000',
+};
+
+export interface ClearLensSemanticTokens {
+  asset: { equity: string; debt: string; cash: string; other: string };
+  marketCap: { large: string; mid: string; small: string; other: string };
   chart: {
-    fund: ClearLensColors.emerald,
-    portfolio: ClearLensColors.emerald,
-    benchmark: ClearLensColors.slate,
-    invested: ClearLensColors.navy,
-    neutral: ClearLensColors.textTertiary,
-  },
-  fundAllocation: [
-    ClearLensColors.emerald,
-    ClearLensColors.navy,
-    ClearLensColors.amber,
-    ClearLensColors.negative,
-    ClearLensColors.slate,
-    ClearLensColors.mint,
-  ],
+    fund: string;
+    portfolio: string;
+    benchmark: string;
+    invested: string;
+    neutral: string;
+  };
+  fundAllocation: readonly string[];
   sentiment: {
-    positive: ClearLensColors.positive,
-    negative: ClearLensColors.negative,
-    positiveText: '#087A5B',
-    negativeText: '#B91C1C',
-    positiveSurface: ClearLensColors.positiveBg,
-    negativeSurface: ClearLensColors.negativeBg,
-  },
+    positive: string;
+    negative: string;
+    positiveText: string;
+    negativeText: string;
+    positiveSurface: string;
+    negativeSurface: string;
+  };
   state: {
-    loading: ClearLensColors.emerald,
-    success: ClearLensColors.emerald,
-    warning: ClearLensColors.amber,
-    danger: ClearLensColors.negative,
-    emptyIcon: ClearLensColors.emerald,
-  },
+    loading: string;
+    success: string;
+    warning: string;
+    danger: string;
+    emptyIcon: string;
+  };
   overlay: {
-    backdrop: 'rgba(10,20,48,0.34)',
-    darkDivider: 'rgba(255,255,255,0.28)',
-    focusRing: 'rgba(16,185,129,0.25)',
-  },
-} as const;
+    backdrop: string;
+    darkDivider: string;
+    focusRing: string;
+  };
+}
+
+function buildSemanticColors(c: ClearLensColorTokens, scheme: ClearLensColorScheme): ClearLensSemanticTokens {
+  return {
+    asset: {
+      equity: c.emerald,
+      debt: c.amber,
+      // `cash` was `c.mint` (a light green), which sat on the same hue family
+      // as Equity (emerald) and lost contrast in light mode. `slate` is a
+      // stable blue-grey in both schemes — distinct from emerald (green) and
+      // amber (orange) so the four asset buckets read as four distinct hues.
+      cash: c.slate,
+      other: c.lightGrey,
+    },
+    marketCap: {
+      // Three-step ordering — Large (anchor) → Mid → Small (warmest). Three
+      // distinct hue families that all read in both schemes: brand-navy
+      // (heroSurface, stable across schemes) → emerald → amber. Earlier we
+      // tried `large=emerald, mid=emeraldDeep` (light) / `mid=mint` (dark) —
+      // but Large and Mid then sat on the same green hue family and were
+      // hard to tell apart, especially in light mode.
+      large: c.heroSurface,
+      mid: c.emerald,
+      small: c.amber,
+      other: c.lightGrey,
+    },
+    chart: {
+      fund: c.emerald,
+      portfolio: c.emerald,
+      benchmark: c.slate,
+      // `invested` is the baseline/reference series. Use a stable lavender
+      // so the three line colours sit on three different hue families
+      // (green/blue-grey/lavender), readable in both schemes. Earlier we
+      // used `heroSurface`, which blended with the dark page bg, and
+      // `slate`, which collided with `benchmark`.
+      invested: c.lavender,
+      neutral: c.textTertiary,
+    },
+    // Palette used to colour fund allocation segments. The previous `c.navy`
+    // entry rendered as near-black on light bg (fine) but flipped to near-white
+    // on dark bg, which made the segment look like an empty track. Cycle
+    // through six distinct hues that all read against both canvases.
+    fundAllocation: [c.emerald, c.amber, c.negative, c.mint, c.slate, c.emeraldDeep],
+    sentiment: {
+      positive: c.positive,
+      negative: c.negative,
+      positiveText: scheme === 'dark' ? '#A7F3D0' : '#087A5B',
+      negativeText: scheme === 'dark' ? '#FCA5A5' : '#B91C1C',
+      positiveSurface: c.positiveBg,
+      negativeSurface: c.negativeBg,
+    },
+    state: {
+      loading: c.emerald,
+      success: c.emerald,
+      warning: c.amber,
+      danger: c.negative,
+      emptyIcon: c.emerald,
+    },
+    overlay: {
+      backdrop: scheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(10,20,48,0.34)',
+      darkDivider: 'rgba(255,255,255,0.28)',
+      focusRing: 'rgba(16,185,129,0.25)',
+    },
+  };
+}
+
+export const ClearLensLightSemanticColors: ClearLensSemanticTokens = buildSemanticColors(
+  ClearLensLightColors,
+  'light',
+);
+
+export const ClearLensDarkSemanticColors: ClearLensSemanticTokens = buildSemanticColors(
+  ClearLensDarkColors,
+  'dark',
+);
+
+export interface ClearLensCompatibleTokens {
+  primary: string;
+  primaryDark: string;
+  primaryLight: string;
+  positive: string;
+  negative: string;
+  warning: string;
+  background: string;
+  surface: string;
+  surfaceAlt: string;
+  border: string;
+  borderLight: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  textOnDark: string;
+  gradientHero: [string, string];
+  gradientHeader: [string, string];
+}
+
+function buildCompatibleColors(c: ClearLensColorTokens, scheme: ClearLensColorScheme): ClearLensCompatibleTokens {
+  const heroStart = scheme === 'dark' ? '#040A1A' : c.navy;
+  const heroEnd = scheme === 'dark' ? '#0F1A33' : c.slate;
+  return {
+    primary: c.emerald,
+    primaryDark: scheme === 'dark' ? c.surface : c.navy,
+    primaryLight: c.mint,
+    positive: c.emerald,
+    negative: c.negative,
+    warning: c.warning,
+    background: c.background,
+    surface: c.surface,
+    surfaceAlt: c.surfaceSoft,
+    border: c.border,
+    borderLight: c.borderLight,
+    textPrimary: c.textPrimary,
+    textSecondary: c.textSecondary,
+    textTertiary: c.textTertiary,
+    textOnDark: c.textOnDark,
+    gradientHero: [heroStart, heroEnd],
+    gradientHeader: [heroStart, heroEnd],
+  };
+}
+
+export const ClearLensLightCompatibleColors: ClearLensCompatibleTokens = buildCompatibleColors(
+  ClearLensLightColors,
+  'light',
+);
+
+export const ClearLensDarkCompatibleColors: ClearLensCompatibleTokens = buildCompatibleColors(
+  ClearLensDarkColors,
+  'dark',
+);
+
+// Back-compat re-exports — modules that imported these directly continue to
+// receive the LIGHT palette. To support a runtime scheme switch, switch the
+// importer to `useClearLensTokens()` (see `@/src/context/ThemeContext`).
+export const ClearLensColors = ClearLensLightColors;
+export const ClearLensSemanticColors = ClearLensLightSemanticColors;
+export const ClearLensCompatibleColors = ClearLensLightCompatibleColors;
+
+export interface ClearLensTokens {
+  scheme: ClearLensColorScheme;
+  colors: ClearLensColorTokens;
+  semantic: ClearLensSemanticTokens;
+  compatible: ClearLensCompatibleTokens;
+}
+
+export const ClearLensLightTokens: ClearLensTokens = {
+  scheme: 'light',
+  colors: ClearLensLightColors,
+  semantic: ClearLensLightSemanticColors,
+  compatible: ClearLensLightCompatibleColors,
+};
+
+export const ClearLensDarkTokens: ClearLensTokens = {
+  scheme: 'dark',
+  colors: ClearLensDarkColors,
+  semantic: ClearLensDarkSemanticColors,
+  compatible: ClearLensDarkCompatibleColors,
+};
+
+export function getClearLensTokens(scheme: ClearLensColorScheme): ClearLensTokens {
+  return scheme === 'dark' ? ClearLensDarkTokens : ClearLensLightTokens;
+}
+
+// ─── Layout/typography tokens (scheme-agnostic) ─────────────────────────────
 
 export const ClearLensSpacing = {
   xs: 4,
@@ -156,29 +420,9 @@ export const ClearLensTypography = {
 };
 
 export const ClearLensShadow = {
-  shadowColor: ClearLensColors.shadow,
+  shadowColor: ClearLensLightColors.shadow,
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.07,
   shadowRadius: 20,
   elevation: 3,
-};
-
-export const ClearLensCompatibleColors = {
-  primary: ClearLensColors.emerald,
-  primaryDark: ClearLensColors.navy,
-  primaryLight: ClearLensColors.mint,
-  positive: ClearLensColors.emerald,
-  negative: ClearLensColors.negative,
-  warning: ClearLensColors.warning,
-  background: ClearLensColors.background,
-  surface: ClearLensColors.surface,
-  surfaceAlt: ClearLensColors.surfaceSoft,
-  border: ClearLensColors.border,
-  borderLight: ClearLensColors.borderLight,
-  textPrimary: ClearLensColors.textPrimary,
-  textSecondary: ClearLensColors.textSecondary,
-  textTertiary: ClearLensColors.textTertiary,
-  textOnDark: ClearLensColors.textOnDark,
-  gradientHero: [ClearLensColors.navy, ClearLensColors.slate] as [string, string],
-  gradientHeader: [ClearLensColors.navy, ClearLensColors.slate] as [string, string],
 };

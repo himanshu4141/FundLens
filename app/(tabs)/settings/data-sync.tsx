@@ -11,22 +11,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
-import { useTheme } from '@/src/context/ThemeContext';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import { navStatusBadge } from './index';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 
 export default function DataSyncScreen() {
-  const { colors } = useTheme();
+  const tokens = useClearLensTokens();
+  const colors = tokens.colors;
   const queryClient = useQueryClient();
-  const styles = useMemo(() => makeStyles(), []);
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
 
   const { data: latestNavRow } = useQuery({
     queryKey: ['latest-nav-date'],
@@ -124,7 +125,7 @@ export default function DataSyncScreen() {
               activeOpacity={0.75}
             >
               {syncState === 'syncing' ? (
-                <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+                <ActivityIndicator size="small" color={tokens.colors.emerald} />
               ) : (
                 <Ionicons
                   name={
@@ -134,16 +135,16 @@ export default function DataSyncScreen() {
                   }
                   size={14}
                   color={
-                    syncState === 'done' ? ClearLensColors.emerald
-                    : syncState === 'error' ? ClearLensColors.negative
-                    : ClearLensColors.emerald
+                    syncState === 'done' ? tokens.colors.emerald
+                    : syncState === 'error' ? tokens.colors.negative
+                    : tokens.colors.emerald
                   }
                 />
               )}
               <Text style={[
                 styles.syncBtnText,
-                syncState === 'done' && { color: ClearLensColors.emerald },
-                syncState === 'error' && { color: ClearLensColors.negative },
+                syncState === 'done' && { color: tokens.colors.emerald },
+                syncState === 'error' && { color: tokens.colors.negative },
               ]}>
                 {syncState === 'syncing' ? 'Syncing…'
                   : syncState === 'done' ? 'Done'
@@ -156,7 +157,7 @@ export default function DataSyncScreen() {
 
         {/* Info note */}
         <View style={styles.infoNote}>
-          <Ionicons name="information-circle-outline" size={16} color={ClearLensColors.textTertiary} />
+          <Ionicons name="information-circle-outline" size={16} color={tokens.colors.textTertiary} />
           <Text style={styles.infoNoteText}>
             We keep your data up to date so your insights are always relevant.
           </Text>
@@ -166,16 +167,17 @@ export default function DataSyncScreen() {
   );
 }
 
-function makeStyles() {
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: ClearLensColors.background },
+    container: { flex: 1, backgroundColor: cl.background },
     content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.sm, paddingBottom: ClearLensSpacing.xxl },
 
     card: {
-      backgroundColor: ClearLensColors.surface,
+      backgroundColor: cl.surface,
       borderRadius: ClearLensRadii.lg,
       borderWidth: 1,
-      borderColor: ClearLensColors.border,
+      borderColor: cl.border,
       overflow: 'hidden',
       ...ClearLensShadow,
     },
@@ -187,15 +189,15 @@ function makeStyles() {
       paddingVertical: 14,
       gap: ClearLensSpacing.md,
     },
-    borderTop: { borderTopWidth: 1, borderTopColor: ClearLensColors.borderLight },
+    borderTop: { borderTopWidth: 1, borderTopColor: cl.borderLight },
     rowLeft: { flex: 1, gap: 3 },
     rowValue: {
       ...ClearLensTypography.h3,
-      color: ClearLensColors.navy,
+      color: cl.navy,
     },
     rowSub: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
     },
 
     badge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -205,7 +207,7 @@ function makeStyles() {
     syncDate: {
       ...ClearLensTypography.bodySmall,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.textSecondary,
+      color: cl.textSecondary,
     },
 
     syncBtn: {
@@ -214,15 +216,15 @@ function makeStyles() {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      backgroundColor: ClearLensColors.mint50,
+      backgroundColor: cl.mint50,
       borderRadius: ClearLensRadii.full,
     },
-    syncBtnDone: { backgroundColor: ClearLensColors.positiveBg },
-    syncBtnError: { backgroundColor: ClearLensColors.negativeBg },
+    syncBtnDone: { backgroundColor: cl.positiveBg },
+    syncBtnError: { backgroundColor: cl.negativeBg },
     syncBtnText: {
       ...ClearLensTypography.caption,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.emerald,
+      color: cl.emerald,
     },
 
     infoNote: {
@@ -233,7 +235,7 @@ function makeStyles() {
     },
     infoNoteText: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       flex: 1,
     },
   });

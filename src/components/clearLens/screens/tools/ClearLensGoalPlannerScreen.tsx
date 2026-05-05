@@ -1,21 +1,24 @@
-import { useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ClearLensHeader, ClearLensScreen } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { useAppStore, type SavedGoal } from '@/src/store/appStore';
 import { computeGoalPlan, assumptionsToRates, yearsFromNow } from '@/src/utils/goalPlanner';
 import { formatCurrency } from '@/src/utils/formatting';
 
 export function ClearLensGoalPlannerScreen() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { goals, returnAssumptions } = useAppStore();
 
@@ -31,14 +34,14 @@ export function ClearLensGoalPlannerScreen() {
         <ClearLensHeader onPressBack={() => router.back()} />
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="flag-outline" size={36} color={ClearLensColors.textTertiary} />
+            <Ionicons name="flag-outline" size={36} color={tokens.colors.textTertiary} />
           </View>
           <Text style={styles.emptyTitle}>No goals yet</Text>
           <Text style={styles.emptySubtitle}>
             Add a financial goal — retirement, home, education — and see exactly how much you need to invest each month.
           </Text>
           <TouchableOpacity style={styles.addButton} onPress={handleAdd} activeOpacity={0.8}>
-            <Ionicons name="add" size={18} color={ClearLensColors.textOnDark} />
+            <Ionicons name="add" size={18} color={tokens.colors.textOnDark} />
             <Text style={styles.addButtonText}>Add your first goal</Text>
           </TouchableOpacity>
         </View>
@@ -59,7 +62,7 @@ export function ClearLensGoalPlannerScreen() {
         )}
         ListFooterComponent={
           <TouchableOpacity style={styles.addRowButton} onPress={handleAdd} activeOpacity={0.8}>
-            <Ionicons name="add-circle-outline" size={18} color={ClearLensColors.emerald} />
+            <Ionicons name="add-circle-outline" size={18} color={tokens.colors.emerald} />
             <Text style={styles.addRowText}>Add another goal</Text>
           </TouchableOpacity>
         }
@@ -75,6 +78,8 @@ function GoalCard({
   goal: SavedGoal;
   rates: Record<string, number>;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const years = yearsFromNow(goal.targetDate);
   const plan = computeGoalPlan(
@@ -99,7 +104,7 @@ function GoalCard({
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleRow}>
           <Text style={styles.goalName} numberOfLines={1}>{goal.name}</Text>
-          <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
+          <Ionicons name="chevron-forward" size={16} color={tokens.colors.textTertiary} />
         </View>
         <View style={styles.tagRow}>
           <View style={[styles.tag, plan.onTrack ? styles.tagGreen : styles.tagAmber]}>
@@ -127,13 +132,15 @@ function GoalCard({
 }
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: 'positive' | 'negative' }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.metric}>
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={[
         styles.metricValue,
-        tone === 'positive' && { color: ClearLensColors.positive },
-        tone === 'negative' && { color: ClearLensColors.negative },
+        tone === 'positive' && { color: tokens.colors.positive },
+        tone === 'negative' && { color: tokens.colors.negative },
       ]}>
         {value}
       </Text>
@@ -141,7 +148,9 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -153,19 +162,19 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: ClearLensSpacing.xs,
   },
   emptyTitle: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     textAlign: 'center',
   },
   emptySubtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: ClearLensSpacing.md,
@@ -173,7 +182,7 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
     paddingHorizontal: ClearLensSpacing.lg,
     paddingVertical: ClearLensSpacing.sm + 2,
     borderRadius: ClearLensRadii.md,
@@ -182,7 +191,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 15,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
 
   listContent: {
@@ -192,10 +201,10 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
   },
   card: {
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderRadius: ClearLensRadii.lg,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     ...ClearLensShadow,
     overflow: 'hidden',
   },
@@ -212,7 +221,7 @@ const styles = StyleSheet.create({
   },
   goalName: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     flex: 1,
   },
   tagRow: {
@@ -225,22 +234,22 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: ClearLensRadii.sm,
   },
-  tagGreen: { backgroundColor: ClearLensColors.positiveBg },
-  tagAmber: { backgroundColor: ClearLensColors.warningBg },
+  tagGreen: { backgroundColor: cl.positiveBg },
+  tagAmber: { backgroundColor: cl.warningBg },
   tagText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 11,
   },
-  tagTextGreen: { color: ClearLensColors.positive },
-  tagTextAmber: { color: ClearLensColors.warning },
+  tagTextGreen: { color: cl.positive },
+  tagTextAmber: { color: cl.warning },
   metaText: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   cardMetrics: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   metric: {
     flex: 1,
@@ -250,16 +259,16 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   metricValue: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 13,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   divider: {
     width: 1,
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
   },
   addRowButton: {
     flexDirection: 'row',
@@ -271,6 +280,7 @@ const styles = StyleSheet.create({
   addRowText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 14,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
   },
 });
+}

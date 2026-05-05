@@ -9,7 +9,6 @@ import {
   Linking,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart, PieChart } from 'react-native-gifted-charts';
@@ -30,8 +29,7 @@ import { computeQuarterlyReturns } from '@/src/utils/quarterlyReturns';
 import { formatXirr } from '@/src/utils/xirr';
 import { formatCurrency } from '@/src/utils/formatting';
 import { Spacing, Radii, Typography } from '@/src/constants/theme';
-import { useTheme } from '@/src/context/ThemeContext';
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { useTheme, useClearLensTokens } from '@/src/context/ThemeContext';
 import {
   ClearLensCard,
   ClearLensHeader,
@@ -39,12 +37,11 @@ import {
   ClearLensSegmentedControl,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
-  ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 import {
   formatClearLensCurrencyDelta,
@@ -102,7 +99,6 @@ function TimeWindowSelector({
   onChange: (w: TimeWindow) => void;
 }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={s.windowRow}>
@@ -112,7 +108,7 @@ function TimeWindowSelector({
           style={[
             s.windowPill,
             selected === w && s.windowPillActive,
-            selected === w && isClearLens && { backgroundColor: ClearLensColors.navy },
+           
           ]}
           onPress={() => onChange(w)}
           activeOpacity={0.75}
@@ -138,16 +134,16 @@ function PerformanceTab({
   userId?: string;
 }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
+  const tokens = useClearLensTokens();
   const s = useMemo(() => makeStyles(colors), [colors]);
   // Live viewport width — module-scope CHART_WIDTH is captured once at JS
   // load time, so on web it would leave the chart at the original size when
   // the window is resized. Recompute against the current viewport instead.
   const { width: viewportWidth } = useWindowDimensions();
   const liveChartWidth = Math.min(viewportWidth, FUND_DETAIL_DESKTOP_MAX) - 32;
-  const benchmarkColor = isClearLens ? ClearLensColors.slate : colors.warning;
-  const positiveMetricColor = isClearLens ? ClearLensColors.emerald : colors.positive;
-  const negativeMetricColor = isClearLens ? ClearLensColors.negative : colors.negative;
+  const benchmarkColor = tokens.colors.slate;
+  const positiveMetricColor = tokens.colors.emerald;
+  const negativeMetricColor = tokens.colors.negative;
   const [window, setWindow] = useState<TimeWindow>('1Y');
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
     const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
@@ -277,12 +273,7 @@ function PerformanceTab({
   const chartMostNegative = yMin - yPad;
 
   const latestNav = indexedNav[indexedNav.length - 1]?.value ?? 100;
-  const latestBenchmark = indexedBenchmark[indexedBenchmark.length - 1]?.value ?? 100;
   const navReturn = ((latestNav - 100) / 100) * 100;
-  const benchmarkReturn = ((latestBenchmark - 100) / 100) * 100;
-  const benchmarkReturnColor = benchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor;
-  const isAhead = isFinite(navReturn) && isFinite(benchmarkReturn) && navReturn >= benchmarkReturn;
-  const diff = navReturn - benchmarkReturn;
 
   // Values to show in the summary below the chart.
   // When crosshair is active, show the hovered values; otherwise show end-of-period.
@@ -306,7 +297,7 @@ function PerformanceTab({
         <View style={s.pointerLabel}>
           <Text style={s.pointerDate}>{formatChartDate(point.date, window)}</Text>
           <Text style={s.pointerSeriesText}>
-            <Text style={{ color: ClearLensSemanticColors.chart.invested }}>● </Text>
+            <Text style={{ color: tokens.semantic.chart.invested }}>● </Text>
             Net invested: {formatCurrency(point.investedValue)}
           </Text>
           <Text style={s.pointerSeriesText}>
@@ -320,7 +311,16 @@ function PerformanceTab({
         </View>
       );
     },
-    [benchmarkColor, colors.primary, s, selectedLabel, timelinePoints, updateActiveIdxFromPointer, window],
+    [
+      benchmarkColor,
+      colors.primary,
+      s,
+      selectedLabel,
+      timelinePoints,
+      tokens.semantic.chart.invested,
+      updateActiveIdxFromPointer,
+      window,
+    ],
   );
   const actualPointerConfig = useMemo(
     () => ({
@@ -396,7 +396,7 @@ function PerformanceTab({
       <View style={s.tabContent}>
         <TimeWindowSelector selected={window} onChange={setWindow} />
         <View style={s.chartCard}>
-          <ActivityIndicator size="small" color={isClearLens ? ClearLensColors.emerald : colors.primary} />
+          <ActivityIndicator size="small" color={tokens.colors.emerald} />
         </View>
       </View>
     );
@@ -434,14 +434,6 @@ function PerformanceTab({
               ? formatChartDate(point.date, window)
               : '',
           );
-    const fundReturn =
-      latestPoint.investedValue > 0
-        ? ((latestPoint.portfolioValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
-        : 0;
-    const simulatedBenchmarkReturn =
-      latestPoint.investedValue > 0
-        ? ((latestPoint.benchmarkValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
-        : 0;
     const activeFundReturn =
       activePoint.investedValue > 0
         ? ((activePoint.portfolioValue - activePoint.investedValue) / activePoint.investedValue) * 100
@@ -454,40 +446,10 @@ function PerformanceTab({
 
     return (
       <View style={s.tabContent}>
-        <View style={s.xirrCard}>
-          <View style={s.comparisonRow}>
-            <View style={s.comparisonCol}>
-              <Text style={s.statLabel}>This fund</Text>
-              <Text
-                style={[s.xirrValue, { color: fundReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-                numberOfLines={1}
-              >
-                {fundReturn >= 0 ? '+' : ''}{fundReturn.toFixed(1)}%
-              </Text>
-            </View>
-            <View style={s.xirrDivider} />
-            <View style={s.comparisonCol}>
-              <Text style={s.statLabel}>Same cashflows in {selectedLabel}</Text>
-              <Text
-                style={[
-                  s.xirrValue,
-                  { color: simulatedBenchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor },
-                ]}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-                numberOfLines={1}
-              >
-                {simulatedBenchmarkReturn >= 0 ? '+' : ''}{simulatedBenchmarkReturn.toFixed(1)}%
-              </Text>
-            </View>
-          </View>
-          <Text style={s.comparisonHint}>Using your buys, redemptions, and switches · {windowContext}</Text>
-        </View>
-
-        <TimeWindowSelector selected={window} onChange={setWindow} />
-
+        {/* Benchmark selector — kept above the chart card so the range pills
+            below the chart focus only on time window. Mirrors the Portfolio
+            screen pattern: benchmark choice is "what to compare against",
+            range is "over which period". */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -499,7 +461,7 @@ function PerformanceTab({
               style={[
                 s.benchmarkPill,
                 selectedSymbol === opt.symbol && s.benchmarkPillActive,
-                selectedSymbol === opt.symbol && isClearLens && { backgroundColor: ClearLensColors.navy },
+
               ]}
               onPress={() => setSelectedSymbol(opt.symbol)}
               activeOpacity={0.75}
@@ -512,9 +474,22 @@ function PerformanceTab({
         </ScrollView>
 
         <View style={s.chartCard}>
+          <View style={s.chartHeaderRow}>
+            <View style={s.chartHeaderCopy}>
+              <Text style={s.chartHeaderTitle}>How your money grew</Text>
+              <Text style={s.chartHeaderSubtitle}>Using your buys, redemptions, and switches · {windowContext}</Text>
+            </View>
+            <View style={s.chartHeaderBadge}>
+              <Text style={s.chartHeaderBadgeText}>vs {selectedLabel}</Text>
+            </View>
+          </View>
+          {/* The legend + crosshair-synced summary at the bottom of this card
+              already exposes "Fund return" and "Same cashflows in benchmark"
+              numerically, so the redundant XIRR-comparison card above the
+              chart was dropped (matching Portfolio's compact chart layout). */}
           <View style={s.chartLegendRow}>
             <View style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: ClearLensSemanticColors.chart.invested }]} />
+              <View style={[s.legendDot, { backgroundColor: tokens.semantic.chart.invested }]} />
               <Text style={s.legendLabel}>Net invested</Text>
             </View>
             <View style={s.legendItem}>
@@ -538,7 +513,7 @@ function PerformanceTab({
               initialSpacing={8}
               endSpacing={8}
               hideDataPoints
-              color1={ClearLensSemanticColors.chart.invested}
+              color1={tokens.semantic.chart.invested}
               color2={colors.primary}
               color3={benchmarkColor}
               thickness1={2.4}
@@ -589,6 +564,10 @@ function PerformanceTab({
             </View>
           </View>
         </View>
+
+        {/* Range pills sit below the chart, matching the Portfolio screen's
+            "How your money grew" layout. */}
+        <TimeWindowSelector selected={window} onChange={setWindow} />
       </View>
     );
   }
@@ -605,69 +584,15 @@ function PerformanceTab({
     );
   }
 
+  const navWindowContext = window === 'All' ? 'since first NAV' : `past ${window}`;
+
   return (
     <View style={s.tabContent}>
-      {/* Period return comparison card */}
-      <View style={s.xirrCard}>
-        <View style={s.comparisonRow}>
-          <View style={s.comparisonCol}>
-            <Text style={s.statLabel}>Fund NAV</Text>
-            <Text
-              style={[s.xirrValue, { color: navReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              numberOfLines={1}
-            >
-              {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
-            </Text>
-          </View>
-          {hasBenchmarkData && (
-            <>
-              <View style={s.xirrDivider} />
-              <View style={s.comparisonCol}>
-                <Text style={s.statLabel}>{selectedLabel} NAV</Text>
-                <Text
-                  style={[
-                    s.xirrValue,
-                    { color: benchmarkReturnColor },
-                  ]}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.75}
-                  numberOfLines={1}
-                >
-                  {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(1)}%
-                </Text>
-              </View>
-            </>
-          )}
-        </View>
-        {hasBenchmarkData && !isClearLens && (
-          <View
-            style={[
-              s.verdictRow,
-              isClearLens && {
-                marginTop: 0,
-                paddingHorizontal: ClearLensSpacing.sm,
-                paddingVertical: ClearLensSpacing.sm,
-                borderTopWidth: 0,
-                borderRadius: ClearLensRadii.md,
-                backgroundColor: isAhead
-                  ? ClearLensSemanticColors.sentiment.positiveSurface
-                  : ClearLensSemanticColors.sentiment.negativeSurface,
-              },
-            ]}
-          >
-            <Text style={[s.verdictText, { color: isAhead ? positiveMetricColor : negativeMetricColor }]}>
-              {isAhead ? '↑ Outperforming' : '↓ Underperforming'}
-              {' by '}{Math.abs(diff).toFixed(1)}% vs {selectedLabel}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <TimeWindowSelector selected={window} onChange={setWindow} />
-
-      {/* Benchmark selector */}
+      {/* Benchmark selector — same Portfolio-style layout as the timeline path:
+          benchmark above (what to compare against), range below the chart
+          (over which period). The fund-vs-benchmark numeric comparison card
+          that used to sit at the top is dropped — its values are echoed in
+          the legend + summary below the chart. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -679,7 +604,7 @@ function PerformanceTab({
             style={[
               s.benchmarkPill,
               selectedSymbol === opt.symbol && s.benchmarkPillActive,
-              selectedSymbol === opt.symbol && isClearLens && { backgroundColor: ClearLensColors.navy },
+
             ]}
             onPress={() => setSelectedSymbol(opt.symbol)}
             activeOpacity={0.75}
@@ -693,6 +618,17 @@ function PerformanceTab({
 
       {hasNavData ? (
         <View style={s.chartCard}>
+          <View style={s.chartHeaderRow}>
+            <View style={s.chartHeaderCopy}>
+              <Text style={s.chartHeaderTitle}>NAV vs {selectedLabel}</Text>
+              <Text style={s.chartHeaderSubtitle}>Both series rebased to 100 at start of period · {navWindowContext}</Text>
+            </View>
+            <View style={s.chartHeaderBadge}>
+              <Text style={s.chartHeaderBadgeText}>
+                {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
+              </Text>
+            </View>
+          </View>
           <View style={s.chartLegendRow}>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: colors.primary }]} />
@@ -785,6 +721,9 @@ function PerformanceTab({
           <Text style={s.noDataText}>No NAV data available for this window.</Text>
         </View>
       )}
+
+      {/* Range pills below the chart, mirroring Portfolio. */}
+      <TimeWindowSelector selected={window} onChange={setWindow} />
     </View>
   );
 }
@@ -952,7 +891,6 @@ function TechnicalDetailsCard({
   isin: string | null;
 }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
   const ts = useMemo(() => makeTechStyles(colors), [colors]);
   const metaStatus = fundMetaSyncedAt
     ? `as of ${formatNavDate(fundMetaSyncedAt.split('T')[0] ?? fundMetaSyncedAt)}`
@@ -966,7 +904,7 @@ function TechnicalDetailsCard({
   }
 
   return (
-    <View style={[ts.card, isClearLens && ts.clearLensCard]}>
+    <View style={[ts.card, ts.clearLensCard]}>
       <Text style={ts.title}>Technical Details</Text>
       <Text style={ts.metaStatus}>{metaStatus}</Text>
       <View style={ts.row}>
@@ -1016,8 +954,8 @@ function makeTechStyles(colors: AppColors) {
       marginHorizontal: ClearLensSpacing.md,
       marginTop: 0,
       borderRadius: ClearLensRadii.lg,
-      borderColor: ClearLensColors.border,
-      backgroundColor: ClearLensColors.surface,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
     },
     title: {
       ...Typography.label,
@@ -1395,27 +1333,27 @@ function makeDonutStyles(colors: AppColors) {
 
 function FundCompositionTab({ schemeCode }: { schemeCode: number }) {
   const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
+  const tokens = useClearLensTokens();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const cs = useMemo(() => makeCompStyles(colors), [colors]);
   const { composition, isLoading } = useFundComposition(schemeCode);
   const compAssetColors = useMemo(
     () => ({
-      equity: isClearLens ? ClearLensSemanticColors.asset.equity : colors.positive,
-      debt: isClearLens ? ClearLensSemanticColors.asset.debt : colors.primaryDark,
-      cash: isClearLens ? ClearLensSemanticColors.asset.cash : colors.primaryLight,
-      other: isClearLens ? ClearLensSemanticColors.asset.other : colors.borderLight,
+      equity: tokens.semantic.asset.equity,
+      debt: tokens.semantic.asset.debt,
+      cash: tokens.semantic.asset.cash,
+      other: tokens.semantic.asset.other,
     }),
-    [colors.borderLight, colors.positive, colors.primaryDark, colors.primaryLight, isClearLens],
+    [tokens.semantic.asset],
   );
   const compCapColors = useMemo(
     () => ({
-      large: isClearLens ? ClearLensSemanticColors.marketCap.large : colors.primaryDark,
-      mid: isClearLens ? ClearLensSemanticColors.marketCap.mid : colors.positive,
-      small: isClearLens ? ClearLensSemanticColors.marketCap.small : colors.textSecondary,
-      other: isClearLens ? ClearLensSemanticColors.marketCap.other : colors.borderLight,
+      large: tokens.semantic.marketCap.large,
+      mid: tokens.semantic.marketCap.mid,
+      small: tokens.semantic.marketCap.small,
+      other: tokens.semantic.marketCap.other,
     }),
-    [colors.borderLight, colors.positive, colors.primaryDark, colors.textSecondary, isClearLens],
+    [tokens.semantic.marketCap],
   );
 
   if (isLoading) {
@@ -1675,145 +1613,6 @@ function makeCompStyles(colors: AppColors) {
   });
 }
 
-// ---------------------------------------------------------------------------
-
-function ClassicFundDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
-  const { colors } = useTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  const [activeTab, setActiveTab] = useState<'performance' | 'nav' | 'composition'>('performance');
-  const { data, isLoading, isError } = useFundDetail(id);
-
-  return (
-    <SafeAreaView style={s.container} edges={['bottom']}>
-      {isLoading ? (
-        <View style={s.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : isError || !data ? (
-        <View style={s.centered}>
-          <Ionicons name="alert-circle-outline" size={40} color={colors.textTertiary} />
-          <Text style={s.errorText}>Couldn&apos;t load fund data</Text>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.backLink}>Go back</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* ── Fund header card ── */}
-          {(() => {
-            const latestNavDate = data.navHistory[data.navHistory.length - 1]?.date ?? null;
-            const todayIso = new Date().toISOString().split('T')[0];
-            const navIsStale = latestNavDate !== null && latestNavDate !== todayIso;
-            const gain = data.currentValue !== null ? data.currentValue - data.investedAmount : null;
-            const gainPct = gain !== null && data.investedAmount > 0
-              ? (gain / data.investedAmount) * 100 : null;
-            const gainPositive = gain !== null ? gain >= 0 : true;
-            return (
-              <View style={s.fundHeader}>
-                <Text style={s.fundName}>{data.schemeName}</Text>
-                <Text style={s.fundCategory}>{data.schemeCategory}</Text>
-
-                <View style={s.holdingRow}>
-                  <View style={s.holdingStat}>
-                    <Text style={s.statLabel}>Current Value</Text>
-                    {data.currentValue !== null ? (
-                      <>
-                        <Text style={s.holdingValue}>{formatCurrency(data.currentValue)}</Text>
-                        {navIsStale && (
-                          <Text style={s.navStaleLabel}>as of {formatNavDate(latestNavDate!)}</Text>
-                        )}
-                      </>
-                    ) : (
-                      <Text style={s.holdingValuePending}>NAV pending</Text>
-                    )}
-                  </View>
-                  <View style={s.holdingStat}>
-                    <Text style={s.statLabel}>Cost basis</Text>
-                    <Text style={s.holdingValue}>{formatCurrency(data.investedAmount)}</Text>
-                  </View>
-                  <View style={s.holdingStat}>
-                    <Text style={s.statLabel}>Units</Text>
-                    <Text style={s.holdingValue}>{data.currentUnits.toFixed(3)}</Text>
-                  </View>
-                </View>
-
-                {/* Gain / Loss row */}
-                {gain !== null && gainPct !== null && (
-                  <View style={s.gainRow}>
-                    <Text style={s.statLabel}>Gain / Loss</Text>
-                    <Text style={[s.gainValue, { color: gainPositive ? colors.positive : colors.negative }]}>
-                      {gainPositive ? '+' : ''}{formatCurrency(Math.abs(gain))}{' '}
-                      ({gainPositive ? '+' : ''}{gainPct.toFixed(1)}%)
-                    </Text>
-                  </View>
-                )}
-
-                {/* XIRR row — SIP-adjusted annualised return */}
-                {isFinite(data.fundXirr) && (
-                  <View style={s.xirrHeaderRow}>
-                    <Text style={s.statLabel}>XIRR</Text>
-                    <Text style={[s.xirrHeaderValue, { color: data.fundXirr >= 0 ? colors.positive : colors.negative }]}>
-                      {formatXirr(data.fundXirr)}
-                    </Text>
-                    <Text style={s.xirrHeaderHint}> · SIP-adjusted, annualised</Text>
-                  </View>
-                )}
-
-              </View>
-            );
-          })()}
-
-          {/* ── Tab bar ── */}
-          <View style={s.tabBar}>
-            {(['performance', 'nav', 'composition'] as const).map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                style={[s.tab, activeTab === tab && s.tabActive]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.75}
-              >
-                <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
-                  {tab === 'performance' ? 'Performance' : tab === 'nav' ? 'NAV History' : 'Composition'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {activeTab === 'performance' ? (
-            <PerformanceTab
-              navHistory={data.navHistory}
-              defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
-            />
-          ) : activeTab === 'nav' ? (
-            <NavHistoryTab navHistory={data.navHistory} />
-          ) : (
-            <FundCompositionTab schemeCode={data.schemeCode} />
-          )}
-
-          <TechnicalDetailsCard
-            expenseRatio={data.expenseRatio}
-            aumCr={data.aumCr}
-            minSipAmount={data.minSipAmount}
-            fundMetaSyncedAt={data.fundMetaSyncedAt}
-            schemeCode={data.schemeCode}
-            isin={data.isin}
-          />
-
-          <GrowthConsistencyChart navHistory={data.navHistory} />
-
-          <PortfolioHealthDonut
-            fundId={data.id}
-            currentValue={data.currentValue}
-          />
-
-          <View style={s.bottomPad} />
-        </ScrollView>
-      )}
-    </SafeAreaView>
-  );
-}
 
 type ClearLensFundTab = 'performance' | 'nav' | 'composition';
 
@@ -1824,13 +1623,15 @@ function ClearLensFundDetailScreen() {
   const { data, isLoading, isError } = useFundDetail(id);
   const { session } = useSession();
   const userId = session?.user.id;
+  const tokens = useClearLensTokens();
+  const clearDetailStyles = useMemo(() => makeClearDetailStyles(tokens), [tokens]);
 
   if (isLoading) {
     return (
       <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
         <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
-          <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+          <ActivityIndicator size="large" color={tokens.colors.emerald} />
         </View>
       </ClearLensScreen>
     );
@@ -1841,7 +1642,7 @@ function ClearLensFundDetailScreen() {
       <ClearLensScreen desktopMaxWidth={FUND_DETAIL_DESKTOP_MAX}>
         <ClearLensHeader onPressBack={() => router.back()} />
         <View style={clearDetailStyles.centered}>
-          <Ionicons name="alert-circle-outline" size={40} color={ClearLensColors.textTertiary} />
+          <Ionicons name="alert-circle-outline" size={40} color={tokens.colors.textTertiary} />
           <Text style={clearDetailStyles.errorText}>Couldn&apos;t load fund data</Text>
         </View>
       </ClearLensScreen>
@@ -1896,7 +1697,7 @@ function ClearLensFundDetailScreen() {
               {gain !== null && gainPct !== null && (
                 <View style={clearDetailStyles.signalCell}>
                   <Text style={clearDetailStyles.statLabel}>Gain</Text>
-                  <Text style={[clearDetailStyles.signalValue, { color: gain >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative }]}>
+                  <Text style={[clearDetailStyles.signalValue, { color: gain >= 0 ? tokens.colors.emeraldDeep : tokens.colors.negative }]}>
                     {formatClearLensCurrencyDelta(gain)}
                     <Text style={clearDetailStyles.signalInline}> ({formatClearLensPercentDelta(gainPct, 1)})</Text>
                   </Text>
@@ -1909,7 +1710,7 @@ function ClearLensFundDetailScreen() {
                 <View style={clearDetailStyles.signalCell}>
                   <Text style={clearDetailStyles.statLabel}>XIRR</Text>
                   <View style={clearDetailStyles.xirrSignalLine}>
-                    <Text style={[clearDetailStyles.signalValue, { color: data.fundXirr >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative }]}>
+                    <Text style={[clearDetailStyles.signalValue, { color: data.fundXirr >= 0 ? tokens.colors.emeraldDeep : tokens.colors.negative }]}>
                       {formatXirr(data.fundXirr)}
                     </Text>
                     <Text style={clearDetailStyles.xirrHint}>p.a.</Text>
@@ -1931,7 +1732,7 @@ function ClearLensFundDetailScreen() {
                 <Text
                   style={[
                     clearDetailStyles.realizedValue,
-                    { color: data.realizedGain >= 0 ? ClearLensColors.emeraldDeep : ClearLensColors.negative },
+                    { color: data.realizedGain >= 0 ? tokens.colors.emeraldDeep : tokens.colors.negative },
                   ]}
                 >
                   {formatClearLensCurrencyDelta(data.realizedGain)}
@@ -1945,9 +1746,9 @@ function ClearLensFundDetailScreen() {
             onPress={() => router.push(`/money-trail?fundId=${data.id}`)}
             activeOpacity={0.76}
           >
-            <Ionicons name="receipt-outline" size={18} color={ClearLensColors.emeraldDeep} />
+            <Ionicons name="receipt-outline" size={18} color={tokens.colors.emeraldDeep} />
             <Text style={clearDetailStyles.transactionsActionText}>View fund transactions</Text>
-            <Ionicons name="arrow-forward" size={16} color={ClearLensColors.emeraldDeep} />
+            <Ionicons name="arrow-forward" size={16} color={tokens.colors.emeraldDeep} />
           </TouchableOpacity>
         </ClearLensCard>
 
@@ -1999,16 +1800,17 @@ function ClearLensFundDetailScreen() {
 }
 
 export default function FundDetailScreen() {
-  const { isClearLens } = useAppDesignMode();
   return (
     <ResponsiveRouteFrame>
-      <Stack.Screen options={{ headerShown: !isClearLens, title: '' }} />
-      {isClearLens ? <ClearLensFundDetailScreen /> : <ClassicFundDetailScreen />}
+      <Stack.Screen options={{ headerShown: false, title: '' }} />
+      <ClearLensFundDetailScreen />
     </ResponsiveRouteFrame>
   );
 }
 
-const clearDetailStyles = StyleSheet.create({
+function makeClearDetailStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
@@ -2022,7 +1824,7 @@ const clearDetailStyles = StyleSheet.create({
   },
   errorText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   heroCard: {
     gap: ClearLensSpacing.md,
@@ -2038,11 +1840,11 @@ const clearDetailStyles = StyleSheet.create({
   },
   fundName: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   category: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.semiBold,
   },
   statsRow: {
@@ -2055,18 +1857,18 @@ const clearDetailStyles = StyleSheet.create({
   },
   statLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
     fontSize: 10,
     letterSpacing: 0.7,
   },
   statValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   statHint: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontStyle: 'italic',
   },
   gainRow: {
@@ -2082,7 +1884,7 @@ const clearDetailStyles = StyleSheet.create({
     minHeight: 56,
     padding: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
@@ -2094,7 +1896,7 @@ const clearDetailStyles = StyleSheet.create({
   signalDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: ClearLensColors.mint,
+    backgroundColor: cl.mint,
   },
   signalValue: {
     ...ClearLensTypography.h3,
@@ -2107,7 +1909,7 @@ const clearDetailStyles = StyleSheet.create({
     minHeight: 56,
     padding: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
@@ -2118,14 +1920,14 @@ const clearDetailStyles = StyleSheet.create({
   },
   realizedValue: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   transactionsAction: {
     minHeight: 46,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.borderLight,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    borderColor: cl.borderLight,
+    backgroundColor: cl.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2133,7 +1935,7 @@ const clearDetailStyles = StyleSheet.create({
   },
   transactionsActionText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   xirrSignalLine: {
@@ -2153,7 +1955,7 @@ const clearDetailStyles = StyleSheet.create({
   },
   xirrHint: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   benchmarkPill: {
     minHeight: 40,
@@ -2164,27 +1966,28 @@ const clearDetailStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.sm,
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   benchmarkPillNegative: {
-    backgroundColor: ClearLensSemanticColors.sentiment.negativeSurface,
+    backgroundColor: tokens.semantic.sentiment.negativeSurface,
   },
   benchmarkPillText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensSemanticColors.sentiment.positiveText,
+    color: tokens.semantic.sentiment.positiveText,
     fontFamily: ClearLensFonts.semiBold,
   },
   benchmarkPillTextNegative: {
-    color: ClearLensSemanticColors.sentiment.negativeText,
+    color: tokens.semantic.sentiment.negativeText,
   },
   noteCard: {
     marginHorizontal: ClearLensSpacing.md,
   },
   noteText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
 });
+}
 
 function makeStyles(colors: AppColors) {
   return StyleSheet.create({
@@ -2292,12 +2095,32 @@ function makeStyles(colors: AppColors) {
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 10, height: 10, borderRadius: 5 },
     legendLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const },
+    // Header above the chart — title + subtitle on the left, "vs <benchmark>"
+    // pill on the right, mirroring the Portfolio "How your money grew" card.
+    chartHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+    },
+    chartHeaderCopy: { flex: 1, gap: 2, minWidth: 0 },
+    chartHeaderTitle: { fontSize: 16, fontWeight: '700' as const, color: colors.textPrimary },
+    chartHeaderSubtitle: { fontSize: 12, color: colors.textSecondary },
+    chartHeaderBadge: {
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 4,
+      borderRadius: Radii.full,
+      backgroundColor: colors.surfaceAlt,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chartHeaderBadgeText: { fontSize: 12, color: colors.textPrimary, fontWeight: '600' as const },
 
     returnSummary: { gap: 6, marginTop: 4 },
     summaryDateLabel: { fontSize: 11, color: colors.textTertiary, marginBottom: 2 },
     returnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     returnLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' as const },
-    returnVal: { fontSize: 14, fontWeight: '700' as const },
+    returnVal: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' as const },
 
     navStatsRow: { flexDirection: 'row' },
     navStat: { flex: 1, alignItems: 'center', gap: 3 },
@@ -2306,16 +2129,22 @@ function makeStyles(colors: AppColors) {
     statLabel: { ...Typography.caption, color: colors.textTertiary, textTransform: 'uppercase' },
 
     windowRow: { flexDirection: 'row', gap: 6 },
+    // Inactive pill: subtle surface lift + hairline border so it reads as a
+    // discrete chip in both schemes. The previous `borderLight` background
+    // matched the dark-mode page bg almost exactly, leaving the unselected
+    // pills feeling like floating text.
     windowPill: {
       flex: 1,
       paddingVertical: 6,
       borderRadius: Radii.full,
       alignItems: 'center',
-      backgroundColor: colors.borderLight,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    windowPillActive: { backgroundColor: colors.primary },
+    windowPillActive: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.primary },
     windowPillText: { fontSize: 12, fontWeight: '600' as const, color: colors.textTertiary },
-    windowPillTextActive: { color: colors.textOnDark },
+    windowPillTextActive: { color: colors.primary, fontWeight: '700' as const },
 
     chartAxisLabel: { fontSize: 9, color: colors.textTertiary },
 
@@ -2344,9 +2173,9 @@ function makeStyles(colors: AppColors) {
       borderRadius: Radii.full,
       backgroundColor: colors.borderLight,
     },
-    benchmarkPillActive: { backgroundColor: colors.primary },
+    benchmarkPillActive: { backgroundColor: colors.primaryLight, borderWidth: 1, borderColor: colors.primary },
     benchmarkPillText: { fontSize: 11, fontWeight: '600' as const, color: colors.textTertiary },
-    benchmarkPillTextActive: { color: colors.textOnDark },
+    benchmarkPillTextActive: { color: colors.primary, fontWeight: '700' as const },
 
     pointerLabel: {
       backgroundColor: colors.surface,

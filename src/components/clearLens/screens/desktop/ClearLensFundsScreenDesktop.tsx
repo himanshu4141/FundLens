@@ -19,13 +19,14 @@ import { formatXirr } from '@/src/utils/xirr';
 import { parseFundName } from '@/src/utils/fundName';
 import { MaxContentWidth } from '@/src/components/responsive';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSemanticColors,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import {
   formatClearLensCurrencyDelta,
   formatClearLensPercentDelta,
@@ -49,6 +50,8 @@ function sortableNumber(value: number | null | undefined): number {
 }
 
 export function ClearLensFundsScreenDesktop() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { defaultBenchmarkSymbol } = useAppStore();
   const [sortBy, setSortBy] = useState<SortOption>('currentValue');
@@ -141,7 +144,7 @@ export function ClearLensFundsScreenDesktop() {
   if (isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+        <ActivityIndicator size="large" color={tokens.colors.emerald} />
       </View>
     );
   }
@@ -172,7 +175,8 @@ export function ClearLensFundsScreenDesktop() {
                     key={segment.id}
                     style={[
                       styles.allocationSegment,
-                      { flex: Math.max(segment.pct, 1), backgroundColor: segment.color },
+                      // Floor at 4 so sub-1% slivers don't disappear in dark.
+                      { flex: Math.max(segment.pct, 4), backgroundColor: segment.color },
                     ]}
                   />
                 ))}
@@ -227,12 +231,12 @@ export function ClearLensFundsScreenDesktop() {
 
         <View style={styles.controls}>
           <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color={ClearLensColors.textTertiary} />
+            <Ionicons name="search-outline" size={18} color={tokens.colors.textTertiary} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search funds"
-              placeholderTextColor={ClearLensColors.textTertiary}
+              placeholderTextColor={tokens.colors.textTertiary}
               style={styles.searchInput}
             />
           </View>
@@ -274,7 +278,7 @@ export function ClearLensFundsScreenDesktop() {
           ))}
           {sortedFunds.length === 0 && (
             <ClearLensCard style={styles.emptyCard}>
-              <Ionicons name="search-outline" size={28} color={ClearLensColors.textTertiary} />
+              <Ionicons name="search-outline" size={28} color={tokens.colors.textTertiary} />
               <Text style={styles.emptyText}>No funds match your search.</Text>
             </ClearLensCard>
           )}
@@ -293,8 +297,10 @@ function SummaryMetric({
   value: string;
   tone?: 'positive' | 'negative';
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const valueColor =
-    tone === 'positive' ? ClearLensColors.emerald : tone === 'negative' ? CLEAR_LENS_RED : ClearLensColors.navy;
+    tone === 'positive' ? tokens.colors.emerald : tone === 'negative' ? CLEAR_LENS_RED : tokens.colors.navy;
   return (
     <View style={styles.summaryMetric}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -312,10 +318,12 @@ function MoverChip({
   fund: FundCardData;
   tone: 'positive' | 'negative';
 }) {
-  const color = tone === 'positive' ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const color = tone === 'positive' ? tokens.colors.emerald : CLEAR_LENS_RED;
   const surface = tone === 'positive'
-    ? ClearLensSemanticColors.sentiment.positiveSurface
-    : ClearLensSemanticColors.sentiment.negativeSurface;
+    ? tokens.semantic.sentiment.positiveSurface
+    : tokens.semantic.sentiment.negativeSurface;
   const pct = fund.dailyChangePct ?? 0;
   return (
     <View style={[styles.moverChip, { backgroundColor: surface }]}>
@@ -337,22 +345,24 @@ function FundDesktopCard({
   benchmarkXirr: number;
   onOpen: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const { base, planBadge } = parseFundName(fund.schemeName);
-  const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const dailyColor = (fund.dailyChangePct ?? 0) >= 0 ? tokens.colors.emerald : CLEAR_LENS_RED;
   const alphaPpRaw = (fund.returnXirr - benchmarkXirr) * 100;
   // Round before sign-deciding so a value that rounds to 0.0 renders neutrally
   // ("±0.0 pp") rather than negative ("-0.0 pp") with a red badge.
   const alphaPp = Math.round(alphaPpRaw * 10) / 10;
   const ahead = alphaPp >= 0;
-  const xirrColor = ahead ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const xirrColor = ahead ? tokens.colors.emerald : CLEAR_LENS_RED;
   const alphaSign = alphaPp > 0 ? '+' : alphaPp < 0 ? '' : '±';
   const isDebtLike = /debt|liquid|gilt|income|overnight|money market|ultra short/i.test(fund.schemeCategory);
   const accentColor = isDebtLike
-    ? ClearLensSemanticColors.asset.debt
-    : ClearLensSemanticColors.asset.equity;
+    ? tokens.semantic.asset.debt
+    : tokens.semantic.asset.equity;
   const gain = fund.currentValue != null ? fund.currentValue - fund.investedAmount : null;
   const gainPct = gain != null && fund.investedAmount > 0 ? (gain / fund.investedAmount) * 100 : null;
-  const gainColor = (gain ?? 0) >= 0 ? ClearLensColors.emerald : CLEAR_LENS_RED;
+  const gainColor = (gain ?? 0) >= 0 ? tokens.colors.emerald : CLEAR_LENS_RED;
 
   return (
     <TouchableOpacity onPress={onOpen} activeOpacity={0.78} style={styles.cardOuter}>
@@ -369,7 +379,7 @@ function FundDesktopCard({
           <View
             style={[
               styles.alphaBadge,
-              { backgroundColor: ahead ? ClearLensSemanticColors.sentiment.positiveSurface : ClearLensSemanticColors.sentiment.negativeSurface },
+              { backgroundColor: ahead ? tokens.semantic.sentiment.positiveSurface : tokens.semantic.sentiment.negativeSurface },
             ]}
           >
             <Text style={[styles.alphaBadgeText, { color: xirrColor }]}>
@@ -420,7 +430,7 @@ function FundDesktopCard({
               <Text style={styles.footerValue}>—</Text>
             )}
           </View>
-          <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
+          <Ionicons name="chevron-forward" size={16} color={tokens.colors.textTertiary} />
         </View>
       </ClearLensCard>
     </TouchableOpacity>
@@ -430,24 +440,33 @@ function FundDesktopCard({
 function SecondaryStat({
   label,
   value,
-  valueColor = ClearLensColors.navy,
+  valueColor,
 }: {
   label: string;
   value: string;
   valueColor?: string;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.secondaryStat}>
       <Text style={styles.secondaryLabel}>{label}</Text>
-      <Text style={[styles.secondaryValue, { color: valueColor }]} numberOfLines={1}>{value}</Text>
+      <Text
+        style={[styles.secondaryValue, { color: valueColor ?? tokens.colors.navy }]}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     flex: 1,
-    backgroundColor: ClearLensColors.background,
+    backgroundColor: cl.background,
   },
   scrollContent: {
     paddingHorizontal: ClearLensSpacing.xl,
@@ -465,16 +484,16 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   title: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   subtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   summaryCard: {
     paddingVertical: ClearLensSpacing.md,
@@ -482,7 +501,7 @@ const styles = StyleSheet.create({
   },
   summaryEyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   allocationStrip: {
@@ -490,7 +509,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     overflow: 'hidden',
     flexDirection: 'row',
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
   },
   allocationSegment: {
     height: '100%',
@@ -512,21 +531,21 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   summaryValue: {
     ...ClearLensTypography.h3,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   summarySub: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   summaryDivider: {
     width: 1,
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
     marginHorizontal: ClearLensSpacing.sm,
   },
   summaryMoversRow: {
@@ -548,7 +567,7 @@ const styles = StyleSheet.create({
   },
   moverChipName: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.textPrimary,
     fontFamily: ClearLensFonts.semiBold,
   },
   moverChipDelta: {
@@ -565,14 +584,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     paddingVertical: 10,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
   },
   searchInput: {
     flex: 1,
     ...ClearLensTypography.body,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     outlineWidth: 0,
   } as never,
   sortRow: {
@@ -584,21 +603,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     paddingVertical: 8,
     borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
   },
   sortChipActive: {
-    backgroundColor: ClearLensColors.navy,
-    borderColor: ClearLensColors.navy,
+    backgroundColor: cl.mint50,
+    borderColor: cl.emerald,
   },
   sortChipText: {
     ...ClearLensTypography.caption,
     fontFamily: ClearLensFonts.semiBold,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   sortChipTextActive: {
-    color: ClearLensColors.textOnDark,
+    color: cl.emeraldDeep,
   },
   listHeader: {
     flexDirection: 'row',
@@ -608,11 +627,11 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   listMeta: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   grid: {
     flexDirection: 'row',
@@ -640,11 +659,11 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   cardMeta: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   alphaBadge: {
     paddingHorizontal: ClearLensSpacing.sm,
@@ -669,14 +688,14 @@ const styles = StyleSheet.create({
   },
   primaryLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   primaryValue: {
     fontFamily: ClearLensFonts.extraBold,
     fontSize: 28,
     lineHeight: 32,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   secondaryStats: {
     flexDirection: 'row',
@@ -689,7 +708,7 @@ const styles = StyleSheet.create({
   },
   secondaryLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   secondaryValue: {
@@ -703,7 +722,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     paddingTop: ClearLensSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   footerCell: {
     flex: 1,
@@ -713,17 +732,17 @@ const styles = StyleSheet.create({
   footerDivider: {
     width: 1,
     height: 28,
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
   },
   footerLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   footerValue: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   emptyCard: {
     width: '100%',
@@ -733,7 +752,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   centered: {
     flex: 1,
@@ -742,3 +761,4 @@ const styles = StyleSheet.create({
     padding: ClearLensSpacing.xl,
   },
 });
+}

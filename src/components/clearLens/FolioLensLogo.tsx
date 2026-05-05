@@ -1,10 +1,10 @@
 import Svg, { Circle, Path } from 'react-native-svg';
 import { View, Text, StyleSheet } from 'react-native';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensSpacing,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 interface FocusRingLogoMarkProps {
   size?: number;
@@ -17,7 +17,8 @@ interface FolioLensLogoProps extends FocusRingLogoMarkProps {
 }
 
 export function FocusRingLogoMark({ size = 32, light = false }: FocusRingLogoMarkProps) {
-  const ring = light ? ClearLensColors.textOnDark : ClearLensColors.navy;
+  const { colors } = useClearLensTokens();
+  const ring = light ? colors.textOnDark : colors.navy;
 
   return (
     <Svg
@@ -27,43 +28,19 @@ export function FocusRingLogoMark({ size = 32, light = false }: FocusRingLogoMar
       accessibilityLabel="FolioLens"
       accessibilityRole="image"
     >
-      <Path
-        d="M18 52 A24 24 0 0 1 12 22"
-        stroke={ring}
-        strokeWidth="6"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M19 12 A24 24 0 0 1 42 10"
-        stroke={ring}
-        strokeWidth="6"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M52 25 A24 24 0 0 1 47 49"
-        stroke={ring}
-        strokeWidth="6"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M37 55 A24 24 0 0 1 27 56"
-        stroke={ring}
-        strokeWidth="6"
-        strokeLinecap="round"
-        fill="none"
-      />
+      <Path d="M18 52 A24 24 0 0 1 12 22" stroke={ring} strokeWidth="6" strokeLinecap="round" fill="none" />
+      <Path d="M19 12 A24 24 0 0 1 42 10" stroke={ring} strokeWidth="6" strokeLinecap="round" fill="none" />
+      <Path d="M52 25 A24 24 0 0 1 47 49" stroke={ring} strokeWidth="6" strokeLinecap="round" fill="none" />
+      <Path d="M37 55 A24 24 0 0 1 27 56" stroke={ring} strokeWidth="6" strokeLinecap="round" fill="none" />
       <Path
         d="M16 39 L27 28 L35 35 L49 20"
-        stroke={ClearLensColors.emerald}
+        stroke={colors.emerald}
         strokeWidth="6"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       />
-      <Circle cx="52" cy="16" r="4" fill={ClearLensColors.emerald} />
+      <Circle cx="52" cy="16" r="4" fill={colors.emerald} />
     </Svg>
   );
 }
@@ -74,8 +51,9 @@ export function FolioLensLogo({
   showWordmark = true,
   showTagline = false,
 }: FolioLensLogoProps) {
-  const wordmarkColor = light ? ClearLensColors.textOnDark : ClearLensColors.navy;
-  const taglineColor = light ? ClearLensColors.lightGrey : ClearLensColors.slate;
+  const { colors } = useClearLensTokens();
+  const wordmarkColor = light ? colors.textOnDark : colors.navy;
+  const taglineColor = light ? colors.lightGrey : colors.slate;
 
   return (
     <View style={styles.lockup}>

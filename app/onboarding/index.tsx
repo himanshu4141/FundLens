@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,18 +16,15 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
-import Logo from '@/src/components/Logo';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
-import { useTheme, type AppColors } from '@/src/context/ThemeContext';
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
-import { Colors as ClassicColors, Radii, Spacing, Typography } from '@/src/constants/theme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { DesktopFormFrame } from '@/src/components/responsive';
 import {
-  ClearLensColors,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
@@ -39,8 +35,6 @@ const ONBOARDING_POINTS = [
 ];
 
 type OnboardingStyles = ReturnType<typeof makeStyles>;
-
-// ── Data fetching ────────────────────────────────────────────────────────────
 
 async function fetchProfile(userId: string) {
   const { data } = await supabase
@@ -59,7 +53,6 @@ function parseDobInput(value: string): string | null {
   const [, dd, mm, yyyy] = m;
   const d = new Date(`${yyyy}-${mm}-${dd}`);
   if (isNaN(d.getTime())) return null;
-  // Must be ≥ 18 years old
   const cutoff = new Date();
   cutoff.setFullYear(cutoff.getFullYear() - 18);
   if (d > cutoff) return null;
@@ -78,8 +71,6 @@ async function requestCAS(email: string): Promise<void> {
   });
   if (error) throw new Error(error.message);
 }
-
-// ── Sub-components ───────────────────────────────────────────────────────────
 
 function CopyBox({
   label,
@@ -117,38 +108,16 @@ function OnboardingHero({
   title,
   subtitle,
   styles,
-  isClearLens,
+  cl,
 }: {
   title: string;
   subtitle: string;
   styles: OnboardingStyles;
-  isClearLens: boolean;
+  cl: ClearLensTokens['colors'];
 }) {
-  if (isClearLens) {
-    return (
-      <View style={styles.hero}>
-        <FolioLensLogo size={42} showWordmark showTagline />
-        <View style={styles.heroCopy}>
-          <Text style={styles.heroTitle}>{title}</Text>
-          <Text style={styles.heroSubtitle}>{subtitle}</Text>
-        </View>
-        <View style={styles.heroPoints}>
-          {ONBOARDING_POINTS.map((point) => (
-            <View key={point} style={styles.heroPointRow}>
-              <View style={styles.heroCheckIcon}>
-                <Ionicons name="checkmark" size={13} color={ClearLensColors.textOnDark} />
-              </View>
-              <Text style={styles.heroPointText}>{point}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <LinearGradient colors={ClassicColors.gradientHeader} style={styles.hero}>
-      <Logo size={46} showWordmark light />
+    <View style={styles.hero}>
+      <FolioLensLogo size={42} showWordmark showTagline />
       <View style={styles.heroCopy}>
         <Text style={styles.heroTitle}>{title}</Text>
         <Text style={styles.heroSubtitle}>{subtitle}</Text>
@@ -156,16 +125,16 @@ function OnboardingHero({
       <View style={styles.heroPoints}>
         {ONBOARDING_POINTS.map((point) => (
           <View key={point} style={styles.heroPointRow}>
-            <Text style={styles.heroPointIcon}>•</Text>
+            <View style={styles.heroCheckIcon}>
+              <Ionicons name="checkmark" size={13} color={cl.textOnDark} />
+            </View>
             <Text style={styles.heroPointText}>{point}</Text>
           </View>
         ))}
       </View>
-    </LinearGradient>
+    </View>
   );
 }
-
-// ── Already-set-up view ───────────────────────────────────────────────────────
 
 function SetupComplete({
   inboundEmail,
@@ -174,7 +143,7 @@ function SetupComplete({
   onReset,
   onGoToPortfolio,
   styles,
-  isClearLens,
+  cl,
 }: {
   inboundEmail: string;
   kftechEmail: string;
@@ -182,7 +151,7 @@ function SetupComplete({
   onReset: () => void;
   onGoToPortfolio: () => void;
   styles: OnboardingStyles;
-  isClearLens: boolean;
+  cl: ClearLensTokens['colors'];
 }) {
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
@@ -207,7 +176,7 @@ function SetupComplete({
         title="Your import setup is ready"
         subtitle="Refresh your latest transactions in one tap, or keep auto-forward on and let the inbox do the work."
         styles={styles}
-        isClearLens={isClearLens}
+        cl={cl}
       />
 
       <View style={styles.sectionCard}>
@@ -242,7 +211,6 @@ function SetupComplete({
 
       <CopyBox label="Your import address" value={inboundEmail} styles={styles} />
 
-      {/* Auto-forward tip */}
       <TouchableOpacity
         style={styles.tipToggle}
         onPress={() => setShowAutoForward((v) => !v)}
@@ -255,9 +223,7 @@ function SetupComplete({
       {showAutoForward && (
         <View style={styles.tipCard}>
           <Text style={styles.tipTitle}>Auto-forward filter</Text>
-          <Text style={styles.tipStep}>
-            1. Open Gmail → Settings → Filters → Create new filter
-          </Text>
+          <Text style={styles.tipStep}>1. Open Gmail → Settings → Filters → Create new filter</Text>
           <Text style={styles.tipStep}>
             2. In <Text style={styles.bold}>From</Text>, enter:{' '}
             <Text style={styles.mono}>donotreply@kfintech.com</Text>
@@ -286,8 +252,6 @@ function SetupComplete({
   );
 }
 
-// ── First-time setup view ─────────────────────────────────────────────────────
-
 export default function OnboardingScreen() {
   return (
     <DesktopFormFrame>
@@ -300,9 +264,9 @@ function OnboardingScreenInner() {
   const router = useRouter();
   const { session } = useSession();
   const queryClient = useQueryClient();
-  const { colors: Colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
-  const styles = useMemo(() => makeStyles(Colors, isClearLens), [Colors, isClearLens]);
+  const tokens = useClearLensTokens();
+  const cl = tokens.colors;
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const { inboundEmail, isLoading: sessionLoading, createSession } = useInboundSession(
     session?.user.id,
   );
@@ -313,21 +277,17 @@ function OnboardingScreenInner() {
     enabled: !!session?.user.id,
   });
 
-  // ── PAN step ────────────────────────────────────────────────────────────────
   const [pan, setPan] = useState('');
   const [panState, setPanState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [panError, setPanError] = useState<string | null>(null);
 
-  // ── DOB step (optional, for CDSL/NSDL CAS) ──────────────────────────────────
   const [dob, setDob] = useState('');
   const [dobError, setDobError] = useState<string | null>(null);
   const [dobSaving, setDobSaving] = useState(false);
   const [dobSaved, setDobSaved] = useState(false);
 
-  // ── CAS request step ────────────────────────────────────────────────────────
   const [casEmail, setCasEmail] = useState(session?.user.email ?? '');
 
-  // Pre-populate inputs from saved profile when it loads
   useEffect(() => {
     if (profile?.pan && !pan) setPan(profile.pan);
   }, [profile?.pan, pan]);
@@ -341,7 +301,6 @@ function OnboardingScreenInner() {
 
   const isLoading = profileLoading || sessionLoading;
 
-  // Once profile + inbound address both exist → show the "already set up" view
   const isSetupComplete =
     !isLoading && !!profile?.pan && !!profile?.kfintech_email && !!inboundEmail;
 
@@ -404,12 +363,11 @@ function OnboardingScreenInner() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={cl.emerald} />
       </View>
     );
   }
 
-  // ── Already set up ──────────────────────────────────────────────────────────
   if (isSetupComplete) {
     return (
       <SetupComplete
@@ -422,12 +380,11 @@ function OnboardingScreenInner() {
         }}
         onGoToPortfolio={() => router.replace('/')}
         styles={styles}
-        isClearLens={isClearLens}
+        cl={cl}
       />
     );
   }
 
-  // ── First-time setup ────────────────────────────────────────────────────────
   const panDone = panState === 'saved' || !!profile?.pan;
   const step2Enabled = panDone;
   const step3Enabled = !!inboundEmail;
@@ -438,10 +395,10 @@ function OnboardingScreenInner() {
         title="Import your portfolio"
         subtitle="Set this up once and future refreshes become a single tap. Email forwarding is the fastest path, PDF upload stays available as fallback."
         styles={styles}
-        isClearLens={isClearLens}
+        cl={cl}
       />
 
-      {/* ── Step 1 — PAN ──────────────────────────────────────── */}
+      {/* Step 1 — PAN */}
       <View style={styles.step}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepNum, panDone && styles.stepNumDone]}>
@@ -468,7 +425,7 @@ function OnboardingScreenInner() {
               <TextInput
                 style={styles.panInput}
                 placeholder="ABCDE1234F"
-                placeholderTextColor="#999"
+                placeholderTextColor={cl.textTertiary}
                 value={pan}
                 onChangeText={(t) => { setPan(t.toUpperCase()); setPanError(null); }}
                 autoCapitalize="characters"
@@ -486,7 +443,6 @@ function OnboardingScreenInner() {
             </>
           )}
 
-          {/* DOB — optional, used for CDSL/NSDL CAS */}
           <View style={styles.dobSection}>
             <Text style={styles.dobLabel}>Date of Birth (optional)</Text>
             <Text style={styles.dobHint}>
@@ -506,7 +462,7 @@ function OnboardingScreenInner() {
                 <TextInput
                   style={styles.panInput}
                   placeholder="DD/MM/YYYY"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={cl.textTertiary}
                   value={dob}
                   onChangeText={(t) => { setDob(t); setDobError(null); }}
                   keyboardType="numeric"
@@ -529,7 +485,7 @@ function OnboardingScreenInner() {
         </View>
       </View>
 
-      {/* ── Step 2 — Inbound address ───────────────────────────── */}
+      {/* Step 2 — Inbound address */}
       <View style={[styles.step, !step2Enabled && styles.stepDisabled]}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepNum, !step2Enabled && styles.stepNumGray, !!inboundEmail && styles.stepNumDone]}>
@@ -565,7 +521,7 @@ function OnboardingScreenInner() {
         </View>
       </View>
 
-      {/* ── Step 3 — Request CAS ───────────────────────────────── */}
+      {/* Step 3 — Request CAS */}
       <View style={[styles.step, !step3Enabled && styles.stepDisabled]}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray, casState === 'requested' && styles.stepNumDone]}>
@@ -602,7 +558,7 @@ function OnboardingScreenInner() {
               <TextInput
                 style={[styles.emailInput, !step3Enabled && styles.inputDisabled]}
                 placeholder="your@email.com"
-                placeholderTextColor="#999"
+                placeholderTextColor={cl.textTertiary}
                 value={casEmail}
                 onChangeText={setCasEmail}
                 keyboardType="email-address"
@@ -633,7 +589,6 @@ function OnboardingScreenInner() {
         </View>
       </View>
 
-      {/* ── Alternative: PDF upload ────────────────────────────── */}
       <Text style={styles.altTitle}>Prefer manual upload?</Text>
       <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
         <Text style={styles.altCardTitle}>Upload a CAS PDF</Text>
@@ -643,246 +598,232 @@ function OnboardingScreenInner() {
   );
 }
 
-function makeStyles(Colors: AppColors, isClearLens: boolean) {
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  const compat = tokens.compatible;
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: {
-    paddingBottom: isClearLens ? ClearLensSpacing.xxl : Spacing.xxl,
-    paddingTop: isClearLens ? ClearLensSpacing.md : 0,
-    gap: isClearLens ? ClearLensSpacing.md : Spacing.md,
-  },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    container: { flex: 1, backgroundColor: cl.background },
+    content: {
+      paddingBottom: ClearLensSpacing.xxl,
+      paddingTop: ClearLensSpacing.md,
+      gap: ClearLensSpacing.md,
+    },
+    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  hero: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : 0,
-    marginTop: isClearLens ? ClearLensSpacing.sm : 0,
-    paddingTop: isClearLens ? ClearLensSpacing.lg : 56,
-    paddingHorizontal: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
-    paddingBottom: isClearLens ? ClearLensSpacing.lg : Spacing.xl + Spacing.sm,
-    gap: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    backgroundColor: isClearLens ? Colors.surface : undefined,
-    borderWidth: isClearLens ? 1 : 0,
-    borderColor: isClearLens ? Colors.border : undefined,
-    borderRadius: isClearLens ? ClearLensRadii.lg : 0,
-    ...(isClearLens ? ClearLensShadow : {}),
-  },
-  heroCopy: { gap: Spacing.sm },
-  heroTitle: {
-    ...(isClearLens ? ClearLensTypography.h1 : Typography.h1),
-    color: isClearLens ? Colors.textPrimary : Colors.textOnDark,
-    fontWeight: '700',
-  },
-  heroSubtitle: {
-    ...(isClearLens ? ClearLensTypography.body : Typography.body),
-    color: isClearLens ? Colors.textSecondary : 'rgba(255,255,255,0.8)',
-  },
-  heroPoints: { gap: Spacing.sm },
-  heroPointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  heroPointIcon: { color: '#9fe6d2', fontSize: 16, lineHeight: 20 },
-  heroCheckIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ClearLensColors.emerald,
-  },
-  heroPointText: {
-    ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall),
-    color: isClearLens ? Colors.textSecondary : 'rgba(255,255,255,0.75)',
-    flex: 1,
-  },
+    hero: {
+      marginHorizontal: ClearLensSpacing.md,
+      marginTop: ClearLensSpacing.sm,
+      paddingTop: ClearLensSpacing.lg,
+      paddingHorizontal: ClearLensSpacing.lg,
+      paddingBottom: ClearLensSpacing.lg,
+      gap: ClearLensSpacing.md,
+      backgroundColor: cl.surface,
+      borderWidth: 1,
+      borderColor: cl.border,
+      borderRadius: ClearLensRadii.lg,
+      ...ClearLensShadow,
+    },
+    heroCopy: { gap: ClearLensSpacing.sm },
+    heroTitle: { ...ClearLensTypography.h1, color: cl.textPrimary, fontWeight: '700' },
+    heroSubtitle: { ...ClearLensTypography.body, color: cl.textSecondary },
+    heroPoints: { gap: ClearLensSpacing.sm },
+    heroPointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: ClearLensSpacing.sm },
+    heroCheckIcon: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: cl.emerald,
+    },
+    heroPointText: { ...ClearLensTypography.bodySmall, color: cl.textSecondary, flex: 1 },
 
-  sectionCard: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    marginTop: isClearLens ? 0 : -Radii.xl,
-    backgroundColor: Colors.surface,
-    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
-    gap: isClearLens ? ClearLensSpacing.md : Spacing.md,
-    ...(isClearLens ? ClearLensShadow : {}),
-  },
-  sectionHeader: { gap: Spacing.xs },
-  sectionEyebrow: {
-    ...(isClearLens ? ClearLensTypography.label : Typography.label),
-    color: Colors.primary,
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    ...(isClearLens ? ClearLensTypography.h3 : Typography.h3),
-    color: Colors.textPrimary,
-    fontWeight: '700',
-  },
+    sectionCard: {
+      marginHorizontal: ClearLensSpacing.md,
+      backgroundColor: cl.surface,
+      borderRadius: ClearLensRadii.lg,
+      borderWidth: 1,
+      borderColor: cl.border,
+      padding: ClearLensSpacing.lg,
+      gap: ClearLensSpacing.md,
+      ...ClearLensShadow,
+    },
+    sectionHeader: { gap: ClearLensSpacing.xs },
+    sectionEyebrow: { ...ClearLensTypography.label, color: compat.primary, textTransform: 'uppercase' },
+    sectionTitle: { ...ClearLensTypography.h3, color: cl.textPrimary, fontWeight: '700' },
 
-  // Setup-complete view
-  refreshBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: isClearLens ? ClearLensRadii.full : Radii.md,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  refreshBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 16 },
-  requestedBanner: {
-    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
-    borderRadius: isClearLens ? ClearLensRadii.md : Radii.md,
-    padding: 14,
-  },
-  requestedText: { ...Typography.bodySmall, color: Colors.primaryDark },
+    refreshBtn: {
+      backgroundColor: cl.emerald,
+      borderRadius: ClearLensRadii.full,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    refreshBtnText: { color: cl.textOnDark, fontWeight: '700', fontSize: 16 },
+    requestedBanner: {
+      backgroundColor: cl.positiveBg,
+      borderWidth: 1,
+      borderColor: cl.mint,
+      borderRadius: ClearLensRadii.md,
+      padding: 14,
+    },
+    requestedText: { ...ClearLensTypography.bodySmall, color: cl.navy },
 
-  tipToggle: { paddingVertical: 4 },
-  tipToggleText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
-  tipCard: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
-    padding: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
-    gap: Spacing.sm,
-    ...(isClearLens ? ClearLensShadow : {}),
-  },
-  tipTitle: { ...Typography.label, color: Colors.primary, textTransform: 'uppercase' },
-  tipStep: { ...Typography.bodySmall, color: Colors.textSecondary },
-  tipNote: { fontSize: 12, color: Colors.textTertiary, fontStyle: 'italic', marginTop: 4 },
+    tipToggle: { paddingVertical: 4, marginHorizontal: ClearLensSpacing.md },
+    tipToggleText: { ...ClearLensTypography.bodySmall, color: cl.emerald, fontWeight: '600' },
+    tipCard: {
+      marginHorizontal: ClearLensSpacing.md,
+      backgroundColor: cl.surface,
+      borderWidth: 1,
+      borderColor: cl.border,
+      borderRadius: ClearLensRadii.lg,
+      padding: ClearLensSpacing.lg,
+      gap: ClearLensSpacing.sm,
+      ...ClearLensShadow,
+    },
+    tipTitle: { ...ClearLensTypography.label, color: cl.emerald, textTransform: 'uppercase' },
+    tipStep: { ...ClearLensTypography.bodySmall, color: cl.textSecondary },
+    tipNote: { fontSize: 12, color: cl.textTertiary, fontStyle: 'italic', marginTop: 4 },
 
-  portfolioBtn: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    backgroundColor: Colors.primary,
-    borderRadius: isClearLens ? ClearLensRadii.full : Radii.md,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  portfolioBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 15 },
-  resetLink: { alignItems: 'center', paddingVertical: 8 },
-  resetLinkText: { fontSize: 13, color: Colors.textTertiary },
+    portfolioBtn: {
+      marginHorizontal: ClearLensSpacing.md,
+      backgroundColor: cl.emerald,
+      borderRadius: ClearLensRadii.full,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    portfolioBtnText: { color: cl.textOnDark, fontWeight: '700', fontSize: 15 },
+    resetLink: { alignItems: 'center', paddingVertical: 8 },
+    resetLinkText: { fontSize: 13, color: cl.textTertiary },
 
-  // First-time setup
-  step: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
-    backgroundColor: Colors.surface,
-    padding: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
-    ...(isClearLens ? ClearLensShadow : {}),
-  },
-  stepDisabled: { borderColor: Colors.borderLight, backgroundColor: Colors.surfaceAlt },
-  stepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  stepNum: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-  },
-  stepNumDone: { backgroundColor: Colors.positive },
-  stepNumGray: { backgroundColor: '#cbd5e1' },
-  stepNumText: { color: Colors.textOnDark, fontSize: 13, fontWeight: '700' },
-  stepTitleWrap: { gap: 2 },
-  stepLabel: { ...(isClearLens ? ClearLensTypography.label : Typography.label), color: Colors.primary, textTransform: 'uppercase' },
-  stepTitle: { ...(isClearLens ? ClearLensTypography.h3 : Typography.h3), color: Colors.textPrimary, fontWeight: '700' },
-  stepTitleGray: { color: Colors.textTertiary },
-  stepBody: { gap: 10 },
-  stepDesc: { ...(isClearLens ? ClearLensTypography.body : Typography.body), color: Colors.textSecondary },
-  stepDescGray: { color: Colors.textTertiary },
+    step: {
+      marginHorizontal: ClearLensSpacing.md,
+      borderWidth: 1,
+      borderColor: cl.border,
+      borderRadius: ClearLensRadii.lg,
+      backgroundColor: cl.surface,
+      padding: ClearLensSpacing.lg,
+      ...ClearLensShadow,
+    },
+    stepDisabled: { borderColor: cl.borderLight, backgroundColor: cl.surfaceSoft },
+    stepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+    stepNum: {
+      width: 26, height: 26, borderRadius: 13,
+      backgroundColor: cl.emerald, alignItems: 'center', justifyContent: 'center',
+    },
+    stepNumDone: { backgroundColor: cl.positive },
+    stepNumGray: { backgroundColor: cl.lightGrey },
+    stepNumText: { color: cl.textOnDark, fontSize: 13, fontWeight: '700' },
+    stepTitleWrap: { gap: 2 },
+    stepLabel: { ...ClearLensTypography.label, color: cl.emerald, textTransform: 'uppercase' },
+    stepTitle: { ...ClearLensTypography.h3, color: cl.textPrimary, fontWeight: '700' },
+    stepTitleGray: { color: cl.textTertiary },
+    stepBody: { gap: 10 },
+    stepDesc: { ...ClearLensTypography.body, color: cl.textSecondary },
+    stepDescGray: { color: cl.textTertiary },
 
-  panInput: {
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: isClearLens ? ClearLensRadii.md : Radii.md,
-    paddingHorizontal: 14, fontSize: 16, color: Colors.textPrimary, backgroundColor: Colors.surfaceAlt,
-    letterSpacing: 2,
-  },
-  emailInput: {
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: isClearLens ? ClearLensRadii.md : Radii.md,
-    paddingHorizontal: 14, fontSize: 15, color: Colors.textPrimary, backgroundColor: Colors.surfaceAlt,
-  },
-  inputDisabled: { opacity: 0.4 },
-  errorText: { color: Colors.negative, fontSize: 13 },
+    panInput: {
+      height: 52,
+      borderWidth: 1.5,
+      borderColor: cl.border,
+      borderRadius: ClearLensRadii.md,
+      paddingHorizontal: 14, fontSize: 16, color: cl.textPrimary, backgroundColor: cl.surfaceSoft,
+      letterSpacing: 2,
+    },
+    emailInput: {
+      height: 52,
+      borderWidth: 1.5,
+      borderColor: cl.border,
+      borderRadius: ClearLensRadii.md,
+      paddingHorizontal: 14, fontSize: 15, color: cl.textPrimary, backgroundColor: cl.surfaceSoft,
+    },
+    inputDisabled: { opacity: 0.4 },
+    errorText: { color: cl.negative, fontSize: 13 },
 
-  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  savedText: { fontSize: 14, color: Colors.positive, fontWeight: '600', flex: 1 },
-  changeLink: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
+    savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    savedText: { fontSize: 14, color: cl.positive, fontWeight: '600', flex: 1 },
+    changeLink: { fontSize: 13, color: cl.emerald, fontWeight: '600' },
 
-  dobSection: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 12,
-    gap: 6,
-    marginTop: 4,
-  },
-  dobLabel: { ...(isClearLens ? ClearLensTypography.label : Typography.label), color: Colors.textSecondary, textTransform: 'uppercase' },
-  dobHint: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.textTertiary },
-  secondaryBtn: {
-    backgroundColor: Colors.primaryDark,
-    borderRadius: isClearLens ? ClearLensRadii.full : Radii.md,
-    paddingVertical: 12,
-    alignItems: 'center' as const,
-  },
+    dobSection: {
+      borderTopWidth: 1,
+      borderTopColor: cl.border,
+      paddingTop: 12,
+      gap: 6,
+      marginTop: 4,
+    },
+    dobLabel: { ...ClearLensTypography.label, color: cl.textSecondary, textTransform: 'uppercase' },
+    dobHint: { ...ClearLensTypography.bodySmall, color: cl.textTertiary },
+    secondaryBtn: {
+      backgroundColor: cl.slate,
+      borderRadius: ClearLensRadii.full,
+      paddingVertical: 12,
+      alignItems: 'center' as const,
+    },
 
-  copyBox: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    backgroundColor: Colors.surface,
-    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: isClearLens ? ClearLensSpacing.md : Spacing.md,
-    gap: 8,
-    ...(isClearLens ? ClearLensShadow : {}),
-  },
-  copyBoxEmbedded: {
-    marginHorizontal: 0,
-    backgroundColor: Colors.surfaceAlt,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  copyLabel: { ...(isClearLens ? ClearLensTypography.label : Typography.label), color: Colors.textTertiary, textTransform: 'uppercase' },
-  copyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  copyValue: { flex: 1, fontSize: 12, color: Colors.textSecondary },
-  mono: { fontFamily: 'Courier' },
-  copyBtn: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: isClearLens ? ClearLensRadii.full : Radii.sm,
-    paddingHorizontal: 10, paddingVertical: 5,
-  },
-  copyBtnText: { fontSize: 12, fontWeight: '600', color: Colors.primaryDark },
+    copyBox: {
+      marginHorizontal: ClearLensSpacing.md,
+      backgroundColor: cl.surface,
+      borderRadius: ClearLensRadii.lg,
+      borderWidth: 1,
+      borderColor: cl.border,
+      padding: ClearLensSpacing.md,
+      gap: 8,
+      ...ClearLensShadow,
+    },
+    copyBoxEmbedded: {
+      marginHorizontal: 0,
+      backgroundColor: cl.surfaceSoft,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    copyLabel: { ...ClearLensTypography.label, color: cl.textTertiary, textTransform: 'uppercase' },
+    copyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    copyValue: { flex: 1, fontSize: 12, color: cl.textSecondary },
+    mono: { fontFamily: 'Courier' },
+    copyBtn: {
+      backgroundColor: cl.mint50,
+      borderRadius: ClearLensRadii.full,
+      paddingHorizontal: 10, paddingVertical: 5,
+    },
+    copyBtnText: { fontSize: 12, fontWeight: '600', color: cl.emerald },
 
-  primaryBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: isClearLens ? ClearLensRadii.full : Radii.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnDisabled: { opacity: 0.5 },
-  primaryBtnText: { color: Colors.textOnDark, fontWeight: '700', fontSize: 14 },
+    primaryBtn: {
+      backgroundColor: cl.emerald,
+      borderRadius: ClearLensRadii.full,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    btnDisabled: { opacity: 0.5 },
+    primaryBtnText: { color: cl.textOnDark, fontWeight: '700', fontSize: 14 },
 
-  hintCard: {
-    backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: '#c7eadf',
-    borderRadius: isClearLens ? ClearLensRadii.md : Radii.md,
-    padding: 14,
-    gap: 8,
-  },
-  hintTitle: { fontSize: 13, fontWeight: '700', color: Colors.primaryDark },
-  hintItem: { fontSize: 13, color: Colors.primaryDark, lineHeight: 20 },
-  bold: { fontWeight: '700' },
+    hintCard: {
+      backgroundColor: cl.positiveBg,
+      borderWidth: 1,
+      borderColor: cl.mint,
+      borderRadius: ClearLensRadii.md,
+      padding: 14,
+      gap: 8,
+    },
+    hintTitle: { fontSize: 13, fontWeight: '700', color: cl.navy },
+    hintItem: { fontSize: 13, color: cl.navy, lineHeight: 20 },
+    bold: { fontWeight: '700' },
 
-  altTitle: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    marginTop: 8,
-    ...(isClearLens ? ClearLensTypography.label : Typography.label),
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-  },
-  altCard: {
-    marginHorizontal: isClearLens ? ClearLensSpacing.md : Spacing.lg,
-    borderWidth: 1, borderColor: Colors.border,
-    borderRadius: isClearLens ? ClearLensRadii.lg : Radii.lg,
-    padding: isClearLens ? ClearLensSpacing.lg : Spacing.lg,
-    gap: 6,
-    backgroundColor: Colors.surface,
-    ...(isClearLens ? ClearLensShadow : {}),
-  },
-  altCardTitle: { ...(isClearLens ? ClearLensTypography.h3 : Typography.h3), color: Colors.textPrimary, fontWeight: '700' },
-  altCardSub: { ...(isClearLens ? ClearLensTypography.bodySmall : Typography.bodySmall), color: Colors.textSecondary },
+    altTitle: {
+      marginHorizontal: ClearLensSpacing.md,
+      marginTop: 8,
+      ...ClearLensTypography.label,
+      color: cl.textTertiary,
+      textTransform: 'uppercase',
+    },
+    altCard: {
+      marginHorizontal: ClearLensSpacing.md,
+      borderWidth: 1, borderColor: cl.border,
+      borderRadius: ClearLensRadii.lg,
+      padding: ClearLensSpacing.lg,
+      gap: 6,
+      backgroundColor: cl.surface,
+      ...ClearLensShadow,
+    },
+    altCardTitle: { ...ClearLensTypography.h3, color: cl.textPrimary, fontWeight: '700' },
+    altCardSub: { ...ClearLensTypography.bodySmall, color: cl.textSecondary },
   });
 }

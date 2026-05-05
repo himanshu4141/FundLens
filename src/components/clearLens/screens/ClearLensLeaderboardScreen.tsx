@@ -18,13 +18,13 @@ import {
   ClearLensScreen,
 } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
-  ClearLensSemanticColors,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
@@ -52,6 +52,8 @@ function BenchmarkSelector({
   selected: string;
   onChange: (symbol: string) => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.benchmarkRow}>
       {BENCHMARK_OPTIONS.map((option) => (
@@ -75,9 +77,11 @@ function AlphaCard({
   marketXirr: number;
   benchmarkLabel: string;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const alphaPp = (portfolioXirr - marketXirr) * 100;
   const ahead = alphaPp >= 0;
-  const color = ahead ? ClearLensSemanticColors.sentiment.positive : ClearLensSemanticColors.sentiment.negative;
+  const color = ahead ? tokens.semantic.sentiment.positive : tokens.semantic.sentiment.negative;
 
   return (
     <ClearLensCard style={styles.alphaCard}>
@@ -99,12 +103,12 @@ function AlphaCard({
       <View style={styles.alphaGrid}>
         <View style={styles.alphaMetric}>
           <Text style={styles.metricLabel}>Your portfolio</Text>
-          <Text style={[styles.alphaValue, { color: ClearLensColors.navy }]}>{formatXirr(portfolioXirr)}</Text>
+          <Text style={[styles.alphaValue, { color: tokens.colors.navy }]}>{formatXirr(portfolioXirr)}</Text>
         </View>
         <View style={styles.alphaDivider} />
         <View style={styles.alphaMetric}>
           <Text style={styles.metricLabel}>{benchmarkLabel}</Text>
-          <Text style={[styles.alphaValue, { color: ClearLensColors.slate }]}>{formatXirr(marketXirr)}</Text>
+          <Text style={[styles.alphaValue, { color: tokens.colors.slate }]}>{formatXirr(marketXirr)}</Text>
         </View>
       </View>
       <Text style={styles.alphaCopy}>
@@ -125,11 +129,13 @@ function RankCard({
   marketXirr: number;
   onPress: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const { base, planBadge } = parseFundName(fund.schemeName);
   const alphaPp = (fund.returnXirr - marketXirr) * 100;
   const ahead = alphaPp >= 0;
-  const color = ahead ? ClearLensSemanticColors.sentiment.positive : ClearLensSemanticColors.sentiment.negative;
-  const surface = ahead ? ClearLensSemanticColors.sentiment.positiveSurface : ClearLensSemanticColors.sentiment.negativeSurface;
+  const color = ahead ? tokens.semantic.sentiment.positive : tokens.semantic.sentiment.negative;
+  const surface = ahead ? tokens.semantic.sentiment.positiveSurface : tokens.semantic.sentiment.negativeSurface;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.76}>
@@ -166,7 +172,7 @@ function RankCard({
             </Text>
           )}
         </View>
-        <Ionicons name="chevron-forward" size={18} color={ClearLensColors.textTertiary} />
+        <Ionicons name="chevron-forward" size={18} color={tokens.colors.textTertiary} />
       </ClearLensCard>
     </TouchableOpacity>
   );
@@ -189,6 +195,8 @@ function Section({
   rankOffset: number;
   onOpenFund: (fundId: string) => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   if (funds.length === 0) return null;
 
   return (
@@ -214,6 +222,8 @@ function Section({
 }
 
 export function ClearLensLeaderboardScreen() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
@@ -301,11 +311,11 @@ export function ClearLensLeaderboardScreen() {
 
         {isLoading ? (
           <View style={styles.centeredCard}>
-            <ActivityIndicator size="large" color={ClearLensColors.emerald} />
+            <ActivityIndicator size="large" color={tokens.colors.emerald} />
           </View>
         ) : isError ? (
           <ClearLensCard style={styles.emptyCard}>
-            <Ionicons name="alert-circle-outline" size={36} color={ClearLensSemanticColors.state.danger} />
+            <Ionicons name="alert-circle-outline" size={36} color={tokens.semantic.state.danger} />
             <Text style={styles.emptyTitle}>Could not load leaderboard</Text>
             <Text style={styles.emptyText}>Retry after a moment.</Text>
             <TouchableOpacity style={styles.primaryButton} onPress={() => refetch()}>
@@ -314,7 +324,7 @@ export function ClearLensLeaderboardScreen() {
           </ClearLensCard>
         ) : !summary || fundCards.length === 0 ? (
           <ClearLensCard style={styles.emptyCard}>
-            <Ionicons name="trophy-outline" size={36} color={ClearLensColors.emerald} />
+            <Ionicons name="trophy-outline" size={36} color={tokens.colors.emerald} />
             <Text style={styles.emptyTitle}>No funds yet</Text>
             <Text style={styles.emptyText}>Import your CAS to compare your funds against the market.</Text>
             <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/onboarding')}>
@@ -332,7 +342,7 @@ export function ClearLensLeaderboardScreen() {
             <Section
               title="Leaders"
               subtitle={`${leaders.length} ahead of ${benchmarkLabel}`}
-              color={ClearLensSemanticColors.sentiment.positive}
+              color={tokens.semantic.sentiment.positive}
               funds={leaders}
               marketXirr={marketXirr}
               rankOffset={0}
@@ -342,7 +352,7 @@ export function ClearLensLeaderboardScreen() {
             <Section
               title="Laggards"
               subtitle={`${laggards.length} trailing or matching ${benchmarkLabel}`}
-              color={ClearLensSemanticColors.sentiment.negative}
+              color={tokens.semantic.sentiment.negative}
               funds={laggards}
               marketXirr={marketXirr}
               rankOffset={leaders.length}
@@ -355,7 +365,9 @@ export function ClearLensLeaderboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   scroll: {
     paddingHorizontal: ClearLensSpacing.md,
     paddingBottom: ClearLensSpacing.xxl,
@@ -366,11 +378,11 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   heroSubtitle: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   benchmarkRow: {
     gap: ClearLensSpacing.sm,
@@ -386,11 +398,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   sectionSubtitle: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     marginTop: 2,
   },
   alphaBadge: {
@@ -400,10 +412,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ClearLensSpacing.xs,
-    backgroundColor: ClearLensSemanticColors.sentiment.positiveSurface,
+    backgroundColor: tokens.semantic.sentiment.positiveSurface,
   },
   alphaBadgeNegative: {
-    backgroundColor: ClearLensSemanticColors.sentiment.negativeSurface,
+    backgroundColor: tokens.semantic.sentiment.negativeSurface,
   },
   alphaBadgeText: {
     ...ClearLensTypography.caption,
@@ -413,7 +425,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     padding: ClearLensSpacing.md,
   },
   alphaMetric: {
@@ -423,18 +435,18 @@ const styles = StyleSheet.create({
   alphaDivider: {
     width: 1,
     marginHorizontal: ClearLensSpacing.md,
-    backgroundColor: ClearLensColors.border,
+    backgroundColor: cl.border,
   },
   alphaValue: {
     ...ClearLensTypography.h2,
   },
   alphaCopy: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
   },
   metricLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     textTransform: 'uppercase',
   },
   section: {
@@ -485,11 +497,11 @@ const styles = StyleSheet.create({
   },
   rankName: {
     ...ClearLensTypography.h3,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   rankMeta: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   alphaMiniBadge: {
     borderRadius: ClearLensRadii.full,
@@ -509,7 +521,7 @@ const styles = StyleSheet.create({
   rankValue: {
     ...ClearLensTypography.bodySmall,
     fontFamily: ClearLensFonts.bold,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   rankMetricRight: {
     alignItems: 'flex-end',
@@ -534,12 +546,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     textAlign: 'center',
   },
   emptyText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     textAlign: 'center',
   },
   primaryButton: {
@@ -548,11 +560,12 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
   },
   primaryButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.bold,
   },
 });
+}

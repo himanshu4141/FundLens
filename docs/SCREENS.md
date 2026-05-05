@@ -1,6 +1,6 @@
-# FundLens — Screens & Navigation
+# FolioLens — Screens & Navigation
 
-Clear Lens is the default app design. Classic remains available from Settings (mobile only) for fallback and comparison.
+Clear Lens is the only app design. It ships in two colour schemes — **light** (default) and **dark** — picked at Settings → Preferences → Appearance (light / dark / follow system). The legacy Classic mode has been retired.
 
 ## Layout modes
 
@@ -165,7 +165,8 @@ Includes:
 - account details
 - connected accounts and Google linking
 - default benchmark preference
-- design switch: Clear Lens default, classic selectable
+- appearance picker: light / dark / system (Settings → Preferences). The choice is persisted in the Zustand `appColorScheme` slot; the picker honours both the active OS scheme and the user override.
+- return assumption inputs (Cautious / Balanced / Growth) used by Goal Planner and Wealth Journey
 - sync controls
 - import tools, CAS address, PAN management, PDF upload shortcut
 - sign out (under About & support)

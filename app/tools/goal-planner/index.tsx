@@ -1,10 +1,7 @@
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
 import { ClearLensGoalPlannerScreen } from '@/src/components/clearLens/screens/tools/ClearLensGoalPlannerScreen';
 import { ResponsiveRouteFrame } from '@/src/components/responsive';
 
 export default function GoalPlannerRoute() {
-  const { isClearLens } = useAppDesignMode();
-  if (!isClearLens) return null;
   return (
     <ResponsiveRouteFrame>
       <ClearLensGoalPlannerScreen />

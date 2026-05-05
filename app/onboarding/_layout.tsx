@@ -1,13 +1,11 @@
 import { Stack } from 'expo-router';
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
+import { useTheme } from '@/src/context/ThemeContext';
 import { useResponsiveLayout } from '@/src/components/responsive';
-import {
-  ClearLensColors,
-  ClearLensFonts,
-} from '@/src/constants/clearLensTheme';
+import { ClearLensFonts } from '@/src/constants/clearLensTheme';
 
 export default function OnboardingLayout() {
-  const { isClearLens } = useAppDesignMode();
+  const { clearLens } = useTheme();
+  const cl = clearLens.colors;
   const { layout } = useResponsiveLayout();
   const isDesktop = layout === 'desktop';
 
@@ -20,18 +18,16 @@ export default function OnboardingLayout() {
       screenOptions={
         isDesktop
           ? { headerShown: false }
-          : isClearLens
-            ? {
-                headerStyle: { backgroundColor: ClearLensColors.background },
-                headerShadowVisible: false,
-                headerTintColor: ClearLensColors.navy,
-                headerTitleStyle: {
-                  color: ClearLensColors.navy,
-                  fontFamily: ClearLensFonts.bold,
-                  fontWeight: '700',
-                },
-              }
-            : undefined
+          : {
+              headerStyle: { backgroundColor: cl.background },
+              headerShadowVisible: false,
+              headerTintColor: cl.navy,
+              headerTitleStyle: {
+                color: cl.navy,
+                fontFamily: ClearLensFonts.bold,
+                fontWeight: '700',
+              },
+            }
       }
     >
       <Stack.Screen name="index" options={{ title: 'Import CAS' }} />

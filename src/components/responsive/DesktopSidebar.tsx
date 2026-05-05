@@ -13,12 +13,13 @@ import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { SidebarWidth } from './desktopBreakpoints';
 
 type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
@@ -71,6 +72,9 @@ export function DesktopSidebar() {
   const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const accountInitial = useMemo(() => getAccountInitial(accountLabel), [accountLabel]);
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const cl = tokens.colors;
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', userId],
@@ -129,12 +133,12 @@ export function DesktopSidebar() {
               <Ionicons
                 name={item.icon}
                 size={18}
-                color={active ? ClearLensColors.textOnDark : ClearLensColors.slate}
+                color={active ? cl.textOnDark : cl.slate}
               />
               <Text
                 style={[
                   styles.navLabel,
-                  { color: active ? ClearLensColors.textOnDark : ClearLensColors.slate },
+                  { color: active ? cl.textOnDark : cl.slate },
                 ]}
               >
                 {item.label}
@@ -154,9 +158,9 @@ export function DesktopSidebar() {
             activeOpacity={0.78}
           >
             {action.key === 'sync' && syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color={ClearLensColors.emerald} />
+              <ActivityIndicator size="small" color={cl.emerald} />
             ) : (
-              <Ionicons name={action.icon} size={16} color={ClearLensColors.slate} />
+              <Ionicons name={action.icon} size={16} color={cl.slate} />
             )}
             <Text style={styles.quickLabel} numberOfLines={1}>{action.label}</Text>
           </TouchableOpacity>
@@ -199,7 +203,7 @@ export function DesktopSidebar() {
           </Text>
           <Text style={styles.accountAction}>Account · settings</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={ClearLensColors.textTertiary} />
+        <Ionicons name="chevron-forward" size={16} color={cl.textTertiary} />
       </TouchableOpacity>
     </View>
   );
@@ -213,121 +217,98 @@ function getAccountInitial(label?: string | null): string {
   return firstLetter ? firstLetter.toUpperCase() : '?';
 }
 
-const styles = StyleSheet.create({
-  sidebar: {
-    width: SidebarWidth,
-    alignSelf: 'stretch',
-    height: '100%',
-    backgroundColor: ClearLensColors.surface,
-    borderRightWidth: 1,
-    borderRightColor: ClearLensColors.borderLight,
-    paddingHorizontal: ClearLensSpacing.md,
-    paddingVertical: ClearLensSpacing.lg,
-    gap: ClearLensSpacing.md,
-  },
-  brandBlock: {
-    paddingVertical: ClearLensSpacing.xs,
-  },
-  sectionLabel: {
-    ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
-    textTransform: 'uppercase',
-    paddingHorizontal: 6,
-    marginTop: ClearLensSpacing.xs,
-  },
-  navGroup: {
-    gap: 4,
-  },
-  navItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.sm,
-    paddingHorizontal: ClearLensSpacing.sm,
-    paddingVertical: 10,
-    borderRadius: ClearLensRadii.md,
-  },
-  navItemActive: {
-    backgroundColor: ClearLensColors.navy,
-  },
-  navLabel: {
-    ...ClearLensTypography.bodySmall,
-    fontFamily: ClearLensFonts.semiBold,
-  },
-  quickGroup: {
-    gap: 2,
-  },
-  quickItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.sm,
-    paddingHorizontal: ClearLensSpacing.sm,
-    paddingVertical: 8,
-    borderRadius: ClearLensRadii.sm,
-  },
-  quickLabel: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.slate,
-    fontFamily: ClearLensFonts.medium,
-    flex: 1,
-  },
-  syncBanner: {
-    marginTop: 6,
-    paddingHorizontal: ClearLensSpacing.sm,
-    paddingVertical: 6,
-    borderRadius: ClearLensRadii.sm,
-    backgroundColor: ClearLensColors.mint50,
-    borderWidth: 1,
-    borderColor: ClearLensColors.mint,
-  },
-  syncBannerError: {
-    backgroundColor: '#FEEDEE',
-    borderColor: '#FCA5A5',
-  },
-  syncBannerText: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.slate,
-  },
-  syncBannerTextError: {
-    color: '#B91C1C',
-  },
-  spacer: {
-    flex: 1,
-  },
-  accountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ClearLensSpacing.sm,
-    paddingHorizontal: ClearLensSpacing.sm,
-    paddingVertical: ClearLensSpacing.sm,
-    borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.surfaceSoft,
-  },
-  accountBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: ClearLensRadii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ClearLensColors.accountSurface,
-    borderWidth: 1,
-    borderColor: ClearLensColors.accountBorder,
-  },
-  accountInitial: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.slate,
-    fontFamily: ClearLensFonts.bold,
-  },
-  accountText: {
-    flex: 1,
-    gap: 2,
-  },
-  accountName: {
-    ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
-    fontFamily: ClearLensFonts.semiBold,
-  },
-  accountAction: {
-    ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
-  },
-});
+
+function makeStyles(tokens: ClearLensTokens) {
+  const c = tokens.colors;
+  return StyleSheet.create({
+    sidebar: {
+      width: SidebarWidth,
+      alignSelf: 'stretch',
+      height: '100%',
+      backgroundColor: c.surface,
+      borderRightWidth: 1,
+      borderRightColor: c.borderLight,
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingVertical: ClearLensSpacing.lg,
+      gap: ClearLensSpacing.md,
+    },
+    brandBlock: { paddingVertical: ClearLensSpacing.xs },
+    sectionLabel: {
+      ...ClearLensTypography.label,
+      color: c.textTertiary,
+      textTransform: 'uppercase',
+      paddingHorizontal: 6,
+      marginTop: ClearLensSpacing.xs,
+    },
+    navGroup: { gap: 4 },
+    navItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      paddingHorizontal: ClearLensSpacing.sm,
+      paddingVertical: 10,
+      borderRadius: ClearLensRadii.md,
+    },
+    navItemActive: { backgroundColor: c.heroSurface },
+    navLabel: { ...ClearLensTypography.bodySmall, fontFamily: ClearLensFonts.semiBold },
+    quickGroup: { gap: 2 },
+    quickItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      paddingHorizontal: ClearLensSpacing.sm,
+      paddingVertical: 8,
+      borderRadius: ClearLensRadii.sm,
+    },
+    quickLabel: {
+      ...ClearLensTypography.caption,
+      color: c.slate,
+      fontFamily: ClearLensFonts.medium,
+      flex: 1,
+    },
+    syncBanner: {
+      marginTop: 6,
+      paddingHorizontal: ClearLensSpacing.sm,
+      paddingVertical: 6,
+      borderRadius: ClearLensRadii.sm,
+      backgroundColor: c.mint50,
+      borderWidth: 1,
+      borderColor: c.mint,
+    },
+    syncBannerError: { backgroundColor: c.negativeBg, borderColor: c.negative },
+    syncBannerText: { ...ClearLensTypography.caption, color: c.slate },
+    syncBannerTextError: { color: c.negative },
+    spacer: { flex: 1 },
+    accountRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      paddingHorizontal: ClearLensSpacing.sm,
+      paddingVertical: ClearLensSpacing.sm,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: c.surfaceSoft,
+    },
+    accountBadge: {
+      width: 34,
+      height: 34,
+      borderRadius: ClearLensRadii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.accountSurface,
+      borderWidth: 1,
+      borderColor: c.accountBorder,
+    },
+    accountInitial: {
+      ...ClearLensTypography.bodySmall,
+      color: c.slate,
+      fontFamily: ClearLensFonts.bold,
+    },
+    accountText: { flex: 1, gap: 2 },
+    accountName: {
+      ...ClearLensTypography.bodySmall,
+      color: c.navy,
+      fontFamily: ClearLensFonts.semiBold,
+    },
+    accountAction: { ...ClearLensTypography.caption, color: c.textTertiary },
+  });
+}

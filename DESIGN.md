@@ -1,12 +1,12 @@
-# FundLens Clear Lens Design
+# FolioLens Clear Lens Design
 
 ## Design Overview
 
-Clear Lens is the default FundLens interface. It is a calm mobile-first system for novice mutual fund investors: portfolio signal first, plain-language labels, restrained chrome, and consistent benchmark context.
+Clear Lens is the only FolioLens interface. It is a calm mobile-first system for novice mutual fund investors: portfolio signal first, plain-language labels, restrained chrome, and consistent benchmark context.
 
 The system is responsive: the same Clear Lens tokens, primitives, and screens render on phones, mobile web, iOS, Android, and a purpose-built desktop web shell at viewports ≥ 1024 px. Native binaries always render mobile.
 
-Classic remains selectable in Settings (mobile only).
+It also ships in two colour schemes — **light** (the original palette) and **dark** (added during PR #97) — picked at Settings → Preferences → Appearance (light / dark / follow system). The legacy Classic mode has been retired.
 
 ## Principles
 
@@ -14,30 +14,32 @@ Classic remains selectable in Settings (mobile only).
 - Keep finance terms sparse and explain unavoidable terms in place.
 - Use live portfolio data; prototype values are visual examples only.
 - Prefer reusable Clear Lens primitives and semantic tokens over screen-local styling.
-- Keep classic behavior intact behind the design switch.
+- Tokenise everything that can flip between light and dark: never reach for `ClearLensColors.X` (light-only) inside a component — pull values from `useClearLensTokens()` so the screen reacts to the active scheme.
 
 ## Tokens
 
-The source of truth is `src/constants/clearLensTheme.ts`.
+The source of truth is `src/constants/clearLensTheme.ts`. The file exports two parallel palettes (`ClearLensLightColors`, `ClearLensDarkColors`) sharing the same shape, plus a `getClearLensTokens(scheme)` factory.
 
-Core colors:
+Components consume tokens through `useClearLensTokens()` from `src/context/ThemeContext`, which returns the resolved tokens for the active scheme. Module-level `StyleSheet.create` calls capture token values once and therefore can't react to a scheme flip — wrap them in `function makeStyles(tokens)` and call via `useMemo(() => makeStyles(tokens), [tokens])`. The route stack uses `key={resolvedScheme}` so any module-level styles still in flight remount on toggle.
 
-- Navy: `ClearLensColors.navy`
-- Slate: `ClearLensColors.slate`
-- Emerald: `ClearLensColors.emerald`
-- Mint: `ClearLensColors.mint`
-- Background: `ClearLensColors.background`
-- Surface: `ClearLensColors.surface`
-- Negative: `ClearLensColors.negative` (`#E5484D`)
+Core colours (per-scheme values are documented in `clearLensTheme.ts`):
+
+- Navy / Slate — primary ink. `navy` flips to near-white in dark, so anything that needs a stable brand-dark surface (hero cards, active pills) reaches for `heroSurface` instead.
+- Emerald / EmeraldDeep / Mint — brand greens.
+- Background / Surface / SurfaceSoft — page bg, card, and lifted card.
+- HeroSurface — brand-dark surface, stable across schemes.
+- Border / BorderLight — hairline outlines.
+- Positive / Negative / Amber / Warning + their soft `*Bg` companions for badge surfaces.
 
 ## Semantic Color System
 
-Use `ClearLensSemanticColors` for data and state colors:
+Use `tokens.semantic.*` for data and state colors. The factory rebuilds the semantic map per scheme, so colours that need to differ (e.g. `marketCap.mid`) can branch on `scheme`.
 
 - Asset mix: equity, debt, cash, other
-- Market cap: large, mid, small, other
-- Chart series: invested, portfolio/fund, benchmark
-- Sentiment: positive, negative, positive surface, negative surface
+- Market cap: large = emerald, mid = emeraldDeep (light) / mint (dark), small = amber, other = lightGrey — all three slices read against light AND dark canvases
+- Chart series: fund, portfolio, benchmark, invested (= heroSurface so the baseline never blends into the dark page bg), neutral
+- Fund allocation: 6-hue palette (emerald, amber, negative, mint, slate, emeraldDeep) — dropped the original `navy` slot because it flipped to near-white in dark
+- Sentiment: positive, negative, positive/negative text, positive/negative surface
 - State: loading, success, warning, danger, empty icon
 - Overlay: backdrop, dark divider, focus ring
 

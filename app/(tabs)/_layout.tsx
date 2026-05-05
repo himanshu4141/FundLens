@@ -3,8 +3,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context/ThemeContext';
-import { useAppDesignMode } from '@/src/hooks/useAppDesignMode';
-import { ClearLensColors, ClearLensFonts } from '@/src/constants/clearLensTheme';
+import { ClearLensFonts } from '@/src/constants/clearLensTheme';
 import { DesktopSidebar, useResponsiveLayout } from '@/src/components/responsive';
 
 /**
@@ -15,32 +14,28 @@ import { DesktopSidebar, useResponsiveLayout } from '@/src/components/responsive
  * state when the user resizes the browser window.
  */
 export default function TabLayout() {
-  const { colors } = useTheme();
-  const { isClearLens } = useAppDesignMode();
+  const { clearLens } = useTheme();
+  const cl = clearLens.colors;
   const insets = useSafeAreaInsets();
   const { layout } = useResponsiveLayout();
   const isDesktop = layout === 'desktop';
 
-  const activeTint = isClearLens ? ClearLensColors.emerald : colors.primary;
-  const inactiveTint = isClearLens ? ClearLensColors.textTertiary : colors.textTertiary;
-  const borderTopColor = isClearLens ? ClearLensColors.borderLight : colors.borderLight;
-
   return (
-    <View style={[styles.shell, isDesktop && styles.shellDesktop]}>
+    <View style={[styles.shell, isDesktop && styles.shellDesktop, { backgroundColor: cl.background }]}>
       <View style={[styles.sidebarSlot, !isDesktop && styles.hidden]}>
         {isDesktop ? <DesktopSidebar /> : null}
       </View>
       <View style={styles.contentSlot}>
         <Tabs
           screenOptions={{
-            tabBarActiveTintColor: activeTint,
-            tabBarInactiveTintColor: inactiveTint,
+            tabBarActiveTintColor: cl.emerald,
+            tabBarInactiveTintColor: cl.textTertiary,
             headerShown: false,
             tabBarStyle: isDesktop
               ? { display: 'none' }
               : {
-                  backgroundColor: isClearLens ? ClearLensColors.surface : undefined,
-                  borderTopColor,
+                  backgroundColor: cl.surface,
+                  borderTopColor: cl.borderLight,
                   borderTopWidth: 1,
                   elevation: 0,
                   shadowOpacity: 0,
@@ -48,9 +43,9 @@ export default function TabLayout() {
                   // viewports where font metrics tend to clip label descenders. The
                   // bar grows tall enough to fit a two-line label ("Wealth Journey")
                   // on narrow widths without clipping the icon above it.
-                  paddingTop: isClearLens ? 6 : 8,
-                  paddingBottom: Math.max(insets.bottom, isClearLens ? 10 : 14),
-                  height: (isClearLens ? 78 : 86) + Math.max(insets.bottom, isClearLens ? 10 : 14),
+                  paddingTop: 6,
+                  paddingBottom: Math.max(insets.bottom, 10),
+                  height: 78 + Math.max(insets.bottom, 10),
                 },
             // Force each visible tab item to fill its fair share of the bar width
             // and center content so icons don't bunch left on wider screens / web
@@ -67,10 +62,10 @@ export default function TabLayout() {
             tabBarLabelStyle: {
               fontSize: 11,
               fontWeight: '600',
-              fontFamily: isClearLens ? ClearLensFonts.semiBold : undefined,
+              fontFamily: ClearLensFonts.semiBold,
               lineHeight: 14,
-              marginTop: isClearLens ? 2 : 3,
-              marginBottom: isClearLens ? 0 : 2,
+              marginTop: 2,
+              marginBottom: 0,
               textAlign: 'center',
             },
           }}
@@ -87,9 +82,9 @@ export default function TabLayout() {
           <Tabs.Screen
             name="leaderboard"
             options={{
-              title: isClearLens ? 'Funds' : 'Leaderboard',
+              title: 'Funds',
               tabBarIcon: ({ color, size }) => (
-                <Ionicons name={isClearLens ? 'list-outline' : 'trophy-outline'} size={size} color={color} />
+                <Ionicons name="list-outline" size={size} color={color} />
               ),
             }}
           />
@@ -97,7 +92,7 @@ export default function TabLayout() {
             name="wealth-journey"
             options={{
               title: 'Wealth Journey',
-              freezeOnBlur: isClearLens,
+              freezeOnBlur: true,
               tabBarIcon: ({ color, size }) => (
                 <Ionicons name="calculator-outline" size={size} color={color} />
               ),
@@ -129,7 +124,6 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
     flexDirection: 'column',
-    backgroundColor: ClearLensColors.background,
   },
   shellDesktop: {
     flexDirection: 'row',

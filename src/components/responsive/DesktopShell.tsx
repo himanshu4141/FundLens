@@ -1,6 +1,7 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { ClearLensColors, ClearLensSpacing } from '@/src/constants/clearLensTheme';
+import { ClearLensSpacing, type ClearLensTokens } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { DesktopSidebar } from './DesktopSidebar';
 import { MaxContentWidth } from './desktopBreakpoints';
 
@@ -15,6 +16,9 @@ interface Props {
 }
 
 export function DesktopShell({ children, framed = true }: Props) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+
   return (
     <View style={styles.shell}>
       <DesktopSidebar />
@@ -33,28 +37,26 @@ export function DesktopShell({ children, framed = true }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  shell: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: ClearLensColors.background,
-    minHeight: '100%',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: ClearLensSpacing.xl,
-    paddingTop: ClearLensSpacing.lg,
-    paddingBottom: ClearLensSpacing.xxl,
-    alignItems: 'center',
-  },
-  contentFrame: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    gap: ClearLensSpacing.md,
-  },
-  unframed: {
-    flex: 1,
-  },
-});
+function makeStyles(tokens: ClearLensTokens) {
+  return StyleSheet.create({
+    shell: {
+      flex: 1,
+      flexDirection: 'row',
+      backgroundColor: tokens.colors.background,
+      minHeight: '100%',
+    },
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: ClearLensSpacing.xl,
+      paddingTop: ClearLensSpacing.lg,
+      paddingBottom: ClearLensSpacing.xxl,
+      alignItems: 'center',
+    },
+    contentFrame: {
+      width: '100%',
+      maxWidth: MaxContentWidth,
+      gap: ClearLensSpacing.md,
+    },
+    unframed: { flex: 1 },
+  });
+}

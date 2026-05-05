@@ -16,13 +16,14 @@ import { useSession } from '@/src/hooks/useSession';
 import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 function formatImportDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -42,7 +43,8 @@ export default function PortfolioImportScreen() {
   const router = useRouter();
   const { session } = useSession();
   const userId = session?.user.id;
-  const styles = useMemo(() => makeStyles(), []);
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [copied, setCopied] = useState(false);
 
   const { inboundEmail } = useInboundSession(userId);
@@ -97,7 +99,7 @@ export default function PortfolioImportScreen() {
                     <Ionicons
                       name={copied ? 'checkmark' : 'copy-outline'}
                       size={14}
-                      color={copied ? ClearLensColors.emerald : ClearLensColors.emerald}
+                      color={copied ? tokens.colors.emerald : tokens.colors.emerald}
                     />
                     <Text style={styles.copyBtnText}>{copied ? 'Copied' : 'Copy'}</Text>
                   </TouchableOpacity>
@@ -123,7 +125,7 @@ export default function PortfolioImportScreen() {
               onPress={() => router.push('/onboarding/pdf')}
               activeOpacity={0.7}
             >
-              <Ionicons name="cloud-upload-outline" size={14} color={ClearLensColors.emerald} />
+              <Ionicons name="cloud-upload-outline" size={14} color={tokens.colors.emerald} />
               <Text style={styles.uploadBtnText}>Upload</Text>
             </TouchableOpacity>
           </View>
@@ -135,7 +137,7 @@ export default function PortfolioImportScreen() {
           {IMPORT_TIPS.map((tip, idx) => (
             <View key={idx} style={[styles.tipRow, idx > 0 && styles.borderTop]}>
               <View style={styles.tipIconWrap}>
-                <Ionicons name={tip.icon} size={16} color={ClearLensColors.textTertiary} />
+                <Ionicons name={tip.icon} size={16} color={tokens.colors.textTertiary} />
               </View>
               <Text style={styles.tipText}>{tip.text}</Text>
             </View>
@@ -156,24 +158,25 @@ export default function PortfolioImportScreen() {
   );
 }
 
-function makeStyles() {
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: ClearLensColors.background },
+    container: { flex: 1, backgroundColor: cl.background },
     content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.sm, paddingBottom: ClearLensSpacing.xxl },
 
     sectionLabel: {
       ...ClearLensTypography.label,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       textTransform: 'uppercase',
       marginBottom: ClearLensSpacing.xs,
       marginTop: ClearLensSpacing.xs,
     },
 
     card: {
-      backgroundColor: ClearLensColors.surface,
+      backgroundColor: cl.surface,
       borderRadius: ClearLensRadii.lg,
       borderWidth: 1,
-      borderColor: ClearLensColors.border,
+      borderColor: cl.border,
       overflow: 'hidden',
       ...ClearLensShadow,
     },
@@ -190,12 +193,12 @@ function makeStyles() {
     importAddress: {
       ...ClearLensTypography.body,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.navy,
+      color: cl.navy,
       flex: 1,
     },
     importAddressSub: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
     },
     copyBtn: {
       flexDirection: 'row',
@@ -203,14 +206,14 @@ function makeStyles() {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      backgroundColor: ClearLensColors.mint50,
+      backgroundColor: cl.mint50,
       borderRadius: ClearLensRadii.full,
     },
-    copyBtnDone: { backgroundColor: ClearLensColors.positiveBg },
+    copyBtnDone: { backgroundColor: cl.positiveBg },
     copyBtnText: {
       ...ClearLensTypography.caption,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.emerald,
+      color: cl.emerald,
     },
 
     row: {
@@ -220,20 +223,20 @@ function makeStyles() {
       paddingVertical: 14,
       gap: ClearLensSpacing.md,
     },
-    borderTop: { borderTopWidth: 1, borderTopColor: ClearLensColors.borderLight },
+    borderTop: { borderTopWidth: 1, borderTopColor: cl.borderLight },
     rowLeft: { flex: 1, gap: 3 },
     rowLabel: {
       ...ClearLensTypography.label,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
       textTransform: 'uppercase',
     },
     rowValue: {
       ...ClearLensTypography.h3,
-      color: ClearLensColors.navy,
+      color: cl.navy,
     },
     rowSub: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textTertiary,
+      color: cl.textTertiary,
     },
 
     uploadBtn: {
@@ -242,13 +245,13 @@ function makeStyles() {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      backgroundColor: ClearLensColors.mint50,
+      backgroundColor: cl.mint50,
       borderRadius: ClearLensRadii.full,
     },
     uploadBtnText: {
       ...ClearLensTypography.caption,
       fontFamily: ClearLensFonts.semiBold,
-      color: ClearLensColors.emerald,
+      color: cl.emerald,
     },
 
     tipRow: {
@@ -261,15 +264,15 @@ function makeStyles() {
     tipIconWrap: { width: 22, alignItems: 'center', paddingTop: 1 },
     tipText: {
       ...ClearLensTypography.bodySmall,
-      color: ClearLensColors.textSecondary,
+      color: cl.textSecondary,
       flex: 1,
     },
 
     lastImportCard: {
-      backgroundColor: ClearLensColors.surface,
+      backgroundColor: cl.surface,
       borderRadius: ClearLensRadii.lg,
       borderWidth: 1,
-      borderColor: ClearLensColors.border,
+      borderColor: cl.border,
       paddingHorizontal: ClearLensSpacing.md,
       paddingVertical: 14,
       ...ClearLensShadow,

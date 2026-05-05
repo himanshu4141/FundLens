@@ -1,0 +1,11 @@
+<svg width="1024" height="1024" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">FolioLens Android adaptive foreground</title>
+  <desc id="desc">Foreground of the Android adaptive icon. Transparent canvas — the system supplies the background colour declared in app.config.js (#ffffff in light, #0A1430 in dark).</desc>
+  <path d="M128 36A92 92 0 0 0 36 128" stroke="#0A1430" stroke-width="18" stroke-linecap="butt"/>
+  <path d="M44 164A92 92 0 0 0 93 211" stroke="#0A1430" stroke-width="18" stroke-linecap="butt"/>
+  <path d="M132 220A92 92 0 0 0 220 132" stroke="#0A1430" stroke-width="18" stroke-linecap="butt"/>
+  <path d="M220 112A92 92 0 0 0 198 66" stroke="#0A1430" stroke-width="18" stroke-linecap="butt"/>
+  <path d="M174 43A92 92 0 0 0 132 36" stroke="#0A1430" stroke-width="18" stroke-linecap="butt"/>
+  <path d="M48 174L92 130L119 157L177 91" stroke="#10B981" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="198" cy="66" r="15" fill="#10B981"/>
+</svg>

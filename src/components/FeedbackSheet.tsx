@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,14 +20,14 @@ import * as ImagePicker from 'expo-image-picker';
 import ExpoConstants from 'expo-constants';
 import { supabase } from '@/src/lib/supabase';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
-  ClearLensSemanticColors,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 
 export type FeedbackKind = 'feature_request' | 'bug_report';
 
@@ -69,6 +69,8 @@ export function FeedbackSheet({
   kind: FeedbackKind | null;
   onClose: () => void;
 }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [attachment, setAttachment] = useState<PickedAttachment | null>(null);
@@ -226,7 +228,7 @@ export function FeedbackSheet({
               <View style={styles.header}>
                 <Text style={styles.title}>{copy.title}</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.76}>
-                  <Ionicons name="close" size={20} color={ClearLensColors.navy} />
+                  <Ionicons name="close" size={20} color={tokens.colors.navy} />
                 </TouchableOpacity>
               </View>
               <Text style={styles.subtitle}>{copy.subtitle}</Text>
@@ -243,7 +245,7 @@ export function FeedbackSheet({
                     value={title}
                     onChangeText={setTitle}
                     placeholder={copy.titlePlaceholder}
-                    placeholderTextColor={ClearLensColors.textTertiary}
+                    placeholderTextColor={tokens.colors.textTertiary}
                     style={styles.titleInput}
                     maxLength={TITLE_MAX}
                   />
@@ -258,7 +260,7 @@ export function FeedbackSheet({
                     value={body}
                     onChangeText={setBody}
                     placeholder={copy.bodyPlaceholder}
-                    placeholderTextColor={ClearLensColors.textTertiary}
+                    placeholderTextColor={tokens.colors.textTertiary}
                     style={styles.bodyInput}
                     multiline
                     textAlignVertical="top"
@@ -287,12 +289,12 @@ export function FeedbackSheet({
                         accessibilityLabel="Remove attachment"
                         activeOpacity={0.76}
                       >
-                        <Ionicons name="close" size={18} color={ClearLensColors.navy} />
+                        <Ionicons name="close" size={18} color={tokens.colors.navy} />
                       </TouchableOpacity>
                     </View>
                   ) : (
                     <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} activeOpacity={0.76}>
-                      <Ionicons name="image-outline" size={18} color={ClearLensColors.emeraldDeep} />
+                      <Ionicons name="image-outline" size={18} color={tokens.colors.emeraldDeep} />
                       <Text style={styles.attachButtonText}>Attach a screenshot</Text>
                     </TouchableOpacity>
                   )}
@@ -300,7 +302,7 @@ export function FeedbackSheet({
 
                 {error ? (
                   <View style={styles.errorBox}>
-                    <Ionicons name="warning-outline" size={16} color={ClearLensSemanticColors.sentiment.negativeText} />
+                    <Ionicons name="warning-outline" size={16} color={tokens.semantic.sentiment.negativeText} />
                     <Text style={styles.errorText}>{error}</Text>
                   </View>
                 ) : null}
@@ -319,7 +321,7 @@ export function FeedbackSheet({
                   activeOpacity={0.82}
                 >
                   {submitting ? (
-                    <ActivityIndicator size="small" color={ClearLensColors.textOnDark} />
+                    <ActivityIndicator size="small" color={tokens.colors.textOnDark} />
                   ) : (
                     <Text style={styles.submitText}>{copy.submit}</Text>
                   )}
@@ -335,10 +337,12 @@ export function FeedbackSheet({
 }
 
 function SuccessState({ kind, onClose }: { kind: FeedbackKind; onClose: () => void }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.successBlock}>
       <View style={styles.successIcon}>
-        <Ionicons name="checkmark-circle" size={48} color={ClearLensColors.emeraldDeep} />
+        <Ionicons name="checkmark-circle" size={48} color={tokens.colors.emeraldDeep} />
       </View>
       <Text style={styles.successTitle}>
         {kind === 'feature_request' ? 'Request received' : 'Report received'}
@@ -353,7 +357,9 @@ function SuccessState({ kind, onClose }: { kind: FeedbackKind; onClose: () => vo
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -367,11 +373,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: ClearLensSpacing.md,
     paddingTop: ClearLensSpacing.sm,
     paddingBottom: 0,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderTopLeftRadius: ClearLensRadii.xl,
     borderTopRightRadius: ClearLensRadii.xl,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     ...ClearLensShadow,
   },
   scrollBody: {
@@ -384,13 +390,13 @@ const styles = StyleSheet.create({
     paddingTop: ClearLensSpacing.sm,
     paddingBottom: ClearLensSpacing.lg,
     borderTopWidth: 1,
-    borderTopColor: ClearLensColors.borderLight,
+    borderTopColor: cl.borderLight,
   },
   handle: {
     width: 44,
     height: 4,
     borderRadius: 999,
-    backgroundColor: ClearLensColors.border,
+    backgroundColor: cl.border,
     alignSelf: 'center',
     marginBottom: ClearLensSpacing.sm,
   },
@@ -401,19 +407,19 @@ const styles = StyleSheet.create({
   },
   title: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   closeButton: {
     width: 34,
     height: 34,
     borderRadius: ClearLensRadii.full,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    backgroundColor: cl.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   subtitle: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     marginTop: 4,
     marginBottom: ClearLensSpacing.md,
   },
@@ -428,34 +434,34 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     fontFamily: ClearLensFonts.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   charCount: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   titleInput: {
     ...ClearLensTypography.body,
     minHeight: 46,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     paddingHorizontal: ClearLensSpacing.md,
-    color: ClearLensColors.navy,
-    backgroundColor: ClearLensColors.surface,
+    color: cl.navy,
+    backgroundColor: cl.surface,
   },
   bodyInput: {
     ...ClearLensTypography.body,
     minHeight: 130,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     padding: ClearLensSpacing.md,
-    color: ClearLensColors.navy,
-    backgroundColor: ClearLensColors.surface,
+    color: cl.navy,
+    backgroundColor: cl.surface,
   },
   attachButton: {
     flexDirection: 'row',
@@ -466,12 +472,12 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: ClearLensColors.border,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    borderColor: cl.border,
+    backgroundColor: cl.surfaceSoft,
   },
   attachButtonText: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.emeraldDeep,
+    color: cl.emeraldDeep,
     fontFamily: ClearLensFonts.bold,
   },
   attachmentPreview: {
@@ -481,14 +487,14 @@ const styles = StyleSheet.create({
     padding: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.md,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
-    backgroundColor: ClearLensColors.surfaceSoft,
+    borderColor: cl.border,
+    backgroundColor: cl.surfaceSoft,
   },
   attachmentThumb: {
     width: 52,
     height: 52,
     borderRadius: ClearLensRadii.sm,
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
   },
   attachmentInfo: {
     flex: 1,
@@ -496,12 +502,12 @@ const styles = StyleSheet.create({
   },
   attachmentName: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.navy,
+    color: cl.navy,
     fontFamily: ClearLensFonts.semiBold,
   },
   attachmentMeta: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
   },
   attachmentRemove: {
     width: 30,
@@ -509,7 +515,7 @@ const styles = StyleSheet.create({
     borderRadius: ClearLensRadii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
   },
   errorBox: {
     flexDirection: 'row',
@@ -517,23 +523,23 @@ const styles = StyleSheet.create({
     gap: ClearLensSpacing.sm,
     padding: ClearLensSpacing.sm,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.negativeBg,
+    backgroundColor: cl.negativeBg,
     marginBottom: ClearLensSpacing.sm,
   },
   errorText: {
     ...ClearLensTypography.caption,
     flex: 1,
-    color: ClearLensSemanticColors.sentiment.negativeText,
+    color: tokens.semantic.sentiment.negativeText,
   },
   footnote: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     marginBottom: ClearLensSpacing.md,
   },
   submit: {
     minHeight: 48,
     borderRadius: ClearLensRadii.md,
-    backgroundColor: ClearLensColors.emeraldDeep,
+    backgroundColor: cl.emeraldDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -542,7 +548,7 @@ const styles = StyleSheet.create({
   },
   submitText: {
     ...ClearLensTypography.body,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
     fontFamily: ClearLensFonts.bold,
   },
   successBlock: {
@@ -555,12 +561,13 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     ...ClearLensTypography.h2,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   successBody: {
     ...ClearLensTypography.bodySmall,
-    color: ClearLensColors.textSecondary,
+    color: cl.textSecondary,
     textAlign: 'center',
     marginBottom: ClearLensSpacing.md,
   },
 });
+}

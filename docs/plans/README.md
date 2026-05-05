@@ -7,6 +7,7 @@
 | Plan | Branch | What it covers |
 |---|---|---|
 | `phase-3-clear-lens-design-mode/M2-money-trail.md` | `feature/money-trail` | Money Trail transaction history on Clear Lens; portfolio preview, entry points, transaction browsing, detail, filters, sorting, CSV export, and calculation alignment |
+| `phase-3-clear-lens-design-mode/M3-dark-mode.md` | `claude/add-dark-theme-selection-hZil0` (PR #97) | Clear Lens dark scheme; Settings appearance picker (light / dark / system); Classic mode retired; live-token migration; theme-aware app icons (iOS dark/tinted, Android monochrome) and web favicon swap |
 
 ---
 

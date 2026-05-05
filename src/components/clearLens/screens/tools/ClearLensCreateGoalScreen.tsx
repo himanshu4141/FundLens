@@ -12,13 +12,14 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ClearLensHeader, ClearLensScreen, ClearLensSegmentedControl } from '@/src/components/clearLens/ClearLensPrimitives';
 import {
-  ClearLensColors,
   ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
+  type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { useAppStore, type GoalReturnPreset } from '@/src/store/appStore';
 import { yearsFromNow } from '@/src/utils/goalPlanner';
 
@@ -29,6 +30,8 @@ const PRESET_OPTIONS: { value: GoalReturnPreset; label: string }[] = [
 ];
 
 export function ClearLensCreateGoalScreen() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { editId } = useLocalSearchParams<{ editId?: string }>();
   const { goals, addGoal, updateGoal, returnAssumptions } = useAppStore();
@@ -96,7 +99,7 @@ export function ClearLensCreateGoalScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Home, Education, Retirement"
-                placeholderTextColor={ClearLensColors.textTertiary}
+                placeholderTextColor={tokens.colors.textTertiary}
                 value={name}
                 onChangeText={setName}
                 returnKeyType="next"
@@ -110,7 +113,7 @@ export function ClearLensCreateGoalScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. 50,00,000"
-                placeholderTextColor={ClearLensColors.textTertiary}
+                placeholderTextColor={tokens.colors.textTertiary}
                 value={targetStr}
                 onChangeText={setTargetStr}
                 keyboardType="numeric"
@@ -124,7 +127,7 @@ export function ClearLensCreateGoalScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="1–40"
-                placeholderTextColor={ClearLensColors.textTertiary}
+                placeholderTextColor={tokens.colors.textTertiary}
                 value={yearsStr}
                 onChangeText={setYearsStr}
                 keyboardType="numeric"
@@ -138,7 +141,7 @@ export function ClearLensCreateGoalScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="0"
-                placeholderTextColor={ClearLensColors.textTertiary}
+                placeholderTextColor={tokens.colors.textTertiary}
                 value={currentMonthlyStr}
                 onChangeText={setCurrentMonthlyStr}
                 keyboardType="numeric"
@@ -179,6 +182,8 @@ export function ClearLensCreateGoalScreen() {
 }
 
 function InputRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return (
     <View style={styles.inputRow}>
       <Text style={styles.inputLabel}>{label}</Text>
@@ -188,6 +193,8 @@ function InputRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 function Separator() {
+  const tokens = useClearLensTokens();
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
   return <View style={styles.separator} />;
 }
 
@@ -207,7 +214,9 @@ function toTargetDate(years: number): string {
   return d.toISOString().split('T')[0];
 }
 
-const styles = StyleSheet.create({
+function makeStyles(tokens: ClearLensTokens) {
+  const cl = tokens.colors;
+  return StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: {
     paddingHorizontal: ClearLensSpacing.md,
@@ -221,18 +230,18 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
     textTransform: 'uppercase',
   },
   title: {
     ...ClearLensTypography.h1,
-    color: ClearLensColors.navy,
+    color: cl.navy,
   },
   card: {
-    backgroundColor: ClearLensColors.surface,
+    backgroundColor: cl.surface,
     borderRadius: ClearLensRadii.lg,
     borderWidth: 1,
-    borderColor: ClearLensColors.border,
+    borderColor: cl.border,
     ...ClearLensShadow,
     overflow: 'hidden',
   },
@@ -243,18 +252,18 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     ...ClearLensTypography.label,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     letterSpacing: 0.4,
   },
   textInput: {
     fontFamily: ClearLensFonts.regular,
     fontSize: 15,
-    color: ClearLensColors.textPrimary,
+    color: cl.textPrimary,
     paddingVertical: 4,
   },
   separator: {
     height: 1,
-    backgroundColor: ClearLensColors.borderLight,
+    backgroundColor: cl.borderLight,
     marginHorizontal: ClearLensSpacing.md,
   },
   presetRow: {
@@ -270,15 +279,15 @@ const styles = StyleSheet.create({
   presetRate: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 13,
-    color: ClearLensColors.emerald,
+    color: cl.emerald,
   },
   presetHint: {
     ...ClearLensTypography.caption,
-    color: ClearLensColors.textTertiary,
+    color: cl.textTertiary,
     lineHeight: 16,
   },
   saveButton: {
-    backgroundColor: ClearLensColors.emerald,
+    backgroundColor: cl.emerald,
     borderRadius: ClearLensRadii.md,
     paddingVertical: ClearLensSpacing.sm + 4,
     alignItems: 'center',
@@ -287,6 +296,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontFamily: ClearLensFonts.semiBold,
     fontSize: 16,
-    color: ClearLensColors.textOnDark,
+    color: cl.textOnDark,
   },
 });
+}
