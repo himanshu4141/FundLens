@@ -20,6 +20,7 @@ import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import { ThemeProvider, useTheme } from '@/src/context/ThemeContext';
 import { parseSessionFromUrl } from '@/src/utils/authUtils';
+import VercelInsights from '@/src/components/VercelInsights';
 
 // Required for expo-web-browser openAuthSessionAsync to complete on Android.
 // When Chrome Custom Tabs redirects to the app's active scheme, Android opens the app via
@@ -104,6 +105,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ThemedAppShell />
+        <VercelInsights />
       </ThemeProvider>
     </QueryClientProvider>
   );
