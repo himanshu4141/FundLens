@@ -62,6 +62,12 @@ export default function AccountScreen() {
     queryKey: ['user-profile', userId],
     queryFn: () => fetchProfile(userId!),
     enabled: !!userId,
+    // Always refetch when the screen mounts. The wizard's IdentityStep
+    // upserts user_profile and invalidates this same query key, but if the
+    // Settings screen was opened in a *different* navigation stack the
+    // cached `null` from a first-run visit can outlive the upsert. Forcing
+    // a refetch on mount guarantees this row reflects the DB.
+    refetchOnMount: 'always',
   });
 
   async function handleLinkGoogle() {
