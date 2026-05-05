@@ -273,10 +273,7 @@ function PerformanceTab({
   const chartMostNegative = yMin - yPad;
 
   const latestNav = indexedNav[indexedNav.length - 1]?.value ?? 100;
-  const latestBenchmark = indexedBenchmark[indexedBenchmark.length - 1]?.value ?? 100;
   const navReturn = ((latestNav - 100) / 100) * 100;
-  const benchmarkReturn = ((latestBenchmark - 100) / 100) * 100;
-  const benchmarkReturnColor = benchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor;
 
   // Values to show in the summary below the chart.
   // When crosshair is active, show the hovered values; otherwise show end-of-period.
@@ -437,14 +434,6 @@ function PerformanceTab({
               ? formatChartDate(point.date, window)
               : '',
           );
-    const fundReturn =
-      latestPoint.investedValue > 0
-        ? ((latestPoint.portfolioValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
-        : 0;
-    const simulatedBenchmarkReturn =
-      latestPoint.investedValue > 0
-        ? ((latestPoint.benchmarkValue - latestPoint.investedValue) / latestPoint.investedValue) * 100
-        : 0;
     const activeFundReturn =
       activePoint.investedValue > 0
         ? ((activePoint.portfolioValue - activePoint.investedValue) / activePoint.investedValue) * 100
@@ -457,40 +446,10 @@ function PerformanceTab({
 
     return (
       <View style={s.tabContent}>
-        <View style={s.xirrCard}>
-          <View style={s.comparisonRow}>
-            <View style={s.comparisonCol}>
-              <Text style={s.statLabel}>This fund</Text>
-              <Text
-                style={[s.xirrValue, { color: fundReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-                numberOfLines={1}
-              >
-                {fundReturn >= 0 ? '+' : ''}{fundReturn.toFixed(1)}%
-              </Text>
-            </View>
-            <View style={s.xirrDivider} />
-            <View style={s.comparisonCol}>
-              <Text style={s.statLabel}>Same cashflows in {selectedLabel}</Text>
-              <Text
-                style={[
-                  s.xirrValue,
-                  { color: simulatedBenchmarkReturn >= 0 ? positiveMetricColor : negativeMetricColor },
-                ]}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-                numberOfLines={1}
-              >
-                {simulatedBenchmarkReturn >= 0 ? '+' : ''}{simulatedBenchmarkReturn.toFixed(1)}%
-              </Text>
-            </View>
-          </View>
-          <Text style={s.comparisonHint}>Using your buys, redemptions, and switches · {windowContext}</Text>
-        </View>
-
-        <TimeWindowSelector selected={window} onChange={setWindow} />
-
+        {/* Benchmark selector — kept above the chart card so the range pills
+            below the chart focus only on time window. Mirrors the Portfolio
+            screen pattern: benchmark choice is "what to compare against",
+            range is "over which period". */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -502,7 +461,7 @@ function PerformanceTab({
               style={[
                 s.benchmarkPill,
                 selectedSymbol === opt.symbol && s.benchmarkPillActive,
-               
+
               ]}
               onPress={() => setSelectedSymbol(opt.symbol)}
               activeOpacity={0.75}
@@ -515,6 +474,19 @@ function PerformanceTab({
         </ScrollView>
 
         <View style={s.chartCard}>
+          <View style={s.chartHeaderRow}>
+            <View style={s.chartHeaderCopy}>
+              <Text style={s.chartHeaderTitle}>How your money grew</Text>
+              <Text style={s.chartHeaderSubtitle}>Using your buys, redemptions, and switches · {windowContext}</Text>
+            </View>
+            <View style={s.chartHeaderBadge}>
+              <Text style={s.chartHeaderBadgeText}>vs {selectedLabel}</Text>
+            </View>
+          </View>
+          {/* The legend + crosshair-synced summary at the bottom of this card
+              already exposes "Fund return" and "Same cashflows in benchmark"
+              numerically, so the redundant XIRR-comparison card above the
+              chart was dropped (matching Portfolio's compact chart layout). */}
           <View style={s.chartLegendRow}>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: tokens.semantic.chart.invested }]} />
@@ -592,6 +564,10 @@ function PerformanceTab({
             </View>
           </View>
         </View>
+
+        {/* Range pills sit below the chart, matching the Portfolio screen's
+            "How your money grew" layout. */}
+        <TimeWindowSelector selected={window} onChange={setWindow} />
       </View>
     );
   }
@@ -608,47 +584,15 @@ function PerformanceTab({
     );
   }
 
+  const navWindowContext = window === 'All' ? 'since first NAV' : `past ${window}`;
+
   return (
     <View style={s.tabContent}>
-      {/* Period return comparison card */}
-      <View style={s.xirrCard}>
-        <View style={s.comparisonRow}>
-          <View style={s.comparisonCol}>
-            <Text style={s.statLabel}>Fund NAV</Text>
-            <Text
-              style={[s.xirrValue, { color: navReturn >= 0 ? positiveMetricColor : negativeMetricColor }]}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              numberOfLines={1}
-            >
-              {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
-            </Text>
-          </View>
-          {hasBenchmarkData && (
-            <>
-              <View style={s.xirrDivider} />
-              <View style={s.comparisonCol}>
-                <Text style={s.statLabel}>{selectedLabel} NAV</Text>
-                <Text
-                  style={[
-                    s.xirrValue,
-                    { color: benchmarkReturnColor },
-                  ]}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.75}
-                  numberOfLines={1}
-                >
-                  {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(1)}%
-                </Text>
-              </View>
-            </>
-          )}
-        </View>
-      </View>
-
-      <TimeWindowSelector selected={window} onChange={setWindow} />
-
-      {/* Benchmark selector */}
+      {/* Benchmark selector — same Portfolio-style layout as the timeline path:
+          benchmark above (what to compare against), range below the chart
+          (over which period). The fund-vs-benchmark numeric comparison card
+          that used to sit at the top is dropped — its values are echoed in
+          the legend + summary below the chart. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -660,7 +604,7 @@ function PerformanceTab({
             style={[
               s.benchmarkPill,
               selectedSymbol === opt.symbol && s.benchmarkPillActive,
-             
+
             ]}
             onPress={() => setSelectedSymbol(opt.symbol)}
             activeOpacity={0.75}
@@ -674,6 +618,17 @@ function PerformanceTab({
 
       {hasNavData ? (
         <View style={s.chartCard}>
+          <View style={s.chartHeaderRow}>
+            <View style={s.chartHeaderCopy}>
+              <Text style={s.chartHeaderTitle}>NAV vs {selectedLabel}</Text>
+              <Text style={s.chartHeaderSubtitle}>Both series rebased to 100 at start of period · {navWindowContext}</Text>
+            </View>
+            <View style={s.chartHeaderBadge}>
+              <Text style={s.chartHeaderBadgeText}>
+                {navReturn >= 0 ? '+' : ''}{navReturn.toFixed(1)}%
+              </Text>
+            </View>
+          </View>
           <View style={s.chartLegendRow}>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: colors.primary }]} />
@@ -766,6 +721,9 @@ function PerformanceTab({
           <Text style={s.noDataText}>No NAV data available for this window.</Text>
         </View>
       )}
+
+      {/* Range pills below the chart, mirroring Portfolio. */}
+      <TimeWindowSelector selected={window} onChange={setWindow} />
     </View>
   );
 }
@@ -2137,12 +2095,32 @@ function makeStyles(colors: AppColors) {
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 10, height: 10, borderRadius: 5 },
     legendLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const },
+    // Header above the chart — title + subtitle on the left, "vs <benchmark>"
+    // pill on the right, mirroring the Portfolio "How your money grew" card.
+    chartHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+    },
+    chartHeaderCopy: { flex: 1, gap: 2, minWidth: 0 },
+    chartHeaderTitle: { fontSize: 16, fontWeight: '700' as const, color: colors.textPrimary },
+    chartHeaderSubtitle: { fontSize: 12, color: colors.textSecondary },
+    chartHeaderBadge: {
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 4,
+      borderRadius: Radii.full,
+      backgroundColor: colors.surfaceAlt,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chartHeaderBadgeText: { fontSize: 12, color: colors.textPrimary, fontWeight: '600' as const },
 
     returnSummary: { gap: 6, marginTop: 4 },
     summaryDateLabel: { fontSize: 11, color: colors.textTertiary, marginBottom: 2 },
     returnRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     returnLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' as const },
-    returnVal: { fontSize: 14, fontWeight: '700' as const },
+    returnVal: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' as const },
 
     navStatsRow: { flexDirection: 'row' },
     navStat: { flex: 1, alignItems: 'center', gap: 3 },
