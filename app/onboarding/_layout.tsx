@@ -17,7 +17,13 @@ export default function OnboardingLayout() {
     <Stack
       screenOptions={
         isDesktop
-          ? { headerShown: false }
+          ? {
+              headerShown: false,
+              // Paint the screen container background so dark mode propagates
+              // into the wizard. Without this the nested Stack falls back to
+              // React Navigation's default white container.
+              contentStyle: { backgroundColor: cl.background },
+            }
           : {
               headerStyle: { backgroundColor: cl.background },
               headerShadowVisible: false,
@@ -27,6 +33,7 @@ export default function OnboardingLayout() {
                 fontFamily: ClearLensFonts.bold,
                 fontWeight: '700',
               },
+              contentStyle: { backgroundColor: cl.background },
             }
       }
     >
