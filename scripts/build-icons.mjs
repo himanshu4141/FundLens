@@ -22,7 +22,6 @@ const targets = [
   { src: 'adaptive-icon.svg',out: 'adaptive-icon.png',   size: 1024 },
   { src: 'splash.svg',       out: 'splash-icon.png',     size: 512  },
   { src: 'favicon.svg',      out: 'favicon.png',         size: 64   },
-  { src: 'favicon-dark.svg', out: 'favicon-dark.png',    size: 64   },
 ];
 
 async function ensureResvg() {

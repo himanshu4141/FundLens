@@ -5,10 +5,10 @@ import { type PropsWithChildren } from 'react';
  * Root HTML template used by Expo Router's static export. Runs in Node only —
  * no DOM, no browser globals.
  *
- * The favicon links below lean on the OS `prefers-color-scheme` media query so
- * the browser picks the right artwork without any JS. The in-app theme picker
- * (Settings → Theme) honours its own choice at runtime by swapping the
- * `<link rel="icon">` href in `ThemedAppShell` (see `app/_layout.tsx`).
+ * Single SVG favicon, matching foliolens.in. Browser tab strips are light
+ * even when the OS is in dark mode, so a white-on-transparent dark variant
+ * disappeared on the tab; the navy-arc light variant reads correctly on
+ * both light and dark browser chrome.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -20,21 +20,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#0A1430" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#FAFBFD" media="(prefers-color-scheme: light)" />
 
-        {/* SVG favicons (served from `public/`) scale cleanly at every browser
-            size. The light/dark split is OS-driven; the in-app picker
-            overrides at runtime via `ThemedAppShell`. */}
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          href="/favicon.svg"
-          media="(prefers-color-scheme: light)"
-        />
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          href="/favicon-dark.svg"
-          media="(prefers-color-scheme: dark)"
-        />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         {/* PNG fallback for browsers that don't honour the SVG link. */}
         <link rel="alternate icon" type="image/png" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
