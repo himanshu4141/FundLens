@@ -1,0 +1,158 @@
+# Phase 6 / M1 — Friendly Upload-First Onboarding
+
+## Goal
+
+Replace today's onboarding with the redesign in `00-onboarding-redesign.md`, optimised for the 80% case where a user uploads a CAS PDF they already have or gets one fresh in 2 minutes via an in-app browser. No WebView, no CASParser dependency for this milestone. Theme- and desktop-aware from day one — the wizard ships into the post-PR #95 (desktop shell) and post-PR #97 (dark mode) codebase.
+
+## User Value
+
+Beta testers reported uploading a CAS PDF as the most friction-laden step today. They abandon the flow because it isn't obvious what a CAS is, where to get one, or that they have to switch back to the app to upload it. After M1 they should be able to go from "logged in" to "portfolio loaded" in under three minutes without external help.
+
+## Context
+
+- The codebase is a React Native + Expo app using expo-router; entry-points are `app/onboarding/index.tsx` and `app/onboarding/pdf.tsx`.
+- The local-PDF upload pipeline already exists end-to-end: client picks a file via `expo-document-picker`, sends it to the `parse-cas-pdf` Supabase Edge Function, which calls a Vercel-hosted Python parser, and the function persists results to the `cas_import` table. M1 reuses this pipeline unchanged.
+- `expo-web-browser` is already a dependency and is used by the auth flow. The wizard reuses it for the "Get a fresh CAS" portal cards on native.
+- A previous attempt (PR #75) tried to wrap CAMS Online inside `react-native-webview`. It hung the app on startup. M1 does not use a WebView.
+- The `user_profile` table has `pan` and `dob` columns (the latter added by PR #84 for CDSL/NSDL).
+- **Dark mode is live.** `src/context/ThemeContext` exposes `useClearLensTokens()` / `useTheme()`. The legacy `ClearLensColors` constant still imports cleanly but is fixed to the light scheme — using it inside the wizard would silently break dark mode.
+- **Desktop shell is live.** `src/components/responsive/DesktopFormFrame` centers form-style screens in a 720 px column at ≥1024 px and is a no-op below. `app/onboarding/_layout.tsx` already suppresses the Stack header on desktop.
+
+## Assumptions
+
+- The Vercel-hosted CAS PDF parser at `${EXPO_PUBLIC_APP_BASE_URL}/api/parse-cas-pdf` works for CAMS, KFintech, and CDSL/NSDL PDFs (already true on main).
+- Beta users have an Indian PAN and at least one mutual fund holding registered with CAMS or KFintech.
+- On native, the user's email account is on a phone they can switch back from (`expo-web-browser` returns to the calling app on dismiss).
+- On web, `Linking.openURL` opens portals in a new browser tab; AppState return-to-foreground does not fire — instead a manual "I've got the email — upload it" affordance handles the round-trip.
+
+## Definitions
+
+- **In-app browser** — a tab presented inside the app via SFSafariViewController (iOS) or Chrome Custom Tab (Android), launched via `WebBrowser.openBrowserAsync(...)`. Distinct from a WebView, which embeds a web page inside a React Native view. Preserves the user's existing browser session (cookies, autofill).
+- **Portal** — one of CAMS Online, KFintech, MFCentral, CDSL, NSDL.
+- **Tokens** — the active theme palette, accessed via `useClearLensTokens()`. Whenever this plan says "use X color", that means `tokens.colors.X` or `tokens.semantic.X`.
+
+## Scope
+
+- Rewrite `app/onboarding/index.tsx` as a 4-step wizard following `00-onboarding-redesign.md`.
+- Add a "Get a fresh CAS" sub-screen with portal cards that open the in-app browser on native and a new tab on web.
+- Polish `app/onboarding/pdf.tsx` to be cohesive with the wizard styling — both must read from the active theme.
+- Add an `AppState` listener (native only) that detects return-to-foreground after dismissing the in-app browser and shows a "Did you receive your CAS? Upload it now" banner inline.
+- Honour dark mode and desktop layout out of the gate — every screen passes the theming + desktop checklist before merge.
+- Do not delete or change any Edge Function in this milestone.
+
+## Out of Scope
+
+- Auto-refresh / Resend Inbound / per-user inbox tokens — that is M2.
+- MFCentral OAuth — separate milestone, partner agreement required.
+- CASParser code paths in `request-cas` and `create-inbound-session` Edge Functions remain on disk but are not invoked from any onboarding screen after M1. M2 retires them.
+- Native push notifications when a CAS arrives — post-Phase 6.
+
+## Approach
+
+Build the wizard as four step components mounted by a single root in `app/onboarding/index.tsx`. The root owns navigation, progress, and form state via `useReducer`; each step is presentation-only.
+
+State persists to AsyncStorage on every dispatch (cheap — a few hundred bytes) under key `foliolens-onboarding-draft-v1` so a force-quit resumes mid-flow. The reducer is pure and lives in `src/utils/onboardingDraft.ts` with co-located storage helpers.
+
+For "Get a fresh CAS", the sub-screen is a list of portal cards. On native, tapping a card calls `WebBrowser.openBrowserAsync` and `AppState` resurfaces an upload nudge on `active`. On web, tapping opens the URL in a new tab and the upload nudge is always visible since AppState is unreliable.
+
+The actual upload step calls `uploadCasPdf` from `src/utils/casPdfUpload.ts` — the same helper that powers the standalone `pdf.tsx` route, so behaviour is identical.
+
+All styles live inside `function makeStyles(tokens: ClearLensTokens)` and are consumed via `useMemo(() => makeStyles(tokens), [tokens])` so a light↔dark flip rerenders correctly without remount tricks.
+
+The whole wizard wraps in `<DesktopFormFrame>` so it occupies a 720 px column inside the sidebar shell at desktop widths and renders mobile-shaped below.
+
+## Alternatives Considered
+
+- **Embed the portals via WebView** — rejected; PR #75 proved this hangs and CAMS has anti-embedding protection.
+- **Auto-detect the user's browser-downloaded PDF via a share extension** — would be the lowest friction but requires building an iOS / Android share extension, weeks of native work.
+- **Drop the wizard and just show one big screen** — too dense for a first-run; users skip to the wrong primary CTA. The current single-screen onboarding on `main` is exactly this anti-pattern.
+
+## Milestones
+
+### M1.1 — Reducer + storage helpers + tests
+
+- `src/utils/onboardingDraft.ts` — `OnboardingDraft` shape, `EMPTY_DRAFT`, `reduceOnboarding`, AsyncStorage `load/save/clear` helpers, `isValidPan` (regex `^[A-Z]{5}[0-9]{4}[A-Z]$`), `isValidDob` (ISO format + sanity range).
+- `src/utils/casPdfUpload.ts` — single `uploadCasPdf(asset, password?)` helper used by the wizard upload step and the standalone `pdf.tsx` route.
+- Tests under `src/utils/__tests__/` covering: reducer transitions, storage round-trip including corruption / failure paths, PAN regex edges (HUF/firm/trust categories), DOB sanity, web XHR + native `expo-file-system/legacy` paths of the upload helper.
+- **Acceptance**: `npx jest --coverage` keeps `src/utils/` ≥ 95 / 85 / 100 / 95 (stmts / branches / fns / lines).
+
+### M1.2 — Wizard root + Step 1 (Welcome) + Step 2 (Identity)
+
+- Rewrite `app/onboarding/index.tsx` to use `useReducer(reduceOnboarding, EMPTY_DRAFT)` + AsyncStorage hydration on mount.
+- Wrap root in `<DesktopFormFrame>`. All styles via `makeStyles(tokens)` + `useMemo`.
+- Progress component: 4 pills, active = `tokens.colors.emerald`, idle = `tokens.colors.borderLight`.
+- **Welcome step**: hero, copy from `00-onboarding-redesign.md`, single primary CTA "Get started".
+- **Identity step**: PAN field (auto-uppercase, max length 10, inline error on invalid), DOB field (DD/MM/YYYY or ISO via input, optional, hint "Required only for CDSL / NSDL PDFs"), email field pre-filled from `supabase.auth.getUser()`.
+- On Identity → Continue, `upsert` `{ user_id, pan, dob, kfintech_email: email }` into `user_profile`. Block advance on invalid PAN.
+- **Acceptance**: PAN saves to `user_profile`; refresh confirms persistence; invalid PAN inline-errors; DOB hint visible; layout passes light + dark + system + desktop ≥1024 px without regressions.
+
+### M1.3 — Step 3 (Import) Upload path
+
+- Two import cards (Upload, Request). Auto-refresh card lands in M2.
+- **Upload card** → `expo-document-picker` (`type: ['application/pdf']`, `multiple: false`) → on file picked, advance the same step into a sub-state showing file name + spinner → call `uploadCasPdf(asset)` → on success dispatch `import_complete` (advances to Step 4) → on failure show inline error with retry.
+- Card art / icons read from `tokens.colors.emerald` for the primary action and `tokens.semantic.*` for the icon backgrounds so they look right in dark mode.
+- **Acceptance**: a known-good CAMS PDF imports the same number of folios as today's standalone `pdf.tsx` flow; CDSL PDF works because the user supplied DOB in step 2; tests in `casPdfUpload.test.ts` stay green.
+
+### M1.4 — Step 3 (Import) Request path
+
+- "Get a fresh CAS" card opens a sub-screen with three portal options: MFCentral (recommended), CAMS, KFintech. Each card has portal name, one-line description, "Open" CTA.
+- **Native**: CTA → `WebBrowser.openBrowserAsync(portalUrl, { presentationStyle: 'pageSheet' })`. After dismiss, `AppState` `active` shows a banner "Got the email? Upload your CAS now" with a CTA that runs the M1.3 upload flow.
+- **Web**: CTA → `Linking.openURL(portalUrl)` (new tab). The "Got the email? Upload your CAS now" banner is always visible (no AppState).
+- Below the portal cards: a stationary instruction block "1) Log in. 2) Find 'Statements' or 'CAS'. 3) Request statement to your registered email. 4) Come back here."
+- **Acceptance**: tapping a portal opens a tab on web / in-app browser on native; closing surfaces the upload banner; tapping the banner runs the document-picker flow; portal cards survive the dark-mode flip.
+
+### M1.5 — Step 4 (Done) + entry-point routing + Settings re-import link
+
+- Done step: imported fund count, transaction count, primary CTA "Open portfolio" → `router.replace('/(tabs)')`. Secondary CTA (subdued): "Set up auto-refresh" → no-op text in M1, becomes the M2 nudge.
+- Entry-point logic: users with `pan` set who reopen the app land on `(tabs)`, not the wizard. The auth/onboarding redirect lives in the root layout — verify it still works post-rewrite.
+- Settings → Account: add a "Restart import" link that pushes the wizard. Useful for support cases and beta testers re-running the flow.
+- The standalone `app/onboarding/pdf.tsx` route stays — Settings → Restart import → "Upload another statement" continues to call it. Reskin it to match the wizard styling (same tokens, same `DesktopFormFrame`).
+- **Acceptance**: completed user does not see the wizard on relaunch; Settings → Restart import re-enters the wizard; profile fields persist; `pdf.tsx` looks consistent with the wizard in both schemes.
+
+### M1.6 — Validation + dev preview run-through
+
+- `npm run typecheck` + `npm run lint` + `npx jest --coverage` all pass.
+- Manual checklist on dev preview Vercel deploy + EAS preview-pr build:
+  - PAN validation rejects `ABCDE12345` (length wrong) and accepts `ABCDE1234A`.
+  - DOB input writes ISO string to draft.
+  - In-app browser opens MFCentral and returns; AppState banner appears (native).
+  - Web: portal opens in new tab; banner stays visible.
+  - Force-quit + relaunch resumes at the same step (native).
+  - Import success page reflects actual fund counts.
+  - Light, dark, system schemes all render the wizard correctly — no contrast failures, no white-on-white surfaces.
+  - Desktop ≥1024 px shows wizard centered in 720 px column inside the sidebar shell; sidebar nav is hidden during onboarding.
+  - Mobile resize crosses 1024 px without losing wizard state.
+- One real beta tester on Android plus one on iOS upload a real CAS without external help.
+
+## Validation
+
+- `npm run typecheck` — zero errors.
+- `npm run lint` — zero warnings.
+- `npx jest --ci --coverage` — all suites pass; `src/utils/` ≥ 95 / 85 / 100 / 95.
+- Manual smoke as listed in M1.6.
+- Dev preview deploy on Vercel (foliolens-dev) + EAS preview-pr build before merge.
+
+## Risks And Mitigations
+
+- **Risk**: PAN regex rejects edge cases (e.g., HUF PANs ending with `H` are valid). **Mitigation**: `^[A-Z]{5}[0-9]{4}[A-Z]$` already accepts H/F/C/P/T/B/L/J/G — covers all assessee categories.
+- **Risk**: `expo-web-browser` returns the user but they can't tell whether they got the email yet. **Mitigation**: the banner appears regardless and is dismissible; user can re-trigger via the same import card.
+- **Risk**: `expo-document-picker` returns a `content://` URI on Android that is not directly readable as bytes. **Mitigation**: `casPdfUpload.ts` already handles this via `expo-file-system/legacy`'s `uploadAsync` with `BINARY_CONTENT`.
+- **Risk**: AsyncStorage draft conflicts with sign-in / sign-out. **Mitigation**: clear the draft on sign-out and on a successful Done step.
+- **Risk**: Hardcoded color literals leak in during the rebase and only show up in dark mode. **Mitigation**: lint forbids unused imports; PR review checks for `ClearLensColors` / `ClearLensSemanticColors` references — the wizard must reach colors only through `tokens`.
+- **Risk**: `KeyboardAvoidingView` causes layout jank when the desktop shell takes over above 1024 px. **Mitigation**: `KAV` is benign on desktop (no keyboard) — verify by resizing across the breakpoint with a focused field.
+
+## Decision Log
+
+- 2026-05-04 — Chose 4-step wizard over single-page after PR #75 feedback that long single screens overwhelm new users.
+- 2026-05-04 — Chose `expo-web-browser` + `Linking.openURL` (web) over `react-native-webview` after PR #75's hang issues.
+- 2026-05-04 — Order of import cards is upload-first because beta users with existing CAS PDFs have the lowest friction path.
+- 2026-05-05 — Renumbered from Phase 5 to Phase 6 (Phase 5 is now Desktop Web). Plan rewritten to honour PR #95 (desktop shell) and PR #97 (dark mode) which landed before this milestone could ship.
+
+## Progress
+
+- [x] M1.1 — Reducer + storage + upload helpers + tests (PR #92, branch `feat/onboarding-wizard-m1`)
+- [x] M1.2 — Wizard root + Welcome + Identity steps (PR #92)
+- [x] M1.3 — Upload path (PR #92)
+- [x] M1.4 — Request-fresh-CAS path with in-app browser + web fallback (PR #92)
+- [x] M1.5 — Done step + entry-point routing + Settings re-import link (PR #92)
+- [ ] M1.6 — Theme + desktop pass: reskin every color reference to tokens, move styles into `makeStyles(tokens)`, verify dark / desktop, dev preview validation
