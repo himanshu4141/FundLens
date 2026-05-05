@@ -835,42 +835,66 @@ function DoneStep({
   cl: Cl;
 }) {
   const result = draft.importResult;
+  const imported = !!result;
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.successHero}>
-        <View style={styles.successIcon}>
-          <Ionicons name="checkmark-circle" size={56} color={cl.emeraldDeep} />
+        <View style={[styles.successIcon, !imported && styles.successIconMuted]}>
+          <Ionicons
+            name={imported ? 'checkmark-circle' : 'time-outline'}
+            size={56}
+            color={imported ? cl.emeraldDeep : cl.textSecondary}
+          />
         </View>
-        <Text style={styles.stepTitle}>Your portfolio is ready</Text>
-        {result ? (
+        <Text style={styles.stepTitle}>
+          {imported ? 'Your portfolio is ready' : "We'll be here when you're ready"}
+        </Text>
+        {imported ? (
           <Text style={styles.stepBody}>
             Imported{' '}
             <Text style={styles.bold}>
-              {result.funds} fund{result.funds === 1 ? '' : 's'}
+              {result!.funds} fund{result!.funds === 1 ? '' : 's'}
             </Text>{' '}
             and{' '}
             <Text style={styles.bold}>
-              {result.transactions} transaction{result.transactions === 1 ? '' : 's'}
+              {result!.transactions} transaction{result!.transactions === 1 ? '' : 's'}
             </Text>
             . XIRR, sector exposure, and Money Trail are calculating now.
           </Text>
         ) : (
           <Text style={styles.stepBody}>
-            You can import your CAS anytime from Settings → Restart import.
+            No CAS imported yet — your home screen will be empty until you upload one.
+            Come back anytime via{' '}
+            <Text style={styles.bold}>Settings → Account → Restart import</Text>.
           </Text>
         )}
       </View>
 
       <View style={styles.tipsCard}>
-        <Text style={styles.tipsHeading}>What&apos;s next</Text>
-        <Text style={styles.tipsLine}>• Glance at the home screen for your XIRR vs Nifty 50.</Text>
-        <Text style={styles.tipsLine}>• Open Money Trail to inspect every transaction.</Text>
-        <Text style={styles.tipsLine}>• Set up auto-refresh later to never re-upload.</Text>
+        <Text style={styles.tipsHeading}>{imported ? "What's next" : 'When you have a CAS'}</Text>
+        {imported ? (
+          <>
+            <Text style={styles.tipsLine}>• Glance at the home screen for your XIRR vs Nifty 50.</Text>
+            <Text style={styles.tipsLine}>• Open Money Trail to inspect every transaction.</Text>
+            <Text style={styles.tipsLine}>• Set up auto-refresh later to never re-upload.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.tipsLine}>• Request one from CAMS Online or KFintech (no login needed).</Text>
+            <Text style={styles.tipsLine}>• Save the PDF the RTA emails you to this device.</Text>
+            <Text style={styles.tipsLine}>• Reopen the wizard and tap Upload a CAS PDF.</Text>
+          </>
+        )}
       </View>
 
       <View style={styles.footerSpace} />
-      <PrimaryButton label="Open my portfolio" onPress={onFinish} styles={styles} cl={cl} />
+      <PrimaryButton
+        label={imported ? 'Open my portfolio' : 'Take me home'}
+        onPress={onFinish}
+        styles={styles}
+        cl={cl}
+      />
     </ScrollView>
   );
 }
@@ -1344,6 +1368,9 @@ function makeStyles(tokens: ClearLensTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: cl.mint50,
+    },
+    successIconMuted: {
+      backgroundColor: cl.surfaceSoft,
     },
     bold: {
       fontFamily: ClearLensFonts.bold,
