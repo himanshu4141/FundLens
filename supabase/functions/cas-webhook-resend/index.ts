@@ -4,7 +4,7 @@
  *
  * Flow:
  *   1. Verify the Svix signature Resend attaches to every webhook (rejects spoofs)
- *   2. Parse the `to` header to extract the user's `cas+<token>@foliolens.in`
+ *   2. Parse the `to` header to extract the user's `cas+<token>@<INBOUND_DOMAIN>`
  *   3. Resolve the user via `user_profile.cas_inbox_token`
  *   4. For each PDF attachment, decode base64 and POST to the existing Vercel
  *      Python parser at `${APP_BASE_URL}/api/parse-cas-pdf` with the user's PAN
@@ -12,6 +12,14 @@
  *   5. Run the shared `importCASData` helper to upsert funds and transactions
  *   6. Insert a `cas_import` audit row with status + counts + errors
  *   7. Always return 200 so Resend doesn't retry on user-side errors
+ *
+ * INBOUND_DOMAIN differs by environment so dev tester emails never land in
+ * prod (and vice versa) even though both share one Resend account:
+ *   - dev / preview Supabase project: `INBOUND_DOMAIN=dev.foliolens.in`
+ *   - prod Supabase project:          `INBOUND_DOMAIN=foliolens.in`
+ *
+ * Each environment owns its own Resend Inbound Route + signing secret, so a
+ * leaked dev secret cannot sign a prod webhook.
  *
  * Deploy with `--no-verify-jwt` (Resend cannot send a Supabase JWT).
  */
@@ -27,7 +35,10 @@ const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
 const APP_BASE_URL = Deno.env.get('APP_BASE_URL') ?? 'https://app.foliolens.in';
 const VERCEL_PROTECTION_BYPASS_TOKEN = Deno.env.get('VERCEL_PROTECTION_BYPASS_TOKEN') ?? '';
 
-const INBOX_DOMAIN = 'foliolens.in';
+// Resolve the inbound domain from env so dev (`dev.foliolens.in`) and prod
+// (`foliolens.in`) parse only their own envelopes. Falls back to prod so a
+// missing env var keeps the production webhook working.
+const INBOX_DOMAIN = Deno.env.get('INBOUND_DOMAIN') ?? 'foliolens.in';
 // Alphabet matches the SQL generator: A–Z minus I, L, O; 2–9.
 const TOKEN_REGEX = /^[A-HJKMNP-Z2-9]{8}$/;
 const TOKEN_EXTRACT_RE = new RegExp(`cas\\+([A-Za-z0-9]+)@${INBOX_DOMAIN.replace(/\./g, '\\.')}`, 'i');

@@ -1,8 +1,36 @@
 import {
   formatInboxAddress,
+  getInboxDomain,
   isValidInboxToken,
   parseInboxToken,
 } from '../casInboxToken';
+
+const ENV_BACKUP = process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
+
+afterEach(() => {
+  if (ENV_BACKUP === undefined) {
+    delete process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
+  } else {
+    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = ENV_BACKUP;
+  }
+});
+
+describe('getInboxDomain', () => {
+  it('returns the prod default when env is unset', () => {
+    delete process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
+    expect(getInboxDomain()).toBe('foliolens.in');
+  });
+
+  it('returns the dev subdomain when env is set to it', () => {
+    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'dev.foliolens.in';
+    expect(getInboxDomain()).toBe('dev.foliolens.in');
+  });
+
+  it('falls back to prod default when env is empty string', () => {
+    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = '';
+    expect(getInboxDomain()).toBe('foliolens.in');
+  });
+});
 
 describe('isValidInboxToken', () => {
   it('accepts an 8-char unambiguous-base32 token', () => {
@@ -31,8 +59,14 @@ describe('isValidInboxToken', () => {
 });
 
 describe('formatInboxAddress', () => {
-  it('builds the canonical cas+token address', () => {
+  it('builds the canonical cas+token address on prod', () => {
+    delete process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
     expect(formatInboxAddress('A2B3C4D5')).toBe('cas+A2B3C4D5@foliolens.in');
+  });
+
+  it('builds the dev address when env points at the dev subdomain', () => {
+    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'dev.foliolens.in';
+    expect(formatInboxAddress('A2B3C4D5')).toBe('cas+A2B3C4D5@dev.foliolens.in');
   });
 
   it('throws on invalid tokens so UI never renders a broken address', () => {
@@ -64,6 +98,16 @@ describe('parseInboxToken', () => {
 
   it('returns null when the address lives on a different domain', () => {
     expect(parseInboxToken('cas+A2B3C4D5@example.com')).toBeNull();
+  });
+
+  it('only matches the env-resolved domain — dev parser ignores prod addresses and vice versa', () => {
+    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'dev.foliolens.in';
+    expect(parseInboxToken('cas+A2B3C4D5@dev.foliolens.in')).toBe('A2B3C4D5');
+    expect(parseInboxToken('cas+A2B3C4D5@foliolens.in')).toBeNull();
+
+    delete process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
+    expect(parseInboxToken('cas+A2B3C4D5@foliolens.in')).toBe('A2B3C4D5');
+    expect(parseInboxToken('cas+A2B3C4D5@dev.foliolens.in')).toBeNull();
   });
 
   it('returns null when the local part is missing the cas+ prefix', () => {
