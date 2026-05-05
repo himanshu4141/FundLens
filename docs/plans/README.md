@@ -11,6 +11,8 @@
 | `phase-6-cas-onboarding/00-onboarding-redesign.md` | `docs/cas-onboarding-execplans` (PR #88) | Phase 6 overview — friendly 4-step CAS onboarding wizard, theme + desktop reality |
 | `phase-6-cas-onboarding/M1-friendly-upload-onboarding.md` | `feat/onboarding-wizard-m1` (PR #92) | M1 — wizard rewrite (Welcome / Identity / Import / Done), upload-first import, in-app browser portal flow |
 | `phase-6-cas-onboarding/M2-resend-inbound-auto-refresh.md` | `feat/cas-resend-inbound-m2` (PR #93) | M2 — per-user inbox token, Resend Inbound webhook, auto-refresh card, Settings row, retire CASParser |
+| `phase-7-total-return-benchmarks/00-prd-total-return-benchmarks.md` | `feat/total-return-benchmarks` | Phase 7 PRD — product reasoning for switching every benchmark surface from price-return to total-return indices |
+| `phase-7-total-return-benchmarks/M1-tri-data-and-app-cutover.md` | `feat/total-return-benchmarks` | M1 — NSE TRI ingestion, backfill 25y, app-wide cutover, drop BSE Sensex, prerequisite for Tools Hub stack |
 
 ---
 
