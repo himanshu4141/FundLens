@@ -155,12 +155,16 @@ The whole wizard wraps in `<DesktopFormFrame>` so it occupies a 720 px column in
 - 2026-05-04 — Chose `expo-web-browser` + `Linking.openURL` (web) over `react-native-webview` after PR #75's hang issues.
 - 2026-05-04 — Order of import cards is upload-first because beta users with existing CAS PDFs have the lowest friction path.
 - 2026-05-05 — Renumbered from Phase 5 to Phase 6 (Phase 5 is now Desktop Web). Plan rewritten to honour PR #95 (desktop shell) and PR #97 (dark mode) which landed before this milestone could ship.
+- 2026-05-05 — PAN and DOB are write-once in-app. Wizard locks any field already saved; Settings → Account drops Edit affordances on PAN; DOB Add appears only when null. Reasoning: PAN is the password to the user's CAS PDF — a wrong value silently breaks every future import, and the cost of a re-keying typo is far higher than the cost of a support-case SQL update for the rare legitimate change.
 
 ## Progress
 
-- [x] M1.1 — Reducer + storage + upload helpers + tests (PR #92, branch `feat/onboarding-wizard-m1`)
+- [x] M1.1 — Reducer + storage + upload helpers + tests (PR #92)
 - [x] M1.2 — Wizard root + Welcome + Identity steps (PR #92)
 - [x] M1.3 — Upload path (PR #92)
 - [x] M1.4 — Request-fresh-CAS path with in-app browser + web fallback (PR #92)
 - [x] M1.5 — Done step + entry-point routing + Settings re-import link (PR #92)
-- [ ] M1.6 — Theme + desktop pass: reskin every color reference to tokens, move styles into `makeStyles(tokens)`, verify dark / desktop, dev preview validation
+- [x] M1.6.code — Theme + desktop pass: every color via `useClearLensTokens()`, styles in `makeStyles(tokens)`, `<DesktopFormFrame>` wrap, KAV behaviour matched to PR #91 (PR #92, commits 13d370b + 9baac90)
+- [x] M1.6.immutability — PAN/DOB write-once across wizard + Settings → Account (PR #92, commit 9baac90)
+- [ ] M1.6.preview — Dev preview run-through against the SETUP.md checklist (operator action; not blocking merge — Vercel preview + EAS preview-pr fire on every PR push)
+- [ ] M1.6.beta — One real Android tester + one real iOS tester import a real CAS without external help (operator action; happens after merge to main)
