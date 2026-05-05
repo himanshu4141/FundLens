@@ -145,9 +145,11 @@ export default function AccountScreen() {
                   </Text>
                 )}
               </View>
-              <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
-                <Text style={styles.actionBtnText}>{profile?.dob ? 'Edit' : 'Add'}</Text>
-              </TouchableOpacity>
+              {!profile?.dob ? (
+                <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
+                  <Text style={styles.actionBtnText}>Add</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           )}
         </View>

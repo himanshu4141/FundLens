@@ -21,6 +21,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
@@ -88,6 +89,21 @@ export default function OnboardingScreen() {
   );
 }
 
+async function fetchSavedProfile(userId: string): Promise<SavedProfile | null> {
+  const { data } = await supabase
+    .from('user_profile')
+    .select('pan, dob, kfintech_email')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data ?? null;
+}
+
+interface SavedProfile {
+  pan: string | null;
+  dob: string | null;
+  kfintech_email: string | null;
+}
+
 function OnboardingWizard() {
   const router = useRouter();
   const { session } = useSession();
@@ -97,24 +113,57 @@ function OnboardingWizard() {
   const [draft, dispatch] = useReducer(reduceOnboarding, EMPTY_DRAFT);
   const [hydrated, setHydrated] = useState(false);
 
+  // Pull saved PAN / DOB / email from `user_profile` so the wizard can
+  // skip Welcome (when PAN saved) and Identity (when both PAN + DOB saved),
+  // and lock any field already set so a returning user can't accidentally
+  // overwrite it.
+  const { data: profile, isLoading: profileLoading } = useQuery<SavedProfile | null>({
+    queryKey: ['user-profile', session?.user.id],
+    queryFn: () => fetchSavedProfile(session!.user.id),
+    enabled: !!session?.user.id,
+  });
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const saved = await loadOnboardingDraft();
       if (cancelled) return;
       const initialEmail = session?.user.email ?? '';
+      const seed: OnboardingDraft = saved
+        ? { ...saved, email: saved.email || initialEmail }
+        : { ...EMPTY_DRAFT, email: initialEmail };
+
+      // If user_profile has saved values, hydrate the draft with them so the
+      // form reflects the DB state and the saved-locked rendering kicks in.
+      const merged: OnboardingDraft = {
+        ...seed,
+        pan: (profile?.pan ?? seed.pan) || '',
+        dob: profile?.dob ?? seed.dob,
+        email: profile?.kfintech_email || seed.email,
+      };
+
+      // Decide initial step based on what's already saved on user_profile.
+      // PAN saved → skip Welcome. PAN + DOB saved → skip Identity too.
+      let initialStep: OnboardingStep = merged.step;
+      if (initialStep === 'welcome' && profile?.pan) {
+        initialStep = profile.dob ? 'import' : 'identity';
+      } else if (initialStep === 'identity' && profile?.pan && profile.dob) {
+        initialStep = 'import';
+      }
+
       dispatch({
         type: 'hydrate',
-        draft: saved
-          ? { ...saved, email: saved.email || initialEmail }
-          : { ...EMPTY_DRAFT, email: initialEmail },
+        draft: { ...merged, step: initialStep },
       });
       setHydrated(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [session?.user.email]);
+    // We deliberately wait until the user_profile query resolves before
+    // hydrating — `profile` is part of the deps so a late-arriving DB row
+    // still drives the right initial step.
+  }, [session?.user.email, profile]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -124,13 +173,24 @@ function OnboardingWizard() {
   const currentIndex = STEP_ORDER.indexOf(draft.step);
 
   function handleAdvance() {
-    if (draft.step === 'welcome') return dispatch({ type: 'goto', step: 'identity' });
+    if (draft.step === 'welcome') {
+      // Skip Identity entirely if both fields already saved.
+      if (profile?.pan && profile.dob) {
+        return dispatch({ type: 'goto', step: 'import' });
+      }
+      return dispatch({ type: 'goto', step: 'identity' });
+    }
     if (draft.step === 'identity') return dispatch({ type: 'goto', step: 'import' });
   }
 
   function handleBack() {
     if (draft.step === 'identity') return dispatch({ type: 'goto', step: 'welcome' });
-    if (draft.step === 'import') return dispatch({ type: 'goto', step: 'identity' });
+    if (draft.step === 'import') {
+      if (profile?.pan && profile.dob) {
+        return dispatch({ type: 'goto', step: 'welcome' });
+      }
+      return dispatch({ type: 'goto', step: 'identity' });
+    }
   }
 
   async function handleFinish() {
@@ -138,7 +198,7 @@ function OnboardingWizard() {
     router.replace('/(tabs)');
   }
 
-  if (!hydrated) {
+  if (!hydrated || profileLoading) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.centered}>
@@ -182,6 +242,8 @@ function OnboardingWizard() {
             dispatch={dispatch}
             session={session}
             onContinue={handleAdvance}
+            lockedPan={profile?.pan ?? null}
+            lockedDob={profile?.dob ?? null}
             styles={styles}
             cl={cl}
             tokens={tokens}
@@ -277,6 +339,8 @@ function IdentityStep({
   dispatch,
   session,
   onContinue,
+  lockedPan,
+  lockedDob,
   styles,
   cl,
   tokens,
@@ -290,16 +354,24 @@ function IdentityStep({
   >;
   session: ReturnType<typeof useSession>['session'];
   onContinue: () => void;
+  /** PAN already saved on user_profile — when set, the field renders read-only. */
+  lockedPan: string | null;
+  /** DOB already saved on user_profile — when set, the field renders read-only. */
+  lockedDob: string | null;
   styles: WizardStyles;
   cl: Cl;
   tokens: ClearLensTokens;
 }) {
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dobText, setDobText] = useState(draft.dob ?? '');
 
-  const panValid = isValidPan(draft.pan);
-  const dobValid = dobText.length === 0 || isValidDob(dobText);
+  const panLocked = !!lockedPan;
+  const dobLocked = !!lockedDob;
+
+  const panValid = panLocked || isValidPan(draft.pan);
+  const dobValid = dobLocked || dobText.length === 0 || isValidDob(dobText);
   const emailValid = /\S+@\S+\.\S+/.test(draft.email);
   const canContinue = panValid && dobValid && emailValid && !saving;
 
@@ -308,28 +380,40 @@ function IdentityStep({
     setSaving(true);
     setError(null);
 
-    const dobValue = dobText.length > 0 ? dobText : null;
-    if (dobText.length > 0) {
+    const dobValue = dobLocked
+      ? lockedDob
+      : dobText.length > 0
+        ? dobText
+        : null;
+    if (!dobLocked && dobText.length > 0) {
       dispatch({ type: 'set_dob', dob: dobValue });
     }
 
+    // Build the upsert payload, but never overwrite a saved-locked PAN.
+    // We send the locked value back so the row's NOT-NULL constraint stays
+    // happy and the upsert doesn't accidentally null out a stored value.
+    const upsertPayload: {
+      user_id: string;
+      pan: string;
+      dob: string | null;
+      kfintech_email: string;
+    } = {
+      user_id: session.user.id,
+      pan: panLocked ? lockedPan! : draft.pan,
+      dob: dobValue,
+      kfintech_email: draft.email,
+    };
+
     const { error: upsertError } = await supabase
       .from('user_profile')
-      .upsert(
-        {
-          user_id: session.user.id,
-          pan: draft.pan,
-          dob: dobValue,
-          kfintech_email: draft.email,
-        },
-        { onConflict: 'user_id' },
-      );
+      .upsert(upsertPayload, { onConflict: 'user_id' });
 
     setSaving(false);
     if (upsertError) {
       setError(upsertError.message || 'Could not save your details. Try again.');
       return;
     }
+    queryClient.invalidateQueries({ queryKey: ['user-profile', session.user.id] });
     onContinue();
   }
 
@@ -342,24 +426,41 @@ function IdentityStep({
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Tell us who you are</Text>
         <Text style={styles.stepBody}>
-          Your PAN unlocks the CAS PDF. Date of birth is only needed if you
-          import a CDSL or NSDL statement.
+          {panLocked
+            ? 'These details unlock your CAS PDF and are saved permanently.'
+            : 'Your PAN unlocks the CAS PDF. Date of birth is only needed if you import a CDSL or NSDL statement.'}
         </Text>
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.fieldLabel}>PAN</Text>
-        <TextInput
-          value={draft.pan}
-          onChangeText={(value) => dispatch({ type: 'set_pan', pan: value })}
-          placeholder="ABCDE1234F"
-          placeholderTextColor={cl.textTertiary}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={10}
-          style={styles.input}
-        />
-        {draft.pan.length > 0 && !panValid ? (
+        <View style={styles.fieldLabelRow}>
+          <Text style={styles.fieldLabel}>PAN</Text>
+          {panLocked ? (
+            <View style={styles.savedBadge}>
+              <Ionicons name="lock-closed" size={11} color={cl.emeraldDeep} />
+              <Text style={styles.savedBadgeText}>Saved</Text>
+            </View>
+          ) : null}
+        </View>
+        {panLocked ? (
+          <View style={styles.lockedField}>
+            <Text style={styles.lockedFieldText}>{lockedPan}</Text>
+          </View>
+        ) : (
+          <TextInput
+            value={draft.pan}
+            onChangeText={(value) => dispatch({ type: 'set_pan', pan: value })}
+            placeholder="ABCDE1234F"
+            placeholderTextColor={cl.textTertiary}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={10}
+            style={styles.input}
+          />
+        )}
+        {panLocked ? (
+          <Text style={styles.fieldHint}>PAN is saved and cannot be changed in-app.</Text>
+        ) : draft.pan.length > 0 && !panValid ? (
           <Text style={styles.fieldError}>
             PAN should look like ABCDE1234F (5 letters, 4 digits, 1 letter).
           </Text>
@@ -371,24 +472,40 @@ function IdentityStep({
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.fieldLabel}>Date of birth (optional)</Text>
-        <TextInput
-          value={dobText}
-          onChangeText={(value) => {
-            setDobText(value);
-            if (value.length === 0) {
-              dispatch({ type: 'set_dob', dob: null });
-            } else if (isValidDob(value)) {
-              dispatch({ type: 'set_dob', dob: value });
-            }
-          }}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={cl.textTertiary}
-          autoCorrect={false}
-          autoCapitalize="none"
-          style={styles.input}
-        />
-        {dobText.length > 0 && !dobValid ? (
+        <View style={styles.fieldLabelRow}>
+          <Text style={styles.fieldLabel}>Date of birth (optional)</Text>
+          {dobLocked ? (
+            <View style={styles.savedBadge}>
+              <Ionicons name="lock-closed" size={11} color={cl.emeraldDeep} />
+              <Text style={styles.savedBadgeText}>Saved</Text>
+            </View>
+          ) : null}
+        </View>
+        {dobLocked ? (
+          <View style={styles.lockedField}>
+            <Text style={styles.lockedFieldText}>{lockedDob}</Text>
+          </View>
+        ) : (
+          <TextInput
+            value={dobText}
+            onChangeText={(value) => {
+              setDobText(value);
+              if (value.length === 0) {
+                dispatch({ type: 'set_dob', dob: null });
+              } else if (isValidDob(value)) {
+                dispatch({ type: 'set_dob', dob: value });
+              }
+            }}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={cl.textTertiary}
+            autoCorrect={false}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+        )}
+        {dobLocked ? (
+          <Text style={styles.fieldHint}>Date of birth is saved and cannot be changed in-app.</Text>
+        ) : dobText.length > 0 && !dobValid ? (
           <Text style={styles.fieldError}>Use YYYY-MM-DD format, e.g. 1990-05-12.</Text>
         ) : (
           <Text style={styles.fieldHint}>Required only for CDSL / NSDL CAS PDFs.</Text>
@@ -939,6 +1056,11 @@ function makeStyles(tokens: ClearLensTokens) {
     field: {
       gap: 6,
     },
+    fieldLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+    },
     fieldLabel: {
       ...ClearLensTypography.caption,
       color: cl.textTertiary,
@@ -949,6 +1071,38 @@ function makeStyles(tokens: ClearLensTokens) {
     fieldHint: {
       ...ClearLensTypography.caption,
       color: cl.textTertiary,
+    },
+    savedBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: ClearLensRadii.sm,
+      backgroundColor: cl.mint50,
+    },
+    savedBadgeText: {
+      ...ClearLensTypography.caption,
+      fontSize: 9,
+      color: cl.emeraldDeep,
+      fontFamily: ClearLensFonts.bold,
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+    },
+    lockedField: {
+      minHeight: 50,
+      paddingHorizontal: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      borderWidth: 1,
+      borderColor: cl.border,
+      backgroundColor: cl.surfaceSoft,
+      justifyContent: 'center',
+    },
+    lockedFieldText: {
+      ...ClearLensTypography.body,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.semiBold,
+      letterSpacing: 1,
     },
     fieldError: {
       ...ClearLensTypography.caption,
