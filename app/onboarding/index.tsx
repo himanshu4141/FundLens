@@ -619,6 +619,13 @@ function ImportStep({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The `error` state is shared between sub-screens. Clear it on every sub
+  // transition so an error from one path (e.g. Upload's parser failure)
+  // doesn't leak into the next one (e.g. the "Get a fresh CAS" portal list).
+  useEffect(() => {
+    setError(null);
+  }, [sub]);
+
   const [browserVisited, setBrowserVisited] = useState(false);
   const appState = useRef<AppStateStatus>(AppState.currentState);
 
