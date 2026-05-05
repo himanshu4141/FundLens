@@ -11,13 +11,14 @@ Active ExecPlans live under `docs/plans/<phase>/`. Shipped plans move to `docs/p
 
 ## Repository Anchors
 
-Read `VISION.md` at the start of every session. Read the others on-demand.
+Read `VISION.md` at the start of every session. Read the others on-demand. These root and `docs/`-level files describe the **current** state of the app — prefer them over walking the ExecPlan archive when you need to know what the code does today.
 
 | Read this | When you are... |
 |---|---|
 | `VISION.md` | Always — read this first |
+| `DESIGN.md` | Building or changing UI, picking colours, working with the Clear Lens token system, or anything theme-related (light / dark / system). The token source of truth is `src/constants/clearLensTheme.ts`; this doc explains how to consume it via `useClearLensTokens()`. |
+| `docs/SCREENS.md` | Working out screen layout, navigation, or the desktop-vs-mobile rendering split (chrome / shells / responsive breakpoints) |
 | `docs/INFRASTRUCTURE.md` | Anything that touches CI/CD, environments, secrets, Supabase / Vercel / Resend / Expo config, or domain routing |
-| `docs/SCREENS.md` | Building or changing any UI, navigation, or screen layout |
 | `docs/TECH-DISCOVERY.md` | Touching DB schema, third-party data sources, or the data pipeline |
 
 ## ExecPlans
