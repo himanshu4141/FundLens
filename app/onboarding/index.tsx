@@ -53,6 +53,12 @@ type Cl = ClearLensTokens['colors'];
 
 const STEP_ORDER: OnboardingStep[] = ['welcome', 'identity', 'import', 'done'];
 
+// Both CAMS and KFintech issue a combined Consolidated Account Statement
+// covering every AMC (regardless of which RTA serviced the AMC). CAMS Online
+// is the recommended path because the form is a single page and asks for no
+// login — just PAN + email + DOB. KFintech also works but the flow is more
+// involved. MFCentral was the previous recommendation but offers no
+// advantage over CAMS for the CAS request itself and forces an account login.
 const PORTAL_OPTIONS: {
   id: string;
   name: string;
@@ -61,23 +67,17 @@ const PORTAL_OPTIONS: {
   recommended?: boolean;
 }[] = [
   {
-    id: 'mfcentral',
-    name: 'MFCentral',
-    url: 'https://www.mfcentral.com/',
-    description: 'Recommended — single login covers CAMS + KFintech.',
-    recommended: true,
-  },
-  {
     id: 'cams',
     name: 'CAMS Online',
     url: 'https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement',
-    description: 'Statements → Consolidated Account Statement.',
+    description: 'Recommended — no login. Just PAN + email; the CAS arrives in 1–2 minutes.',
+    recommended: true,
   },
   {
     id: 'kfintech',
     name: 'KFintech',
     url: 'https://mfs.kfintech.com/investor/General/ConsolidatedAccountStatement',
-    description: 'Mutual Funds → CAS → Email-based request.',
+    description: 'Also works — the CAS is combined and covers every AMC. Mutual Funds → CAS → Email request.',
   },
 ];
 
@@ -87,6 +87,34 @@ export default function OnboardingScreen() {
       <OnboardingWizard />
     </DesktopFormFrame>
   );
+}
+
+// DOB display format is DD-MM-YYYY (Indian convention); storage is ISO
+// YYYY-MM-DD on user_profile.dob. Parse / format helpers keep the boundary
+// thin.
+const DOB_DISPLAY_RE = /^(\d{2})-(\d{2})-(\d{4})$/;
+
+function parseDobDisplay(value: string): string | null {
+  const m = DOB_DISPLAY_RE.exec(value);
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatDobDisplay(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  const [yyyy, mm, dd] = parts;
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+// Auto-insert dashes as the user types, so they don't have to remember the
+// hyphens (cap to DD-MM-YYYY).
+function maskDobInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
 }
 
 async function fetchSavedProfile(userId: string): Promise<SavedProfile | null> {
@@ -365,13 +393,20 @@ function IdentityStep({
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dobText, setDobText] = useState(draft.dob ?? '');
+  // dobText is the on-screen DD-MM-YYYY string; draft.dob (and the DB) are ISO.
+  const [dobText, setDobText] = useState(draft.dob ? formatDobDisplay(draft.dob) : '');
 
   const panLocked = !!lockedPan;
   const dobLocked = !!lockedDob;
 
+  const dobIso = useMemo(
+    () => (dobText.length > 0 ? parseDobDisplay(dobText) : null),
+    [dobText],
+  );
+
   const panValid = panLocked || isValidPan(draft.pan);
-  const dobValid = dobLocked || dobText.length === 0 || isValidDob(dobText);
+  const dobValid =
+    dobLocked || dobText.length === 0 || (dobIso !== null && isValidDob(dobIso));
   const emailValid = /\S+@\S+\.\S+/.test(draft.email);
   const canContinue = panValid && dobValid && emailValid && !saving;
 
@@ -383,9 +418,9 @@ function IdentityStep({
     const dobValue = dobLocked
       ? lockedDob
       : dobText.length > 0
-        ? dobText
+        ? dobIso
         : null;
-    if (!dobLocked && dobText.length > 0) {
+    if (!dobLocked && dobText.length > 0 && dobValue) {
       dispatch({ type: 'set_dob', dob: dobValue });
     }
 
@@ -483,21 +518,28 @@ function IdentityStep({
         </View>
         {dobLocked ? (
           <View style={styles.lockedField}>
-            <Text style={styles.lockedFieldText}>{lockedDob}</Text>
+            <Text style={styles.lockedFieldText}>{formatDobDisplay(lockedDob!)}</Text>
           </View>
         ) : (
           <TextInput
             value={dobText}
             onChangeText={(value) => {
-              setDobText(value);
-              if (value.length === 0) {
+              const masked = maskDobInput(value);
+              setDobText(masked);
+              if (masked.length === 0) {
                 dispatch({ type: 'set_dob', dob: null });
-              } else if (isValidDob(value)) {
-                dispatch({ type: 'set_dob', dob: value });
+              } else {
+                const iso = parseDobDisplay(masked);
+                if (iso && isValidDob(iso)) {
+                  dispatch({ type: 'set_dob', dob: iso });
+                }
               }
             }}
-            placeholder="YYYY-MM-DD"
+            placeholder="DD-MM-YYYY"
             placeholderTextColor={cl.textTertiary}
+            keyboardType="number-pad"
+            inputMode="numeric"
+            maxLength={10}
             autoCorrect={false}
             autoCapitalize="none"
             style={styles.input}
@@ -506,7 +548,7 @@ function IdentityStep({
         {dobLocked ? (
           <Text style={styles.fieldHint}>Date of birth is saved and cannot be changed in-app.</Text>
         ) : dobText.length > 0 && !dobValid ? (
-          <Text style={styles.fieldError}>Use YYYY-MM-DD format, e.g. 1990-05-12.</Text>
+          <Text style={styles.fieldError}>Use DD-MM-YYYY format, e.g. 12-05-1990.</Text>
         ) : (
           <Text style={styles.fieldHint}>Required only for CDSL / NSDL CAS PDFs.</Text>
         )}

@@ -24,7 +24,7 @@ There is no API for CAS. The user must request it through one of the portals and
 4. **Step 2 — Identity**: PAN (required), DOB (optional, with hint about CDSL/NSDL), email (pre-filled from auth, editable). Once saved, **PAN and DOB become immutable** (see "PAN / DOB are write-once" below).
 5. **Step 3 — Import**: two cards in priority order.
    - **Upload a CAS PDF** (recommended, fastest)
-   - **Get a fresh CAS** (guides to CAMS / KFintech / MFCentral via in-app browser)
+   - **Get a fresh CAS** (guides to CAMS Online / KFintech via in-app browser; CAMS is recommended — no login, single-page form just asks for PAN + email)
 6. **Step 4 — Done**: portfolio loaded; nudges to set up auto-refresh.
 
 A third "Set up auto-refresh" card on Step 3 lands in **M2** alongside the Resend Inbound backend.

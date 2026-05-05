@@ -41,7 +41,7 @@ async function fetchProfile(userId: string) {
 
 function formatDob(iso: string): string {
   const [yyyy, mm, dd] = iso.split('-');
-  return `${dd}/${mm}/${yyyy}`;
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 export default function AccountScreen() {
