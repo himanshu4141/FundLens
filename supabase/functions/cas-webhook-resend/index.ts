@@ -27,6 +27,10 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { decodeBase64 } from 'jsr:@std/encoding/base64';
 import { importCASData, type CASParseResult } from '../_shared/import-cas.ts';
+import {
+  extractGmailVerificationUrl,
+  isGmailForwardingVerification,
+} from '../_shared/gmail-verification.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -133,6 +137,8 @@ interface ResendInboundPayload {
     from?: string | { email?: string; name?: string };
     to?: string | string[];
     subject?: string;
+    text?: string;
+    html?: string;
     headers?: Record<string, string>;
     attachments?: ResendInboundAttachment[];
   };
@@ -144,6 +150,7 @@ function getRecipientList(payload: ResendInboundPayload): string {
   if (Array.isArray(to)) return to.join(', ');
   return to;
 }
+
 
 // ── Password derivation ─────────────────────────────────────────────────────────
 
@@ -202,6 +209,37 @@ Deno.serve(async (req) => {
   const userId = profile.user_id as string;
   const pan = profile.pan as string;
   const dob = (profile.dob as string | null) ?? null;
+
+  // Gmail auto-forward verification: capture the confirmation URL on
+  // the profile and return early without running the import path.
+  // The UI surfaces this URL as a "Confirm Gmail forwarding" button.
+  if (isGmailForwardingVerification(payload.data ?? {})) {
+    const url = extractGmailVerificationUrl(payload.data ?? {});
+    if (!url) {
+      console.warn(
+        '[cas-webhook-resend] gmail-verification email matched sender+subject but no URL found, token=%s',
+        token,
+      );
+      return Response.json({ ok: false, reason: 'gmail_verification_no_url' });
+    }
+    const { error: updateErr } = await supabase
+      .from('user_profile')
+      .update({ cas_inbox_confirmation_url: url })
+      .eq('user_id', userId);
+    if (updateErr) {
+      console.error(
+        '[cas-webhook-resend] gmail-verification url update failed: %s',
+        updateErr.message,
+      );
+      return Response.json({ ok: false, reason: 'gmail_verification_update_failed' });
+    }
+    console.log(
+      '[cas-webhook-resend] gmail-verification-captured token=%s, user=%s',
+      token,
+      userId,
+    );
+    return Response.json({ ok: true, captured: 'gmail_forwarding_verification' });
+  }
 
   const attachments = payload.data?.attachments ?? [];
   const pdfAttachments = attachments.filter(
@@ -317,6 +355,25 @@ Deno.serve(async (req) => {
     totalTransactions,
     allErrors.length,
   );
+
+  // Opportunistic clear of cas_inbox_confirmation_url: if a real CAS
+  // email just imported successfully, the Gmail filter is provably
+  // active and the previously-captured verification URL is no longer
+  // useful. Google won't echo the confirm-click back to us, so the
+  // next-import-succeeded heuristic is the closest signal we have.
+  if (status === 'success') {
+    const { error: clearErr } = await supabase
+      .from('user_profile')
+      .update({ cas_inbox_confirmation_url: null })
+      .eq('user_id', userId)
+      .not('cas_inbox_confirmation_url', 'is', null);
+    if (clearErr) {
+      console.warn(
+        '[cas-webhook-resend] opportunistic clear failed: %s (non-fatal)',
+        clearErr.message,
+      );
+    }
+  }
 
   // Trigger sync-nav in the background so latest NAVs land without waiting for cron
   if (totalFunds > 0) {

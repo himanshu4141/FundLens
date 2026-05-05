@@ -288,8 +288,8 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
 - [x] M2.0 — Auto-forward feasibility discovery + decision (this plan, 2026-05-05; see "Discovery findings" + "Decision" sections above)
 - [x] M2.1 — Inbox-token schema + generation + backfill (PR #93)
 - [x] M2.2 — Resend inbound router + DNS cutover — router PR, see SETUP.md
-- [x] M2.3 — `cas-webhook-resend` Edge Function (PR #93)
-- [ ] M2.4 — Auto-refresh card + post-import nudge (post-M1; theming + desktop pass)
-- [ ] M2.5 — Settings row + last-refresh display
-- [ ] M2.6 — Retire CASParser code paths
-- [ ] M2.7 — Tests + real-email validation
+- [x] M2.3 — `cas-webhook-resend` Edge Function with env-driven `INBOUND_DOMAIN` (PR #93)
+- [x] M2.4 — Hybrid auto-refresh card on wizard Step 3 + `cas_inbox_confirmation_url` migration + Gmail verification capture in webhook + opportunistic clear after successful CAS import + Settings → Auto-refresh row + post-import nudge on Done step (PR #93, stacked on top of #92)
+- [x] M2.5 — Settings → Account "Auto-refresh inbox" row with address + Copy + last-refresh timestamp + Confirm Gmail button when verification URL pending (PR #93, folded into M2.4)
+- [ ] M2.6 — Retire CASParser code paths (separate PR after PR #93 merges)
+- [x] M2.7 — Tests for Gmail verification helpers (`supabase/functions/_shared/gmail-verification.ts`, 100% coverage); real-email round-trip is operator validation per `SETUP.md` §3

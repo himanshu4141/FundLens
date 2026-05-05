@@ -26,6 +26,7 @@ import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { DesktopFormFrame } from '@/src/components/responsive';
+import { AutoRefreshSetup } from '@/src/components/onboarding/AutoRefreshSetup';
 import { useClearLensTokens } from '@/src/context/ThemeContext';
 import {
   ClearLensFonts,
@@ -120,7 +121,7 @@ function maskDobInput(raw: string): string {
 async function fetchSavedProfile(userId: string): Promise<SavedProfile | null> {
   const { data } = await supabase
     .from('user_profile')
-    .select('pan, dob, kfintech_email')
+    .select('pan, dob, kfintech_email, cas_inbox_token, cas_inbox_confirmation_url')
     .eq('user_id', userId)
     .maybeSingle();
   return data ?? null;
@@ -130,15 +131,17 @@ interface SavedProfile {
   pan: string | null;
   dob: string | null;
   kfintech_email: string | null;
+  cas_inbox_token: string | null;
+  cas_inbox_confirmation_url: string | null;
 }
 
 function OnboardingWizard() {
   const router = useRouter();
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const tokens = useClearLensTokens();
   const cl = tokens.colors;
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
-  const queryClient = useQueryClient();
   const [draft, dispatch] = useReducer(reduceOnboarding, EMPTY_DRAFT);
   const [hydrated, setHydrated] = useState(false);
 
@@ -333,6 +336,11 @@ function OnboardingWizard() {
             draft={draft}
             dispatch={dispatch}
             onSkip={() => dispatch({ type: 'goto', step: 'done' })}
+            inboxToken={profile?.cas_inbox_token ?? null}
+            pendingConfirmationUrl={profile?.cas_inbox_confirmation_url ?? null}
+            onConfirmClicked={() => {
+              queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
+            }}
             styles={styles}
             cl={cl}
             tokens={tokens}
@@ -342,6 +350,7 @@ function OnboardingWizard() {
           <DoneStep
             draft={draft}
             onFinish={handleFinish}
+            hasInboxToken={!!profile?.cas_inbox_token}
             styles={styles}
             cl={cl}
           />
@@ -663,12 +672,15 @@ function IdentityStep({
   );
 }
 
-type ImportSubScreen = 'choose' | 'request';
+type ImportSubScreen = 'choose' | 'request' | 'autoRefresh';
 
 function ImportStep({
   draft,
   dispatch,
   onSkip,
+  inboxToken,
+  pendingConfirmationUrl,
+  onConfirmClicked,
   styles,
   cl,
   tokens,
@@ -679,6 +691,12 @@ function ImportStep({
     | { type: 'goto'; step: OnboardingStep }
   >;
   onSkip: () => void;
+  /** User's stable inbox token. Null while user_profile is still loading. */
+  inboxToken: string | null;
+  /** Captured by Edge Function when Gmail emails the verification link. */
+  pendingConfirmationUrl: string | null;
+  /** Called after the user clicks the Gmail confirm CTA so the parent can refetch. */
+  onConfirmClicked: () => void;
   styles: WizardStyles;
   cl: Cl;
   tokens: ClearLensTokens;
@@ -886,6 +904,24 @@ function ImportStep({
     );
   }
 
+  if (sub === 'autoRefresh' && inboxToken) {
+    return (
+      <View style={styles.flex}>
+        <View style={styles.subBackBar}>
+          <Pressable onPress={() => setSub('choose')} style={styles.miniBack} hitSlop={6}>
+            <Ionicons name="chevron-back" size={18} color={cl.emeraldDeep} />
+            <Text style={styles.miniBackText}>Import options</Text>
+          </Pressable>
+        </View>
+        <AutoRefreshSetup
+          inboxToken={inboxToken}
+          pendingConfirmationUrl={pendingConfirmationUrl}
+          onConfirmClicked={onConfirmClicked}
+        />
+      </View>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.stepHeader}>
@@ -910,6 +946,20 @@ function ImportStep({
         styles={styles}
         cl={cl}
       />
+      {inboxToken ? (
+        <ChoiceCard
+          title="Set up auto-refresh (advanced)"
+          description={
+            pendingConfirmationUrl
+              ? 'Confirm Gmail forwarding — we captured your verification link.'
+              : 'Forward future CAS emails once and your portfolio updates itself.'
+          }
+          icon="mail-unread-outline"
+          onPress={() => setSub('autoRefresh')}
+          styles={styles}
+          cl={cl}
+        />
+      ) : null}
 
       {uploading ? (
         <View style={styles.uploadingRow}>
@@ -940,11 +990,14 @@ function ImportStep({
 function DoneStep({
   draft,
   onFinish,
+  hasInboxToken,
   styles,
   cl,
 }: {
   draft: OnboardingDraft;
   onFinish: () => void;
+  /** True if the user has a cas_inbox_token, i.e. the auto-refresh nudge is meaningful. */
+  hasInboxToken: boolean;
   styles: WizardStyles;
   cl: Cl;
 }) {
@@ -984,6 +1037,22 @@ function DoneStep({
           </Text>
         )}
       </View>
+
+      {hasInboxToken ? (
+        <View style={styles.nudgeCard}>
+          <View style={styles.nudgeIconWrap}>
+            <Ionicons name="mail-unread-outline" size={20} color={cl.emeraldDeep} />
+          </View>
+          <View style={styles.nudgeBody}>
+            <Text style={styles.nudgeTitle}>Never re-upload again</Text>
+            <Text style={styles.nudgeText}>
+              Forward future CAS emails to your private FolioLens address and the
+              portfolio updates automatically. Set it up from Settings → Account →
+              Auto-refresh inbox.
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.tipsCard}>
         <Text style={styles.tipsHeading}>{imported ? "What's next" : 'When you have a CAS'}</Text>
@@ -1226,6 +1295,11 @@ function makeStyles(tokens: ClearLensTokens) {
       gap: 6,
       paddingTop: ClearLensSpacing.sm,
     },
+    subBackBar: {
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingTop: ClearLensSpacing.sm,
+      paddingBottom: ClearLensSpacing.xs,
+    },
     miniBack: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1424,6 +1498,35 @@ function makeStyles(tokens: ClearLensTokens) {
       flex: 1,
       ...ClearLensTypography.bodySmall,
       color: cl.navy,
+      lineHeight: 18,
+    },
+    nudgeCard: {
+      flexDirection: 'row',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.lg,
+      backgroundColor: cl.positiveBg,
+      borderWidth: 1,
+      borderColor: cl.mint,
+    },
+    nudgeIconWrap: {
+      width: 28,
+      height: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nudgeBody: {
+      flex: 1,
+      gap: 4,
+    },
+    nudgeTitle: {
+      ...ClearLensTypography.body,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.bold,
+    },
+    nudgeText: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.textSecondary,
       lineHeight: 18,
     },
     tipsCard: {
