@@ -176,7 +176,7 @@ src/
 supabase/
   functions/                  Edge Functions: parse-cas-pdf, cas-webhook-resend, sync-nav, sync-index, sync-fund-portfolios, sync-fund-meta, …
   migrations/                 SQL migrations (single source of truth for schema)
-  templates/                  Email templates (synced manually into Supabase Auth dashboards)
+  templates/                  Email templates (Supabase Auth + Resend transactional templates)
 docs/
   INFRASTRUCTURE.md           ← canonical reference for services, environments, workflows
   TECH-DISCOVERY.md           ← data model + integration deep dive

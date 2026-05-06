@@ -277,7 +277,7 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
 - 2026-05-06 — Removed the unused client hook and tests for `create-inbound-session`. The Edge Functions themselves remain for the explicit M2.6 retirement cleanup.
 - 2026-05-06 — Added a holding-mode branch to onboarding. AMC / folio users are routed to CAMS / KFintech, demat / broker users are routed to CDSL / NSDL Detailed CAS, and unsure users see both paths. Auto-refresh remains scoped to CAMS / KFintech because it depends on predictable RTA CAS emails.
 - 2026-05-06 — Inbound and manual PDF imports now reject parsed PDFs that contain holdings but zero transaction rows with a clear "Detailed CAS required" error instead of recording an apparently successful `0 transactions` import.
-- 2026-05-06 — Inbound PDF imports now send Clear Lens styled status emails through Resend to the user's auth email. Success messages include fund / transaction counts; failures explain the next action and keep the Resend response idempotent by import id.
+- 2026-05-06 — Inbound PDF imports now send Clear Lens styled status emails through Resend Templates to the user's auth email. Success messages include fund / transaction counts; failures explain the next action and keep the Resend response idempotent by import id. DEV and PROD use separate template ids / aliases and distinct From addresses (`noreply-dev@foliolens.in` vs `noreply@foliolens.in`).
 
 ## Risks And Mitigations
 

@@ -42,6 +42,8 @@ const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
 const APP_BASE_URL = Deno.env.get('APP_BASE_URL') ?? 'https://app.foliolens.in';
 const VERCEL_PROTECTION_BYPASS_TOKEN = Deno.env.get('VERCEL_PROTECTION_BYPASS_TOKEN') ?? '';
 const RESEND_NOTIFICATION_FROM = Deno.env.get('RESEND_NOTIFICATION_FROM') ?? '';
+const RESEND_IMPORT_NOTIFICATION_TEMPLATE_ID =
+  Deno.env.get('RESEND_IMPORT_NOTIFICATION_TEMPLATE_ID') ?? '';
 
 // Resolve the inbound domain from env. Both dev and prod use the apex domain;
 // the Vercel router encodes environment in the local-part.
@@ -314,23 +316,7 @@ async function getAuthEmail(
   return data.user?.email ?? null;
 }
 
-const EMAIL_COLORS = {
-  navy: '#0A1430',
-  slate: '#263248',
-  emerald: '#10B981',
-  emeraldDeep: '#0EA372',
-  mint50: '#ECFDF5',
-  background: '#FAFBFD',
-  surface: '#FFFFFF',
-  border: '#DDE5EE',
-  textSecondary: '#263248',
-  textTertiary: '#7B8AA3',
-  positiveBg: '#E7FAF2',
-  negativeBg: '#FEEDEE',
-  negativeText: '#B91C1C',
-} as const;
-
-function escapeHtml(value: string): string {
+function escapeTemplateValue(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -339,7 +325,15 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function buildImportNotificationHtml({
+function limitTemplateValue(value: string): string {
+  return value.length > 1900 ? `${value.slice(0, 1897)}...` : value;
+}
+
+function safeTemplateValue(value: string): string {
+  return escapeTemplateValue(limitTemplateValue(value));
+}
+
+function buildImportNotificationVariables({
   status,
   funds,
   transactions,
@@ -349,76 +343,38 @@ function buildImportNotificationHtml({
   funds: number;
   transactions: number;
   errors: string[];
-}): string {
+}): Record<string, string | number> {
   const success = status === 'success';
-  const badgeBg = success ? EMAIL_COLORS.positiveBg : EMAIL_COLORS.negativeBg;
-  const badgeColor = success ? EMAIL_COLORS.emeraldDeep : EMAIL_COLORS.negativeText;
-  const badgeText = success ? 'Imported' : 'Needs attention';
   const title = success ? 'Your CAS import is ready' : 'Your CAS could not be imported';
   const intro = success
     ? 'We processed the CAS PDF from your FolioLens import inbox. Open the app to review the updated portfolio.'
     : 'We received your CAS email, but the PDF could not be imported into your portfolio.';
   const problem = errors.length > 0 ? errors[0] : 'No importable transactions were found.';
-  const escapedProblem = escapeHtml(problem);
-  const appUrl = escapeHtml(APP_BASE_URL);
 
-  return `<!doctype html>
-<html>
-  <body style="margin:0;background:${EMAIL_COLORS.background};font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${EMAIL_COLORS.navy};">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
-      ${escapeHtml(success ? 'Your FolioLens CAS import finished successfully.' : problem)}
-    </div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${EMAIL_COLORS.background};padding:32px 16px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:${EMAIL_COLORS.surface};border:1px solid ${EMAIL_COLORS.border};border-radius:18px;overflow:hidden;">
-            <tr>
-              <td style="background:${EMAIL_COLORS.navy};padding:24px 28px;color:#FFFFFF;">
-                <div style="font-size:24px;line-height:30px;font-weight:800;letter-spacing:0;">FolioLens</div>
-                <div style="margin-top:4px;font-size:11px;line-height:16px;font-weight:700;letter-spacing:4px;color:#BAC6D8;">FOCUS. COMPARE. GROW.</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:28px;">
-                <div style="display:inline-block;background:${badgeBg};color:${badgeColor};border-radius:999px;padding:6px 12px;font-size:12px;line-height:16px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;">${badgeText}</div>
-                <h1 style="margin:18px 0 10px;font-size:28px;line-height:34px;font-weight:800;letter-spacing:0;color:${EMAIL_COLORS.navy};">${title}</h1>
-                <p style="margin:0 0 22px;font-size:16px;line-height:24px;color:${EMAIL_COLORS.textSecondary};">${intro}</p>
-
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid ${EMAIL_COLORS.border};border-radius:14px;background:${EMAIL_COLORS.mint50};margin-bottom:22px;">
-                  <tr>
-                    <td style="padding:16px 18px;border-right:1px solid ${EMAIL_COLORS.border};">
-                      <div style="font-size:12px;line-height:16px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:${EMAIL_COLORS.textTertiary};">Funds updated</div>
-                      <div style="margin-top:6px;font-size:24px;line-height:30px;font-weight:800;color:${EMAIL_COLORS.navy};">${funds}</div>
-                    </td>
-                    <td style="padding:16px 18px;">
-                      <div style="font-size:12px;line-height:16px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:${EMAIL_COLORS.textTertiary};">Transactions</div>
-                      <div style="margin-top:6px;font-size:24px;line-height:30px;font-weight:800;color:${EMAIL_COLORS.navy};">${transactions}</div>
-                    </td>
-                  </tr>
-                </table>
-
-                ${success ? '' : `
-                <div style="border:1px solid ${EMAIL_COLORS.border};border-radius:14px;background:#FFFFFF;padding:16px 18px;margin-bottom:22px;">
-                  <div style="font-size:12px;line-height:16px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:${EMAIL_COLORS.textTertiary};">What to do next</div>
-                  <p style="margin:8px 0 0;font-size:15px;line-height:23px;color:${EMAIL_COLORS.textSecondary};">${escapedProblem}</p>
-                  <p style="margin:10px 0 0;font-size:15px;line-height:23px;color:${EMAIL_COLORS.textSecondary};">Forward or upload a Detailed CAS PDF that includes transaction history for your full investment date range. Holdings-only summaries cannot build Money Trail or XIRR.</p>
-                </div>
-                `}
-
-                <a href="${appUrl}" style="display:inline-block;background:${EMAIL_COLORS.emerald};color:#FFFFFF;text-decoration:none;border-radius:999px;padding:12px 18px;font-size:15px;line-height:20px;font-weight:800;">Open FolioLens</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:18px 28px;border-top:1px solid ${EMAIL_COLORS.border};font-size:12px;line-height:18px;color:${EMAIL_COLORS.textTertiary};">
-                Sent because your private FolioLens import inbox received a CAS PDF.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+  return {
+    STATUS_LABEL: success ? 'Imported' : 'Needs attention',
+    STATUS_BG: success ? '#E7FAF2' : '#FEEDEE',
+    STATUS_TEXT_COLOR: success ? '#0EA372' : '#B91C1C',
+    TITLE: safeTemplateValue(title),
+    INTRO: safeTemplateValue(intro),
+    FUNDS_UPDATED: funds,
+    TRANSACTIONS_IMPORTED: transactions,
+    DETAIL_LABEL: success ? 'What changed' : 'Reason',
+    DETAIL_TEXT: safeTemplateValue(
+      success
+        ? 'Your portfolio was updated from the CAS PDF received in your private import inbox.'
+        : problem,
+    ),
+    NEXT_STEP_LABEL: success ? 'Next step' : 'What to do next',
+    NEXT_STEP_TEXT: safeTemplateValue(
+      success
+        ? 'Open FolioLens to review your portfolio.'
+        : 'Forward or upload a Detailed CAS PDF that includes transaction history for your full investment date range. Holdings-only summaries cannot build Money Trail or XIRR.',
+    ),
+    APP_URL: safeTemplateValue(APP_BASE_URL),
+    CTA_LABEL: 'Open FolioLens',
+    FOOTER_TEXT: 'Sent because your private FolioLens import inbox received a CAS PDF.',
+  };
 }
 
 async function sendImportNotification({
@@ -442,30 +398,15 @@ async function sendImportNotification({
     console.warn('[cas-webhook-resend] notification skipped, auth email missing');
     return;
   }
+  if (!RESEND_IMPORT_NOTIFICATION_TEMPLATE_ID) {
+    console.warn('[cas-webhook-resend] notification skipped, Resend template id missing');
+    return;
+  }
 
   const success = status === 'success';
   const subject = success
     ? 'FolioLens imported your CAS'
     : 'FolioLens could not import your CAS';
-  const problem = errors.length > 0 ? errors[0] : 'No importable transactions were found.';
-  const text = success
-    ? [
-        'Your CAS email was processed successfully.',
-        '',
-        `Funds updated: ${funds}`,
-        `Transactions imported: ${transactions}`,
-        '',
-        'Open FolioLens to review your portfolio.',
-      ].join('\n')
-    : [
-        'We received your CAS email, but could not import it.',
-        '',
-        `Reason: ${problem}`,
-        '',
-        'Please forward or upload a Detailed CAS PDF that includes transaction history for your full investment date range. Holdings-only summaries cannot build Money Trail or XIRR.',
-        '',
-        'Open FolioLens and use Import CAS if you want to try a different file.',
-      ].join('\n');
 
   try {
     await resendApiPost<{ id?: string }>(
@@ -474,8 +415,10 @@ async function sendImportNotification({
         from,
         to: [to],
         subject,
-        html: buildImportNotificationHtml({ status, funds, transactions, errors }),
-        text,
+        template: {
+          id: RESEND_IMPORT_NOTIFICATION_TEMPLATE_ID,
+          variables: buildImportNotificationVariables({ status, funds, transactions, errors }),
+        },
         tags: [
           { name: 'category', value: 'cas_import' },
           { name: 'status', value: status },
