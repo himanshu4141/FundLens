@@ -783,11 +783,12 @@ function ImportStep({
           <Ionicons name="time-outline" size={18} color={cl.emeraldDeep} />
           <Text style={styles.calloutText}>
             <Text style={styles.bold}>Pick a date range that covers all your investments.</Text>{' '}
-            On both portals, set <Text style={styles.bold}>From</Text> to before
-            your first ever mutual-fund purchase (when in doubt, use{' '}
+            Set <Text style={styles.bold}>From</Text> to before your first ever
+            mutual-fund purchase (when in doubt, use{' '}
             <Text style={styles.bold}>01/01/2000</Text>) and{' '}
-            <Text style={styles.bold}>To</Text> to today. Anything missed here
-            is missed forever — you can&apos;t merge two CASes later.
+            <Text style={styles.bold}>To</Text> to today. If you miss anything,
+            you can upload another CAS later — duplicate transactions are
+            skipped and only new ones get added.
           </Text>
         </View>
 

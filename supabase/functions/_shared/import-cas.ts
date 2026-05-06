@@ -281,6 +281,12 @@ export async function importCASData(
       }
 
       if (txRows.length > 0) {
+        // ignoreDuplicates on (fund_id, date, type, units, amount) makes a
+        // second CAS upload additive: rows already imported from a previous
+        // run get skipped, and only transactions the previous CAS missed
+        // are inserted. This is the merge guarantee we promise users on the
+        // "Get a fresh CAS" callout — don't replace this with a delete-and-
+        // re-insert pattern without updating that copy.
         const { error: txErr, count } = await supabase
           .from('transaction')
           .upsert(txRows, {
