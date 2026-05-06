@@ -368,6 +368,7 @@ function OnboardingWizard() {
             draft={draft}
             onFinish={handleFinish}
             hasInboxToken={!!profile?.cas_inbox_token}
+            autoForwardCompletedAt={profile?.cas_auto_forward_setup_completed_at ?? null}
             styles={styles}
             cl={cl}
           />
@@ -942,6 +943,7 @@ function ImportStep({
           autoForwardCompletedAt={autoForwardCompletedAt}
           onConfirmClicked={onConfirmClicked}
           onAutoForwardCompleted={onAutoForwardCompleted}
+          onContinue={() => dispatch({ type: 'goto', step: 'done' })}
         />
       </View>
     );
@@ -1016,6 +1018,7 @@ function DoneStep({
   draft,
   onFinish,
   hasInboxToken,
+  autoForwardCompletedAt,
   styles,
   cl,
 }: {
@@ -1023,25 +1026,31 @@ function DoneStep({
   onFinish: () => void;
   /** True if the user has a cas_inbox_token, i.e. the auto-refresh nudge is meaningful. */
   hasInboxToken: boolean;
+  /** Set once the user confirms provider-side auto-forward setup is complete. */
+  autoForwardCompletedAt: string | null;
   styles: WizardStyles;
   cl: Cl;
 }) {
   const result = draft.importResult;
   const imported = !!result;
+  const autoRefreshReady = !!autoForwardCompletedAt;
+  const doneTitle = imported
+    ? 'Your portfolio is ready'
+    : autoRefreshReady
+      ? 'Auto-refresh is ready'
+      : "We'll be here when you're ready";
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.successHero}>
-        <View style={[styles.successIcon, !imported && styles.successIconMuted]}>
+        <View style={[styles.successIcon, !imported && !autoRefreshReady && styles.successIconMuted]}>
           <Ionicons
-            name={imported ? 'checkmark-circle' : 'time-outline'}
+            name={imported || autoRefreshReady ? 'checkmark-circle' : 'time-outline'}
             size={56}
-            color={imported ? cl.emeraldDeep : cl.textSecondary}
+            color={imported || autoRefreshReady ? cl.emeraldDeep : cl.textSecondary}
           />
         </View>
-        <Text style={styles.stepTitle}>
-          {imported ? 'Your portfolio is ready' : "We'll be here when you're ready"}
-        </Text>
+        <Text style={styles.stepTitle}>{doneTitle}</Text>
         {imported ? (
           <Text style={styles.stepBody}>
             Imported{' '}
@@ -1054,6 +1063,12 @@ function DoneStep({
             </Text>
             . XIRR, sector exposure, and Money Trail are calculating now.
           </Text>
+        ) : autoRefreshReady ? (
+          <Text style={styles.stepBody}>
+            FolioLens will import the next forwarded CAMS or KFintech CAS
+            automatically. To see your portfolio now, manually forward your
+            latest CAS email to the same private address.
+          </Text>
         ) : (
           <Text style={styles.stepBody}>
             No CAS imported yet — your home screen will be empty until you upload one.
@@ -1063,7 +1078,7 @@ function DoneStep({
         )}
       </View>
 
-      {hasInboxToken ? (
+      {hasInboxToken && !autoRefreshReady ? (
         <View style={styles.nudgeCard}>
           <View style={styles.nudgeIconWrap}>
             <Ionicons name="mail-unread-outline" size={20} color={cl.emeraldDeep} />
@@ -1080,12 +1095,24 @@ function DoneStep({
       ) : null}
 
       <View style={styles.tipsCard}>
-        <Text style={styles.tipsHeading}>{imported ? "What's next" : 'When you have a CAS'}</Text>
+        <Text style={styles.tipsHeading}>
+          {imported || autoRefreshReady ? "What's next" : 'When you have a CAS'}
+        </Text>
         {imported ? (
           <>
             <Text style={styles.tipsLine}>• Glance at the home screen for your XIRR vs Nifty 50.</Text>
             <Text style={styles.tipsLine}>• Open Money Trail to inspect every transaction.</Text>
-            <Text style={styles.tipsLine}>• Set up auto-refresh later to never re-upload.</Text>
+            <Text style={styles.tipsLine}>
+              • {autoRefreshReady
+                ? 'Future CAS emails should import automatically.'
+                : 'Set up auto-refresh later to never re-upload.'}
+            </Text>
+          </>
+        ) : autoRefreshReady ? (
+          <>
+            <Text style={styles.tipsLine}>• Keep the Gmail filter enabled for CAMS / KFintech CAS emails.</Text>
+            <Text style={styles.tipsLine}>• Forward your latest CAS manually if you want data immediately.</Text>
+            <Text style={styles.tipsLine}>• If a monthly CAS does not appear, upload the PDF from Settings.</Text>
           </>
         ) : (
           <>
@@ -1098,7 +1125,7 @@ function DoneStep({
 
       <View style={styles.footerSpace} />
       <PrimaryButton
-        label={imported ? 'Open my portfolio' : 'Take me home'}
+        label={imported ? 'Open my portfolio' : 'Open FolioLens'}
         onPress={onFinish}
         styles={styles}
         cl={cl}

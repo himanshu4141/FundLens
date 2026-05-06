@@ -59,6 +59,8 @@ interface Props {
   onConfirmClicked?: () => void;
   /** Persists the user's "auto-forward setup is complete" confirmation. */
   onAutoForwardCompleted?: () => Promise<void>;
+  /** Wizard-only continuation after auto-forward setup is complete. */
+  onContinue?: () => void;
 }
 
 type GmailChecklistKey = 'forwardingAddress' | 'verification' | 'filter';
@@ -72,6 +74,7 @@ export function AutoRefreshSetup({
   autoForwardCompletedAt,
   onConfirmClicked,
   onAutoForwardCompleted,
+  onContinue,
 }: Props) {
   const tokens = useClearLensTokens();
   const cl = tokens.colors;
@@ -129,6 +132,7 @@ export function AutoRefreshSetup({
     setCompleteError(null);
     try {
       await onAutoForwardCompleted();
+      onContinue?.();
     } catch (err) {
       setCompleteError(err instanceof Error ? err.message : 'Could not save setup status');
     } finally {
@@ -184,6 +188,16 @@ export function AutoRefreshSetup({
               inbox automatically. If a monthly CAS does not appear, manually
               forward that email to the address above.
             </Text>
+            {onContinue ? (
+              <TouchableOpacity
+                style={styles.confirmCta}
+                onPress={onContinue}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmCtaText}>Continue</Text>
+                <Ionicons name="arrow-forward" size={14} color={cl.textOnDark} />
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       ) : pendingConfirmationUrl ? (
