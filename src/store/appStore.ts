@@ -27,7 +27,7 @@ const DEFAULT_TOOLS_FLAGS: ToolsFlags = {
   goalPlanner: true,
   pastSipCheck: true,
   compareFunds: true,
-  directVsRegular: false,
+  directVsRegular: true,
 };
 
 // ---------------------------------------------------------------------------
