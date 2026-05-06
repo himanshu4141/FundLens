@@ -1,10 +1,12 @@
 # PRD — Total Return benchmarks across FolioLens
 
+> **Phase 8** — foundational data fix that replaces every benchmark surface in the app with total-return (TR / TRI) indices. Implementation tracked in `docs/plans/phase-8-total-return-benchmarks/M1-tri-data-and-app-cutover.md`.
+
 
 ## What this is
 
 
-A product requirements document for switching every benchmark surface in the app from price-return (PR) indices to total-return (TR / TRI) indices, sourced from NSE Indices' free public endpoint.
+A product requirements document for switching every benchmark surface in the app from price-return (PR) indices to total-return (TR / TRI) indices, sourced primarily from NSE Indices' free public endpoint, with a paid fallback so a single upstream outage doesn't blank the app.
 
 
 ## TL;DR
@@ -69,17 +71,21 @@ This change is squarely in service of *lead with the answer*. We have been leadi
 | F4 | TRI history is backfilled from the earliest available NSE TRI date (varies per index — Nifty 50 starts 1999-06-30) through today's market close. | A 25-year SIP simulation works correctly. |
 | F5 | Daily incremental sync keeps the latest market close fresh in `index_history` within 24 hours. | Today's portfolio "ahead of benchmark" reflects yesterday's close. |
 | F6 | The price-only series remains in `index_history` for historical reproducibility and bug-investigation purposes, but is not consumed by any UI surface. | No regression, no orphaned data. |
-| F7 | BSE Sensex is removed from `BENCHMARK_OPTIONS`. Users with the saved preference `defaultBenchmarkSymbol = '^BSESN'` are migrated to `^NIFTY100TRI` on next app open via persisted-state migration. | If the user had picked BSE Sensex, they see Nifty 100 TRI selected on next launch; we don't crash on a missing symbol. |
+| F7 | BSE Sensex is removed from `BENCHMARK_OPTIONS`. Users with the saved preference `defaultBenchmarkSymbol = '^BSESN'` are migrated to `^NSEITRI` (Nifty 50 TRI — the closest large-cap equivalent) on next app open via persisted-state migration. | If the user had picked BSE Sensex, they see Nifty 50 TRI selected on next launch; we don't crash on a missing symbol. |
+| F8 | A **backup data source** is wired alongside NSE direct so that an NSE outage doesn't blank our benchmark numbers. The backup is consulted only when NSE returns no rows for that symbol-and-date. | A user opening the app on the morning after a 24-hour NSE outage still sees up-to-date benchmark numbers. |
+| F9 | Each row in `index_history` records **which source it came from** (NSE / EODHD / etc.). On every subsequent successful NSE sync, NSE-sourced data wins and overwrites any backup-sourced row for the same date. | Once the primary source is healthy again the data converges back to the canonical NSE figures; backup-sourced rows are visible to operators (via the source column) for diagnostics. |
+| F10 | The Fund Detail benchmark picker shows the fund's **own SEBI-mandated benchmark** (resolved to its TRI variant) as a first-class option, alongside the global benchmark picks. The fund-specific benchmark is selected by default. | A user on the HDFC Mid Cap fund detail screen sees "Nifty Midcap 150 TRI" as the default chart line — the same benchmark the fund's own factsheet uses — without losing the ability to switch to Nifty 50 TRI / Nifty 500 TRI for a broader-market view. |
 
 
 ### Non-functional
 
 | # | Requirement |
 |---|---|
-| N1 | Backfill cost is ₹0. Daily sync cost is ₹0. |
-| N2 | Single Edge Function, single new code path, no new third-party services or secrets. |
+| N1 | Backfill cost is ₹0 in the steady-state path (NSE direct). Backup source is permitted to be a paid feed, used only as a fallback. |
+| N2 | Single Edge Function, with a primary path (NSE) and a fallback path (existing EODHD wiring); no new third-party services beyond what's already configured. |
 | N3 | Cross-app cutover ships in **one** PR so the user never sees a half-converted app. |
 | N4 | The Tools Hub stack (PRs #99 / #100 / #101) rebases cleanly on top of this work; no merge conflicts beyond the `BENCHMARK_OPTIONS` swap and `index_history` reads. |
+| N5 | When primary and backup sources both have data for the same `(symbol, date)`, the higher-priority source wins on every subsequent write. Operators can audit which source supplied each row via the `source` column for diagnostics. |
 
 
 ### Data integrity
@@ -89,6 +95,8 @@ This change is squarely in service of *lead with the answer*. We have been leadi
 | D1 | TRI rows are stored under distinct `index_symbol` keys (proposal: `^NSEITRI`, `^NIFTY100TRI`, etc.) so PR and TR series never silently mix. |
 | D2 | Where NSE returns NTR alongside gross TRI, both are persisted; the app uses gross TRI by default. NTR is available for future "after-tax view" features. |
 | D3 | The earliest TRI date per index is recorded in a small `index_metadata` reference (or comment in source) so screens can detect "you asked for 30Y, but TRI for this index only goes back 25Y." |
+| D4 | A `source` column on `index_history` records the origin of every row (`'nse'`, `'eodhd'`, etc.). Source priority is fixed in code: `nse > eodhd > yahoo`. Daily sync attempts the primary first; if a row already exists from a higher-priority source for the same `(symbol, date)`, the lower-priority insert is skipped; if a higher-priority row arrives later, it overwrites the lower one. |
+| D5 | The NSE TRI fetcher and the backup fetcher are **independent paths** in the same Edge Function — a transient failure in one must not block the other from running. Errors per source per symbol are logged and surfaced in the function's response payload for ops review. |
 
 
 ## User-visible surfaces and explicit changes
@@ -97,13 +105,13 @@ This change is squarely in service of *lead with the answer*. We have been leadi
 |---|---|---|
 | Portfolio "How your money grew" chart | benchmark line uses `^NSEI` PR | benchmark line uses `^NSEITRI` |
 | Portfolio header — "X.X% ahead/behind" | market XIRR computed off PR series | market XIRR off TRI series |
-| Fund Detail — Performance tab fund vs benchmark | benchmark line uses PR series | benchmark line uses TRI series |
-| Fund Detail — benchmark name in chart legend | "Nifty 50" | "Nifty 50 TRI" |
+| Fund Detail — Performance tab fund vs benchmark | benchmark line uses single PR series, picker shows global benchmarks only | benchmark line uses TRI series; **picker now lists the fund's own SEBI-mandated benchmark TRI as the first and default option, followed by the global picks** (e.g. for HDFC Mid Cap: `Nifty Midcap 150 TRI` (fund's benchmark, default) / `Nifty 50 TRI` / `Nifty 100 TRI` / `Nifty 500 TRI`) |
+| Fund Detail — benchmark name in chart legend | "Nifty 50" | "Nifty 50 TRI" (or whichever picker option is active) |
 | Leaderboard alpha card | alpha vs PR | alpha vs TRI |
 | Tools Hub → Past SIP Check (M2, in-flight) | Nifty 50 PR ⇒ 3.54% XIRR | Nifty 50 TRI ⇒ ~5% XIRR (closer to user expectation) |
 | Tools Hub → Compare Funds (M3, in-flight) | trailing returns vs PR | vs TRI |
 | Tools Hub → Direct vs Regular (M4, in-flight) | not benchmark-relevant | unchanged |
-| Settings → Benchmark picker | `Nifty 50`, `Nifty 100`, `BSE Sensex` | `Nifty 50 TRI`, `Nifty 100 TRI`, `Nifty 500 TRI` (replacing BSE Sensex) |
+| Settings → Benchmark picker | `Nifty 50`, `Nifty 100`, `BSE Sensex` | `Nifty 50 TRI`, `Nifty 100 TRI`, `Nifty 500 TRI` (BSE Sensex dropped — see persisted-state migration below) |
 
 
 ## Disclosure and copy
@@ -115,6 +123,41 @@ A single source of truth string, used wherever a benchmark line is drawn:
 That sentence is the entire user-facing rationale. It pre-empts every "why is the number different" question without requiring an in-app explainer.
 
 In the disclaimer footer of Tools Hub screens, the existing "Past performance is not indicative of future returns" line stays. No additional caveats.
+
+
+## Data resilience — primary + backup source policy
+
+
+### The shape
+
+NSE's `getTotalReturnIndexString` is the **canonical source of truth**. It's free, public, and matches what every SEBI-regulated fund factsheet uses — so it should drive every number a user sees in steady state.
+
+But it is also a single ASP.NET endpoint on `niftyindices.com`. It can break for any of the usual reasons (DDoS protection, schema change, upstream cert issue, Indian internet weather). When it does, we cannot show users a stale or empty benchmark for two days while we fix it.
+
+Therefore: **NSE is primary. EODHD is the backup.** The existing `sync-index` Edge Function already has EODHD wired for some of our PR symbols (`^NIFTY500`, `^BSE100`, etc.) — we extend the same wiring for TRI.
+
+
+### Source priority and convergence
+
+Each row in `index_history` carries its `source` (`'nse'`, `'eodhd'`, etc.). Daily sync runs both fetchers per symbol, then upserts according to a fixed priority:
+
+> `nse > eodhd > yahoo`
+
+When both succeed for the same `(symbol, date)`, NSE wins. When only the backup succeeds (NSE outage), the backup row is written and the `source` column reflects that. **Every subsequent successful NSE sync overwrites lower-priority rows with the canonical data** — so once NSE is healthy again, the data converges back automatically. No operator intervention needed.
+
+
+### Diagnostic visibility
+
+Operators can run
+
+    SELECT source, COUNT(*) FROM index_history GROUP BY source;
+
+and see at a glance how much of our benchmark data is canonical vs from a backup. A spike in `'eodhd'` rows is a leading indicator that NSE has been flaky.
+
+
+### Cost
+
+Steady state: ₹0 (NSE only). Outage state: backup feed cost (whatever EODHD tier we're on at the time). Backfill: ₹0 — we run the NSE backfill once and EODHD backfill is not necessary, since NSE's 25+ year history is already canonical.
 
 
 ## Success criteria
@@ -136,9 +179,11 @@ In the disclaimer footer of Tools Hub screens, the existing "Past performance is
 ## Risks and counter-arguments
 
 
-### "What if NSE changes their endpoint?"
+### "What if NSE changes their endpoint or goes down?"
 
-The endpoint we're using is stable infrastructure for niftyindices.com itself. If it ever changes, our daily sync starts emitting errors via the existing edge-function logging path, and we have time to switch sources before users notice — TRI doesn't move much day to day. Mitigated by the same retry-on-failure pattern the existing `sync-index` already uses.
+NSE Indices' `getTotalReturnIndexString` is stable infrastructure for niftyindices.com itself, but it's still a single endpoint. If it ever changes payload shape, throws back a CAPTCHA, or just goes offline for a day, our daily sync would emit errors and benchmark numbers would freeze.
+
+Mitigated by the **primary + backup policy** (see "Data resilience" above). When NSE fails for a given `(symbol, date)`, the existing EODHD path supplies the row instead and tags the `source` column. The next successful NSE sync overwrites the backup-sourced row with canonical data. Users never see a blanked chart; operators see a `source` distribution shift on the diagnostics dashboard.
 
 
 ### "What if a user's specific benchmark isn't covered?"
@@ -153,9 +198,11 @@ Counter-argument from a perfectionist read: comparing fund NAV to TRI overstates
 We rejected this. The benchmark is *the index's return*, not *the cheapest tracking fund's return*. SEBI's convention, every fund factsheet, every news source uses raw TRI. Departing from that convention buys us 0.2% of theoretical accuracy and introduces a "why is FolioLens using a different number than my factsheet" question that costs more than 0.2% of trust to answer. Out of scope.
 
 
-### "Why not just buy EODHD for a month and use them as a single source?"
+### "Why not just buy EODHD for a month and use them as the single source?"
 
-Considered (see ExecPlan Alternatives). EODHD upgrade costs $20 once + would need to be reverified for each TRI symbol's actual coverage. NSE direct is free, public, and known to work for our exact list. EODHD remains an option later for BSE TRI / CRISIL debt feeds where NSE doesn't help.
+Considered (see ExecPlan Alternatives). NSE direct is free, public, and known to work for our exact equity-index list, with 27 years of history available in a single call. EODHD upgrade would still need to be reverified for each TRI symbol's actual coverage and would commit us to a paid dependency forever. Best of both: NSE primary, EODHD backup.
+
+EODHD remains an option later as a *primary* source for BSE TRI and CRISIL debt feeds where NSE doesn't help — those are out of scope for this milestone.
 
 
 ### "Will this break existing screenshots in our Slack or PR threads?"
