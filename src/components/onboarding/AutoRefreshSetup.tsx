@@ -151,7 +151,7 @@ export function AutoRefreshSetup({
       </View>
 
       <View style={styles.addressCard}>
-        <Text style={styles.addressLabel}>Your private import address</Text>
+        <Text style={styles.addressLabel}>Your FolioLens import inbox</Text>
         <View style={styles.addressRow}>
           <Text style={[styles.addressValue, styles.mono]} numberOfLines={2} selectable>
             {inboxAddress}
@@ -170,9 +170,9 @@ export function AutoRefreshSetup({
           </TouchableOpacity>
         </View>
         <Text style={styles.addressHint}>
-          Treat this like a password — anyone who knows it can send PDFs to your
-          import inbox. We sign every webhook so unsolicited mail without a CAS
-          attachment is silently dropped.
+          Keep this address private — it&apos;s the routing key for your CAS
+          imports. We only accept signed mail, so spoofed inbound is dropped,
+          but treat the address like an unlisted phone number.
         </Text>
       </View>
 
@@ -276,7 +276,7 @@ export function AutoRefreshSetup({
               />
               <Step
                 n={4}
-                text="Create a Gmail filter for the CAS senders, then choose 'Forward it to' → your FolioLens address."
+                text="Create a Gmail filter for the CAS senders, then choose 'Forward it to' → your FolioLens import inbox."
                 styles={styles}
               />
               <View style={styles.senderBox}>
@@ -307,16 +307,16 @@ export function AutoRefreshSetup({
               <View style={styles.checklist}>
                 <ChecklistRow
                   checked={autoForwardComplete || gmailChecklist.forwardingAddress}
-                  title="Forwarding address added"
-                  detail="Gmail accepted the FolioLens address as a forwarding destination."
+                  title="I added the forwarding address"
+                  detail="Pasted the FolioLens import inbox into Gmail's forwarding settings and saved."
                   onPress={() => toggleGmailChecklist('forwardingAddress')}
                   styles={styles}
                   cl={cl}
                 />
                 <ChecklistRow
                   checked={autoForwardComplete || gmailChecklist.verification}
-                  title="Google verification completed"
-                  detail="You clicked the captured link or completed verification inside Gmail."
+                  title="I confirmed Google's verification"
+                  detail="Clicked the link Gmail emailed to your import inbox so the address shows as Verified in Gmail's settings."
                   onPress={() => toggleGmailChecklist('verification')}
                   styles={styles}
                   cl={cl}
@@ -333,8 +333,8 @@ export function AutoRefreshSetup({
                 ) : null}
                 <ChecklistRow
                   checked={autoForwardComplete || gmailChecklist.filter}
-                  title="CAMS / KFintech filter created"
-                  detail="The filter forwards matching CAS emails to FolioLens."
+                  title="I created the CAMS / KFintech filter"
+                  detail="Filter forwards matching CAS emails to my FolioLens import inbox."
                   onPress={() => toggleGmailChecklist('filter')}
                   styles={styles}
                   cl={cl}
@@ -374,7 +374,7 @@ export function AutoRefreshSetup({
               />
               <Step
                 n={3}
-                text="Action: 'Forward to' → your FolioLens address. Save."
+                text="Action: 'Forward to' → your FolioLens import inbox. Save."
                 styles={styles}
               />
               <TouchableOpacity

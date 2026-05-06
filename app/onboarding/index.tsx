@@ -580,7 +580,7 @@ function IdentityStep({
         <Text style={styles.stepBody}>
           {panLocked
             ? 'These details unlock your CAS PDF and are saved permanently.'
-            : 'Your PAN unlocks the CAS PDF. Date of birth is only needed if you import a CDSL or NSDL statement.'}
+            : 'Your PAN unlocks the CAS PDF, and is saved permanently — double-check before continuing. Date of birth is only needed if you import a CDSL or NSDL statement.'}
         </Text>
       </View>
 
@@ -1184,7 +1184,7 @@ function DoneStep({
           <Text style={styles.stepBody}>
             No CAS imported yet — your home screen will be empty until you upload one.
             Come back anytime via{' '}
-            <Text style={styles.bold}>Settings → Account → Restart import</Text>.
+            <Text style={styles.bold}>Settings → Portfolio import</Text>.
           </Text>
         )}
       </View>
@@ -1197,7 +1197,7 @@ function DoneStep({
           <View style={styles.nudgeBody}>
             <Text style={styles.nudgeTitle}>Never re-upload again</Text>
             <Text style={styles.nudgeText}>
-              Forward future CAS emails to your private FolioLens address and the
+              Forward future CAS emails to your FolioLens import inbox and the
               portfolio updates automatically. Set it up from Settings → Account →
               Auto-refresh inbox.
             </Text>

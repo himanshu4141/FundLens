@@ -150,7 +150,7 @@ export default function PortfolioImportScreen() {
         <View style={styles.headerCopy}>
           <Text style={styles.heading}>Import and auto-refresh</Text>
           <Text style={styles.subheading}>
-            Keep your FolioLens inbox as the default path, with PDF upload as a fallback.
+            Keep your FolioLens import inbox as the default path, with PDF upload as a fallback.
           </Text>
         </View>
 
@@ -162,7 +162,7 @@ export default function PortfolioImportScreen() {
                 <Ionicons name="mail-unread-outline" size={19} color={cl.emeraldDeep} />
               </View>
               <View style={styles.rowLeft}>
-                <Text style={styles.rowValue}>FolioLens inbox</Text>
+                <Text style={styles.rowValue}>FolioLens import inbox</Text>
                 <Text style={styles.rowSub}>
                   {autoForwardReady
                     ? 'Ready for future CAMS and KFintech CAS emails.'
