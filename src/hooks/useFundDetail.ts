@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { xirr, buildCashflowsFromTransactions, computeRealizedGains } from '@/src/utils/xirr';
 import type { NavPoint } from '@/src/utils/navUtils';
+import { resolveTRI } from '@/src/utils/benchmarkSymbolMap';
 
 // Pure windowing utils live in navUtils so they can be unit-tested without
 // pulling in React Native / Supabase dependencies.
@@ -152,13 +153,16 @@ export async function fetchFundDetail(fundId: string): Promise<FundDetailData | 
   const { xirrCashflows } = buildCashflowsFromTransactions(txs ?? [], currentValue, new Date());
   const fundXirr = cashflows.length > 0 ? xirr(xirrCashflows) : NaN;
 
-  // Load benchmark index history (if available)
+  // Load benchmark index history (if available). Resolve to TRI symbol so the
+  // chart compares fund NAV (already total-return) against the matching TRI
+  // series — see Phase 8 PRD for the rationale.
   let indexHistory: NavPoint[] = [];
   if (fund.benchmark_index_symbol) {
+    const triSymbol = resolveTRI(fund.benchmark_index_symbol);
     const { data: idxRows } = await supabase
       .from('index_history')
       .select('index_date, close_value')
-      .eq('index_symbol', fund.benchmark_index_symbol)
+      .eq('index_symbol', triSymbol)
       .order('index_date', { ascending: false });
 
     indexHistory = (idxRows ?? []).map((r) => ({

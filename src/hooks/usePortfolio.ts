@@ -19,6 +19,8 @@ import {
   xirr,
   buildCashflowsFromTransactions,
   computeRealizedGains,
+  buildBenchmarkLookup,
+  simulateBenchmarkInvestment,
   type Cashflow,
 } from '@/src/utils/xirr';
 import { useSession } from '@/src/hooks/useSession';
@@ -282,56 +284,33 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
 
   // Market XIRR: apple-to-apple comparison — simulate investing the SAME amounts
   // on the SAME dates in the selected benchmark, then compute XIRR on those flows.
+  // Shares simulateBenchmarkInvestment with the chart so the headline alpha % and
+  // the chart's benchmark line agree on terminal value for the same inputs.
   let marketXirr = NaN;
   if (allCashflows.length > 0 && benchmarkRows?.length) {
     const sortedBenchmark = [...(benchmarkRows ?? [])].sort((a, b) =>
       (a.index_date as string).localeCompare(b.index_date as string),
     );
 
-    // Build a date → close_value lookup with ±7 day fallback for weekends/holidays
-    const benchmarkValueMap = new Map<string, number>();
-    for (const row of sortedBenchmark) {
-      benchmarkValueMap.set(row.index_date as string, row.close_value as number);
-    }
+    const benchmarkValueAt = buildBenchmarkLookup(
+      sortedBenchmark.map((row) => ({
+        date: row.index_date as string,
+        value: row.close_value as number,
+      })),
+    );
 
-    function findNearestBenchmark(dateStr: string): number | null {
-      for (let offset = 0; offset <= 7; offset++) {
-        const d = new Date(dateStr);
-        d.setDate(d.getDate() + offset);
-        const val = benchmarkValueMap.get(d.toISOString().split('T')[0]);
-        if (val) return val;
-        if (offset > 0) {
-          const d2 = new Date(dateStr);
-          d2.setDate(d2.getDate() - offset);
-          const val2 = benchmarkValueMap.get(d2.toISOString().split('T')[0]);
-          if (val2) return val2;
-        }
-      }
-      return null;
-    }
+    const allTransactions = (allTxs ?? []).filter((tx) =>
+      validFunds.some((f) => f.id === tx.fund_id),
+    );
 
-    // Mirror each outflow (investment) into hypothetical benchmark units
-    let benchmarkUnits = 0;
-    const benchmarkFlows: Cashflow[] = [];
-
-    for (const cf of allCashflows) {
-      const dateStr = cf.date.toISOString().split('T')[0];
-      const benchmarkVal = findNearestBenchmark(dateStr);
-      if (!benchmarkVal) continue;
-
-      if (cf.amount < 0) {
-        // Outflow: buy benchmark units worth |amount|
-        benchmarkUnits += Math.abs(cf.amount) / benchmarkVal;
-        benchmarkFlows.push({ date: cf.date, amount: cf.amount });
-      } else {
-        // Inflow (redemption): pass through as a positive cashflow
-        benchmarkFlows.push({ date: cf.date, amount: cf.amount });
-      }
-    }
+    const { benchmarkFlows, finalUnits } = simulateBenchmarkInvestment(
+      allTransactions,
+      benchmarkValueAt,
+    );
 
     const latestBenchmarkEntry = sortedBenchmark[sortedBenchmark.length - 1];
-    if (benchmarkUnits > 0 && latestBenchmarkEntry && benchmarkFlows.length > 0) {
-      const benchmarkTerminalValue = benchmarkUnits * (latestBenchmarkEntry.close_value as number);
+    if (finalUnits > 0 && latestBenchmarkEntry && benchmarkFlows.length > 0) {
+      const benchmarkTerminalValue = finalUnits * (latestBenchmarkEntry.close_value as number);
       benchmarkFlows.push({
         date: new Date(latestBenchmarkEntry.index_date as string),
         amount: benchmarkTerminalValue,

@@ -128,4 +128,40 @@ describe('computeInvestmentVsBenchmarkTimeline', () => {
       xAxisLabels: [],
     });
   });
+
+  // Long histories must be sub-sampled — without this the chart blows past
+  // its 90-point budget and either pegs the device or scrolls horizontally.
+  it('downsamples long histories to fit the chart budget', () => {
+    const navRows: { scheme_code: number; nav_date: string; nav: number }[] = [];
+    const txRows: { fund_id: string; transaction_date: string; transaction_type: string; units: number; amount: number }[] = [];
+    const idxRows: { index_date: string; close_value: number }[] = [];
+
+    // 200 trading days of monotonically increasing NAV + index, with a buy
+    // on every other day so we end up with ~100 timeline rows pre-sampling.
+    const start = new Date('2024-01-01');
+    for (let i = 0; i < 200; i++) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      const date = day.toISOString().split('T')[0];
+      navRows.push({ scheme_code: 100, nav_date: date, nav: 10 + i * 0.1 });
+      idxRows.push({ index_date: date, close_value: 100 + i });
+      if (i % 2 === 0) {
+        txRows.push({
+          fund_id: 'fund-1',
+          transaction_date: date,
+          transaction_type: 'purchase',
+          units: 10,
+          amount: 100,
+        });
+      }
+    }
+
+    const result = computeInvestmentVsBenchmarkTimeline(navRows, txRows, idxRows, [FUND], 'All');
+
+    // Sampler caps output at ~90 points and must always retain the last point.
+    expect(result.points.length).toBeLessThanOrEqual(91);
+    expect(result.points.length).toBeGreaterThan(0);
+    const last = result.points[result.points.length - 1];
+    expect(last.date).toBe(navRows[navRows.length - 1].nav_date);
+  });
 });

@@ -33,6 +33,7 @@ import type { TimeWindow } from '@/src/utils/navUtils';
 import { useSession } from '@/src/hooks/useSession';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
+import { BENCHMARK_DISCLOSURE } from '@/src/utils/benchmarkSymbolMap';
 import { MoneyTrailPreviewCard } from '@/src/components/clearLens/MoneyTrailPreviewCard';
 import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
@@ -628,6 +629,7 @@ export function InvestmentVsBenchmarkChart({
               </TouchableOpacity>
             ))}
           </ScrollView>
+          <Text style={styles.benchmarkDisclosure}>{BENCHMARK_DISCLOSURE}</Text>
         </>
       )}
     </ClearLensCard>
@@ -1208,6 +1210,13 @@ function makeStyles(tokens: ClearLensTokens) {
   },
   rangePillTextActive: {
     color: cl.textOnDark,
+  },
+  benchmarkDisclosure: {
+    ...ClearLensTypography.caption,
+    color: cl.textTertiary,
+    paddingHorizontal: ClearLensSpacing.xs,
+    paddingTop: ClearLensSpacing.sm,
+    lineHeight: 16,
   },
   chartLoading: {
     height: 160,

@@ -4,7 +4,11 @@ import { supabase } from '@/src/lib/supabase';
 import { buildXAxisLabels } from '@/src/hooks/usePerformanceTimeline';
 import { filterToWindow, type NavPoint, type TimeWindow } from '@/src/utils/navUtils';
 import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
-import { filterReversedTransactionPairs } from '@/src/utils/xirr';
+import {
+  buildBenchmarkLookup,
+  filterReversedTransactionPairs,
+  simulateBenchmarkInvestment,
+} from '@/src/utils/xirr';
 import { BENCHMARK_OPTIONS } from '@/src/store/appStore';
 
 export interface InvestmentVsBenchmarkPoint {
@@ -128,28 +132,27 @@ export function computeInvestmentVsBenchmarkTimeline(
     );
   }
 
-  const benchmarkHistory: NavPoint[] = [...idxRows]
-    .sort((a, b) => a.index_date.localeCompare(b.index_date))
-    .map((row) => ({ date: row.index_date, value: row.close_value }));
-
-  const benchmarkByDate = new Map(benchmarkHistory.map((point) => [point.date, point.value]));
-  function benchmarkValueAt(date: string): number | null {
-    const exact = benchmarkByDate.get(date);
-    if (exact !== undefined) return exact;
-    return getLatestAt(benchmarkHistory, date)?.value ?? null;
-  }
+  const benchmarkValueAt = buildBenchmarkLookup(
+    idxRows.map((row) => ({ date: row.index_date, value: row.close_value })),
+  );
 
   const sortedTransactions = filterReversedTransactionPairs(txRows)
     .filter((tx) => fundIds.has(tx.fund_id))
     .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
 
+  // Benchmark sim is shared with the portfolio's headline marketXirr — both
+  // call simulateBenchmarkInvestment so the chart line and the alpha % can't
+  // disagree on terminal value for the same inputs.
+  const { unitsHistory: benchmarkUnitHistory } = simulateBenchmarkInvestment(
+    sortedTransactions,
+    benchmarkValueAt,
+  );
+
   const unitHistory = new Map<string, { date: string; units: number }[]>();
   const investedHistory: { date: string; investedValue: number }[] = [];
-  const benchmarkUnitHistory: { date: string; units: number }[] = [];
   const fundUnits = new Map<string, number>();
   const fundCost = new Map<string, number>();
   let totalInvested = 0;
-  let benchmarkUnits = 0;
 
   for (const fund of funds) {
     unitHistory.set(fund.id, []);
@@ -161,7 +164,6 @@ export function computeInvestmentVsBenchmarkTimeline(
     const date = tx.transaction_date;
     const previousUnits = fundUnits.get(tx.fund_id) ?? 0;
     const previousCost = fundCost.get(tx.fund_id) ?? 0;
-    const closeValue = benchmarkValueAt(date);
 
     if (isInvestment(tx.transaction_type)) {
       const nextUnits = previousUnits + tx.units;
@@ -169,9 +171,6 @@ export function computeInvestmentVsBenchmarkTimeline(
       fundUnits.set(tx.fund_id, nextUnits);
       fundCost.set(tx.fund_id, nextCost);
       totalInvested += tx.amount;
-      if (closeValue && closeValue > 0) {
-        benchmarkUnits += tx.amount / closeValue;
-      }
     } else if (isRedemption(tx.transaction_type)) {
       const averageCost = previousUnits > 0 ? previousCost / previousUnits : 0;
       const costBasis = tx.units * averageCost;
@@ -180,14 +179,10 @@ export function computeInvestmentVsBenchmarkTimeline(
       fundUnits.set(tx.fund_id, nextUnits);
       fundCost.set(tx.fund_id, nextCost);
       totalInvested = Math.max(0, totalInvested - costBasis);
-      if (closeValue && closeValue > 0) {
-        benchmarkUnits = Math.max(0, benchmarkUnits - (tx.amount / closeValue));
-      }
     }
 
     unitHistory.get(tx.fund_id)!.push({ date, units: fundUnits.get(tx.fund_id) ?? 0 });
     investedHistory.push({ date, investedValue: totalInvested });
-    benchmarkUnitHistory.push({ date, units: benchmarkUnits });
     allDates.add(date);
   }
 

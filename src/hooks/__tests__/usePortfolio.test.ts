@@ -267,6 +267,53 @@ describe('fetchPortfolioData()', () => {
     expect(Math.abs(card.returnXirr)).toBeLessThan(100);
   });
 
+  // Regression — the chart's "Nifty TRI" line and the headline alpha used to
+  // disagree because marketXirr did NOT decrement simulated benchmark units on
+  // redemption, while the chart did. With the same purchases-then-redemption
+  // history the bug overstated marketXirr → user got "behind benchmark by X%"
+  // even when the chart visibly showed them ahead. Both paths now share
+  // simulateBenchmarkInvestment, so they must agree on the sign of the alpha.
+  it('marketXirr accounts for redemption — does not overstate benchmark return after sells', async () => {
+    // Setup: index doubles 100 → 200 over a year. User buys 1L on Jan 1, then
+    // sells half the realised value (~100k) on July 1. Final invested = 1L.
+    const longTxs = [
+      { fund_id: 'fund-1', transaction_date: '2023-01-01', transaction_type: 'purchase', units: 1000, amount: 100000 },
+      // 50% redemption mid-year — at index 150, this should sell ~666 benchmark units
+      // Without the fix, marketXirr keeps all 1000 units → terminal value
+      // overstated by ~50% → marketXirr much higher than reality.
+      { fund_id: 'fund-1', transaction_date: '2023-07-01', transaction_type: 'redemption', units: 500, amount: 100000 },
+    ];
+    const longNav = [
+      { scheme_code: 12345, nav_date: '2024-01-01', nav: 200 },
+      { scheme_code: 12345, nav_date: '2023-12-31', nav: 198 },
+    ];
+    const longIndex = [
+      { index_date: '2023-01-01', close_value: 100 },
+      { index_date: '2023-07-01', close_value: 150 },
+      { index_date: '2024-01-01', close_value: 200 },
+    ];
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
+      if (table === 'transaction') return makeChain({ data: longTxs, error: null });
+      if (table === 'nav_history') return makeChain({ data: longNav, error: null });
+      if (table === 'index_history') return makeChain({ data: longIndex, error: null });
+      return makeChain({ data: [], error: null });
+    });
+
+    const result = await fetchPortfolioData('user-1', '^NSEI');
+    const marketXirr = result.summary!.marketXirr;
+    expect(isFinite(marketXirr)).toBe(true);
+
+    // Buggy code keeps all 1000 benchmark units → terminal = 1000 × 200 = 200000,
+    // flows [-100k @ 0, +100k @ 0.5y, +200k @ 1y] → XIRR = 300% p.a.
+    // Fixed code sells 100000/150 ≈ 666.67 units on redemption → terminal ≈ 66666,
+    // giving XIRR ≈ 113% p.a. The cap below catches any regression that
+    // re-introduces the inflation while leaving plenty of slack for the
+    // legitimate value.
+    expect(marketXirr).toBeLessThan(2.0);
+  });
+
   it('marketXirr is NaN when index history is empty (no benchmark data)', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'fund') return makeChain({ data: MOCK_FUNDS, error: null });
