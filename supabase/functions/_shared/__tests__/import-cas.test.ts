@@ -631,4 +631,94 @@ describe('importCASData()', () => {
     expect(result.fundsUpdated).toBe(1);
     expect(result.errors).toHaveLength(0);
   });
+
+  // ── Phantom rows: SWITCH_IN/SWITCH_OUT with units > 0 but amount = 0 ──────
+  // casparser sometimes surfaces statement-level "balance forward" markers
+  // as switch_in/switch_out with non-zero units but zero rupees. Importing
+  // those creates phantom holdings — the user's home screen suddenly shows
+  // funds they fully redeemed years ago, with absurd current values
+  // (units * NAV with no offsetting cost basis → +159k% gain).
+
+  it('drops a phantom SWITCH_IN with units > 0 and amount = 0', async () => {
+    const { supabase, getUpsertedRows } = buildMockSupabase();
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+      // The phantom row — non-zero units, zero amount
+      { date: '2024-06-01', type: 'SWITCH_IN', units: 479.242, amount: 0, nav: 0 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    const rows = getUpsertedRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].transaction_type).toBe('purchase');
+    // The phantom row must NOT make it through
+    expect(rows.every((r) => r.transaction_type !== 'switch_in')).toBe(true);
+  });
+
+  it('drops a phantom SWITCH_OUT with units > 0 and amount = 0', async () => {
+    const { supabase, getUpsertedRows } = buildMockSupabase();
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+      { date: '2024-06-01', type: 'SWITCH_OUT', units: 50, amount: 0, nav: 0 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    const rows = getUpsertedRows();
+    expect(rows).toHaveLength(1);
+    expect(rows.every((r) => r.transaction_type !== 'switch_out')).toBe(true);
+  });
+
+  it('drops a phantom row with null amount (parser returned undefined)', async () => {
+    const { supabase, getUpsertedRows } = buildMockSupabase();
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'PURCHASE', units: 100, amount: 10000, nav: 100 },
+      // amount: null → Math.abs(null ?? 0) = 0, must be dropped just like an explicit 0
+      { date: '2024-06-01', type: 'SWITCH_IN', units: 200, amount: null as unknown as number, nav: 0 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    expect(getUpsertedRows()).toHaveLength(1);
+  });
+
+  it('preserves a real SWITCH_IN that has both units AND amount', async () => {
+    const { supabase, getUpsertedRows } = buildMockSupabase();
+
+    const parsed = minimalCAS([
+      { date: '2024-01-10', type: 'SWITCH_IN', units: 100, amount: 12000, nav: 120 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    const rows = getUpsertedRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].transaction_type).toBe('switch_in');
+    expect(rows[0].amount).toBe(12000);
+  });
+
+  it('reproduces the user-reported scenario: phantom switch_in alongside a real switch_out drops only the phantom', async () => {
+    const { supabase, getUpsertedRows } = buildMockSupabase();
+
+    // Scenario from dev DB on 2026-03-09 — DSP Large Cap had a real partial
+    // switch_out on the same day as a phantom switch_in.
+    const parsed = minimalCAS([
+      { date: '2024-03-07', type: 'PURCHASE', units: 5.92, amount: 2499.88, nav: 422 },
+      { date: '2026-03-09', type: 'SWITCH_IN', units: 479.242, amount: 0, nav: 0 },
+      { date: '2026-03-09', type: 'SWITCH_OUT', units: 10.076, amount: 5000, nav: 496 },
+    ]);
+
+    await importCASData(supabase, 'user-1', 'import-1', parsed);
+
+    const rows = getUpsertedRows();
+    // Real purchase + real switch_out kept; phantom switch_in dropped
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.transaction_type === 'switch_in')).toBeUndefined();
+    expect(rows.find((r) => r.transaction_type === 'switch_out')).toBeDefined();
+    expect(rows.find((r) => r.transaction_type === 'purchase')).toBeDefined();
+  });
 });

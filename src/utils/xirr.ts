@@ -180,8 +180,25 @@ export function filterReversedTransactionPairs<T extends ReversalPairCandidate>(
   transactions: T[],
 ): T[] {
   const paired = findReversedTransactionPairIndexes(transactions);
-  if (paired.size === 0) return transactions;
-  return transactions.filter((_, index) => !paired.has(index));
+  // Drop "balance forward" phantoms surfaced by some CAS PDFs where casparser
+  // tags a statement-level marker as SWITCH_IN/SWITCH_OUT with units > 0 but
+  // amount = 0. The import path filters these at write time, but this
+  // defense-in-depth pass keeps any rows already persisted from corrupting
+  // netUnits → currentValue → XIRR. amount = 0 on a buy/sell/switch is
+  // never a real economic event in our schema.
+  return transactions.filter((tx, index) => {
+    if (paired.has(index)) return false;
+    if (isPhantomZeroAmount(tx)) return false;
+    return true;
+  });
+}
+
+function isPhantomZeroAmount(tx: ReversalPairCandidate): boolean {
+  const type = normalizeTransactionType(tx.transaction_type);
+  if (type !== 'switch_in' && type !== 'switch_out') return false;
+  const units = positiveNumber(tx.units);
+  if (units == null) return false;
+  return positiveNumber(tx.amount) == null;
 }
 
 function isReversalPairPurchase(type: string): boolean {
