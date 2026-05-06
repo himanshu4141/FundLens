@@ -10,4 +10,11 @@ This directory contains product requirements, design assets, and project plans f
 | [fundlens-tools-hub-project-plan.md](fundlens-tools-hub-project-plan.md) | Milestone breakdown and delivery sequence for Tools Hub |
 | [fundlens-tools-hub-design.png](fundlens-tools-hub-design.png) | Design mockup showing Tools Hub screens and milestone layouts |
 
+
+## Phase 8 — Total Return benchmarks
+
+| File | Description |
+|---|---|
+| [total-return-benchmarks-prd.md](total-return-benchmarks-prd.md) | PRD — product reasoning for replacing every benchmark surface in FolioLens with total-return (TRI) indices. Implementation tracked in `docs/plans/phase-8-total-return-benchmarks/`. |
+
 The design image (`fundlens-tools-hub-design.png`) is the source-of-truth visual reference. It was provided during the Tools Hub planning session and shows M0 through M4 screen layouts alongside the PRD and milestone roadmap.

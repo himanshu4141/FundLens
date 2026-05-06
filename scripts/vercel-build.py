@@ -51,6 +51,15 @@ def main() -> int:
     command = shlex.split(
         os.environ.get("VERCEL_BUILD_COMMAND", "npx expo export --platform web")
     )
+
+    # Gate Vercel Web Analytics + Speed Insights to "real" deploys: the PROD
+    # project's tag-pushed deploy and the DEV project's main-merge deploy
+    # (both report VERCEL_ENV=production). Per-PR previews on the DEV project
+    # report VERCEL_ENV=preview and stay quiet.
+    build_env = os.environ.copy()
+    if build_env.get("VERCEL_ENV") == "production":
+        build_env["EXPO_PUBLIC_ENABLE_INSIGHTS"] = "1"
+
     proc = subprocess.Popen(
         command,
         cwd=ROOT,
@@ -59,6 +68,7 @@ def main() -> int:
         text=True,
         bufsize=1,
         start_new_session=True,
+        env=build_env,
     )
 
     exported_at: float | None = None
