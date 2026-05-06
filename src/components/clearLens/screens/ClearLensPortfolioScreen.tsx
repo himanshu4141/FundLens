@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import {
@@ -31,7 +30,6 @@ import { useMoneyTrail } from '@/src/hooks/useMoneyTrail';
 import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
 import type { TimeWindow } from '@/src/utils/navUtils';
 import { useSession } from '@/src/hooks/useSession';
-import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
 import { BENCHMARK_DISCLOSURE } from '@/src/utils/benchmarkSymbolMap';
 import { MoneyTrailPreviewCard } from '@/src/components/clearLens/MoneyTrailPreviewCard';
@@ -67,8 +65,6 @@ const JOURNEY_TOOLTIP_WIDTH = 226;
 const JOURNEY_TOOLTIP_HEIGHT = 112;
 const JOURNEY_WINDOWS: TimeWindow[] = ['1M', '3M', '6M', '1Y', '3Y', 'All'];
 const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
-
-type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 function toneForValue(value: number): 'positive' | 'negative' {
   return value >= 0 ? 'positive' : 'negative';
@@ -872,34 +868,6 @@ function ClearLensPortfolioScreenMobile() {
   const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const { defaultBenchmarkSymbol, setDefaultBenchmarkSymbol } = useAppStore();
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const [syncState, setSyncState] = useState<SyncState>('idle');
-
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile', userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('user_profile')
-        .select('kfintech_email')
-        .eq('user_id', userId!)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!userId,
-  });
-
-  async function handleSync() {
-    if (!profile?.kfintech_email) {
-      router.push('/onboarding');
-      return;
-    }
-    setSyncState('syncing');
-    const { error } = await supabase.functions.invoke('request-cas', {
-      method: 'POST',
-      body: { email: profile.kfintech_email },
-    });
-    setSyncState(error ? 'error' : 'requested');
-    setTimeout(() => setSyncState('idle'), 4000);
-  }
 
   const { data, isLoading, isError, refetch, isRefetching } = usePortfolio(defaultBenchmarkSymbol);
   const fundCards = useMemo(() => data?.fundCards ?? [], [data?.fundCards]);
@@ -920,25 +888,12 @@ function ClearLensPortfolioScreenMobile() {
       />
       <AppOverflowMenu
         visible={overflowOpen}
-        syncState={syncState}
         onClose={() => setOverflowOpen(false)}
-        onSync={handleSync}
-        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onImport={() => router.push('/onboarding')}
         onMoneyTrail={() => router.push('/money-trail')}
         onSettings={() => router.push('/(tabs)/settings')}
         onTools={() => router.push('/tools' as never)}
       />
-
-      {syncState === 'requested' && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>CAS requested. Forward the email to your FolioLens import address.</Text>
-        </View>
-      )}
-      {syncState === 'error' && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>Sync failed. Please try again.</Text>
-        </View>
-      )}
 
       {isLoading ? (
         <View style={styles.centered}>

@@ -19,7 +19,7 @@ interface UploadResponse {
  * Upload a CAS PDF to the parse-cas-pdf Supabase Edge Function.
  *
  * Used both by the onboarding wizard (Step 3 - Upload path) and by the
- * standalone /onboarding/pdf screen reachable from Settings → Restart import.
+ * standalone /onboarding/pdf screen and the onboarding import wizard.
  *
  * Throws with a user-facing message on any failure (auth, network, parse,
  * server-side error). Callers should surface `error.message` directly.

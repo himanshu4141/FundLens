@@ -223,6 +223,9 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
   - Last refresh timestamp + source ("via auto-refresh" / "via upload").
   - When `cas_auto_forward_setup_completed_at` is non-null: status reads "Auto-forward ready for future CAMS / KFintech emails".
   - When `cas_inbox_confirmation_url` is non-null and setup is not completed: a "Confirm Gmail forwarding" button opens the URL in `expo-web-browser` (native) / new tab (web).
+- Settings → Portfolio import:
+  - Reads the Resend inbox address from `user_profile.cas_inbox_token` rather than the retired CASParser inbound-session API.
+  - Shows auto-forward readiness, pending Gmail verification, latest import source/status, and opens the M1 import wizard for both setup review and manual PDF fallback.
 - After M1.5's Done step, single-card nudge with the same Step 3 card content.
 - All colors via tokens; styles via `makeStyles(tokens)`. Verify in light + dark + system, on mobile + desktop.
 
@@ -267,6 +270,12 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
 - Migration applies cleanly to dev and prod via the existing `supabase-deploy-{dev,prod}.yml` workflows.
 - One real CAMS email and one real KFintech email each round-trip end-to-end during M2.7 manual validation.
 
+## Amendments
+
+- 2026-05-06 — Removed the Clear Lens "Sync portfolio" quick action because FolioLens no longer programmatically asks an RTA to email a CAS. Mobile overflow and desktop sidebar now expose one `Import portfolio` action that opens the onboarding import flow.
+- 2026-05-06 — Reworked Settings → Portfolio import away from the old CASParser inbound session model. The screen now uses the Resend inbox token, shows auto-forward setup state, and routes manual PDF upload through the newer onboarding import flow instead of deep-linking to `/onboarding/pdf`.
+- 2026-05-06 — Removed the unused client hook and tests for `create-inbound-session`. The Edge Functions themselves remain for the explicit M2.6 retirement cleanup.
+
 ## Risks And Mitigations
 
 - **Risk**: Resend Inbound has a delivery hiccup and emails are silently dropped. **Mitigation**: log every webhook fire to `cas_import` with the raw payload (hash) so we can reconcile against Resend's dashboard.
@@ -284,6 +293,7 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
 - 2026-05-05 — Subdomain namespacing (`dev.foliolens.in` for dev, `foliolens.in` for prod) was chosen for env differentiation, then superseded by the 2026-05-06 router decision after Resend free-plan testing showed subdomains count as separate domains.
 - 2026-05-05 — **(M2.0 outcome)** Chose hybrid path for the auto-refresh card: manual forward as universal default, opt-in auto-forward instructions per client family (Gmail with confirmation-link surfacing, Outlook with no extra steps, iCloud + Yahoo skip auto-forward entirely). Reasoning: manual works for everyone with zero friction; Outlook is free for users; Gmail's verification-link tedium is gated behind an opt-in expander rather than the default. Drops the 2026-05-04 "no Gmail verification" decision because the captured-URL + UI-button pattern turned out to be cheaper than I'd assumed.
 - 2026-05-06 — Revised inbound architecture after Resend free-plan testing: subdomains count as extra domains, so Resend now owns apex inbound for `foliolens.in`; a PROD Vercel router handles human aliases plus dev/prod CAS dispatch. CAS addresses are `cas-dev-<token>@foliolens.in` for dev and `cas-<token>@foliolens.in` for prod.
+- 2026-05-06 — Removed the old "Sync portfolio" product language from app navigation. Refresh now means either auto-forwarded future CAS emails or opening the import flow for a manual upload/setup review.
 
 ## Progress
 
@@ -293,5 +303,5 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
 - [x] M2.3 — `cas-webhook-resend` Edge Function with env-driven `INBOUND_DOMAIN` (PR #93)
 - [x] M2.4 — Hybrid auto-refresh card on wizard Step 3 + `cas_inbox_confirmation_url` migration + Gmail verification capture in webhook + opportunistic clear after successful CAS import + Settings → Auto-refresh row + post-import nudge on Done step (PR #93, stacked on top of #92)
 - [x] M2.5 — Settings → Account "Auto-refresh inbox" row with address + Copy + last-refresh timestamp + Confirm Gmail button when verification URL pending (PR #93, folded into M2.4)
-- [ ] M2.6 — Retire CASParser code paths (separate PR after PR #93 merges)
+- [ ] M2.6 — Retire CASParser code paths (PR #93 removed app call sites and the unused `create-inbound-session` hook; deleting the old Edge Functions and secrets remains a separate cleanup)
 - [x] M2.7 — Tests for Gmail verification helpers (`supabase/functions/_shared/gmail-verification.ts`, 100% coverage); real-email round-trip is operator validation per `SETUP.md` §3

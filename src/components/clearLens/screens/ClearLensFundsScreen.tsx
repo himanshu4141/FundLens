@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import Svg, { Polygon, Polyline } from 'react-native-svg';
 import { AppOverflowMenu } from '@/src/components/AppOverflowMenu';
 import {
@@ -24,7 +23,6 @@ import {
 import { usePortfolio, type FundCardData } from '@/src/hooks/usePortfolio';
 import { usePortfolioInsights } from '@/src/hooks/usePortfolioInsights';
 import { useSession } from '@/src/hooks/useSession';
-import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/appStore';
 import { formatCurrency } from '@/src/utils/formatting';
 import { formatXirr } from '@/src/utils/xirr';
@@ -50,7 +48,6 @@ import { ClearLensFundsScreenDesktop } from '@/src/components/clearLens/screens/
 type SortOption = 'currentValue' | 'invested' | 'xirr' | 'benchmarkLead' | 'dailyChange' | 'alphabetical';
 type AllocationSegment = { id: string; pct: number; color: string };
 type FundsBottomNavRoute = 'portfolio' | 'funds' | 'wealth';
-type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 const CLEAR_LENS_RED = ClearLensSemanticColors.sentiment.negative;
 const CLEAR_LENS_DEBT = ClearLensSemanticColors.asset.debt;
@@ -441,30 +438,15 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const router = useRouter();
   const { session } = useSession();
-  const userId = session?.user.id;
   const accountMetadata = session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
   const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const { defaultBenchmarkSymbol } = useAppStore();
   const [sortBy, setSortBy] = useState<SortOption>('currentValue');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const [syncState, setSyncState] = useState<SyncState>('idle');
   const [expandedFundId, setExpandedFundId] = useState<string | null>(null);
   const didAutoExpand = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile', userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('user_profile')
-        .select('kfintech_email')
-        .eq('user_id', userId!)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!userId,
-  });
 
   const { data, isLoading } = usePortfolio(defaultBenchmarkSymbol);
   const fundCards = useMemo(() => data?.fundCards ?? [], [data?.fundCards]);
@@ -549,20 +531,6 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
     [allocationPctByFundId, valueSortedFunds, tokens.semantic.fundAllocation],
   );
 
-  async function handleSync() {
-    if (!profile?.kfintech_email) {
-      router.push('/onboarding');
-      return;
-    }
-    setSyncState('syncing');
-    const { error } = await supabase.functions.invoke('request-cas', {
-      method: 'POST',
-      body: { email: profile.kfintech_email },
-    });
-    setSyncState(error ? 'error' : 'requested');
-    setTimeout(() => setSyncState('idle'), 4000);
-  }
-
   return (
     <ClearLensScreen>
       <ClearLensHeader
@@ -572,10 +540,8 @@ function ClearLensFundsScreenMobile({ insideTab = false }: { insideTab?: boolean
       />
       <AppOverflowMenu
         visible={overflowOpen}
-        syncState={syncState}
         onClose={() => setOverflowOpen(false)}
-        onSync={handleSync}
-        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onImport={() => router.push('/onboarding')}
         onMoneyTrail={() => router.push('/money-trail')}
         onTools={() => router.push('/tools' as never)}
         onSettings={() => router.push('/(tabs)/settings')}
