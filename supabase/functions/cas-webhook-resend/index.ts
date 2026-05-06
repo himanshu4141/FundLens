@@ -343,7 +343,7 @@ function buildImportNotificationVariables({
   funds: number;
   transactions: number;
   errors: string[];
-}): Record<string, string | number> {
+}): Record<string, string> {
   const success = status === 'success';
   const title = success ? 'Your CAS import is ready' : 'Your CAS could not be imported';
   const intro = success
@@ -351,14 +351,17 @@ function buildImportNotificationVariables({
     : 'We received your CAS email, but the PDF could not be imported into your portfolio.';
   const problem = errors.length > 0 ? errors[0] : 'No importable transactions were found.';
 
+  // Resend template variables must be strings — even though the API docs
+  // claim numbers are accepted, the runtime returns 422 validation_error
+  // ("Variable X must be a `string`") on numeric values.
   return {
     STATUS_LABEL: success ? 'Imported' : 'Needs attention',
     STATUS_BG: success ? '#E7FAF2' : '#FEEDEE',
     STATUS_TEXT_COLOR: success ? '#0EA372' : '#B91C1C',
     TITLE: safeTemplateValue(title),
     INTRO: safeTemplateValue(intro),
-    FUNDS_UPDATED: funds,
-    TRANSACTIONS_IMPORTED: transactions,
+    FUNDS_UPDATED: String(funds),
+    TRANSACTIONS_IMPORTED: String(transactions),
     DETAIL_LABEL: success ? 'What changed' : 'Reason',
     DETAIL_TEXT: safeTemplateValue(
       success
@@ -429,7 +432,15 @@ async function sendImportNotification({
     console.log('[cas-webhook-resend] notification sent, import_id=%s, status=%s', importId, status);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[cas-webhook-resend] notification failed: %s', msg);
+    // The import itself succeeded/failed independently — this only means
+    // the user didn't get a status email. Log at error so it stands out
+    // in the dashboard log explorer when grepping by import_id.
+    console.error(
+      '[cas-webhook-resend] DROPPED notification_failed: import_id=%s, status=%s, error=%s',
+      importId,
+      status,
+      msg,
+    );
   }
 }
 
