@@ -31,15 +31,22 @@ export async function uploadCasPdf(
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
   if (!token) {
+    console.warn('[cas-upload] no_session_token');
     throw new Error('Session expired. Please sign in again.');
   }
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) throw new Error('Supabase URL is not configured.');
+  if (!supabaseUrl) {
+    console.error('[cas-upload] supabase_url_not_configured');
+    throw new Error('Supabase URL is not configured.');
+  }
   const url = `${supabaseUrl}/functions/v1/parse-cas-pdf`;
 
   const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!publishableKey) throw new Error('Supabase publishable key is not configured.');
+  if (!publishableKey) {
+    console.error('[cas-upload] publishable_key_not_configured');
+    throw new Error('Supabase publishable key is not configured.');
+  }
 
   const trimmedPassword = customPassword?.trim() ? customPassword.trim() : undefined;
   const headers: Record<string, string> = {
@@ -50,6 +57,14 @@ export async function uploadCasPdf(
     ...(trimmedPassword ? { 'x-password-override': trimmedPassword } : {}),
   };
 
+  console.log('[cas-upload] dispatch', {
+    platform: Platform.OS,
+    file_name: asset.name ?? 'cas.pdf',
+    declared_size: asset.size ?? null,
+    has_password_override: !!trimmedPassword,
+    target_host: new URL(url).host,
+  });
+
   if (Platform.OS === 'web') {
     return uploadWebPdf(asset, url, headers);
   }
@@ -58,16 +73,34 @@ export async function uploadCasPdf(
 
 function parseUploadResponse(status: number, bodyText: string): CasUploadResult {
   let body: UploadResponse = {};
+  let parseFailed = false;
   try {
     body = bodyText ? (JSON.parse(bodyText) as UploadResponse) : {};
   } catch {
+    parseFailed = true;
+  }
+
+  if (parseFailed) {
+    console.warn('[cas-upload] response_not_json', {
+      status,
+      body_prefix: bodyText.slice(0, 200),
+    });
     throw new Error(`Import failed (${status})`);
   }
 
   if (status >= 200 && status < 300) {
+    console.log('[cas-upload] response_ok', {
+      status,
+      funds: body.funds ?? 0,
+      transactions: body.transactions ?? 0,
+    });
     return { funds: body.funds ?? 0, transactions: body.transactions ?? 0 };
   }
 
+  console.warn('[cas-upload] response_error', {
+    status,
+    server_error: body.error ?? null,
+  });
   throw new Error(body.error ?? `Import failed (${status})`);
 }
 

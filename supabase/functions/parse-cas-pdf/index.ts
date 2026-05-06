@@ -137,8 +137,25 @@ Deno.serve(async (req) => {
     if (!CAS_PARSER_SHARED_SECRET) {
       throw new Error('CAS parser secret is not configured');
     }
-    console.log('[parse-cas-pdf] parser_url=%s', parserUrl);
 
+    // Diagnostic context — helps debug 401s from the upstream Vercel parser.
+    // We log the resolved URL, the *prefix* of the shared secret (first 4
+    // chars + length) so a value mismatch between Supabase Edge and the
+    // Vercel project's env can be spotted in logs without fully exposing
+    // either side, and whether a Vercel protection bypass token was sent.
+    const secretPrefix = CAS_PARSER_SHARED_SECRET.slice(0, 4);
+    console.log(
+      '[parse-cas-pdf] parser_call url=%s, secret_prefix=%s***, secret_len=%d, vercel_bypass_set=%s, file=%s, pdf_bytes=%d, has_cdsl_password=%s',
+      parserUrl,
+      secretPrefix,
+      CAS_PARSER_SHARED_SECRET.length,
+      VERCEL_PROTECTION_BYPASS_TOKEN ? 'true' : 'false',
+      fileName,
+      pdfBytesRaw.byteLength,
+      cdslPassword ? 'true' : 'false',
+    );
+
+    const parserStartedAt = Date.now();
     const parserRes = await fetch(parserUrl, {
       method: 'POST',
       headers: {
@@ -153,13 +170,38 @@ Deno.serve(async (req) => {
       },
       body: pdfBytesRaw,
     });
+    const parserElapsed = Date.now() - parserStartedAt;
 
-    const parserBody = await parserRes.json().catch(() => ({})) as {
-      error?: string;
-      mutual_funds?: unknown[];
-    };
+    // Capture the raw response body once. We need the text either way: a
+    // 200 path parses it as JSON, a non-OK path logs a truncated prefix so
+    // we can tell apart Vercel deployment-protection HTML (auth wall) from
+    // the parser route's own JSON 401 body.
+    const rawBody = await parserRes.text();
+    let parserBody: { error?: string; mutual_funds?: unknown[] } = {};
+    let bodyParseError: string | null = null;
+    try {
+      parserBody = rawBody ? JSON.parse(rawBody) : {};
+    } catch (jsonErr) {
+      bodyParseError = jsonErr instanceof Error ? jsonErr.message : String(jsonErr);
+    }
+
+    console.log(
+      '[parse-cas-pdf] parser_response status=%d, content_type=%s, body_len=%d, json_ok=%s, elapsed_ms=%d',
+      parserRes.status,
+      parserRes.headers.get('content-type') ?? 'unknown',
+      rawBody.length,
+      bodyParseError ? 'false' : 'true',
+      parserElapsed,
+    );
 
     if (!parserRes.ok) {
+      // On non-OK, log the body prefix so the user can tell whether it's
+      // an HTML auth-wall page or a JSON parser-route rejection.
+      console.warn(
+        '[parse-cas-pdf] parser_non_ok status=%d body_prefix=%s',
+        parserRes.status,
+        rawBody.slice(0, 240).replace(/\s+/g, ' '),
+      );
       throw new Error(parserBody.error ?? `Parser request failed with status ${parserRes.status}`);
     }
 

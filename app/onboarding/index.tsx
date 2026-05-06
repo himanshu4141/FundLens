@@ -179,6 +179,17 @@ function OnboardingWizard() {
         initialStep = 'import';
       }
 
+      console.log('[onboarding:wizard] hydrated', {
+        platform: Platform.OS,
+        initial_step: initialStep,
+        saved_step: saved?.step ?? null,
+        profile_present: !!profile,
+        profile_has_pan: !!profile?.pan,
+        profile_has_dob: !!profile?.dob,
+        profile_has_kfintech_email: !!profile?.kfintech_email,
+        draft_seeded_from_storage: !!saved,
+      });
+
       dispatch({
         type: 'hydrate',
         draft: { ...merged, step: initialStep },
@@ -201,27 +212,37 @@ function OnboardingWizard() {
   const currentIndex = STEP_ORDER.indexOf(draft.step);
 
   function handleAdvance() {
+    let next: OnboardingStep | null = null;
     if (draft.step === 'welcome') {
-      // Skip Identity entirely if both fields already saved.
-      if (profile?.pan && profile.dob) {
-        return dispatch({ type: 'goto', step: 'import' });
-      }
-      return dispatch({ type: 'goto', step: 'identity' });
+      next = profile?.pan && profile.dob ? 'import' : 'identity';
+    } else if (draft.step === 'identity') {
+      next = 'import';
     }
-    if (draft.step === 'identity') return dispatch({ type: 'goto', step: 'import' });
+    if (next) {
+      console.log('[onboarding:wizard] advance', { from: draft.step, to: next });
+      dispatch({ type: 'goto', step: next });
+    }
   }
 
   function handleBack() {
-    if (draft.step === 'identity') return dispatch({ type: 'goto', step: 'welcome' });
-    if (draft.step === 'import') {
-      if (profile?.pan && profile.dob) {
-        return dispatch({ type: 'goto', step: 'welcome' });
-      }
-      return dispatch({ type: 'goto', step: 'identity' });
+    let prev: OnboardingStep | null = null;
+    if (draft.step === 'identity') {
+      prev = 'welcome';
+    } else if (draft.step === 'import') {
+      prev = profile?.pan && profile.dob ? 'welcome' : 'identity';
+    }
+    if (prev) {
+      console.log('[onboarding:wizard] back', { from: draft.step, to: prev });
+      dispatch({ type: 'goto', step: prev });
     }
   }
 
   async function handleFinish() {
+    console.log('[onboarding:wizard] finish', {
+      imported: !!draft.importResult,
+      funds: draft.importResult?.funds ?? 0,
+      transactions: draft.importResult?.transactions ?? 0,
+    });
     await clearOnboardingDraft();
     router.replace('/(tabs)');
   }
@@ -439,15 +460,32 @@ function IdentityStep({
       kfintech_email: draft.email,
     };
 
+    console.log('[onboarding:identity] upsert_start', {
+      pan_locked: panLocked,
+      dob_locked: dobLocked,
+      pan_changed: !panLocked && draft.pan.length === 10,
+      dob_being_set: !dobLocked && !!dobValue,
+      kfintech_email_present: !!draft.email,
+    });
+
+    const startedAt = Date.now();
     const { error: upsertError } = await supabase
       .from('user_profile')
       .upsert(upsertPayload, { onConflict: 'user_id' });
+    const elapsedMs = Date.now() - startedAt;
 
     setSaving(false);
     if (upsertError) {
+      console.warn('[onboarding:identity] upsert_failed', {
+        message: upsertError.message,
+        code: upsertError.code,
+        details: upsertError.details,
+        elapsed_ms: elapsedMs,
+      });
       setError(upsertError.message || 'Could not save your details. Try again.');
       return;
     }
+    console.log('[onboarding:identity] upsert_ok', { elapsed_ms: elapsedMs });
     queryClient.invalidateQueries({ queryKey: ['user-profile', session.user.id] });
     onContinue();
   }
@@ -632,7 +670,7 @@ function ImportStep({
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
       if (appState.current === 'background' && next === 'active' && browserVisited) {
-        // No state change needed — banner condition is already true.
+        console.log('[onboarding:portal] returned_to_foreground_after_browser');
       }
       appState.current = next;
     });
@@ -648,21 +686,49 @@ function ImportStep({
         copyToCacheDirectory: true,
         base64: false,
       });
-    } catch {
+    } catch (pickerErr) {
+      console.warn('[onboarding:upload] picker_threw', {
+        message: pickerErr instanceof Error ? pickerErr.message : String(pickerErr),
+      });
       return;
     }
-    if (picked.canceled || !picked.assets?.[0]) return;
+    if (picked.canceled || !picked.assets?.[0]) {
+      console.log('[onboarding:upload] picker_cancelled', { canceled: picked.canceled });
+      return;
+    }
+
+    const asset = picked.assets[0];
+    console.log('[onboarding:upload] start', {
+      platform: Platform.OS,
+      file_name: asset.name,
+      size_bytes: asset.size ?? null,
+      mime: asset.mimeType ?? null,
+      sub: sub,
+    });
 
     setUploading(true);
+    const startedAt = Date.now();
     try {
-      const result = await uploadCasPdf(picked.assets[0]);
+      const result = await uploadCasPdf(asset);
+      const elapsed = Date.now() - startedAt;
+      console.log('[onboarding:upload] success', {
+        funds: result.funds,
+        transactions: result.transactions,
+        elapsed_ms: elapsed,
+      });
       dispatch({
         type: 'import_complete',
         funds: result.funds,
         transactions: result.transactions,
       });
     } catch (err) {
+      const elapsed = Date.now() - startedAt;
       const msg = err instanceof Error ? err.message : 'Upload failed.';
+      console.warn('[onboarding:upload] failed', {
+        message: msg,
+        elapsed_ms: elapsed,
+        likely_read_error: /read/i.test(msg),
+      });
       setError(
         /read/i.test(msg)
           ? 'Could not read the PDF file. Re-download and try again.'
@@ -674,6 +740,12 @@ function ImportStep({
   }
 
   async function handleOpenPortal(url: string) {
+    const portalId = PORTAL_OPTIONS.find((p) => p.url === url)?.id ?? 'unknown';
+    console.log('[onboarding:portal] open', {
+      portal_id: portalId,
+      platform: Platform.OS,
+      mode: Platform.OS === 'web' ? 'new_tab' : 'in_app_browser',
+    });
     try {
       setBrowserVisited(true);
       if (Platform.OS === 'web') {
@@ -684,6 +756,10 @@ function ImportStep({
         });
       }
     } catch (err) {
+      console.warn('[onboarding:portal] open_failed', {
+        portal_id: portalId,
+        message: err instanceof Error ? err.message : String(err),
+      });
       Alert.alert('Could not open portal', err instanceof Error ? err.message : 'Try again.');
     }
   }
