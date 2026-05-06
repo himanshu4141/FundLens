@@ -50,6 +50,10 @@ import {
 import type { AppColors } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
 import { BENCHMARK_OPTIONS, useAppStore } from '@/src/store/appStore';
+import {
+  BENCHMARK_DISCLOSURE,
+  fundDetailBenchmarkOptions,
+} from '@/src/utils/benchmarkSymbolMap';
 import { ResponsiveRouteFrame } from '@/src/components/responsive';
 
 // On desktop the screen sits inside a centered max-width frame (see
@@ -124,12 +128,14 @@ function TimeWindowSelector({
 
 function PerformanceTab({
   navHistory,
-  defaultBenchmarkSymbol,
+  fundBenchmarkIndex,
+  fundBenchmarkSymbol,
   fundRef,
   userId,
 }: {
   navHistory: { date: string; value: number }[];
-  defaultBenchmarkSymbol: string | null;
+  fundBenchmarkIndex: string | null;
+  fundBenchmarkSymbol: string | null;
   fundRef?: FundRef;
   userId?: string;
 }) {
@@ -145,10 +151,19 @@ function PerformanceTab({
   const positiveMetricColor = tokens.colors.emerald;
   const negativeMetricColor = tokens.colors.negative;
   const [window, setWindow] = useState<TimeWindow>('1Y');
-  const [selectedSymbol, setSelectedSymbol] = useState(() => {
-    const valid = BENCHMARK_OPTIONS.some((b) => b.symbol === defaultBenchmarkSymbol);
-    return valid && defaultBenchmarkSymbol ? defaultBenchmarkSymbol : '^NSEI';
-  });
+
+  // Phase 8 — picker shows the fund's SEBI-mandated benchmark TRI first, then
+  // the global picks. Default selection is the fund's own benchmark.
+  const benchmarkOptions = useMemo(
+    () => fundDetailBenchmarkOptions({
+      benchmark_index: fundBenchmarkIndex,
+      benchmark_index_symbol: fundBenchmarkSymbol,
+    }),
+    [fundBenchmarkIndex, fundBenchmarkSymbol],
+  );
+  const [selectedSymbol, setSelectedSymbol] = useState<string>(
+    () => benchmarkOptions[0]?.symbol ?? BENCHMARK_OPTIONS[0].symbol,
+  );
   const investmentTimeline = useInvestmentVsBenchmarkTimeline(
     fundRef ? [fundRef] : [],
     userId,
@@ -187,7 +202,7 @@ function PerformanceTab({
   });
 
   const indexHistory = indexRows ?? [];
-  const selectedLabel = BENCHMARK_OPTIONS.find((b) => b.symbol === selectedSymbol)?.label ?? selectedSymbol;
+  const selectedLabel = benchmarkOptions.find((b) => b.symbol === selectedSymbol)?.label ?? selectedSymbol;
 
   // Reset crosshair when window or benchmark changes so summary resets to period-end values.
   useEffect(() => { setActiveIdx(null); }, [window, selectedSymbol]);
@@ -455,7 +470,7 @@ function PerformanceTab({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.benchmarkSelectorContent}
         >
-          {BENCHMARK_OPTIONS.map((opt) => (
+          {benchmarkOptions.map((opt) => (
             <TouchableOpacity
               key={opt.symbol}
               style={[
@@ -598,7 +613,7 @@ function PerformanceTab({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.benchmarkSelectorContent}
       >
-        {BENCHMARK_OPTIONS.map((opt) => (
+        {benchmarkOptions.map((opt) => (
           <TouchableOpacity
             key={opt.symbol}
             style={[
@@ -724,6 +739,10 @@ function PerformanceTab({
 
       {/* Range pills below the chart, mirroring Portfolio. */}
       <TimeWindowSelector selected={window} onChange={setWindow} />
+
+      {/* Phase 8 — disclose that the benchmark line is total-return so users
+          can reconcile our number with their fund's factsheet. */}
+      <Text style={s.benchmarkDisclosure}>{BENCHMARK_DISCLOSURE}</Text>
     </View>
   );
 }
@@ -1766,7 +1785,8 @@ function ClearLensFundDetailScreen() {
           <>
             <PerformanceTab
               navHistory={data.navHistory}
-              defaultBenchmarkSymbol={data.benchmarkSymbol ?? null}
+              fundBenchmarkIndex={data.benchmarkIndex ?? null}
+              fundBenchmarkSymbol={data.benchmarkSymbol ?? null}
               fundRef={{ id: data.id, schemeCode: data.schemeCode }}
               userId={userId}
             />
@@ -2160,6 +2180,14 @@ function makeStyles(colors: AppColors) {
       color: colors.textTertiary,
       textAlign: 'center',
       marginTop: 2,
+    },
+    benchmarkDisclosure: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      textAlign: 'center',
+      lineHeight: 15,
+      paddingHorizontal: 12,
+      paddingTop: 12,
     },
 
     benchmarkSelectorContent: {

@@ -114,10 +114,15 @@ export interface BenchmarkOption {
   label: string;
 }
 
+// Phase 8 — total-return variants. Mutual fund NAVs are inherently
+// total-return; we now compare against TRI, the same series every SEBI fund
+// factsheet uses. BSE Sensex is dropped (no free TRI source); legacy
+// preferences for ^BSESN are migrated to ^NSEITRI in `migratePersistedAppState`
+// (Sensex's 30 large caps are closest in profile to Nifty 50's 50 large caps).
 export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
-  { symbol: '^NSEI',     label: 'Nifty 50' },
-  { symbol: '^NIFTY100', label: 'Nifty 100' },
-  { symbol: '^BSESN',    label: 'BSE Sensex' },
+  { symbol: '^NSEITRI',     label: 'Nifty 50 TRI' },
+  { symbol: '^NIFTY100TRI', label: 'Nifty 100 TRI' },
+  { symbol: '^NIFTY500TRI', label: 'Nifty 500 TRI' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -291,6 +296,24 @@ type PersistedAppStore = Partial<AppStore> & {
   appDesignMode?: 'classic' | 'clearLens';
 };
 
+// Phase 8 — when migrating persisted preferences, route legacy PR symbols
+// to their TRI counterparts so the user's saved benchmark choice still
+// resolves to a valid option after the cutover. BSE Sensex maps to Nifty 50
+// TRI (closest large-cap match — Sensex 30, Nifty 50 has 50).
+const LEGACY_BENCHMARK_TO_TRI: Record<string, string> = {
+  '^NSEI':              '^NSEITRI',
+  '^NIFTY100':          '^NIFTY100TRI',
+  '^NIFTY500':          '^NIFTY500TRI',
+  '^BSESN':             '^NSEITRI',
+  '^CNX100':            '^NIFTY100TRI',
+};
+
+function migrateBenchmarkSymbol(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw) return '^NSEITRI';
+  if (raw in LEGACY_BENCHMARK_TO_TRI) return LEGACY_BENCHMARK_TO_TRI[raw];
+  return raw;
+}
+
 export function migratePersistedAppState(persistedState: unknown): Partial<AppStore> {
   if (!persistedState || typeof persistedState !== 'object') {
     return {
@@ -304,7 +327,7 @@ export function migratePersistedAppState(persistedState: unknown): Partial<AppSt
   const state = persistedState as PersistedAppStore;
 
   return {
-    defaultBenchmarkSymbol: state.defaultBenchmarkSymbol ?? '^NSEI',
+    defaultBenchmarkSymbol: migrateBenchmarkSymbol(state.defaultBenchmarkSymbol),
     appColorScheme: sanitizeColorScheme(state.appColorScheme),
     wealthJourney: sanitizeWealthJourneyState({
       ...DEFAULT_WEALTH_JOURNEY_STATE,
@@ -318,7 +341,7 @@ export function migratePersistedAppState(persistedState: unknown): Partial<AppSt
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       setDefaultBenchmarkSymbol: (symbol) => set({ defaultBenchmarkSymbol: symbol }),
       appColorScheme: 'system' as AppColorScheme,
       setAppColorScheme: (scheme) => set({ appColorScheme: sanitizeColorScheme(scheme) }),
@@ -356,7 +379,7 @@ export const useAppStore = create<AppStore>()(
     {
       name: 'foliolens-app-store',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 5,
+      version: 6,
       migrate: migratePersistedAppState,
       merge: (persistedState, currentState) => {
         const state =
@@ -365,7 +388,9 @@ export const useAppStore = create<AppStore>()(
             : {};
         return {
           ...currentState,
-          defaultBenchmarkSymbol: state.defaultBenchmarkSymbol ?? currentState.defaultBenchmarkSymbol,
+          defaultBenchmarkSymbol: migrateBenchmarkSymbol(
+            state.defaultBenchmarkSymbol ?? currentState.defaultBenchmarkSymbol,
+          ),
           appColorScheme: sanitizeColorScheme(state.appColorScheme, currentState.appColorScheme),
           wealthJourney: sanitizeWealthJourneyState({
             ...DEFAULT_WEALTH_JOURNEY_STATE,

@@ -18,15 +18,22 @@ const DEFAULT_WEALTH_JOURNEY = {
 };
 
 describe('BENCHMARK_OPTIONS', () => {
-  it('contains exactly 3 entries — Nifty 50, Nifty 100, BSE Sensex', () => {
+  it('contains exactly 3 TRI entries — Nifty 50, Nifty 100, Nifty 500', () => {
     expect(BENCHMARK_OPTIONS).toHaveLength(3);
     const symbols = BENCHMARK_OPTIONS.map((b) => b.symbol);
-    expect(symbols).toEqual(['^NSEI', '^NIFTY100', '^BSESN']);
+    expect(symbols).toEqual(['^NSEITRI', '^NIFTY100TRI', '^NIFTY500TRI']);
   });
 
-  it('does not include short-history benchmarks that produce unreliable market XIRR', () => {
+  it('every option is a TRI symbol (Phase 8 — fund NAVs are total-return)', () => {
+    for (const opt of BENCHMARK_OPTIONS) {
+      expect(opt.symbol).toMatch(/TRI$/);
+      expect(opt.label).toMatch(/TRI$/);
+    }
+  });
+
+  it('drops BSE Sensex and the short-history benchmarks', () => {
     const symbols = BENCHMARK_OPTIONS.map((b) => b.symbol);
-    for (const removed of ['^BSE100', '^BSE500', '^NSEBANK', '^CNXIT']) {
+    for (const removed of ['^BSESN', '^BSE100', '^BSE500', '^NSEBANK', '^CNXIT', '^NSEI', '^NIFTY100']) {
       expect(symbols).not.toContain(removed);
     }
   });
@@ -35,6 +42,39 @@ describe('BENCHMARK_OPTIONS', () => {
     for (const opt of BENCHMARK_OPTIONS) {
       expect(opt.label.trim().length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('Phase 8 benchmark migration (^BSESN → ^NSEITRI, PR → TRI)', () => {
+  it('migrates BSE Sensex preference to Nifty 50 TRI', () => {
+    const result = migratePersistedAppState({ defaultBenchmarkSymbol: '^BSESN' });
+    expect(result.defaultBenchmarkSymbol).toBe('^NSEITRI');
+  });
+
+  it('migrates Nifty 50 PR preference to Nifty 50 TRI', () => {
+    const result = migratePersistedAppState({ defaultBenchmarkSymbol: '^NSEI' });
+    expect(result.defaultBenchmarkSymbol).toBe('^NSEITRI');
+  });
+
+  it('migrates Nifty 100 PR preference to Nifty 100 TRI', () => {
+    const result = migratePersistedAppState({ defaultBenchmarkSymbol: '^NIFTY100' });
+    expect(result.defaultBenchmarkSymbol).toBe('^NIFTY100TRI');
+  });
+
+  it('passes TRI preferences through unchanged (idempotent)', () => {
+    expect(migratePersistedAppState({ defaultBenchmarkSymbol: '^NSEITRI' }).defaultBenchmarkSymbol)
+      .toBe('^NSEITRI');
+    expect(migratePersistedAppState({ defaultBenchmarkSymbol: '^NIFTY500TRI' }).defaultBenchmarkSymbol)
+      .toBe('^NIFTY500TRI');
+  });
+
+  it('falls back to ^NSEITRI for missing / non-string preference', () => {
+    expect(migratePersistedAppState({ defaultBenchmarkSymbol: undefined as unknown as string })
+      .defaultBenchmarkSymbol).toBe('^NSEITRI');
+    expect(migratePersistedAppState({ defaultBenchmarkSymbol: null as unknown as string })
+      .defaultBenchmarkSymbol).toBe('^NSEITRI');
+    expect(migratePersistedAppState({ defaultBenchmarkSymbol: 42 as unknown as string })
+      .defaultBenchmarkSymbol).toBe('^NSEITRI');
   });
 });
 
@@ -50,7 +90,7 @@ describe('appColorScheme persistence migration', () => {
 
   it('preserves a stored light scheme', () => {
     expect(migratePersistedAppState({ appColorScheme: 'light' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'light',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
@@ -60,7 +100,7 @@ describe('appColorScheme persistence migration', () => {
 
   it('preserves a stored dark scheme', () => {
     expect(migratePersistedAppState({ appColorScheme: 'dark' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'dark',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
@@ -70,7 +110,7 @@ describe('appColorScheme persistence migration', () => {
 
   it('falls back to system for unknown scheme values', () => {
     expect(migratePersistedAppState({ appColorScheme: 'sepia' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
@@ -80,14 +120,14 @@ describe('appColorScheme persistence migration', () => {
 
   it('drops the legacy appDesignMode field and resets to system colour scheme', () => {
     expect(migratePersistedAppState({ appDesignMode: 'clearLens' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
     });
     expect(migratePersistedAppState({ appDesignMode: 'classic' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
@@ -97,14 +137,14 @@ describe('appColorScheme persistence migration', () => {
 
   it('migrates old Editorial v1/v2 designVariant values to system colour scheme', () => {
     expect(migratePersistedAppState({ designVariant: 'v1' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
       goals: [],
     });
     expect(migratePersistedAppState({ designVariant: 'v2' })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
@@ -112,9 +152,9 @@ describe('appColorScheme persistence migration', () => {
     });
   });
 
-  it('preserves benchmark preference during migration', () => {
+  it('routes legacy BSE Sensex preference to Nifty 50 TRI during migration', () => {
     expect(migratePersistedAppState({ defaultBenchmarkSymbol: '^BSESN', designVariant: 'v2' })).toEqual({
-      defaultBenchmarkSymbol: '^BSESN',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'system',
       wealthJourney: DEFAULT_WEALTH_JOURNEY,
       returnAssumptions: DEFAULT_RETURN_ASSUMPTIONS,
@@ -133,7 +173,7 @@ describe('appColorScheme persistence migration', () => {
         yearsToRetirement: 20,
       },
     })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'light',
       wealthJourney: {
         ...DEFAULT_WEALTH_JOURNEY,
@@ -166,7 +206,7 @@ describe('appColorScheme persistence migration', () => {
         postRetirementReturn: 100,
       },
     })).toEqual({
-      defaultBenchmarkSymbol: '^NSEI',
+      defaultBenchmarkSymbol: '^NSEITRI',
       appColorScheme: 'dark',
       wealthJourney: {
         ...DEFAULT_WEALTH_JOURNEY,
