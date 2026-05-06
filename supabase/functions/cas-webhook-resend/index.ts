@@ -468,7 +468,16 @@ Deno.serve(async (req) => {
   const recipients = getRecipientList(emailData);
   const token = parseInboxToken(recipients);
   if (!token) {
-    console.warn('[cas-webhook-resend] no inbox token in to=%s', recipients);
+    // DROPPED log lines are the sole record an inbound email got dropped —
+    // no `cas_import` row is written and no notification email goes out, so
+    // they're the only signal ops have to catch misrouted mail. Keep the
+    // tag stable and include `email_id` so we can correlate with Resend's
+    // dashboard log entry.
+    console.warn(
+      '[cas-webhook-resend] DROPPED no_token: to=%s, email_id=%s',
+      recipients,
+      emailId ?? '(none)',
+    );
     // Return 200 — there's nothing the sender's mail server can do with retries
     return Response.json({ ok: false, reason: 'no_token' });
   }
@@ -487,7 +496,12 @@ Deno.serve(async (req) => {
   }
 
   if (!profile?.user_id || !profile?.pan) {
-    console.warn('[cas-webhook-resend] no profile for token=%s', token);
+    console.warn(
+      '[cas-webhook-resend] DROPPED unknown_token: token=%s, to=%s, email_id=%s',
+      token,
+      recipients,
+      emailId ?? '(none)',
+    );
     return Response.json({ ok: false, reason: 'unknown_token' });
   }
 
