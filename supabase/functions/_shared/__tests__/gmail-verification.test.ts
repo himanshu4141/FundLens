@@ -129,6 +129,24 @@ describe('extractGmailVerificationUrl', () => {
     );
   });
 
+  it('extracts modern mail-settings confirmation URLs', () => {
+    const text = `
+      To confirm the request:
+      https://mail-settings.google.com/mail/vf-%5BANGjdJ9NKlq190gVI6lLYoRFjus-S7V9p6wScSEAkZ0t3iRXQrTU-_SwFGI_1tqns_0cOGiIrH2gj0y9Cd1A1SOiwK4V6iJ9JO0UV4f5PQ%5D-gLvzgFQ6gT0exN-DLtmE4tG2LEc
+    `;
+    expect(extractGmailVerificationUrl({ text })).toBe(
+      'https://mail-settings.google.com/mail/vf-%5BANGjdJ9NKlq190gVI6lLYoRFjus-S7V9p6wScSEAkZ0t3iRXQrTU-_SwFGI_1tqns_0cOGiIrH2gj0y9Cd1A1SOiwK4V6iJ9JO0UV4f5PQ%5D-gLvzgFQ6gT0exN-DLtmE4tG2LEc',
+    );
+  });
+
+  it('extracts isolated Gmail confirmation URLs', () => {
+    const text =
+      'Confirm: https://isolated.mail.google.com/mail/vf-ab60dcb83a-user%40example.com-6QUCffRlVn2aE8qYep3SBoPfUJc';
+    expect(extractGmailVerificationUrl({ text })).toBe(
+      'https://isolated.mail.google.com/mail/vf-ab60dcb83a-user%40example.com-6QUCffRlVn2aE8qYep3SBoPfUJc',
+    );
+  });
+
   it('keeps query params and unescapes HTML ampersands', () => {
     const html =
       '<a href="https://mail.google.com/mail/vf-XYZ123abc?c=1&amp;v=2">confirm</a>';

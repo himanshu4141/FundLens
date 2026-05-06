@@ -7,9 +7,9 @@
  * Background: when a user adds `cas-<token>@foliolens.in` or
  * `cas-dev-<token>@foliolens.in` as a Gmail
  * forwarding destination, Google emails a verification message FROM
- * `forwarding-noreply@google.com` containing a confirmation URL of the form
- * `https://mail.google.com/mail/vf-…`. The user must click that URL (or enter
- * a code in Gmail's settings UI) for the auto-forward filter to activate.
+ * `forwarding-noreply@google.com` containing a confirmation URL on a Gmail
+ * host with a `/mail/vf-…` path. The user must click that URL (or enter a code
+ * in Gmail's settings UI) for the auto-forward filter to activate.
  *
  * The webhook captures the URL onto `user_profile.cas_inbox_confirmation_url`
  * so the FolioLens UI can surface a "Confirm Gmail forwarding" button.
@@ -17,7 +17,7 @@
 
 const SENDER_RE = /(?:^|<|\s)forwarding-noreply@google\.com(?:$|>|\s)/i;
 const SUBJECT_RE = /Gmail Forwarding Confirmation/i;
-const URL_RE = /https:\/\/mail\.google\.com\/mail\/vf-[^\s"'<]+/;
+const URL_RE = /https:\/\/(?:mail|mail-settings|isolated\.mail)\.google\.com\/mail\/vf-[^\s"'<]+/;
 
 export interface GmailVerificationInput {
   /** Either the raw `from` string or an object with email/name. */
