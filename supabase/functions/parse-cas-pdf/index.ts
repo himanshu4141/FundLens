@@ -132,6 +132,13 @@ Deno.serve(async (req) => {
   console.log('[parse-cas-pdf] import record created, import_id=%s', importId);
 
   let parsed: CASParseResult;
+  // Diagnostic context captured outside the try/catch so the catch block can
+  // write it into cas_import.error_message — Supabase MCP only exposes HTTP
+  // summaries from the function logs, but the DB row is queryable via SQL,
+  // so when prod imports fail with "Unauthorized" we need this context to
+  // tell apart Vercel deployment-protection HTML, parser-route 401s on a
+  // wrong/missing secret, and an unexpected URL being hit.
+  let diagContext = '';
   try {
     const parserUrl = resolveParserUrl(req);
     if (!CAS_PARSER_SHARED_SECRET) {
@@ -197,11 +204,13 @@ Deno.serve(async (req) => {
     if (!parserRes.ok) {
       // On non-OK, log the body prefix so the user can tell whether it's
       // an HTML auth-wall page or a JSON parser-route rejection.
+      const bodyPrefix = rawBody.slice(0, 240).replace(/\s+/g, ' ');
       console.warn(
         '[parse-cas-pdf] parser_non_ok status=%d body_prefix=%s',
         parserRes.status,
-        rawBody.slice(0, 240).replace(/\s+/g, ' '),
+        bodyPrefix,
       );
+      diagContext = `url=${parserUrl} status=${parserRes.status} secret_prefix=${secretPrefix}*** secret_len=${CAS_PARSER_SHARED_SECRET.length} bypass_set=${VERCEL_PROTECTION_BYPASS_TOKEN ? 'true' : 'false'} content_type=${parserRes.headers.get('content-type') ?? 'unknown'} body_prefix=${bodyPrefix}`;
       throw new Error(parserBody.error ?? `Parser request failed with status ${parserRes.status}`);
     }
 
@@ -210,9 +219,13 @@ Deno.serve(async (req) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[parse-cas-pdf] parser error: %s', msg);
 
+    // Persist diag context alongside the user-facing message so we can read
+    // back the URL hit, the status, the secret prefix used and the response
+    // body prefix from the cas_import row when investigating failures.
+    const persistedMsg = diagContext ? `${msg} | ${diagContext}` : msg;
     await supabase
       .from('cas_import')
-      .update({ import_status: 'failed', error_message: msg })
+      .update({ import_status: 'failed', error_message: persistedMsg })
       .eq('id', importId);
 
     const msgLower = msg.toLowerCase();
