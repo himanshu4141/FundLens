@@ -138,6 +138,7 @@ function OnboardingWizard() {
   const tokens = useClearLensTokens();
   const cl = tokens.colors;
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const queryClient = useQueryClient();
   const [draft, dispatch] = useReducer(reduceOnboarding, EMPTY_DRAFT);
   const [hydrated, setHydrated] = useState(false);
 
@@ -258,6 +259,17 @@ function OnboardingWizard() {
       funds: draft.importResult?.funds ?? 0,
       transactions: draft.importResult?.transactions ?? 0,
     });
+
+    // After a successful import, invalidate every cached query so the
+    // portfolio / money trail / timeline screens we're about to navigate
+    // back to refetch against the just-imported funds and transactions.
+    // Without this, React Query serves whatever was cached pre-import
+    // (typically an empty portfolio for first-time users) and the user
+    // has to manually pull-to-refresh before any data shows up.
+    if (draft.importResult) {
+      await queryClient.invalidateQueries();
+    }
+
     await clearOnboardingDraft();
     router.replace('/(tabs)');
   }
@@ -557,7 +569,7 @@ function IdentityStep({
           </Text>
         ) : (
           <Text style={styles.fieldHint}>
-            10 characters. We use this to unlock CAMS / KFintech / MFCentral PDFs.
+            10 characters. We use this to unlock CAMS / KFintech CAS PDFs.
           </Text>
         )}
       </View>
