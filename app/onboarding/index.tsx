@@ -1,829 +1,1523 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
   ActivityIndicator,
+  Alert,
+  AppState,
+  type AppStateStatus,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
   TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
+import { Stack, useRouter } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import * as WebBrowser from 'expo-web-browser';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import { supabase } from '@/src/lib/supabase';
-import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { useSession } from '@/src/hooks/useSession';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
-import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { DesktopFormFrame } from '@/src/components/responsive';
+import { useClearLensTokens } from '@/src/context/ThemeContext';
 import {
+  ClearLensFonts,
   ClearLensRadii,
   ClearLensShadow,
   ClearLensSpacing,
   ClearLensTypography,
   type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import {
+  EMPTY_DRAFT,
+  type OnboardingDraft,
+  type OnboardingStep,
+  clearOnboardingDraft,
+  isValidDob,
+  isValidPan,
+  loadOnboardingDraft,
+  reduceOnboarding,
+  saveOnboardingDraft,
+} from '@/src/utils/onboardingDraft';
+import { uploadCasPdf } from '@/src/utils/casPdfUpload';
 
-const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const ONBOARDING_POINTS = [
-  'Save your PAN once so PDF imports can unlock automatically.',
-  'Get a permanent import address for forwarded CAS emails.',
-  'Use one-tap refresh later instead of repeating setup.',
+type WizardStyles = ReturnType<typeof makeStyles>;
+type Cl = ClearLensTokens['colors'];
+
+const STEP_ORDER: OnboardingStep[] = ['welcome', 'identity', 'import', 'done'];
+
+// Both CAMS and KFintech issue a combined Consolidated Account Statement
+// covering every AMC (regardless of which RTA serviced the AMC). Both forms
+// are public and ask for PAN + email — no login required. CAMS Online is
+// listed first because its form is a single page; KFintech is functionally
+// equivalent. MFCentral was the previous recommendation but offers no
+// advantage over either RTA for the CAS request itself and forces login.
+const PORTAL_OPTIONS: {
+  id: string;
+  name: string;
+  url: string;
+  description: string;
+  recommended?: boolean;
+}[] = [
+  {
+    id: 'cams',
+    name: 'CAMS Online',
+    url: 'https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement',
+    description: 'Recommended — no login. Single-page form: just PAN + email.',
+    recommended: true,
+  },
+  {
+    id: 'kfintech',
+    name: 'KFintech',
+    url: 'https://mfs.kfintech.com/investor/General/ConsolidatedAccountStatement',
+    description: 'Also no login. Same combined CAS — useful if CAMS is having issues.',
+  },
 ];
 
-type OnboardingStyles = ReturnType<typeof makeStyles>;
+export default function OnboardingScreen() {
+  return (
+    <DesktopFormFrame>
+      <OnboardingWizard />
+    </DesktopFormFrame>
+  );
+}
 
-async function fetchProfile(userId: string) {
+// DOB display format is DD-MM-YYYY (Indian convention); storage is ISO
+// YYYY-MM-DD on user_profile.dob. Parse / format helpers keep the boundary
+// thin.
+const DOB_DISPLAY_RE = /^(\d{2})-(\d{2})-(\d{4})$/;
+
+function parseDobDisplay(value: string): string | null {
+  const m = DOB_DISPLAY_RE.exec(value);
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatDobDisplay(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  const [yyyy, mm, dd] = parts;
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+// Auto-insert dashes as the user types, so they don't have to remember the
+// hyphens (cap to DD-MM-YYYY).
+function maskDobInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+}
+
+async function fetchSavedProfile(userId: string): Promise<SavedProfile | null> {
   const { data } = await supabase
     .from('user_profile')
-    .select('pan, kfintech_email, dob')
+    .select('pan, dob, kfintech_email')
     .eq('user_id', userId)
     .maybeSingle();
   return data ?? null;
 }
 
-const DOB_REGEX = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-
-function parseDobInput(value: string): string | null {
-  const m = DOB_REGEX.exec(value);
-  if (!m) return null;
-  const [, dd, mm, yyyy] = m;
-  const d = new Date(`${yyyy}-${mm}-${dd}`);
-  if (isNaN(d.getTime())) return null;
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - 18);
-  if (d > cutoff) return null;
-  return `${yyyy}-${mm}-${dd}`;
+interface SavedProfile {
+  pan: string | null;
+  dob: string | null;
+  kfintech_email: string | null;
 }
 
-function formatDobForDisplay(iso: string): string {
-  const [yyyy, mm, dd] = iso.split('-');
-  return `${dd}/${mm}/${yyyy}`;
-}
+function OnboardingWizard() {
+  const router = useRouter();
+  const { session } = useSession();
+  const tokens = useClearLensTokens();
+  const cl = tokens.colors;
+  const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const queryClient = useQueryClient();
+  const [draft, dispatch] = useReducer(reduceOnboarding, EMPTY_DRAFT);
+  const [hydrated, setHydrated] = useState(false);
 
-async function requestCAS(email: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('request-cas', {
-    method: 'POST',
-    body: { email },
+  // Pull saved PAN / DOB / email from `user_profile` so the wizard can
+  // skip Welcome (when PAN saved) and Identity (when both PAN + DOB saved),
+  // and lock any field already set so a returning user can't accidentally
+  // overwrite it.
+  const { data: profile } = useQuery<SavedProfile | null>({
+    queryKey: ['user-profile', session?.user.id],
+    queryFn: () => fetchSavedProfile(session!.user.id),
+    enabled: !!session?.user.id,
+    // Always refetch on mount. A cached `null` from a previous visit (or a
+    // different navigation stack that opened the wizard before the row was
+    // written) would otherwise look like "no row exists", and hydration
+    // would render the Identity form empty even when PAN + DOB are in DB.
+    refetchOnMount: 'always',
   });
-  if (error) throw new Error(error.message);
+
+  useEffect(() => {
+    // useQuery returns `data === undefined` while the fetch is in flight, and
+    // either `null` (no row) or the SavedProfile object once it settles.
+    // Hydrating before it settles dispatches the wizard into step='welcome'
+    // with empty PAN/DOB, then `setHydrated(true)` flips and the user sees
+    // the welcome screen. If they click Continue before the row arrives,
+    // `handleAdvance` reads `profile?.pan` as undefined and pushes them to
+    // Identity instead of Import — and by the time the row lands, the user
+    // is already past the gate. Wait for the query to settle.
+    if (profile === undefined) return;
+
+    let cancelled = false;
+    (async () => {
+      const saved = await loadOnboardingDraft();
+      if (cancelled) return;
+      const initialEmail = session?.user.email ?? '';
+      const seed: OnboardingDraft = saved
+        ? { ...saved, email: saved.email || initialEmail }
+        : { ...EMPTY_DRAFT, email: initialEmail };
+
+      // If user_profile has saved values, hydrate the draft with them so the
+      // form reflects the DB state and the saved-locked rendering kicks in.
+      const merged: OnboardingDraft = {
+        ...seed,
+        pan: (profile?.pan ?? seed.pan) || '',
+        dob: profile?.dob ?? seed.dob,
+        email: profile?.kfintech_email || seed.email,
+      };
+
+      // Decide initial step based on what's already saved on user_profile.
+      // PAN saved → skip Welcome. PAN + DOB saved → skip Identity too.
+      let initialStep: OnboardingStep = merged.step;
+      if (initialStep === 'welcome' && profile?.pan) {
+        initialStep = profile.dob ? 'import' : 'identity';
+      } else if (initialStep === 'identity' && profile?.pan && profile.dob) {
+        initialStep = 'import';
+      }
+
+      console.log('[onboarding:wizard] hydrated', {
+        platform: Platform.OS,
+        initial_step: initialStep,
+        saved_step: saved?.step ?? null,
+        profile_present: !!profile,
+        profile_has_pan: !!profile?.pan,
+        profile_has_dob: !!profile?.dob,
+        profile_has_kfintech_email: !!profile?.kfintech_email,
+        draft_seeded_from_storage: !!saved,
+      });
+
+      dispatch({
+        type: 'hydrate',
+        draft: { ...merged, step: initialStep },
+      });
+      setHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // We deliberately wait until the user_profile query resolves before
+    // hydrating — `profile` is part of the deps so a late-arriving DB row
+    // still drives the right initial step.
+  }, [session?.user.email, profile]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    void saveOnboardingDraft(draft);
+  }, [draft, hydrated]);
+
+  const currentIndex = STEP_ORDER.indexOf(draft.step);
+
+  function handleAdvance() {
+    let next: OnboardingStep | null = null;
+    if (draft.step === 'welcome') {
+      next = profile?.pan && profile.dob ? 'import' : 'identity';
+    } else if (draft.step === 'identity') {
+      next = 'import';
+    }
+    if (next) {
+      console.log('[onboarding:wizard] advance', { from: draft.step, to: next });
+      dispatch({ type: 'goto', step: next });
+    }
+  }
+
+  function handleBack() {
+    let prev: OnboardingStep | null = null;
+    if (draft.step === 'identity') {
+      prev = 'welcome';
+    } else if (draft.step === 'import') {
+      prev = profile?.pan && profile.dob ? 'welcome' : 'identity';
+    }
+    if (prev) {
+      console.log('[onboarding:wizard] back', { from: draft.step, to: prev });
+      dispatch({ type: 'goto', step: prev });
+    }
+  }
+
+  async function handleFinish() {
+    console.log('[onboarding:wizard] finish', {
+      imported: !!draft.importResult,
+      funds: draft.importResult?.funds ?? 0,
+      transactions: draft.importResult?.transactions ?? 0,
+    });
+
+    // After a successful import, invalidate every cached query so the
+    // portfolio / money trail / timeline screens we're about to navigate
+    // back to refetch against the just-imported funds and transactions.
+    // Without this, React Query serves whatever was cached pre-import
+    // (typically an empty portfolio for first-time users) and the user
+    // has to manually pull-to-refresh before any data shows up.
+    if (draft.importResult) {
+      await queryClient.invalidateQueries();
+    }
+
+    await clearOnboardingDraft();
+    router.replace('/(tabs)');
+  }
+
+  if (!hydrated) {
+    // hydrated only flips after the user_profile query has settled (see the
+    // hydration effect's `if (profile === undefined) return` guard), so this
+    // doubles as both "draft loaded from storage" and "DB row resolved".
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={cl.emerald} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.topBar}>
+        {draft.step !== 'welcome' && draft.step !== 'done' ? (
+          <TouchableOpacity
+            onPress={handleBack}
+            hitSlop={8}
+            style={styles.iconButton}
+            activeOpacity={0.76}
+          >
+            <Ionicons name="chevron-back" size={22} color={cl.navy} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconButton} />
+        )}
+        <ProgressPills currentIndex={currentIndex} styles={styles} />
+        <View style={styles.iconButton} />
+      </View>
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {draft.step === 'welcome' && (
+          <WelcomeStep onContinue={handleAdvance} styles={styles} cl={cl} />
+        )}
+        {draft.step === 'identity' && (
+          <IdentityStep
+            draft={draft}
+            dispatch={dispatch}
+            session={session}
+            onContinue={handleAdvance}
+            lockedPan={profile?.pan ?? null}
+            lockedDob={profile?.dob ?? null}
+            styles={styles}
+            cl={cl}
+            tokens={tokens}
+          />
+        )}
+        {draft.step === 'import' && (
+          <ImportStep
+            draft={draft}
+            dispatch={dispatch}
+            onSkip={() => dispatch({ type: 'goto', step: 'done' })}
+            styles={styles}
+            cl={cl}
+            tokens={tokens}
+          />
+        )}
+        {draft.step === 'done' && (
+          <DoneStep
+            draft={draft}
+            onFinish={handleFinish}
+            styles={styles}
+            cl={cl}
+          />
+        )}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 }
 
-function CopyBox({
-  label,
-  value,
+function ProgressPills({
+  currentIndex,
   styles,
-  embedded = false,
 }: {
-  label: string;
-  value: string;
-  styles: OnboardingStyles;
-  embedded?: boolean;
+  currentIndex: number;
+  styles: WizardStyles;
 }) {
-  const [copied, setCopied] = useState(false);
-  async function handleCopy() {
-    await Clipboard.setStringAsync(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
   return (
-    <View style={[styles.copyBox, embedded && styles.copyBoxEmbedded]}>
-      <Text style={styles.copyLabel}>{label}</Text>
-      <View style={styles.copyRow}>
-        <Text style={[styles.copyValue, styles.mono]} numberOfLines={2} selectable>
-          {value}
-        </Text>
-        <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
-          <Text style={styles.copyBtnText}>{copied ? 'Copied!' : 'Copy'}</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.pillsRow}>
+      {STEP_ORDER.map((step, idx) => (
+        <View
+          key={step}
+          style={[
+            styles.pill,
+            idx <= currentIndex ? styles.pillActive : styles.pillInactive,
+          ]}
+        />
+      ))}
     </View>
   );
 }
 
-function OnboardingHero({
+function WelcomeStep({
+  onContinue,
+  styles,
+  cl,
+}: {
+  onContinue: () => void;
+  styles: WizardStyles;
+  cl: Cl;
+}) {
+  return (
+    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <LinearGradient colors={[cl.heroSurface, cl.slate]} style={styles.hero}>
+        <FolioLensLogo size={36} light showWordmark />
+        <Text style={styles.heroHeadline}>Let&apos;s pull in your portfolio.</Text>
+        <Text style={styles.heroSubhead}>
+          We need your Consolidated Account Statement (CAS) — a free statement
+          from CAMS or KFintech that lists every mutual fund you own.
+        </Text>
+      </LinearGradient>
+
+      <View style={styles.bullets}>
+        <Bullet icon="trending-up-outline" text="See your real return (XIRR) instantly" styles={styles} cl={cl} />
+        <Bullet icon="pie-chart-outline" text="Sector + asset exposure across AMCs" styles={styles} cl={cl} />
+        <Bullet icon="git-branch-outline" text="Money trail of every transaction" styles={styles} cl={cl} />
+      </View>
+
+      <View style={styles.privacyCard}>
+        <Ionicons name="shield-checkmark-outline" size={18} color={cl.emeraldDeep} />
+        <Text style={styles.privacyText}>
+          Read-only. Stored encrypted. Never shared with third parties.
+        </Text>
+      </View>
+
+      <View style={styles.footerSpace} />
+
+      <PrimaryButton label="Get started" onPress={onContinue} styles={styles} cl={cl} />
+    </ScrollView>
+  );
+}
+
+function IdentityStep({
+  draft,
+  dispatch,
+  session,
+  onContinue,
+  lockedPan,
+  lockedDob,
+  styles,
+  cl,
+  tokens,
+}: {
+  draft: OnboardingDraft;
+  dispatch: React.Dispatch<
+    | { type: 'set_pan'; pan: string }
+    | { type: 'set_dob'; dob: string | null }
+    | { type: 'set_email'; email: string }
+    | { type: 'goto'; step: OnboardingStep }
+  >;
+  session: ReturnType<typeof useSession>['session'];
+  onContinue: () => void;
+  /** PAN already saved on user_profile — when set, the field renders read-only. */
+  lockedPan: string | null;
+  /** DOB already saved on user_profile — when set, the field renders read-only. */
+  lockedDob: string | null;
+  styles: WizardStyles;
+  cl: Cl;
+  tokens: ClearLensTokens;
+}) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // dobText is the on-screen DD-MM-YYYY string; draft.dob (and the DB) are ISO.
+  const [dobText, setDobText] = useState(draft.dob ? formatDobDisplay(draft.dob) : '');
+
+  const panLocked = !!lockedPan;
+  const dobLocked = !!lockedDob;
+
+  const dobIso = useMemo(
+    () => (dobText.length > 0 ? parseDobDisplay(dobText) : null),
+    [dobText],
+  );
+
+  const panValid = panLocked || isValidPan(draft.pan);
+  const dobValid =
+    dobLocked || dobText.length === 0 || (dobIso !== null && isValidDob(dobIso));
+  const emailValid = /\S+@\S+\.\S+/.test(draft.email);
+  const canContinue = panValid && dobValid && emailValid && !saving;
+
+  async function handleContinue() {
+    if (!canContinue || !session?.user.id) return;
+    setSaving(true);
+    setError(null);
+
+    const dobValue = dobLocked
+      ? lockedDob
+      : dobText.length > 0
+        ? dobIso
+        : null;
+    if (!dobLocked && dobText.length > 0 && dobValue) {
+      dispatch({ type: 'set_dob', dob: dobValue });
+    }
+
+    // Build the upsert payload, but never overwrite a saved-locked PAN.
+    // We send the locked value back so the row's NOT-NULL constraint stays
+    // happy and the upsert doesn't accidentally null out a stored value.
+    const upsertPayload: {
+      user_id: string;
+      pan: string;
+      dob: string | null;
+      kfintech_email: string;
+    } = {
+      user_id: session.user.id,
+      pan: panLocked ? lockedPan! : draft.pan,
+      dob: dobValue,
+      kfintech_email: draft.email,
+    };
+
+    console.log('[onboarding:identity] upsert_start', {
+      pan_locked: panLocked,
+      dob_locked: dobLocked,
+      pan_changed: !panLocked && draft.pan.length === 10,
+      dob_being_set: !dobLocked && !!dobValue,
+      kfintech_email_present: !!draft.email,
+    });
+
+    const startedAt = Date.now();
+    const { error: upsertError } = await supabase
+      .from('user_profile')
+      .upsert(upsertPayload, { onConflict: 'user_id' });
+    const elapsedMs = Date.now() - startedAt;
+
+    setSaving(false);
+    if (upsertError) {
+      console.warn('[onboarding:identity] upsert_failed', {
+        message: upsertError.message,
+        code: upsertError.code,
+        details: upsertError.details,
+        elapsed_ms: elapsedMs,
+      });
+      setError(upsertError.message || 'Could not save your details. Try again.');
+      return;
+    }
+    console.log('[onboarding:identity] upsert_ok', { elapsed_ms: elapsedMs });
+    queryClient.invalidateQueries({ queryKey: ['user-profile', session.user.id] });
+    onContinue();
+  }
+
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.stepHeader}>
+        <Text style={styles.stepTitle}>Tell us who you are</Text>
+        <Text style={styles.stepBody}>
+          {panLocked
+            ? 'These details unlock your CAS PDF and are saved permanently.'
+            : 'Your PAN unlocks the CAS PDF. Date of birth is only needed if you import a CDSL or NSDL statement.'}
+        </Text>
+      </View>
+
+      <View style={styles.field}>
+        <View style={styles.fieldLabelRow}>
+          <Text style={styles.fieldLabel}>PAN</Text>
+          {panLocked ? (
+            <View style={styles.savedBadge}>
+              <Ionicons name="lock-closed" size={11} color={cl.emeraldDeep} />
+              <Text style={styles.savedBadgeText}>Saved</Text>
+            </View>
+          ) : null}
+        </View>
+        {panLocked ? (
+          <View style={styles.lockedField}>
+            <Text style={styles.lockedFieldText}>{lockedPan}</Text>
+          </View>
+        ) : (
+          <TextInput
+            value={draft.pan}
+            onChangeText={(value) => dispatch({ type: 'set_pan', pan: value })}
+            placeholder="ABCPE1234F"
+            placeholderTextColor={cl.textTertiary}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={10}
+            style={styles.input}
+          />
+        )}
+        {panLocked ? (
+          <Text style={styles.fieldHint}>PAN is saved and cannot be changed in-app.</Text>
+        ) : draft.pan.length > 0 && !panValid ? (
+          <Text style={styles.fieldError}>
+            PAN should look like ABCPE1234F (5 letters, 4 digits, 1 letter).
+          </Text>
+        ) : (
+          <Text style={styles.fieldHint}>
+            10 characters. We use this to unlock CAMS / KFintech CAS PDFs.
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.field}>
+        <View style={styles.fieldLabelRow}>
+          <Text style={styles.fieldLabel}>Date of birth (optional)</Text>
+          {dobLocked ? (
+            <View style={styles.savedBadge}>
+              <Ionicons name="lock-closed" size={11} color={cl.emeraldDeep} />
+              <Text style={styles.savedBadgeText}>Saved</Text>
+            </View>
+          ) : null}
+        </View>
+        {dobLocked ? (
+          <View style={styles.lockedField}>
+            <Text style={styles.lockedFieldText}>{formatDobDisplay(lockedDob!)}</Text>
+          </View>
+        ) : (
+          <TextInput
+            value={dobText}
+            onChangeText={(value) => {
+              const masked = maskDobInput(value);
+              setDobText(masked);
+              if (masked.length === 0) {
+                dispatch({ type: 'set_dob', dob: null });
+              } else {
+                const iso = parseDobDisplay(masked);
+                if (iso && isValidDob(iso)) {
+                  dispatch({ type: 'set_dob', dob: iso });
+                }
+              }
+            }}
+            placeholder="DD-MM-YYYY"
+            placeholderTextColor={cl.textTertiary}
+            keyboardType="number-pad"
+            inputMode="numeric"
+            maxLength={10}
+            autoCorrect={false}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+        )}
+        {dobLocked ? (
+          <Text style={styles.fieldHint}>Date of birth is saved and cannot be changed in-app.</Text>
+        ) : dobText.length > 0 && !dobValid ? (
+          <Text style={styles.fieldError}>Use DD-MM-YYYY format, e.g. 12-05-1990.</Text>
+        ) : (
+          <Text style={styles.fieldHint}>Required only for CDSL / NSDL CAS PDFs.</Text>
+        )}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Email</Text>
+        <TextInput
+          value={draft.email}
+          onChangeText={(value) => dispatch({ type: 'set_email', email: value })}
+          placeholder="you@example.com"
+          placeholderTextColor={cl.textTertiary}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          style={styles.input}
+        />
+        <Text style={styles.fieldHint}>
+          We&apos;ll send your CAS reminders here. Pre-filled from your sign-in.
+        </Text>
+      </View>
+
+      {error ? (
+        <View style={styles.errorBox}>
+          <Ionicons
+            name="warning-outline"
+            size={16}
+            color={tokens.semantic.sentiment.negativeText}
+          />
+          <Text style={styles.errorBoxText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.footerSpace} />
+      <PrimaryButton
+        label={saving ? 'Saving…' : 'Continue'}
+        onPress={handleContinue}
+        disabled={!canContinue}
+        loading={saving}
+        styles={styles}
+        cl={cl}
+      />
+    </ScrollView>
+  );
+}
+
+type ImportSubScreen = 'choose' | 'request';
+
+function ImportStep({
+  draft,
+  dispatch,
+  onSkip,
+  styles,
+  cl,
+  tokens,
+}: {
+  draft: OnboardingDraft;
+  dispatch: React.Dispatch<
+    | { type: 'import_complete'; funds: number; transactions: number }
+    | { type: 'goto'; step: OnboardingStep }
+  >;
+  onSkip: () => void;
+  styles: WizardStyles;
+  cl: Cl;
+  tokens: ClearLensTokens;
+}) {
+  const [sub, setSub] = useState<ImportSubScreen>('choose');
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // The `error` state is shared between sub-screens. Clear it on every sub
+  // transition so an error from one path (e.g. Upload's parser failure)
+  // doesn't leak into the next one (e.g. the "Get a fresh CAS" portal list).
+  useEffect(() => {
+    setError(null);
+  }, [sub]);
+
+  const [browserVisited, setBrowserVisited] = useState(false);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (appState.current === 'background' && next === 'active' && browserVisited) {
+        console.log('[onboarding:portal] returned_to_foreground_after_browser');
+      }
+      appState.current = next;
+    });
+    return () => subscription.remove();
+  }, [browserVisited]);
+
+  async function handleUpload() {
+    setError(null);
+    let picked: DocumentPicker.DocumentPickerResult;
+    try {
+      picked = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+        base64: false,
+      });
+    } catch (pickerErr) {
+      console.warn('[onboarding:upload] picker_threw', {
+        message: pickerErr instanceof Error ? pickerErr.message : String(pickerErr),
+      });
+      return;
+    }
+    if (picked.canceled || !picked.assets?.[0]) {
+      console.log('[onboarding:upload] picker_cancelled', { canceled: picked.canceled });
+      return;
+    }
+
+    const asset = picked.assets[0];
+    console.log('[onboarding:upload] start', {
+      platform: Platform.OS,
+      file_name: asset.name,
+      size_bytes: asset.size ?? null,
+      mime: asset.mimeType ?? null,
+      sub: sub,
+    });
+
+    setUploading(true);
+    const startedAt = Date.now();
+    try {
+      const result = await uploadCasPdf(asset);
+      const elapsed = Date.now() - startedAt;
+      console.log('[onboarding:upload] success', {
+        funds: result.funds,
+        transactions: result.transactions,
+        elapsed_ms: elapsed,
+      });
+      dispatch({
+        type: 'import_complete',
+        funds: result.funds,
+        transactions: result.transactions,
+      });
+    } catch (err) {
+      const elapsed = Date.now() - startedAt;
+      const msg = err instanceof Error ? err.message : 'Upload failed.';
+      console.warn('[onboarding:upload] failed', {
+        message: msg,
+        elapsed_ms: elapsed,
+        likely_read_error: /read/i.test(msg),
+      });
+      setError(
+        /read/i.test(msg)
+          ? 'Could not read the PDF file. Re-download and try again.'
+          : msg,
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleOpenPortal(url: string) {
+    const portalId = PORTAL_OPTIONS.find((p) => p.url === url)?.id ?? 'unknown';
+    console.log('[onboarding:portal] open', {
+      portal_id: portalId,
+      platform: Platform.OS,
+      mode: Platform.OS === 'web' ? 'new_tab' : 'in_app_browser',
+    });
+    try {
+      setBrowserVisited(true);
+      if (Platform.OS === 'web') {
+        await Linking.openURL(url);
+      } else {
+        await WebBrowser.openBrowserAsync(url, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        });
+      }
+    } catch (err) {
+      console.warn('[onboarding:portal] open_failed', {
+        portal_id: portalId,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      Alert.alert('Could not open portal', err instanceof Error ? err.message : 'Try again.');
+    }
+  }
+
+  if (sub === 'request') {
+    return (
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.stepHeader}>
+          <Pressable onPress={() => setSub('choose')} style={styles.miniBack} hitSlop={6}>
+            <Ionicons name="chevron-back" size={18} color={cl.emeraldDeep} />
+            <Text style={styles.miniBackText}>Import options</Text>
+          </Pressable>
+          <Text style={styles.stepTitle}>Get a fresh CAS</Text>
+          <Text style={styles.stepBody}>
+            Either portal returns the same combined CAS — pick one, fill the
+            form, and the statement lands in your email in 1–2 minutes.
+          </Text>
+        </View>
+
+        <View style={styles.calloutCard}>
+          <Ionicons name="time-outline" size={18} color={cl.emeraldDeep} />
+          <Text style={styles.calloutText}>
+            <Text style={styles.bold}>Pick a date range that covers all your investments.</Text>{' '}
+            Set <Text style={styles.bold}>From</Text> to before your first ever
+            mutual-fund purchase (when in doubt, use{' '}
+            <Text style={styles.bold}>01/01/2000</Text>) and{' '}
+            <Text style={styles.bold}>To</Text> to today. If you miss anything,
+            you can upload another CAS later — duplicate transactions are
+            skipped and only new ones get added.
+          </Text>
+        </View>
+
+        {PORTAL_OPTIONS.map((portal) => (
+          <Pressable
+            key={portal.id}
+            onPress={() => handleOpenPortal(portal.url)}
+            style={({ pressed }) => [styles.portalCard, pressed && styles.portalCardPressed]}
+          >
+            <View style={styles.portalIcon}>
+              <Ionicons name="open-outline" size={22} color={cl.emeraldDeep} />
+            </View>
+            <View style={styles.portalCopy}>
+              <View style={styles.portalNameRow}>
+                <Text style={styles.portalName}>{portal.name}</Text>
+                {portal.recommended ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>RECOMMENDED</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.portalDescription}>{portal.description}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={cl.textTertiary} />
+          </Pressable>
+        ))}
+
+        <View style={styles.tipsCard}>
+          <Text style={styles.tipsHeading}>Once you have the email</Text>
+          <Text style={styles.tipsLine}>1. Open the email on this device.</Text>
+          <Text style={styles.tipsLine}>2. Save the PDF (long-press → Save to Files / Downloads).</Text>
+          <Text style={styles.tipsLine}>3. Come back to FolioLens and tap Upload below.</Text>
+        </View>
+
+        {(browserVisited || Platform.OS === 'web') ? (
+          <View style={styles.banner}>
+            <Ionicons name="checkmark-circle" size={18} color={cl.emeraldDeep} />
+            <Text style={styles.bannerText}>Got the email? Upload your CAS now.</Text>
+          </View>
+        ) : null}
+
+        {error ? (
+          <View style={styles.errorBox}>
+            <Ionicons
+              name="warning-outline"
+              size={16}
+              color={tokens.semantic.sentiment.negativeText}
+            />
+            <Text style={styles.errorBoxText}>{error}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.footerSpace} />
+
+        <PrimaryButton
+          label={uploading ? 'Importing…' : 'Upload the PDF'}
+          onPress={handleUpload}
+          loading={uploading}
+          disabled={uploading}
+          styles={styles}
+          cl={cl}
+        />
+        <SecondaryButton label="I'll do this later" onPress={onSkip} styles={styles} />
+      </ScrollView>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.stepHeader}>
+        <Text style={styles.stepTitle}>How would you like to start?</Text>
+        <Text style={styles.stepBody}>You can always change this later in Settings.</Text>
+      </View>
+
+      <ChoiceCard
+        title="Upload a CAS PDF"
+        description="Got one already? Upload it now and we'll do the rest."
+        icon="cloud-upload-outline"
+        recommended
+        onPress={handleUpload}
+        styles={styles}
+        cl={cl}
+      />
+      <ChoiceCard
+        title="Get a fresh CAS"
+        description="We'll show you exactly what to do. Takes about 2 minutes."
+        icon="paper-plane-outline"
+        onPress={() => setSub('request')}
+        styles={styles}
+        cl={cl}
+      />
+
+      {uploading ? (
+        <View style={styles.uploadingRow}>
+          <ActivityIndicator color={cl.emeraldDeep} />
+          <Text style={styles.uploadingText}>Importing your CAS…</Text>
+        </View>
+      ) : null}
+
+      {error ? (
+        <View style={styles.errorBox}>
+          <Ionicons
+            name="warning-outline"
+            size={16}
+            color={tokens.semantic.sentiment.negativeText}
+          />
+          <Text style={styles.errorBoxText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.footerSpace} />
+      <SecondaryButton label="I'll do this later" onPress={onSkip} styles={styles} />
+      {/* Reference draft to keep the prop in the API for future steps. */}
+      <View style={{ display: 'none' }}>{draft.pan ? null : null}</View>
+    </ScrollView>
+  );
+}
+
+function DoneStep({
+  draft,
+  onFinish,
+  styles,
+  cl,
+}: {
+  draft: OnboardingDraft;
+  onFinish: () => void;
+  styles: WizardStyles;
+  cl: Cl;
+}) {
+  const result = draft.importResult;
+  const imported = !!result;
+
+  return (
+    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.successHero}>
+        <View style={[styles.successIcon, !imported && styles.successIconMuted]}>
+          <Ionicons
+            name={imported ? 'checkmark-circle' : 'time-outline'}
+            size={56}
+            color={imported ? cl.emeraldDeep : cl.textSecondary}
+          />
+        </View>
+        <Text style={styles.stepTitle}>
+          {imported ? 'Your portfolio is ready' : "We'll be here when you're ready"}
+        </Text>
+        {imported ? (
+          <Text style={styles.stepBody}>
+            Imported{' '}
+            <Text style={styles.bold}>
+              {result!.funds} fund{result!.funds === 1 ? '' : 's'}
+            </Text>{' '}
+            and{' '}
+            <Text style={styles.bold}>
+              {result!.transactions} transaction{result!.transactions === 1 ? '' : 's'}
+            </Text>
+            . XIRR, sector exposure, and Money Trail are calculating now.
+          </Text>
+        ) : (
+          <Text style={styles.stepBody}>
+            No CAS imported yet — your home screen will be empty until you upload one.
+            Come back anytime via{' '}
+            <Text style={styles.bold}>Settings → Account → Restart import</Text>.
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.tipsCard}>
+        <Text style={styles.tipsHeading}>{imported ? "What's next" : 'When you have a CAS'}</Text>
+        {imported ? (
+          <>
+            <Text style={styles.tipsLine}>• Glance at the home screen for your XIRR vs Nifty 50.</Text>
+            <Text style={styles.tipsLine}>• Open Money Trail to inspect every transaction.</Text>
+            <Text style={styles.tipsLine}>• Set up auto-refresh later to never re-upload.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.tipsLine}>• Request one from CAMS Online or KFintech (no login needed).</Text>
+            <Text style={styles.tipsLine}>• Save the PDF the RTA emails you to this device.</Text>
+            <Text style={styles.tipsLine}>• Reopen the wizard and tap Upload a CAS PDF.</Text>
+          </>
+        )}
+      </View>
+
+      <View style={styles.footerSpace} />
+      <PrimaryButton
+        label={imported ? 'Open my portfolio' : 'Take me home'}
+        onPress={onFinish}
+        styles={styles}
+        cl={cl}
+      />
+    </ScrollView>
+  );
+}
+
+function Bullet({
+  icon,
+  text,
+  styles,
+  cl,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  text: string;
+  styles: WizardStyles;
+  cl: Cl;
+}) {
+  return (
+    <View style={styles.bulletRow}>
+      <View style={styles.bulletIconWrap}>
+        <Ionicons name={icon} size={16} color={cl.emeraldDeep} />
+      </View>
+      <Text style={styles.bulletText}>{text}</Text>
+    </View>
+  );
+}
+
+function ChoiceCard({
   title,
-  subtitle,
+  description,
+  icon,
+  recommended,
+  onPress,
   styles,
   cl,
 }: {
   title: string;
-  subtitle: string;
-  styles: OnboardingStyles;
-  cl: ClearLensTokens['colors'];
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  recommended?: boolean;
+  onPress: () => void;
+  styles: WizardStyles;
+  cl: Cl;
 }) {
   return (
-    <View style={styles.hero}>
-      <FolioLensLogo size={42} showWordmark showTagline />
-      <View style={styles.heroCopy}>
-        <Text style={styles.heroTitle}>{title}</Text>
-        <Text style={styles.heroSubtitle}>{subtitle}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.choiceCard, pressed && styles.choiceCardPressed]}
+    >
+      <View style={styles.choiceIconWrap}>
+        <Ionicons name={icon} size={24} color={cl.emeraldDeep} />
       </View>
-      <View style={styles.heroPoints}>
-        {ONBOARDING_POINTS.map((point) => (
-          <View key={point} style={styles.heroPointRow}>
-            <View style={styles.heroCheckIcon}>
-              <Ionicons name="checkmark" size={13} color={cl.textOnDark} />
+      <View style={styles.choiceCopy}>
+        <View style={styles.portalNameRow}>
+          <Text style={styles.choiceTitle}>{title}</Text>
+          {recommended ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>RECOMMENDED</Text>
             </View>
-            <Text style={styles.heroPointText}>{point}</Text>
-          </View>
-        ))}
+          ) : null}
+        </View>
+        <Text style={styles.choiceDescription}>{description}</Text>
       </View>
-    </View>
+      <Ionicons name="chevron-forward" size={20} color={cl.textTertiary} />
+    </Pressable>
   );
 }
 
-function SetupComplete({
-  inboundEmail,
-  kftechEmail,
-  onRefresh,
-  onReset,
-  onGoToPortfolio,
+function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+  loading,
   styles,
   cl,
 }: {
-  inboundEmail: string;
-  kftechEmail: string;
-  onRefresh: () => Promise<void>;
-  onReset: () => void;
-  onGoToPortfolio: () => void;
-  styles: OnboardingStyles;
-  cl: ClearLensTokens['colors'];
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  styles: WizardStyles;
+  cl: Cl;
 }) {
-  const [requesting, setRequesting] = useState(false);
-  const [requested, setRequested] = useState(false);
-  const [showAutoForward, setShowAutoForward] = useState(false);
-
-  async function handleRefresh() {
-    setRequesting(true);
-    setRequested(false);
-    try {
-      await onRefresh();
-      setRequested(true);
-    } catch (e) {
-      Alert.alert('Error', (e as Error).message);
-    } finally {
-      setRequesting(false);
-    }
-  }
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <OnboardingHero
-        title="Your import setup is ready"
-        subtitle="Refresh your latest transactions in one tap, or keep auto-forward on and let the inbox do the work."
-        styles={styles}
-        cl={cl}
-      />
-
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionEyebrow}>Refresh</Text>
-          <Text style={styles.sectionTitle}>Pull your latest CAS</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.refreshBtn, requesting && styles.btnDisabled]}
-          onPress={handleRefresh}
-          disabled={requesting}
-        >
-          {requesting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.refreshBtnText}>↻  Refresh portfolio</Text>
-          )}
-        </TouchableOpacity>
-
-        {requested && (
-          <View style={styles.requestedBanner}>
-            <Text style={styles.requestedText}>
-              CAS requested! KFintech will email <Text style={styles.bold}>{kftechEmail}</Text>.
-              {'\n'}
-              {showAutoForward
-                ? 'Your auto-forward filter will handle the rest.'
-                : 'Forward that email to your import address below.'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <CopyBox label="Your import address" value={inboundEmail} styles={styles} />
-
-      <TouchableOpacity
-        style={styles.tipToggle}
-        onPress={() => setShowAutoForward((v) => !v)}
-      >
-        <Text style={styles.tipToggleText}>
-          {showAutoForward ? '▾' : '▸'} Set up auto-forward (skip the manual step forever)
-        </Text>
-      </TouchableOpacity>
-
-      {showAutoForward && (
-        <View style={styles.tipCard}>
-          <Text style={styles.tipTitle}>Auto-forward filter</Text>
-          <Text style={styles.tipStep}>1. Open Gmail → Settings → Filters → Create new filter</Text>
-          <Text style={styles.tipStep}>
-            2. In <Text style={styles.bold}>From</Text>, enter:{' '}
-            <Text style={styles.mono}>donotreply@kfintech.com</Text>
-          </Text>
-          <Text style={styles.tipStep}>
-            3. Click <Text style={styles.bold}>Create filter</Text> →{' '}
-            tick <Text style={styles.bold}>Forward to</Text> → add your import address above
-          </Text>
-          <Text style={styles.tipStep}>
-            4. Save. From now on, hitting <Text style={styles.bold}>Refresh</Text> is all you need.
-          </Text>
-          <Text style={styles.tipNote}>
-            Outlook: Settings → Rules → New rule → From address → Forward to import address.
-          </Text>
-        </View>
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.primaryButton, disabled && styles.primaryButtonDisabled]}
+      activeOpacity={0.82}
+    >
+      {loading ? (
+        <ActivityIndicator color={cl.textOnDark} />
+      ) : (
+        <Text style={styles.primaryButtonText}>{label}</Text>
       )}
-
-      <TouchableOpacity style={styles.portfolioBtn} onPress={onGoToPortfolio}>
-        <Text style={styles.portfolioBtnText}>Go to portfolio</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.resetLink} onPress={onReset}>
-        <Text style={styles.resetLinkText}>Change PAN or email</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </TouchableOpacity>
   );
 }
 
-export default function OnboardingScreen() {
+function SecondaryButton({
+  label,
+  onPress,
+  styles,
+}: {
+  label: string;
+  onPress: () => void;
+  styles: WizardStyles;
+}) {
   return (
-    <DesktopFormFrame>
-      <OnboardingScreenInner />
-    </DesktopFormFrame>
-  );
-}
-
-function OnboardingScreenInner() {
-  const router = useRouter();
-  const { session } = useSession();
-  const queryClient = useQueryClient();
-  const tokens = useClearLensTokens();
-  const cl = tokens.colors;
-  const styles = useMemo(() => makeStyles(tokens), [tokens]);
-  const { inboundEmail, isLoading: sessionLoading, createSession } = useInboundSession(
-    session?.user.id,
-  );
-
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['user-profile', session?.user.id],
-    queryFn: () => fetchProfile(session!.user.id),
-    enabled: !!session?.user.id,
-  });
-
-  const [pan, setPan] = useState('');
-  const [panState, setPanState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [panError, setPanError] = useState<string | null>(null);
-
-  const [dob, setDob] = useState('');
-  const [dobError, setDobError] = useState<string | null>(null);
-  const [dobSaving, setDobSaving] = useState(false);
-  const [dobSaved, setDobSaved] = useState(false);
-
-  const [casEmail, setCasEmail] = useState(session?.user.email ?? '');
-
-  useEffect(() => {
-    if (profile?.pan && !pan) setPan(profile.pan);
-  }, [profile?.pan, pan]);
-  useEffect(() => {
-    if (profile?.dob && !dob) setDob(formatDobForDisplay(profile.dob));
-  }, [profile?.dob, dob]);
-  useEffect(() => {
-    if (profile?.kfintech_email) setCasEmail(profile.kfintech_email);
-  }, [profile?.kfintech_email]);
-  const [casState, setCasState] = useState<'idle' | 'requesting' | 'requested' | 'error'>('idle');
-
-  const isLoading = profileLoading || sessionLoading;
-
-  const isSetupComplete =
-    !isLoading && !!profile?.pan && !!profile?.kfintech_email && !!inboundEmail;
-
-  async function handleSavePAN() {
-    const upper = pan.trim().toUpperCase();
-    if (!PAN_REGEX.test(upper)) {
-      setPanError('Enter a valid PAN (e.g. ABCDE1234F)');
-      return;
-    }
-    setPanError(null);
-    setPanState('saving');
-    const { error } = await supabase.from('user_profile').upsert(
-      { user_id: session!.user.id, pan: upper },
-      { onConflict: 'user_id' },
-    );
-    if (error) {
-      setPanState('error');
-      Alert.alert('Error', error.message);
-    } else {
-      setPan(upper);
-      setPanState('saved');
-      queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
-    }
-  }
-
-  async function handleSaveDOB() {
-    const iso = parseDobInput(dob.trim());
-    if (!iso) {
-      setDobError('Enter a valid date of birth (DD/MM/YYYY) — must be 18+');
-      return;
-    }
-    setDobError(null);
-    setDobSaving(true);
-    const { error } = await supabase.from('user_profile').upsert(
-      { user_id: session!.user.id, pan: pan.trim().toUpperCase() || (profile?.pan ?? ''), dob: iso },
-      { onConflict: 'user_id' },
-    );
-    setDobSaving(false);
-    if (error) {
-      Alert.alert('Error', error.message);
-    } else {
-      setDobSaved(true);
-      queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
-    }
-  }
-
-  async function handleGenerateAddress() {
-    try {
-      await createSession.mutateAsync();
-    } catch (e) {
-      Alert.alert('Error', (e as Error).message);
-    }
-  }
-
-  async function handleRequestCAS(email: string) {
-    await requestCAS(email);
-    queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
-  }
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={cl.emerald} />
-      </View>
-    );
-  }
-
-  if (isSetupComplete) {
-    return (
-      <SetupComplete
-        inboundEmail={inboundEmail!}
-        kftechEmail={profile!.kfintech_email!}
-        onRefresh={() => handleRequestCAS(profile!.kfintech_email!)}
-        onReset={() => {
-          setPanState('idle');
-          queryClient.setQueryData(['user-profile', session?.user.id], null);
-        }}
-        onGoToPortfolio={() => router.replace('/')}
-        styles={styles}
-        cl={cl}
-      />
-    );
-  }
-
-  const panDone = panState === 'saved' || !!profile?.pan;
-  const step2Enabled = panDone;
-  const step3Enabled = !!inboundEmail;
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <OnboardingHero
-        title="Import your portfolio"
-        subtitle="Set this up once and future refreshes become a single tap. Email forwarding is the fastest path, PDF upload stays available as fallback."
-        styles={styles}
-        cl={cl}
-      />
-
-      {/* Step 1 — PAN */}
-      <View style={styles.step}>
-        <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, panDone && styles.stepNumDone]}>
-            <Text style={styles.stepNumText}>{panDone ? '✓' : '1'}</Text>
-          </View>
-          <View style={styles.stepTitleWrap}>
-            <Text style={styles.stepLabel}>Step 1</Text>
-            <Text style={styles.stepTitle}>Save your PAN</Text>
-          </View>
-        </View>
-        <View style={styles.stepBody}>
-          <Text style={styles.stepDesc}>
-            Used to decrypt your CAS PDF. Stored securely, never shared, never asked again.
-          </Text>
-          {panDone ? (
-            <View style={styles.savedRow}>
-              <Text style={styles.savedText}>PAN saved: {profile?.pan ?? pan}</Text>
-              <TouchableOpacity onPress={() => setPanState('idle')}>
-                <Text style={styles.changeLink}>Change</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <TextInput
-                style={styles.panInput}
-                placeholder="ABCDE1234F"
-                placeholderTextColor={cl.textTertiary}
-                value={pan}
-                onChangeText={(t) => { setPan(t.toUpperCase()); setPanError(null); }}
-                autoCapitalize="characters"
-                maxLength={10}
-                editable={panState !== 'saving'}
-              />
-              {panError && <Text style={styles.errorText}>{panError}</Text>}
-              <TouchableOpacity
-                style={[styles.primaryBtn, panState === 'saving' && styles.btnDisabled]}
-                onPress={handleSavePAN}
-                disabled={panState === 'saving'}
-              >
-                {panState === 'saving' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Save PAN</Text>}
-              </TouchableOpacity>
-            </>
-          )}
-
-          <View style={styles.dobSection}>
-            <Text style={styles.dobLabel}>Date of Birth (optional)</Text>
-            <Text style={styles.dobHint}>
-              Required to unlock CDSL/NSDL CAS PDFs. Not shared with anyone.
-            </Text>
-            {dobSaved || !!profile?.dob ? (
-              <View style={styles.savedRow}>
-                <Text style={styles.savedText}>
-                  DOB saved: {profile?.dob ? formatDobForDisplay(profile.dob) : dob}
-                </Text>
-                <TouchableOpacity onPress={() => setDobSaved(false)}>
-                  <Text style={styles.changeLink}>Change</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <TextInput
-                  style={styles.panInput}
-                  placeholder="DD/MM/YYYY"
-                  placeholderTextColor={cl.textTertiary}
-                  value={dob}
-                  onChangeText={(t) => { setDob(t); setDobError(null); }}
-                  keyboardType="numeric"
-                  maxLength={10}
-                  editable={!dobSaving}
-                />
-                {dobError && <Text style={styles.errorText}>{dobError}</Text>}
-                <TouchableOpacity
-                  style={[styles.secondaryBtn, dobSaving && styles.btnDisabled]}
-                  onPress={handleSaveDOB}
-                  disabled={dobSaving}
-                >
-                  {dobSaving
-                    ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.primaryBtnText}>Save Date of Birth</Text>}
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </View>
-
-      {/* Step 2 — Inbound address */}
-      <View style={[styles.step, !step2Enabled && styles.stepDisabled]}>
-        <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, !step2Enabled && styles.stepNumGray, !!inboundEmail && styles.stepNumDone]}>
-            <Text style={styles.stepNumText}>{inboundEmail ? '✓' : '2'}</Text>
-          </View>
-          <View style={styles.stepTitleWrap}>
-            <Text style={[styles.stepLabel, !step2Enabled && styles.stepTitleGray]}>Step 2</Text>
-            <Text style={[styles.stepTitle, !step2Enabled && styles.stepTitleGray]}>
-              Get your import address
-            </Text>
-          </View>
-        </View>
-        <View style={styles.stepBody}>
-          <Text style={[styles.stepDesc, !step2Enabled && styles.stepDescGray]}>
-            A permanent address unique to you. Forward any CAS email to it and transactions
-            import automatically. You only generate this once.
-          </Text>
-          {sessionLoading ? (
-            <ActivityIndicator style={{ marginTop: 8 }} />
-          ) : inboundEmail ? (
-            <CopyBox label="Your import address" value={inboundEmail} styles={styles} embedded />
-          ) : (
-            <TouchableOpacity
-              style={[styles.primaryBtn, (!step2Enabled || createSession.isPending) && styles.btnDisabled]}
-              onPress={handleGenerateAddress}
-              disabled={!step2Enabled || createSession.isPending}
-            >
-              {createSession.isPending
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.primaryBtnText}>Generate address</Text>}
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Step 3 — Request CAS */}
-      <View style={[styles.step, !step3Enabled && styles.stepDisabled]}>
-        <View style={styles.stepHeader}>
-          <View style={[styles.stepNum, !step3Enabled && styles.stepNumGray, casState === 'requested' && styles.stepNumDone]}>
-            <Text style={styles.stepNumText}>{casState === 'requested' ? '✓' : '3'}</Text>
-          </View>
-          <View style={styles.stepTitleWrap}>
-            <Text style={[styles.stepLabel, !step3Enabled && styles.stepTitleGray]}>Step 3</Text>
-            <Text style={[styles.stepTitle, !step3Enabled && styles.stepTitleGray]}>
-              Request your CAS
-            </Text>
-          </View>
-        </View>
-        <View style={styles.stepBody}>
-          {casState === 'requested' ? (
-            <View style={styles.hintCard}>
-              <Text style={styles.hintTitle}>CAS requested!</Text>
-              <Text style={styles.hintItem}>
-                KFintech will email your CAS to <Text style={styles.bold}>{casEmail}</Text> within
-                1–2 minutes. Forward that email to your import address above.{'\n\n'}
-                <Text style={styles.bold}>Tip:</Text> Set up an auto-forward filter so future
-                syncs need only one tap. You can see the instructions from the import screen
-                after setup.
-              </Text>
-              <TouchableOpacity onPress={() => setCasState('idle')}>
-                <Text style={[styles.changeLink, { marginTop: 6 }]}>Request again</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <Text style={[styles.stepDesc, !step3Enabled && styles.stepDescGray]}>
-                Enter the email registered with KFintech. We&apos;ll request your CAS — it
-                arrives in 1–2 minutes. This email is saved so future refreshes need no input.
-              </Text>
-              <TextInput
-                style={[styles.emailInput, !step3Enabled && styles.inputDisabled]}
-                placeholder="your@email.com"
-                placeholderTextColor={cl.textTertiary}
-                value={casEmail}
-                onChangeText={setCasEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                editable={step3Enabled && casState !== 'requesting'}
-              />
-              <TouchableOpacity
-                style={[styles.primaryBtn, (!step3Enabled || casState === 'requesting') && styles.btnDisabled]}
-                onPress={async () => {
-                  if (!casEmail.trim()) return;
-                  setCasState('requesting');
-                  try {
-                    await handleRequestCAS(casEmail.trim());
-                    setCasState('requested');
-                  } catch (e) {
-                    setCasState('error');
-                    Alert.alert('Error', (e as Error).message);
-                  }
-                }}
-                disabled={!step3Enabled || casState === 'requesting'}
-              >
-                {casState === 'requesting'
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.primaryBtnText}>Request CAS</Text>}
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-
-      <Text style={styles.altTitle}>Prefer manual upload?</Text>
-      <TouchableOpacity style={styles.altCard} onPress={() => router.push('/onboarding/pdf')}>
-        <Text style={styles.altCardTitle}>Upload a CAS PDF</Text>
-        <Text style={styles.altCardSub}>Use this if you already downloaded the statement.</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    <TouchableOpacity onPress={onPress} style={styles.secondaryButton} activeOpacity={0.76}>
+      <Text style={styles.secondaryButtonText}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
 function makeStyles(tokens: ClearLensTokens) {
   const cl = tokens.colors;
-  const compat = tokens.compatible;
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: cl.background },
-    content: {
-      paddingBottom: ClearLensSpacing.xxl,
-      paddingTop: ClearLensSpacing.md,
-      gap: ClearLensSpacing.md,
+    flex: { flex: 1 },
+    screen: {
+      flex: 1,
+      backgroundColor: cl.background,
     },
-    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
-    hero: {
-      marginHorizontal: ClearLensSpacing.md,
-      marginTop: ClearLensSpacing.sm,
-      paddingTop: ClearLensSpacing.lg,
-      paddingHorizontal: ClearLensSpacing.lg,
-      paddingBottom: ClearLensSpacing.lg,
-      gap: ClearLensSpacing.md,
-      backgroundColor: cl.surface,
-      borderWidth: 1,
-      borderColor: cl.border,
-      borderRadius: ClearLensRadii.lg,
-      ...ClearLensShadow,
-    },
-    heroCopy: { gap: ClearLensSpacing.sm },
-    heroTitle: { ...ClearLensTypography.h1, color: cl.textPrimary, fontWeight: '700' },
-    heroSubtitle: { ...ClearLensTypography.body, color: cl.textSecondary },
-    heroPoints: { gap: ClearLensSpacing.sm },
-    heroPointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: ClearLensSpacing.sm },
-    heroCheckIcon: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
+    centered: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: cl.emerald,
     },
-    heroPointText: { ...ClearLensTypography.bodySmall, color: cl.textSecondary, flex: 1 },
-
-    sectionCard: {
-      marginHorizontal: ClearLensSpacing.md,
-      backgroundColor: cl.surface,
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingVertical: ClearLensSpacing.sm,
+    },
+    iconButton: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pillsRow: {
+      flex: 1,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: ClearLensSpacing.md,
+    },
+    pill: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+    },
+    pillActive: {
+      backgroundColor: cl.emeraldDeep,
+    },
+    pillInactive: {
+      backgroundColor: cl.borderLight,
+    },
+    scroll: {
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingBottom: ClearLensSpacing.xxl,
+      gap: ClearLensSpacing.md,
+    },
+    hero: {
       borderRadius: ClearLensRadii.lg,
-      borderWidth: 1,
-      borderColor: cl.border,
       padding: ClearLensSpacing.lg,
       gap: ClearLensSpacing.md,
-      ...ClearLensShadow,
+      overflow: 'hidden',
     },
-    sectionHeader: { gap: ClearLensSpacing.xs },
-    sectionEyebrow: { ...ClearLensTypography.label, color: compat.primary, textTransform: 'uppercase' },
-    sectionTitle: { ...ClearLensTypography.h3, color: cl.textPrimary, fontWeight: '700' },
-
-    refreshBtn: {
-      backgroundColor: cl.emerald,
-      borderRadius: ClearLensRadii.full,
-      paddingVertical: 16,
-      alignItems: 'center',
+    heroHeadline: {
+      ...ClearLensTypography.h1,
+      color: cl.textOnDark,
+      lineHeight: 32,
     },
-    refreshBtnText: { color: cl.textOnDark, fontWeight: '700', fontSize: 16 },
-    requestedBanner: {
-      backgroundColor: cl.positiveBg,
-      borderWidth: 1,
-      borderColor: cl.mint,
-      borderRadius: ClearLensRadii.md,
-      padding: 14,
+    heroSubhead: {
+      ...ClearLensTypography.body,
+      color: cl.textOnDark,
+      opacity: 0.84,
     },
-    requestedText: { ...ClearLensTypography.bodySmall, color: cl.navy },
-
-    tipToggle: { paddingVertical: 4, marginHorizontal: ClearLensSpacing.md },
-    tipToggleText: { ...ClearLensTypography.bodySmall, color: cl.emerald, fontWeight: '600' },
-    tipCard: {
-      marginHorizontal: ClearLensSpacing.md,
-      backgroundColor: cl.surface,
-      borderWidth: 1,
-      borderColor: cl.border,
-      borderRadius: ClearLensRadii.lg,
-      padding: ClearLensSpacing.lg,
+    bullets: {
       gap: ClearLensSpacing.sm,
-      ...ClearLensShadow,
     },
-    tipTitle: { ...ClearLensTypography.label, color: cl.emerald, textTransform: 'uppercase' },
-    tipStep: { ...ClearLensTypography.bodySmall, color: cl.textSecondary },
-    tipNote: { fontSize: 12, color: cl.textTertiary, fontStyle: 'italic', marginTop: 4 },
-
-    portfolioBtn: {
-      marginHorizontal: ClearLensSpacing.md,
-      backgroundColor: cl.emerald,
-      borderRadius: ClearLensRadii.full,
-      paddingVertical: 14,
+    bulletRow: {
+      flexDirection: 'row',
       alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      paddingHorizontal: ClearLensSpacing.sm,
     },
-    portfolioBtnText: { color: cl.textOnDark, fontWeight: '700', fontSize: 15 },
-    resetLink: { alignItems: 'center', paddingVertical: 8 },
-    resetLinkText: { fontSize: 13, color: cl.textTertiary },
-
-    step: {
-      marginHorizontal: ClearLensSpacing.md,
-      borderWidth: 1,
-      borderColor: cl.border,
-      borderRadius: ClearLensRadii.lg,
-      backgroundColor: cl.surface,
-      padding: ClearLensSpacing.lg,
-      ...ClearLensShadow,
-    },
-    stepDisabled: { borderColor: cl.borderLight, backgroundColor: cl.surfaceSoft },
-    stepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-    stepNum: {
-      width: 26, height: 26, borderRadius: 13,
-      backgroundColor: cl.emerald, alignItems: 'center', justifyContent: 'center',
-    },
-    stepNumDone: { backgroundColor: cl.positive },
-    stepNumGray: { backgroundColor: cl.lightGrey },
-    stepNumText: { color: cl.textOnDark, fontSize: 13, fontWeight: '700' },
-    stepTitleWrap: { gap: 2 },
-    stepLabel: { ...ClearLensTypography.label, color: cl.emerald, textTransform: 'uppercase' },
-    stepTitle: { ...ClearLensTypography.h3, color: cl.textPrimary, fontWeight: '700' },
-    stepTitleGray: { color: cl.textTertiary },
-    stepBody: { gap: 10 },
-    stepDesc: { ...ClearLensTypography.body, color: cl.textSecondary },
-    stepDescGray: { color: cl.textTertiary },
-
-    panInput: {
-      height: 52,
-      borderWidth: 1.5,
-      borderColor: cl.border,
-      borderRadius: ClearLensRadii.md,
-      paddingHorizontal: 14, fontSize: 16, color: cl.textPrimary, backgroundColor: cl.surfaceSoft,
-      letterSpacing: 2,
-    },
-    emailInput: {
-      height: 52,
-      borderWidth: 1.5,
-      borderColor: cl.border,
-      borderRadius: ClearLensRadii.md,
-      paddingHorizontal: 14, fontSize: 15, color: cl.textPrimary, backgroundColor: cl.surfaceSoft,
-    },
-    inputDisabled: { opacity: 0.4 },
-    errorText: { color: cl.negative, fontSize: 13 },
-
-    savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    savedText: { fontSize: 14, color: cl.positive, fontWeight: '600', flex: 1 },
-    changeLink: { fontSize: 13, color: cl.emerald, fontWeight: '600' },
-
-    dobSection: {
-      borderTopWidth: 1,
-      borderTopColor: cl.border,
-      paddingTop: 12,
-      gap: 6,
-      marginTop: 4,
-    },
-    dobLabel: { ...ClearLensTypography.label, color: cl.textSecondary, textTransform: 'uppercase' },
-    dobHint: { ...ClearLensTypography.bodySmall, color: cl.textTertiary },
-    secondaryBtn: {
-      backgroundColor: cl.slate,
+    bulletIconWrap: {
+      width: 32,
+      height: 32,
       borderRadius: ClearLensRadii.full,
-      paddingVertical: 12,
-      alignItems: 'center' as const,
-    },
-
-    copyBox: {
-      marginHorizontal: ClearLensSpacing.md,
-      backgroundColor: cl.surface,
-      borderRadius: ClearLensRadii.lg,
-      borderWidth: 1,
-      borderColor: cl.border,
-      padding: ClearLensSpacing.md,
-      gap: 8,
-      ...ClearLensShadow,
-    },
-    copyBoxEmbedded: {
-      marginHorizontal: 0,
-      backgroundColor: cl.surfaceSoft,
-      shadowOpacity: 0,
-      elevation: 0,
-    },
-    copyLabel: { ...ClearLensTypography.label, color: cl.textTertiary, textTransform: 'uppercase' },
-    copyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    copyValue: { flex: 1, fontSize: 12, color: cl.textSecondary },
-    mono: { fontFamily: 'Courier' },
-    copyBtn: {
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: cl.mint50,
-      borderRadius: ClearLensRadii.full,
-      paddingHorizontal: 10, paddingVertical: 5,
     },
-    copyBtnText: { fontSize: 12, fontWeight: '600', color: cl.emerald },
-
-    primaryBtn: {
-      backgroundColor: cl.emerald,
-      borderRadius: ClearLensRadii.full,
-      paddingVertical: 14,
+    bulletText: {
+      ...ClearLensTypography.bodySmall,
+      flex: 1,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.semiBold,
+    },
+    privacyCard: {
+      flexDirection: 'row',
       alignItems: 'center',
-    },
-    btnDisabled: { opacity: 0.5 },
-    primaryBtnText: { color: cl.textOnDark, fontWeight: '700', fontSize: 14 },
-
-    hintCard: {
-      backgroundColor: cl.positiveBg,
-      borderWidth: 1,
-      borderColor: cl.mint,
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
       borderRadius: ClearLensRadii.md,
-      padding: 14,
-      gap: 8,
+      backgroundColor: cl.mint50,
     },
-    hintTitle: { fontSize: 13, fontWeight: '700', color: cl.navy },
-    hintItem: { fontSize: 13, color: cl.navy, lineHeight: 20 },
-    bold: { fontWeight: '700' },
-
-    altTitle: {
-      marginHorizontal: ClearLensSpacing.md,
-      marginTop: 8,
-      ...ClearLensTypography.label,
+    privacyText: {
+      ...ClearLensTypography.caption,
+      flex: 1,
+      color: cl.emeraldDeep,
+      fontFamily: ClearLensFonts.semiBold,
+    },
+    stepHeader: {
+      gap: 6,
+      paddingTop: ClearLensSpacing.sm,
+    },
+    miniBack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginBottom: 4,
+    },
+    miniBackText: {
+      ...ClearLensTypography.caption,
+      color: cl.emeraldDeep,
+      fontFamily: ClearLensFonts.bold,
+    },
+    stepTitle: {
+      ...ClearLensTypography.h1,
+      color: cl.navy,
+    },
+    stepBody: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.textSecondary,
+    },
+    field: {
+      gap: 6,
+    },
+    fieldLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+    },
+    fieldLabel: {
+      ...ClearLensTypography.caption,
       color: cl.textTertiary,
+      fontFamily: ClearLensFonts.bold,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    fieldHint: {
+      ...ClearLensTypography.caption,
+      color: cl.textTertiary,
+    },
+    savedBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: ClearLensRadii.sm,
+      backgroundColor: cl.mint50,
+    },
+    savedBadgeText: {
+      ...ClearLensTypography.caption,
+      fontSize: 9,
+      color: cl.emeraldDeep,
+      fontFamily: ClearLensFonts.bold,
+      letterSpacing: 0.4,
       textTransform: 'uppercase',
     },
-    altCard: {
-      marginHorizontal: ClearLensSpacing.md,
-      borderWidth: 1, borderColor: cl.border,
-      borderRadius: ClearLensRadii.lg,
-      padding: ClearLensSpacing.lg,
-      gap: 6,
+    lockedField: {
+      minHeight: 50,
+      paddingHorizontal: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      borderWidth: 1,
+      borderColor: cl.border,
+      backgroundColor: cl.surfaceSoft,
+      justifyContent: 'center',
+    },
+    lockedFieldText: {
+      ...ClearLensTypography.body,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.semiBold,
+      letterSpacing: 1,
+    },
+    fieldError: {
+      ...ClearLensTypography.caption,
+      color: tokens.semantic.sentiment.negativeText,
+    },
+    input: {
+      ...ClearLensTypography.body,
+      minHeight: 50,
+      paddingHorizontal: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      borderWidth: 1,
+      borderColor: cl.border,
       backgroundColor: cl.surface,
+      color: cl.navy,
+    },
+    errorBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.sm,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.negativeBg,
+    },
+    errorBoxText: {
+      ...ClearLensTypography.caption,
+      flex: 1,
+      color: tokens.semantic.sentiment.negativeText,
+    },
+    choiceCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.md,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.lg,
+      backgroundColor: cl.surface,
+      borderWidth: 1,
+      borderColor: cl.border,
       ...ClearLensShadow,
     },
-    altCardTitle: { ...ClearLensTypography.h3, color: cl.textPrimary, fontWeight: '700' },
-    altCardSub: { ...ClearLensTypography.bodySmall, color: cl.textSecondary },
+    choiceCardPressed: {
+      backgroundColor: cl.surfaceSoft,
+    },
+    choiceIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: ClearLensRadii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: cl.mint50,
+    },
+    choiceCopy: {
+      flex: 1,
+      gap: 4,
+    },
+    choiceTitle: {
+      ...ClearLensTypography.body,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.bold,
+    },
+    choiceDescription: {
+      ...ClearLensTypography.caption,
+      color: cl.textSecondary,
+    },
+    portalNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+    },
+    portalCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.md,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.surface,
+      borderWidth: 1,
+      borderColor: cl.border,
+    },
+    portalCardPressed: {
+      backgroundColor: cl.surfaceSoft,
+    },
+    portalIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: ClearLensRadii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: cl.mint50,
+    },
+    portalCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    portalName: {
+      ...ClearLensTypography.body,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.bold,
+    },
+    portalDescription: {
+      ...ClearLensTypography.caption,
+      color: cl.textSecondary,
+    },
+    badge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: ClearLensRadii.sm,
+      backgroundColor: cl.mint50,
+    },
+    badgeText: {
+      ...ClearLensTypography.caption,
+      fontSize: 9,
+      color: cl.emeraldDeep,
+      fontFamily: ClearLensFonts.bold,
+      letterSpacing: 0.4,
+    },
+    calloutCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.lg,
+      backgroundColor: cl.positiveBg,
+      borderWidth: 1,
+      borderColor: cl.mint,
+    },
+    calloutText: {
+      flex: 1,
+      ...ClearLensTypography.bodySmall,
+      color: cl.navy,
+      lineHeight: 18,
+    },
+    tipsCard: {
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.surfaceSoft,
+      gap: 4,
+    },
+    tipsHeading: {
+      ...ClearLensTypography.caption,
+      color: cl.textTertiary,
+      fontFamily: ClearLensFonts.bold,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    tipsLine: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.navy,
+    },
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.mint50,
+    },
+    bannerText: {
+      ...ClearLensTypography.bodySmall,
+      flex: 1,
+      color: cl.emeraldDeep,
+      fontFamily: ClearLensFonts.bold,
+    },
+    uploadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.surfaceSoft,
+    },
+    uploadingText: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.semiBold,
+    },
+    successHero: {
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+      paddingTop: ClearLensSpacing.lg,
+    },
+    successIcon: {
+      width: 84,
+      height: 84,
+      borderRadius: ClearLensRadii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: cl.mint50,
+    },
+    successIconMuted: {
+      backgroundColor: cl.surfaceSoft,
+    },
+    bold: {
+      fontFamily: ClearLensFonts.bold,
+      color: cl.navy,
+    },
+    footerSpace: {
+      height: ClearLensSpacing.md,
+    },
+    primaryButton: {
+      minHeight: 52,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.emeraldDeep,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    primaryButtonDisabled: {
+      opacity: 0.5,
+    },
+    primaryButtonText: {
+      ...ClearLensTypography.body,
+      color: cl.textOnDark,
+      fontFamily: ClearLensFonts.bold,
+    },
+    secondaryButton: {
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: ClearLensSpacing.sm,
+    },
+    secondaryButtonText: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.textTertiary,
+      fontFamily: ClearLensFonts.semiBold,
+    },
   });
 }

@@ -31,6 +31,12 @@ export default function TabLayout() {
             tabBarActiveTintColor: cl.emerald,
             tabBarInactiveTintColor: cl.textTertiary,
             headerShown: false,
+            // sceneStyle paints the per-screen container background. Without
+            // this React Navigation defaults to white, which bleeds through
+            // anywhere a screen child doesn't fully cover its parent — most
+            // visibly on the empty-portfolio state in dark mode where the
+            // light container shows behind the (correctly dark) content.
+            sceneStyle: { backgroundColor: cl.background },
             tabBarStyle: isDesktop
               ? { display: 'none' }
               : {

@@ -1,9 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { buildXAxisLabels } from '@/src/hooks/usePerformanceTimeline';
 import { filterToWindow, type NavPoint, type TimeWindow } from '@/src/utils/navUtils';
 import type { FundRef } from '@/src/hooks/usePortfolioTimeline';
 import { filterReversedTransactionPairs } from '@/src/utils/xirr';
+import { BENCHMARK_OPTIONS } from '@/src/store/appStore';
 
 export interface InvestmentVsBenchmarkPoint {
   date: string;
@@ -328,12 +330,34 @@ export function useInvestmentVsBenchmarkTimeline(
   window: TimeWindow,
 ): InvestmentVsBenchmarkTimeline {
   const fundKey = funds.map((fund) => fund.id).sort().join(',');
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['investmentVsBenchmarkTimeline', userId, fundKey, benchmarkSymbol, window],
     enabled: funds.length > 0 && !!userId,
     queryFn: () => fetchInvestmentVsBenchmarkTimeline(funds, userId!, benchmarkSymbol, window),
     staleTime: 5 * 60 * 1000,
   });
+
+  // Once the active benchmark/window combo is in cache, prefetch the
+  // other benchmarks for the same window in the background. This
+  // covers the common case where the user lands on a fund detail and
+  // then taps a different benchmark pill — the second tap hits a warm
+  // cache. We deliberately do NOT prefetch every (benchmark x window)
+  // combination: that would multiply by ~5 windows and burn server
+  // round-trips for combos most users never look at. Window switching
+  // remains a cold fetch.
+  useEffect(() => {
+    if (!data || !userId || funds.length === 0) return;
+    for (const option of BENCHMARK_OPTIONS) {
+      if (option.symbol === benchmarkSymbol) continue;
+      queryClient.prefetchQuery({
+        queryKey: ['investmentVsBenchmarkTimeline', userId, fundKey, option.symbol, window],
+        queryFn: () =>
+          fetchInvestmentVsBenchmarkTimeline(funds, userId, option.symbol, window),
+        staleTime: 5 * 60 * 1000,
+      });
+    }
+  }, [data, userId, funds, fundKey, benchmarkSymbol, window, queryClient]);
 
   return {
     points: data?.points ?? [],

@@ -6,15 +6,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  Platform,
   TextInput,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import {
-  FileSystemUploadType,
-  getInfoAsync,
-  uploadAsync,
-} from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
@@ -29,113 +23,9 @@ import {
   ClearLensTypography,
   type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
+import { uploadCasPdf } from '@/src/utils/casPdfUpload';
 
 type UploadState = 'idle' | 'picking' | 'uploading' | 'success' | 'error';
-type UploadResult = { funds: number; transactions: number };
-type UploadResponse = { funds?: number; transactions?: number; error?: string };
-
-function getParseCasPdfUrl() {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) throw new Error('Supabase URL is not configured.');
-  return `${supabaseUrl}/functions/v1/parse-cas-pdf`;
-}
-
-function getUploadHeaders(
-  token: string,
-  fileName: string,
-  customPassword?: string,
-): Record<string, string> {
-  const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!publishableKey) throw new Error('Supabase publishable key is not configured.');
-
-  return {
-    Authorization: `Bearer ${token}`,
-    apikey: publishableKey,
-    'Content-Type': 'application/octet-stream',
-    'x-file-name': fileName,
-    ...(customPassword ? { 'x-password-override': customPassword } : {}),
-  };
-}
-
-function parseUploadResponse(status: number, bodyText: string): UploadResult {
-  let body: UploadResponse = {};
-  try {
-    body = bodyText ? JSON.parse(bodyText) as UploadResponse : {};
-  } catch {
-    throw new Error(`Import failed (${status})`);
-  }
-
-  if (status >= 200 && status < 300) {
-    return { funds: body.funds ?? 0, transactions: body.transactions ?? 0 };
-  }
-
-  throw new Error(body.error ?? `Import failed (${status})`);
-}
-
-async function readWebPdfBytes(asset: DocumentPicker.DocumentPickerAsset) {
-  if (asset.file && typeof asset.file.arrayBuffer === 'function') {
-    return asset.file.arrayBuffer();
-  }
-
-  try {
-    const res = await fetch(asset.uri);
-    if (!res.ok) {
-      throw new Error(`Fetch read failed (status ${res.status})`);
-    }
-    return res.arrayBuffer();
-  } catch (err) {
-    throw new Error(`File read failed: ${err instanceof Error ? err.message : err}`);
-  }
-}
-
-async function uploadWebPdf(
-  asset: DocumentPicker.DocumentPickerAsset,
-  url: string,
-  headers: Record<string, string>,
-) {
-  const pdfBytes = await readWebPdfBytes(asset);
-  if (pdfBytes.byteLength === 0) {
-    throw new Error('Selected PDF file is empty');
-  }
-
-  return new Promise<UploadResult>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
-    Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
-    xhr.responseType = 'text';
-    xhr.onload = () => {
-      try {
-        resolve(parseUploadResponse(xhr.status, xhr.responseText));
-      } catch (err) {
-        reject(err);
-      }
-    };
-    xhr.onerror = () => reject(new Error('Upload failed - could not reach server'));
-    xhr.send(pdfBytes);
-  });
-}
-
-async function uploadNativePdf(
-  asset: DocumentPicker.DocumentPickerAsset,
-  url: string,
-  headers: Record<string, string>,
-) {
-  const info = await getInfoAsync(asset.uri);
-  if (!info.exists || info.isDirectory) {
-    throw new Error('File read failed: selected PDF is not available');
-  }
-  if (info.size === 0) {
-    throw new Error('Selected PDF file is empty');
-  }
-
-  const response = await uploadAsync(url, asset.uri, {
-    httpMethod: 'POST',
-    uploadType: FileSystemUploadType.BINARY_CONTENT,
-    headers,
-  });
-
-  return parseUploadResponse(response.status, response.body);
-}
 
 export default function PDFScreen() {
   const router = useRouter();
@@ -193,16 +83,7 @@ export default function PDFScreen() {
     setState('uploading');
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      if (!token) throw new Error('Session expired. Please sign in again.');
-
-      const fnUrl = getParseCasPdfUrl();
-      const headers = getUploadHeaders(token, asset.name ?? 'cas.pdf', customPassword.trim() || undefined);
-      const uploadResult = Platform.OS === 'web'
-        ? await uploadWebPdf(asset, fnUrl, headers)
-        : await uploadNativePdf(asset, fnUrl, headers);
-
+      const uploadResult = await uploadCasPdf(asset, customPassword);
       setResult({ funds: uploadResult.funds, transactions: uploadResult.transactions });
       setState('success');
     } catch (err) {
@@ -234,8 +115,8 @@ export default function PDFScreen() {
           <Text style={styles.infoItem}>• CAMS CAS (password = your PAN)</Text>
           <Text style={styles.infoItem}>• KFintech / Karvy CAS (password = your PAN)</Text>
           <Text style={styles.infoItem}>• MFcentral CAS (password = your PAN)</Text>
-          <Text style={styles.infoItem}>• CDSL CAS (password = PAN + date of birth, e.g. ABCDE1234F01011990)</Text>
-          <Text style={styles.infoItem}>• NSDL CAS (password = PAN + date of birth, e.g. ABCDE1234F01011990)</Text>
+          <Text style={styles.infoItem}>• CDSL CAS (password = PAN + date of birth, e.g. ABCPE1234F01011990)</Text>
+          <Text style={styles.infoItem}>• NSDL CAS (password = PAN + date of birth, e.g. ABCPE1234F01011990)</Text>
         </View>
 
         <View style={styles.panel}>

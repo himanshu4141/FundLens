@@ -12,7 +12,8 @@
  *  - vsMarket: portfolio XIRR vs selected benchmark XIRR over same period
  */
 
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import {
   xirr,
@@ -21,6 +22,7 @@ import {
   type Cashflow,
 } from '@/src/utils/xirr';
 import { useSession } from '@/src/hooks/useSession';
+import { BENCHMARK_OPTIONS } from '@/src/store/appStore';
 
 export interface FundCardData {
   id: string;
@@ -358,12 +360,34 @@ export async function fetchPortfolioData(userId: string, benchmarkSymbol: string
 export function usePortfolio(benchmarkSymbol: string = '^NSEI') {
   const { session } = useSession();
   const userId = session?.user.id;
+  const queryClient = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['portfolio', userId, benchmarkSymbol],
     enabled: !!userId,
     queryFn: () => fetchPortfolioData(userId!, benchmarkSymbol),
     staleTime: 5 * 60 * 1000, // 5 minutes
     placeholderData: keepPreviousData, // no jarring flash when switching benchmark
   });
+
+  // Once the active benchmark's data is in cache, prefetch the other
+  // benchmarks in the background. The benchmark pill on Portfolio shows
+  // 3 options; without this prefetch, switching to either non-default
+  // option triggers a fresh fetch and the user waits ~hundreds of ms
+  // before chart values update. Prefetching makes pill-switching feel
+  // instant on the second tap, with no impact on initial load (the
+  // effect runs only after `query.data` is populated).
+  useEffect(() => {
+    if (!query.data || !userId) return;
+    for (const option of BENCHMARK_OPTIONS) {
+      if (option.symbol === benchmarkSymbol) continue;
+      queryClient.prefetchQuery({
+        queryKey: ['portfolio', userId, option.symbol],
+        queryFn: () => fetchPortfolioData(userId, option.symbol),
+        staleTime: 5 * 60 * 1000,
+      });
+    }
+  }, [query.data, userId, benchmarkSymbol, queryClient]);
+
+  return query;
 }

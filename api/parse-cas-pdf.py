@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from http.server import BaseHTTPRequestHandler
@@ -20,10 +21,31 @@ def _json(handler: BaseHTTPRequestHandler, status: int, body: dict) -> None:
     handler.wfile.write(payload)
 
 
+def _hash_prefix(value: str) -> str:
+    """Return first 8 hex chars of sha256(value), or 'empty' for falsy input.
+
+    Used in the 401 diagnostic only — comparing hashes of the env-loaded secret
+    against the secret the caller sent reveals whether they differ without
+    exposing either value. Caller's hash and ours match → values are byte-for-
+    byte identical; mismatched hashes → different value (typo, whitespace,
+    missing env, wrong project)."""
+    if not value:
+        return "empty"
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
+
+
 class handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not PARSER_SECRET or self.headers.get("x-parser-secret") != PARSER_SECRET:
-            _json(self, 401, {"error": "Unauthorized"})
+            received = self.headers.get("x-parser-secret", "") or ""
+            diag = (
+                f"env_present={bool(PARSER_SECRET)} "
+                f"env_hash={_hash_prefix(PARSER_SECRET)} "
+                f"env_len={len(PARSER_SECRET)} "
+                f"recv_hash={_hash_prefix(received)} "
+                f"recv_len={len(received)}"
+            )
+            _json(self, 401, {"error": "Unauthorized", "diag": diag})
             return
 
         password = self.headers.get("x-password", "").strip()

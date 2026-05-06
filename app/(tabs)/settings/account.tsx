@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
+import { FeedbackSheet, type FeedbackKind } from '@/src/components/FeedbackSheet';
 import { GoogleIcon } from '@/src/components/GoogleIcon';
 import { getNativeAuthOrigin, getNativeBridgeUrl } from '@/src/utils/appScheme';
 import { parseOAuthCode } from '@/src/utils/authUtils';
@@ -41,7 +42,7 @@ async function fetchProfile(userId: string) {
 
 function formatDob(iso: string): string {
   const [yyyy, mm, dd] = iso.split('-');
-  return `${dd}/${mm}/${yyyy}`;
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 export default function AccountScreen() {
@@ -58,10 +59,24 @@ export default function AccountScreen() {
   const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
 
+  // PAN and DOB are write-once during onboarding so a typo can't accidentally
+  // attach someone else's CAS data. Correcting them needs human review, so
+  // this sheet is the support path: it pre-fills a bug-report with the field
+  // name and the saved value (so support can reconcile against the user's
+  // identity without an extra round-trip), and routes through the same
+  // user-feedback table as feature requests / bug reports.
+  const [correctionField, setCorrectionField] = useState<'pan' | 'dob' | null>(null);
+
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile', userId],
     queryFn: () => fetchProfile(userId!),
     enabled: !!userId,
+    // Always refetch when the screen mounts. The wizard's IdentityStep
+    // upserts user_profile and invalidates this same query key, but if the
+    // Settings screen was opened in a *different* navigation stack the
+    // cached `null` from a first-run visit can outlive the upsert. Forcing
+    // a refetch on mount guarantees this row reflects the DB.
+    refetchOnMount: 'always',
   });
 
   async function handleLinkGoogle() {
@@ -116,6 +131,17 @@ export default function AccountScreen() {
               <Text style={styles.profileMeta}>
                 {isLoading ? 'Loading…' : profile?.pan ? maskPan(profile.pan) : 'PAN not set'}
               </Text>
+              {!isLoading && profile?.pan ? (
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setCorrectionField('pan');
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.correctionLink}>Wrong PAN? Request correction</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
             <Ionicons name="chevron-forward" size={18} color={tokens.colors.textTertiary} />
           </TouchableOpacity>
@@ -139,15 +165,24 @@ export default function AccountScreen() {
                 <Text style={styles.rowValue}>
                   {profile?.dob ? formatDob(profile.dob) : 'Not set'}
                 </Text>
-                {!profile?.dob && (
+                {!profile?.dob ? (
                   <Text style={styles.rowSub}>
                     Required for CDSL/NSDL CAS imports
                   </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setCorrectionField('dob')}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.correctionLink}>Wrong date? Request correction</Text>
+                  </TouchableOpacity>
                 )}
               </View>
-              <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
-                <Text style={styles.actionBtnText}>{profile?.dob ? 'Edit' : 'Add'}</Text>
-              </TouchableOpacity>
+              {!profile?.dob ? (
+                <TouchableOpacity onPress={() => router.push('/onboarding')} style={styles.actionBtn}>
+                  <Text style={styles.actionBtnText}>Add</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           )}
         </View>
@@ -213,6 +248,26 @@ export default function AccountScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <FeedbackSheet
+        visible={correctionField !== null}
+        kind={correctionField !== null ? ('bug_report' as FeedbackKind) : null}
+        onClose={() => setCorrectionField(null)}
+        initialTitle={
+          correctionField === 'pan'
+            ? `Correct my PAN (currently ${profile?.pan ? maskPan(profile.pan) : 'set'})`
+            : correctionField === 'dob'
+              ? `Correct my date of birth (currently ${profile?.dob ? formatDob(profile.dob) : 'set'})`
+              : ''
+        }
+        initialBody={
+          correctionField === 'pan'
+            ? `My current saved PAN is ${profile?.pan ? maskPan(profile.pan) : '—'}. The correct PAN is:\n\n[enter correct PAN]\n\nReason: `
+            : correctionField === 'dob'
+              ? `My current saved date of birth is ${profile?.dob ? formatDob(profile.dob) : '—'}. The correct date of birth (DD-MM-YYYY) is:\n\n[enter correct DOB]\n\nReason: `
+              : ''
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -286,6 +341,12 @@ function makeStyles(tokens: ClearLensTokens) {
     rowSub: {
       ...ClearLensTypography.bodySmall,
       color: cl.textTertiary,
+    },
+    correctionLink: {
+      ...ClearLensTypography.caption,
+      fontFamily: ClearLensFonts.semiBold,
+      color: cl.emeraldDeep,
+      marginTop: 4,
     },
 
     actionBtn: {

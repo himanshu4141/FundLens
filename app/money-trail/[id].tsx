@@ -91,7 +91,7 @@ function ExplanationCard({ transaction }: { transaction: PortfolioTransaction })
   return (
     <ClearLensCard style={styles.explainerCard}>
       <View style={styles.explainerTitleRow}>
-        <Text style={styles.sectionTitle}>How FundLens uses this</Text>
+        <Text style={styles.sectionTitle}>How FolioLens uses this</Text>
         <Ionicons name="information-circle-outline" size={18} color={tokens.colors.textTertiary} />
       </View>
       <DetailRow
@@ -129,7 +129,7 @@ export default function MoneyTrailDetailScreen() {
 
   async function handleShare(tx: PortfolioTransaction) {
     await Share.share({
-      title: 'FundLens Money Trail',
+      title: 'FolioLens Money Trail',
       message: `${tx.userFacingType}\n${tx.fundName}\n${formatMoneyTrailDate(tx.date)}\n${formatCurrency(tx.amount)}`,
     });
   }
