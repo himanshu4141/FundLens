@@ -21,8 +21,7 @@ Primary navigation (mobile bottom tabs, desktop sidebar "Navigate"):
 
 Quick Actions (mobile overflow sheet, desktop sidebar "Quick actions"):
 
-- `Sync portfolio`
-- `Import CAS`
+- `Import portfolio`
 - `Money Trail`
 - `Tools`
 
@@ -62,7 +61,7 @@ Clear Lens includes:
 - Money Trail preview with Indian-financial-year invested, withdrawn, and net-invested summary
 - allocation preview when composition data is available
 - entries for `Portfolio Insights`, `Your Funds`, and the Wealth Journey teaser path
-- loading, empty, sync-requested, sync-error, and pull-to-refresh states
+- loading, empty, import-needed, and pull-to-refresh states
 
 Desktop variant (`ClearLensPortfolioScreenDesktop`) composes the same presentational subcomponents into a 2-column dashboard: the chart, movers, and entry rows on the left (2/3); the asset allocation card, Money Trail preview, and a Wealth Journey teaser on the right (1/3). The mobile single-column remains unchanged.
 
@@ -168,7 +167,7 @@ Includes:
 - appearance picker: light / dark / system (Settings → Preferences). The choice is persisted in the Zustand `appColorScheme` slot; the picker honours both the active OS scheme and the user override.
 - return assumption inputs (Cautious / Balanced / Growth) used by Goal Planner and Wealth Journey
 - sync controls
-- import tools, CAS address, PAN management, PDF upload shortcut
+- import tools, auto-forward inbox status, CAS address, PAN management, PDF upload fallback
 - sign out (under About & support)
 
 On desktop the hub caps content at 760 px so the cards don't stretch edge-to-edge of the sidebar shell's content area.
@@ -202,7 +201,7 @@ Reusable for first-run onboarding and later imports.
 Main import paths:
 
 - dedicated CAS forwarding address
-- CAS request via registered email
+- CAS request via CAMS / KFintech portal
 - direct PDF upload flow
 
 Clear Lens mode uses the same behavior with Clear Lens header, cards, status chips, shadows, radii, and button treatment.

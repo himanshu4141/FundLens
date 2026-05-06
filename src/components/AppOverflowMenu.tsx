@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { supabase } from '@/src/lib/supabase';
@@ -12,13 +12,9 @@ import {
   type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 
-type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
-
 interface AppOverflowMenuProps {
   visible: boolean;
-  syncState: SyncState;
   onClose: () => void;
-  onSync: () => void;
   onImport: () => void;
   // Money Trail and Tools are required so every screen surfaces the same
   // Quick Actions menu — preventing the per-screen drift we shipped before
@@ -33,16 +29,13 @@ type RowConfig = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
-  loading?: boolean;
   disabled?: boolean;
   danger?: boolean;
 };
 
 export function AppOverflowMenu({
   visible,
-  syncState,
   onClose,
-  onSync,
   onImport,
   onMoneyTrail,
   onSettings,
@@ -69,17 +62,9 @@ export function AppOverflowMenu({
 
   const dataActions: RowConfig[] = [
     {
-      key: 'sync',
-      icon: 'sync-outline',
-      label: 'Sync portfolio',
-      onPress: dismissAnd(onSync),
-      loading: syncState === 'syncing',
-      disabled: syncState === 'syncing',
-    },
-    {
       key: 'import',
       icon: 'cloud-upload-outline',
-      label: 'Import CAS',
+      label: 'Import portfolio',
       onPress: dismissAnd(onImport),
     },
   ];
@@ -110,7 +95,6 @@ export function AppOverflowMenu({
           <RowGroup
             rows={dataActions}
             styles={styles}
-            primaryColor={cl.emerald}
             dangerColor={cl.negative}
             textColor={cl.textPrimary}
           />
@@ -118,7 +102,6 @@ export function AppOverflowMenu({
           <RowGroup
             rows={navActions}
             styles={styles}
-            primaryColor={cl.emerald}
             dangerColor={cl.negative}
             textColor={cl.textPrimary}
           />
@@ -126,7 +109,6 @@ export function AppOverflowMenu({
           <RowGroup
             rows={destructiveActions}
             styles={styles}
-            primaryColor={cl.emerald}
             dangerColor={cl.negative}
             textColor={cl.textPrimary}
           />
@@ -139,13 +121,11 @@ export function AppOverflowMenu({
 function RowGroup({
   rows,
   styles,
-  primaryColor,
   dangerColor,
   textColor,
 }: {
   rows: RowConfig[];
   styles: ReturnType<typeof makeStyles>;
-  primaryColor: string;
   dangerColor: string;
   textColor: string;
 }) {
@@ -162,11 +142,7 @@ function RowGroup({
             activeOpacity={0.76}
           >
             <View style={styles.itemIcon}>
-              {row.loading ? (
-                <ActivityIndicator size="small" color={primaryColor} />
-              ) : (
-                <Ionicons name={row.icon} size={20} color={labelColor} />
-              )}
+              <Ionicons name={row.icon} size={20} color={labelColor} />
             </View>
             <Text style={[styles.itemText, { color: labelColor }]}>{row.label}</Text>
           </TouchableOpacity>

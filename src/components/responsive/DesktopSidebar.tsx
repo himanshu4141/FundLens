@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -8,10 +7,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { useSession } from '@/src/hooks/useSession';
-import { supabase } from '@/src/lib/supabase';
 import {
   ClearLensFonts,
   ClearLensRadii,
@@ -21,8 +18,6 @@ import {
 } from '@/src/constants/clearLensTheme';
 import { useClearLensTokens } from '@/src/context/ThemeContext';
 import { SidebarWidth } from './desktopBreakpoints';
-
-type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 
 type NavItem = {
   key: string;
@@ -56,9 +51,8 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const QUICK_ACTIONS: { key: 'sync' | 'import' | 'trail' | 'tools'; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { key: 'sync', icon: 'sync-outline', label: 'Sync portfolio' },
-  { key: 'import', icon: 'cloud-upload-outline', label: 'Import CAS' },
+const QUICK_ACTIONS: { key: 'import' | 'trail' | 'tools'; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
+  { key: 'import', icon: 'cloud-upload-outline', label: 'Import portfolio' },
   { key: 'trail', icon: 'trail-sign-outline', label: 'Money Trail' },
   { key: 'tools', icon: 'construct-outline', label: 'Tools' },
 ];
@@ -67,46 +61,16 @@ export function DesktopSidebar() {
   const router = useRouter();
   const segments = useSegments();
   const { session } = useSession();
-  const userId = session?.user.id;
   const accountMetadata = session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
   const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const accountInitial = useMemo(() => getAccountInitial(accountLabel), [accountLabel]);
-  const [syncState, setSyncState] = useState<SyncState>('idle');
   const tokens = useClearLensTokens();
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
   const cl = tokens.colors;
 
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile', userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('user_profile')
-        .select('kfintech_email')
-        .eq('user_id', userId!)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!userId,
-  });
-
-  async function handleSync() {
-    if (!profile?.kfintech_email) {
-      router.push('/onboarding');
-      return;
-    }
-    setSyncState('syncing');
-    const { error } = await supabase.functions.invoke('request-cas', {
-      method: 'POST',
-      body: { email: profile.kfintech_email },
-    });
-    setSyncState(error ? 'error' : 'requested');
-    setTimeout(() => setSyncState('idle'), 4000);
-  }
-
-  function handleQuickAction(key: 'sync' | 'import' | 'trail' | 'tools') {
-    if (key === 'sync') return handleSync();
+  function handleQuickAction(key: 'import' | 'trail' | 'tools') {
     if (key === 'import') {
-      router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding');
+      router.push('/onboarding');
       return;
     }
     if (key === 'trail') return router.push('/money-trail');
@@ -157,35 +121,17 @@ export function DesktopSidebar() {
             onPress={() => handleQuickAction(action.key)}
             activeOpacity={0.78}
           >
-            {action.key === 'sync' && syncState === 'syncing' ? (
-              <ActivityIndicator size="small" color={cl.emerald} />
-            ) : (
-              <Ionicons name={action.icon} size={16} color={cl.slate} />
-            )}
+            <Ionicons name={action.icon} size={16} color={cl.slate} />
             <Text style={styles.quickLabel} numberOfLines={1}>{action.label}</Text>
           </TouchableOpacity>
         ))}
-        {syncState === 'requested' && (
-          <View style={styles.syncBanner}>
-            <Text style={styles.syncBannerText}>
-              CAS requested — forward the email when it arrives.
-            </Text>
-          </View>
-        )}
-        {syncState === 'error' && (
-          <View style={[styles.syncBanner, styles.syncBannerError]}>
-            <Text style={[styles.syncBannerText, styles.syncBannerTextError]}>
-              Sync failed. Try again.
-            </Text>
-          </View>
-        )}
       </View>
 
       <View style={styles.spacer} />
 
-      {/* The account row is a direct link to Settings — every other item
-          surfaced by the legacy account dropdown (Sync, Import, Money Trail,
-          Tools) is already in this sidebar, and Sign Out lives inside
+      {/* The account row is a direct link to Settings — the non-account items
+          surfaced by the legacy account dropdown (Import, Money Trail, Tools)
+          are already in this sidebar, and Sign Out lives inside
           Settings → About & support. Keeps one entry point per action. */}
       <TouchableOpacity
         style={styles.accountRow}
@@ -266,18 +212,6 @@ function makeStyles(tokens: ClearLensTokens) {
       fontFamily: ClearLensFonts.medium,
       flex: 1,
     },
-    syncBanner: {
-      marginTop: 6,
-      paddingHorizontal: ClearLensSpacing.sm,
-      paddingVertical: 6,
-      borderRadius: ClearLensRadii.sm,
-      backgroundColor: c.mint50,
-      borderWidth: 1,
-      borderColor: c.mint,
-    },
-    syncBannerError: { backgroundColor: c.negativeBg, borderColor: c.negative },
-    syncBannerText: { ...ClearLensTypography.caption, color: c.slate },
-    syncBannerTextError: { color: c.negative },
     spacer: { flex: 1 },
     accountRow: {
       flexDirection: 'row',

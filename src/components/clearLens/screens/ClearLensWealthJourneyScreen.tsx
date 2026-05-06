@@ -61,7 +61,6 @@ import { parseFundName } from '@/src/utils/fundName';
 const MAX_SIP = 25_00_000;
 const MAX_TOP_UP = 10_00_00_000;
 
-type SyncState = 'idle' | 'syncing' | 'requested' | 'error';
 type ScreenMode = 'home' | 'adjust';
 type ResultsView = 'growth' | 'withdrawal';
 type SipEditorMode = 'review' | 'manual' | null;
@@ -580,7 +579,6 @@ export function ClearLensWealthJourneyScreen() {
   const accountMetadata = session?.user.user_metadata as { full_name?: string; name?: string } | undefined;
   const accountLabel = accountMetadata?.full_name ?? accountMetadata?.name ?? session?.user.email ?? null;
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const [syncState, setSyncState] = useState<SyncState>('idle');
   const [screenMode, setScreenMode] = useState<ScreenMode>('home');
   const [resultsView, setResultsView] = useState<ResultsView>('growth');
   const [sipEditorMode, setSipEditorMode] = useState<SipEditorMode>(null);
@@ -610,19 +608,6 @@ export function ClearLensWealthJourneyScreen() {
       task.cancel();
     };
   }, [isFocused]);
-
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile', userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('user_profile')
-        .select('kfintech_email')
-        .eq('user_id', userId!)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!userId,
-  });
 
   const { data: portfolioData, isLoading: portfolioLoading } = usePortfolio();
   const summary = portfolioData?.summary ?? null;
@@ -848,20 +833,6 @@ export function ClearLensWealthJourneyScreen() {
     updateWealthJourney({ ...patch, hasSavedPlan: true });
   }
 
-  async function handleSync() {
-    if (!profile?.kfintech_email) {
-      router.push('/onboarding');
-      return;
-    }
-    setSyncState('syncing');
-    const { error } = await supabase.functions.invoke('request-cas', {
-      method: 'POST',
-      body: { email: profile.kfintech_email },
-    });
-    setSyncState(error ? 'error' : 'requested');
-    setTimeout(() => setSyncState('idle'), 4000);
-  }
-
   function openSipReview() {
     setSipDraft(String(currentSip || detectedSip || 0));
     setSipEditorMode('review');
@@ -1028,10 +999,8 @@ export function ClearLensWealthJourneyScreen() {
       />
       <AppOverflowMenu
         visible={overflowOpen}
-        syncState={syncState}
         onClose={() => setOverflowOpen(false)}
-        onSync={handleSync}
-        onImport={() => router.push(profile?.kfintech_email ? '/onboarding/pdf' : '/onboarding')}
+        onImport={() => router.push('/onboarding')}
         onMoneyTrail={() => router.push('/money-trail')}
         onTools={() => router.push('/tools' as never)}
         onSettings={() => router.push('/(tabs)/settings')}

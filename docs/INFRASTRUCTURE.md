@@ -35,8 +35,8 @@ The web app at `https://app.foliolens.in` runs the same Expo Router code, export
 | `cas-<token>@foliolens.in` | Resend Inbound → Vercel router → PROD Supabase (M2 incoming) | Production per-user CAS forwarding inbox |
 | `cas-dev-<token>@foliolens.in` | Resend Inbound → Vercel router → DEV Supabase (M2 incoming) | Dev / preview per-user CAS forwarding inbox |
 | `hello@foliolens.in`, `support@foliolens.in`, `privacy@foliolens.in`, `security@foliolens.in` | Resend Inbound → Vercel router | Human-facing aliases forwarded to the owner Gmail |
-| `noreply@foliolens.in` | Resend SMTP (PROD) | Magic-link + transactional email — prod |
-| `noreply-dev@foliolens.in` | Resend SMTP (DEV) | Magic-link + transactional email — dev |
+| `noreply@foliolens.in` | Resend SMTP / API (PROD) | Magic-link + transactional email — prod |
+| `noreply-dev@foliolens.in` | Resend SMTP / API (DEV) | Magic-link + transactional email — dev |
 
 
 ## The two Supabase projects
@@ -105,10 +105,19 @@ All cron-triggered functions are deployed with `--no-verify-jwt` because pg_cron
 Single Resend account on the verified domain `foliolens.in`. Used for two purposes:
 
 
-1. **Outbound** — Supabase Auth's SMTP setting points at `smtp.resend.com:465` and uses a Resend SMTP key. Two different Resend "addresses" / sender names are configured per Supabase project so dev and prod emails don't blur.
+1. **Outbound** — Supabase Auth's SMTP setting points at `smtp.resend.com:465` and uses a Resend SMTP key. Two different Resend "addresses" / sender names are configured per Supabase project so dev and prod emails don't blur: DEV sends as `FolioLens Dev <noreply-dev@foliolens.in>`, PROD sends as `FolioLens <noreply@foliolens.in>`.
 2. **Inbound** (M2) — Resend owns the apex MX records for `foliolens.in` and POSTs every `email.received` event to `https://app.foliolens.in/api/resend-inbound-router`. The Vercel router verifies the Resend Svix signature, forwards human aliases to the owner Gmail, and forwards CAS messages to the matching Supabase project:
    - `cas-dev-<token>@foliolens.in` → DEV `cas-webhook-resend`
    - `cas-<token>@foliolens.in` → PROD `cas-webhook-resend`
+
+The inbound CAS path also sends a FolioLens-branded status email to the user's auth email after each PDF import attempt. These are application-triggered Resend Template emails, not Supabase Auth templates. DEV and PROD must use distinct template ids / aliases and From addresses:
+
+| Environment | Template source | Required sender |
+|---|---|---|
+| DEV | `supabase/templates/resend_cas_import_status.html` published in Resend as the DEV import-status template | `FolioLens Dev <noreply-dev@foliolens.in>` |
+| PROD | Same source, separately published / aliased as the PROD import-status template | `FolioLens <noreply@foliolens.in>` |
+
+Success emails include funds / transactions imported; failure emails explain the actionable next step, especially when a holdings-only CAS lacks transaction history.
 
 The router intentionally lives on the PROD Vercel project so Resend needs only one webhook endpoint and one verified domain on the free plan. DEV / PROD separation is encoded in the email local-part, not in subdomains.
 
@@ -216,6 +225,9 @@ On the Edge Function runtime (Supabase Dashboard → Functions → Secrets), the
 | `CASPARSER_API_KEY` | (deprecated, kept until M2.6) | (deprecated, kept until M2.6) |
 | `EODHD_API_KEY` | only set if EOD-style index data needed | same |
 | `RESEND_INBOUND_SECRET` | M2: same Resend Svix secret used by the Vercel router | same |
+| `RESEND_API_KEY` | M2: fetches received email bodies / attachment download URLs from Resend and sends inbound-import status emails | same |
+| `RESEND_IMPORT_NOTIFICATION_TEMPLATE_ID` | Published DEV Resend Template id / alias for CAS import status emails | Published PROD Resend Template id / alias for CAS import status emails |
+| `RESEND_NOTIFICATION_FROM` | `FolioLens Dev <noreply-dev@foliolens.in>` | `FolioLens <noreply@foliolens.in>` |
 | `VERCEL_PROTECTION_BYPASS_TOKEN` | only when Vercel protection is enabled | same |
 
 

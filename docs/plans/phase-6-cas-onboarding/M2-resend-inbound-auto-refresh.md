@@ -57,6 +57,45 @@ Outlook (consumer + Microsoft 365), Apple Mail / iCloud, and Yahoo Mail likely h
 
 This discovery unblocks M2.4 (auto-refresh card UX) and M2.5 (Settings row copy). Until it's done, the M2 backend (M2.1–M2.3, already shipped) continues to work — it processes whatever CAS emails arrive, regardless of how the user got them there. We can begin manual-forward testing on dev today without finalising the discovery.
 
+### Discovery findings — per-client breakdown
+
+| Client | Filter / rule based forwarding? | Destination verification? | Verdict for FolioLens |
+|---|---|---|---|
+| **Gmail (consumer / `gmail.com`)** | Yes — Settings → Filters → "Forward to" action | **Required.** Adding a forwarding address triggers Google to email a confirmation code to the destination from `forwarding-noreply@google.com`. Subject: "Gmail Forwarding Confirmation". Body contains a 9-digit code and a confirmation URL. The destination must either click the URL or the user enters the code in Gmail's Forwarding settings. | **Auto-forward viable**, but only if we surface the confirmation URL back to the user from the verification email. Otherwise the filter never activates. |
+| **Gmail Workspace** | Same as consumer. | Required by default. A Workspace admin can pre-allowlist external destination domains, in which case per-user verification is skipped. We are not the admin of users' orgs. | Same as consumer — surface URL or fall back. |
+| **Outlook.com (consumer)** | Yes — Settings → Mail → Rules → Forward / Forward as attachment | **Not required.** Outlook applies the rule immediately to any destination address. | **Auto-forward works out of the box.** No FolioLens code needed beyond showing rule-creation instructions. |
+| **Microsoft 365 (Exchange Online business)** | Same as Outlook.com — Inbox Rules support Forward. | Not required at the user level. Some tenants enable transport rules that block forwarding to external domains; that's a per-tenant admin setting outside our control. | Works for the majority of users. Tenant-level blocking falls back to manual forward. |
+| **iCloud Mail** | **No filter / rule support.** Settings → Mail → Auto-Reply forwards the *entire inbox* to one address; cannot scope to "from CAMS / KFintech only". | Not required because there's nothing to scope. | **Not viable.** Forwarding everything to `cas-<token>@…` would spam our parser with non-CAS PDFs and is a privacy footgun. Manual forward only. |
+| **Yahoo Mail (free)** | **No auto-forward.** Yahoo removed the feature for free accounts in 2014. | N/A | **Not viable.** Manual forward only. |
+| **Yahoo Mail Plus** (paid) | Yes | Required, similar to Gmail. | Niche; treat as Gmail-equivalent if we ever encounter a paid Yahoo user. |
+| **Apple Mail (macOS / iOS) backed by IMAP** | Forwarding is server-side (driven by the IMAP provider, not Apple Mail), so behaviour matches the provider. | Inherits from provider. | Same answer as the underlying provider. |
+
+### Decision — Hybrid (Option 3)
+
+The wizard's M2.4 auto-refresh card will pitch **manual forward as the universal default** and offer **opt-in auto-forward instructions per client family**, gated on what we can actually support:
+
+| User's email client | What M2.4's card shows |
+|---|---|
+| Gmail / Workspace | Manual-forward primary CTA. Below: "Set up auto-forward" expander with 3 steps (open Forwarding settings, paste address, **come back to FolioLens to confirm the verification link**). Once the verification email arrives at our webhook, the Settings → Auto-refresh row exposes a "Confirm Gmail forwarding" button that opens the captured URL. |
+| Outlook / Microsoft 365 | Manual-forward primary CTA. Below: "Set up auto-forward" expander with rule-creation instructions. No verification step. |
+| iCloud / Yahoo (free) | Manual-forward primary CTA only. No auto-forward expander. |
+| "Other / Not sure" | Manual-forward primary CTA. Auto-forward expander shows the generic "your client may need verification — paste the address and check your email" guidance. |
+
+**Why hybrid over manual-only:** Outlook is free for users (one rule, no verification, set-and-forget) and Gmail is the most common client we'll see. Dropping auto-forward entirely for both would leave a real UX win on the table for the bulk of beta testers.
+
+**Why hybrid over auto-forward-as-default:** iCloud + Yahoo-free can never auto-forward, and Gmail's verification-link UX is tedious enough that we should not lead with it. Manual forward "just works" and is the honest default.
+
+### Implementation impact on M2.4 (future PR)
+
+This decision shapes the M2.4 PR but **does not change M2.1–M2.3 (this PR's backend)**. Specifically, M2.4 will need:
+
+- **A new migration** adding `cas_inbox_confirmation_url text` to `user_profile` (nullable; populated by the Edge Function when a verification email arrives).
+- **A new branch in `cas-webhook-resend`** that detects Gmail's verification email pattern (`from = forwarding-noreply@google.com`, subject contains "Gmail Forwarding Confirmation") and stores the extracted URL on the user's profile instead of running the import path. Returns 200; no `cas_import` row.
+- **UI**: the auto-refresh card on Step 3 + Settings → Auto-refresh row + a "Confirm Gmail forwarding" button that opens `cas_inbox_confirmation_url` in `expo-web-browser` (native) or a new tab (web), then clears the column once the user reports completion (or after a 24h TTL, since the link is single-use).
+- **Auto-clear on success**: the next inbound CAS email proves the filter is active. M2.4's webhook can clear `cas_inbox_confirmation_url` opportunistically when it sees a successful import follow a verification, since there's no other way to know the user actually clicked.
+
+We deliberately do **not** ship the migration or the verification-detection branch in this PR — they have no UI consumer until M2.4 lands, and adding dead schema to prod is a worse outcome than two migrations, given how cheap each migration deploy is.
+
 ## Assumptions
 
 - Resend Inbound is available on the existing FolioLens Resend account at no incremental cost for the volumes we expect (a few hundred users × ~1 email/month each). If it isn't, the same pattern works with Postmark, SendGrid Inbound Parse, or Cloudflare Email Routing — only the webhook adapter changes.
@@ -134,7 +173,7 @@ The Vercel router verifies the Resend Svix signature before any side effects. Th
 - Create one Resend `email.received` webhook pointing at the router endpoint.
 - Replace Cloudflare Email Routing apex MX records with Resend's apex MX records. Keep outbound TXT/DKIM/SPF intact.
 - Set Vercel production env vars: `RESEND_API_KEY`, `RESEND_INBOUND_ROUTER_SECRET`, `MAIL_FORWARD_TO`, `MAIL_FORWARD_FROM`, `SUPABASE_DEV_FUNCTION_URL`, `SUPABASE_PROD_FUNCTION_URL`.
-- Set the same Resend Svix secret on both Supabase projects as `RESEND_INBOUND_SECRET`, and set `INBOUND_DOMAIN=foliolens.in`.
+- Set the same Resend Svix secret on both Supabase projects as `RESEND_INBOUND_SECRET`, set `RESEND_API_KEY`, and set `INBOUND_DOMAIN=foliolens.in`.
 - Smoke test human forwarding: send to `hello@foliolens.in`; expect a forwarded email in owner Gmail.
 - Smoke test CAS dispatch after PR #93 deploys: send to `cas-dev-TESTTOKEN@foliolens.in`; Resend calls Vercel router, router calls dev Supabase, function returns unknown token.
 - **Acceptance**: one Resend webhook endpoint handles human aliases, dev CAS, and prod CAS without extra Resend domains or subdomains.
@@ -153,15 +192,49 @@ The Vercel router verifies the Resend Svix signature before any side effects. Th
 - Structured `[cas-webhook-resend]` logs at invocation, signature OK, user resolution, per-attachment, completion.
 - **Acceptance**: dev test email with a real CAS PDF imports successfully; `cas_import` table reflects the run; tampered signature rejects with 401; the function works against both dev and prod with no code change (only `INBOUND_DOMAIN` differs).
 
-### M2.4 — Wizard Step 3 forwarding card + post-import nudge
+### M2.4 — Wizard Step 3 forwarding card + post-import nudge (hybrid flow per M2.0)
 
-- Stack on top of M1; replace the placeholder card slot on Step 3 with the chosen flow (per M2.0 discovery).
-- The card shows the user's address built from `EXPO_PUBLIC_INBOUND_DOMAIN`, a Copy button, and step-by-step instructions:
-  - **Manual-forward path (default if M2.0 lands on that)**: "Each time CAMS / KFintech emails you a CAS, tap Forward and paste this address. Your portfolio updates automatically."
-  - **Auto-forward path (if M2.0 confirms it works on a given client)**: explainer + a CTA that opens the client's filter UI in a new tab / in-app browser. The Edge Function surfaces the verification email's confirmation link to the user via the Settings row.
-- After M1.5's Done step, show a single-card nudge with the same sheet.
+Implements the hybrid path locked in by M2.0 — manual forward as the universal default, opt-in auto-forward instructions per client family.
+
+**New migrations**:
+
+- Adds `cas_inbox_confirmation_url text` (nullable) to `user_profile`.
+- Adds `cas_auto_forward_setup_completed_at timestamptz` (nullable) to `user_profile` so the user can explicitly mark provider-side auto-forward setup complete after the Gmail / Outlook rule is saved.
+- Updates `database.types.ts`.
+
+**Edge Function update** — `supabase/functions/cas-webhook-resend/index.ts` gains a new branch:
+
+- Detect Gmail's verification email pattern: `from = forwarding-noreply@google.com` AND subject matches `/Gmail Forwarding Confirmation/i`.
+- On match: extract the confirmation URL from the body (`https://mail.google.com/mail/vf-…`, `https://mail-settings.google.com/mail/vf-…`, or `https://isolated.mail.google.com/mail/vf-…`), `update user_profile set cas_inbox_confirmation_url = <url> where cas_inbox_token = <token>`, log `[cas-webhook-resend] gmail-verification-captured`, and return 200 without running the import path or inserting a `cas_import` row.
+- Opportunistic clear: on a successful import (an actual CAS PDF), if `cas_inbox_confirmation_url is not null` for the user, set it back to null (the filter is now active and the link is single-use anyway).
+
+**UI** — wizard Step 3 + Settings row + post-import nudge:
+
+- Step 3 auto-refresh card (replaces the M1 placeholder slot):
+  - Hero: address built from `EXPO_PUBLIC_INBOUND_DOMAIN` + Copy button.
+  - Primary CTA: "Forward your next CAS email" (manual-forward primary path; works on every client without any setup).
+  - Below the primary CTA: a collapsible "Or set up auto-forward" expander with platform tabs:
+    - **Gmail**: forwarding-address setup, captured verification-link CTA when available, exact filter query for `donotreply@camsonline.com` / `samfS@kfintech.com`, and a checklist the user marks complete before saving "auto-forward ready".
+    - **Outlook / Microsoft 365**: rule instructions using the same CAMS / KFintech senders; no verification step.
+    - **iCloud / Yahoo**: copy that explains why auto-forward isn't supported on these clients ("Your inbox doesn't allow filtered auto-forward — please use manual forward instead.").
+    - **Other / not sure**: generic guidance, falls back to manual.
+- Settings → Account → Auto-refresh row (M2.5):
+  - Address + Copy button.
+  - Last refresh timestamp + source ("via auto-refresh" / "via upload").
+  - When `cas_auto_forward_setup_completed_at` is non-null: status reads "Auto-forward ready for future CAMS / KFintech emails".
+  - When `cas_inbox_confirmation_url` is non-null and setup is not completed: a "Confirm Gmail forwarding" button opens the URL in `expo-web-browser` (native) / new tab (web).
+- Settings → Portfolio import:
+  - Reads the Resend inbox address from `user_profile.cas_inbox_token` rather than the retired CASParser inbound-session API.
+  - Shows auto-forward readiness, pending Gmail verification, latest import source/status, and opens the M1 import wizard for both setup review and manual PDF fallback.
+- After M1.5's Done step, single-card nudge with the same Step 3 card content.
 - All colors via tokens; styles via `makeStyles(tokens)`. Verify in light + dark + system, on mobile + desktop.
-- **Acceptance**: a user can copy the address, forward a CAS email (or set up the filter), and receive the import. Webhook fires; `cas_import` row appears with `import_source = 'email'`.
+
+**Acceptance**:
+
+- A user can copy the address, forward a CAS email by hand, and receive the import (manual flow works for all clients).
+- A Gmail user can paste the address into their Forwarding settings, see the confirmation button surface in FolioLens within ~30 sec, create a sender filter for `donotreply@camsonline.com` / `samfS@kfintech.com`, mark the checklist complete, and have subsequent CAS emails auto-import.
+- An Outlook user can create a rule pointing at the address with no verification step and have subsequent CAS emails auto-import.
+- The next successful import after a Gmail verification clears `cas_inbox_confirmation_url`.
 
 ### M2.5 — Settings hook + last-refresh
 
@@ -197,6 +270,28 @@ The Vercel router verifies the Resend Svix signature before any side effects. Th
 - Migration applies cleanly to dev and prod via the existing `supabase-deploy-{dev,prod}.yml` workflows.
 - One real CAMS email and one real KFintech email each round-trip end-to-end during M2.7 manual validation.
 
+## Amendments
+
+- 2026-05-06 — Removed the Clear Lens "Sync portfolio" quick action because FolioLens no longer programmatically asks an RTA to email a CAS. Mobile overflow and desktop sidebar now expose one `Import portfolio` action that opens the onboarding import flow.
+- 2026-05-06 — Reworked Settings → Portfolio import away from the old CASParser inbound session model. The screen now uses the Resend inbox token, shows auto-forward setup state, and routes manual PDF upload through the newer onboarding import flow instead of deep-linking to `/onboarding/pdf`.
+- 2026-05-06 — Removed the unused client hook and tests for `create-inbound-session`. The Edge Functions themselves remain for the explicit M2.6 retirement cleanup.
+- 2026-05-06 — Added a holding-mode branch to onboarding. AMC / folio users are routed to CAMS / KFintech, demat / broker users are routed to CDSL / NSDL Detailed CAS, and unsure users see both paths. Auto-refresh remains scoped to CAMS / KFintech because it depends on predictable RTA CAS emails.
+- 2026-05-06 — Inbound and manual PDF imports now reject parsed PDFs that contain holdings but zero transaction rows with a clear "Detailed CAS required" error instead of recording an apparently successful `0 transactions` import.
+- 2026-05-06 — Inbound PDF imports now send Clear Lens styled status emails through Resend Templates to the user's auth email. Success messages include fund / transaction counts; failures explain the next action and keep the Resend response idempotent by import id. DEV and PROD use separate template ids / aliases and distinct From addresses (`noreply-dev@foliolens.in` vs `noreply@foliolens.in`).
+- 2026-05-06 — `gen_cas_inbox_token()` is now deterministic — token is a stable hash of the user's UUID instead of a random sequence. Previously, deleting and recreating a `user_profile` row (a real path used for dev resets) handed the user a brand-new token and silently broke any Gmail / Outlook auto-forward filter pointing at the old `cas-<old-token>@foliolens.in` address. New rows generated post-migration are stable across recreations; existing rows keep their pre-migration tokens (no backfill, since their tokens are already wired into live forwarding filters).
+- 2026-05-06 — Webhook now finalises imports in `EdgeRuntime.waitUntil(...)` instead of inline. The full path (Resend Receiving fetch + attachment download + Vercel parser + `importCASData` upserts) takes 20–40 s end to end, well past Svix's hard 15 s delivery timeout — the timeout was triggering Resend retries which produced duplicate `cas_import` rows plus duplicate notification emails (the dedup upsert kept the data correct but the second row landed at 0 funds / 0 transactions and the user got a "could not import" follow-up to a CAS we'd already imported). The sync handler now writes a `pending` audit row, hands off to a background processor, and returns 200 in <1 s. A catch-all in the background processor guarantees the row never stays `pending` on a hard crash and the user gets a failure notification instead of silence.
+- 2026-05-06 — Resend template variables must be strings — sending `FUNDS_UPDATED: 21` (number) returns a 422 `validation_error` even though the API docs allow numbers. Both numeric variables (`FUNDS_UPDATED`, `TRANSACTIONS_IMPORTED`) are now coerced with `String(...)` and the `buildImportNotificationVariables` return type is narrowed to `Record<string, string>` so TypeScript catches the regression. Notification-failure logging promoted to `console.error` with a stable `DROPPED notification_failed: import_id=… status=… error=…` tag for dashboard greppability — the import row stays accurate independently of email delivery, but until this commit the email-delivery failure was invisible from outside Resend's dashboard.
+- 2026-05-06 — UX polish across the wizard + settings PAN / DOB / CAS surfaces, after walking the flows end-to-end. (a) Identity step now warns about PAN / DOB permanence *before* save, not just after — the locked-state hint only appears once a typo is already saved. (b) The Done step's "Settings → Account → Restart import" pointer was broken (no such row exists) and now points to "Settings → Portfolio import", which is the actual hub. (c) The "Treat this like a password" warning on the inbox address overstated the threat model (signature check is on Resend's envelope, not per-sender) and is reframed as "treat the address like an unlisted phone number." (d) The Gmail completion checklist was phrased as system claims ("Gmail accepted the FolioLens address") even though the boxes are manually ticked by the user; reworded in first-person ("I added the forwarding address" etc.). (e) The same concept was variously labelled "FolioLens inbox", "private import address", "private FolioLens address", and "FolioLens address" across three files; settled on "FolioLens import inbox" everywhere.
+
+## Follow-ups (post-merge)
+
+These came out of the same UX walk-through but are bigger refactors than fit in this PR:
+
+- **Settings IA consolidation.** The "Auto-refresh inbox" row in Settings → Account and the entire Settings → Portfolio import screen show overlapping status (inbox address, setup state, confirm CTA). One canonical home plus a thin status indicator would reduce duplication, but moving rows touches IA in a way that needs its own PR and a screenshots-first review.
+- **Rename `kfintech_email` UI label.** Account screen still labels the column "CAS Registrar Email" with no subtitle, which is jargon. Suggest "Registrar contact email" plus a sub describing what it's used for ("If you ever ask FolioLens to request a fresh CAS on your behalf"). The column stays as-is in the schema; this is a copy-only change.
+- **Sticky button footers in the wizard.** Buttons like "Continue" and "Upload the PDF" sit at the end of a `ScrollView` and scroll out of view when content fills the screen, especially with a software keyboard up. A `position: absolute` / sticky bottom bar would prevent users from missing the CTA on first-run.
+- **In-wizard "Wrong PAN? Request correction" link.** The Account screen has a one-tap path that pre-fills a bug-report; the wizard's locked Identity step is a dead-end with only an explanatory hint. Mirroring the Account pattern in the wizard would close the loop without making the user navigate away.
+
 ## Risks And Mitigations
 
 - **Risk**: Resend Inbound has a delivery hiccup and emails are silently dropped. **Mitigation**: log every webhook fire to `cas_import` with the raw payload (hash) so we can reconcile against Resend's dashboard.
@@ -209,16 +304,20 @@ The Vercel router verifies the Resend Svix signature before any side effects. Th
 
 - 2026-05-04 — Chose Resend Inbound over Cloudmailin to consolidate email vendors on the existing `foliolens.in` Resend account.
 - 2026-05-04 — Initially chose plus-addressing (`cas+token@foliolens.in`) over wildcard subdomain (`cas-<token>@foliolens.in`) because plus-addressing required no DNS change beyond the one MX record set.
-- 2026-05-04 — Decided not to verify Gmail filter completion (no programmatic way to detect it; would over-engineer the milestone).
+- 2026-05-04 — Decided not to verify Gmail filter completion (no programmatic way to detect it; would over-engineer the milestone). **Superseded 2026-05-05 — see M2.0 entry below.**
 - 2026-05-05 — Renumbered from Phase 5 to Phase 6 (Phase 5 is now Desktop Web). M2 ships strictly after M1; both must honour PR #95 + #97 design realities.
+- 2026-05-05 — Subdomain namespacing (`dev.foliolens.in` for dev, `foliolens.in` for prod) was chosen for env differentiation, then superseded by the 2026-05-06 router decision after Resend free-plan testing showed subdomains count as separate domains.
+- 2026-05-05 — **(M2.0 outcome)** Chose hybrid path for the auto-refresh card: manual forward as universal default, opt-in auto-forward instructions per client family (Gmail with confirmation-link surfacing, Outlook with no extra steps, iCloud + Yahoo skip auto-forward entirely). Reasoning: manual works for everyone with zero friction; Outlook is free for users; Gmail's verification-link tedium is gated behind an opt-in expander rather than the default. Drops the 2026-05-04 "no Gmail verification" decision because the captured-URL + UI-button pattern turned out to be cheaper than I'd assumed.
 - 2026-05-06 — Revised inbound architecture after Resend free-plan testing: subdomains count as extra domains, so Resend now owns apex inbound for `foliolens.in`; a PROD Vercel router handles human aliases plus dev/prod CAS dispatch. CAS addresses are `cas-dev-<token>@foliolens.in` for dev and `cas-<token>@foliolens.in` for prod.
+- 2026-05-06 — Removed the old "Sync portfolio" product language from app navigation. Refresh now means either auto-forwarded future CAS emails or opening the import flow for a manual upload/setup review.
 
 ## Progress
 
+- [x] M2.0 — Auto-forward feasibility discovery + decision (this plan, 2026-05-05; see "Discovery findings" + "Decision" sections above)
 - [x] M2.1 — Inbox-token schema + generation + backfill (PR #93)
 - [x] M2.2 — Resend inbound router + DNS cutover — router PR, see SETUP.md
-- [x] M2.3 — `cas-webhook-resend` Edge Function (PR #93)
-- [ ] M2.4 — Auto-refresh card + post-import nudge (post-M1; theming + desktop pass)
-- [ ] M2.5 — Settings row + last-refresh display
-- [ ] M2.6 — Retire CASParser code paths
-- [ ] M2.7 — Tests + real-email validation
+- [x] M2.3 — `cas-webhook-resend` Edge Function with env-driven `INBOUND_DOMAIN` (PR #93)
+- [x] M2.4 — Hybrid auto-refresh card on wizard Step 3 + `cas_inbox_confirmation_url` migration + Gmail verification capture in webhook + opportunistic clear after successful CAS import + Settings → Auto-refresh row + post-import nudge on Done step (PR #93, stacked on top of #92)
+- [x] M2.5 — Settings → Account "Auto-refresh inbox" row with address + Copy + last-refresh timestamp + Confirm Gmail button when verification URL pending (PR #93, folded into M2.4)
+- [ ] M2.6 — Retire CASParser code paths (PR #93 removed app call sites and the unused `create-inbound-session` hook; deleting the old Edge Functions and secrets remains a separate cleanup)
+- [x] M2.7 — Tests for Gmail verification helpers (`supabase/functions/_shared/gmail-verification.ts`, 100% coverage); real-email round-trip is operator validation per `SETUP.md` §3

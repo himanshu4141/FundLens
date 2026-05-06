@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
+  Linking,
+  Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
-import { useInboundSession } from '@/src/hooks/useInboundSession';
 import { UtilityHeader } from '@/src/components/UtilityHeader';
 import {
   ClearLensFonts,
@@ -24,6 +26,36 @@ import {
   type ClearLensTokens,
 } from '@/src/constants/clearLensTheme';
 import { useClearLensTokens } from '@/src/context/ThemeContext';
+import { formatInboxAddress } from '@/src/utils/casInboxToken';
+
+type Profile = {
+  cas_inbox_token: string | null;
+  cas_inbox_confirmation_url: string | null;
+  cas_auto_forward_setup_completed_at: string | null;
+};
+
+type LastImport = {
+  created_at: string;
+  import_source: 'email' | 'qr' | 'pdf';
+  import_status: 'pending' | 'success' | 'failed';
+  funds_updated: number;
+  transactions_added: number;
+};
+
+const PORTFOLIO_TIPS: { icon: keyof typeof Ionicons.glyphMap; text: string }[] = [
+  {
+    icon: 'filter-outline',
+    text: 'Auto-forward only CAS emails from donotreply@camsonline.com and samfS@kfintech.com.',
+  },
+  {
+    icon: 'document-text-outline',
+    text: 'Manual upload remains available for CAMS, KFintech, MFCentral, CDSL, and NSDL PDFs.',
+  },
+  {
+    icon: 'list-outline',
+    text: 'Use Detailed CAS statements so FolioLens receives transaction history, not only balances.',
+  },
+];
 
 function formatImportDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -33,11 +65,31 @@ function formatImportDate(iso: string | null | undefined): string | null {
   return `${date} · ${time}`;
 }
 
-const IMPORT_TIPS = [
-  { icon: 'mail-outline' as const, text: 'Use your registered email ID with CAMS.' },
-  { icon: 'document-text-outline' as const, text: 'Include all pages in the PDF.' },
-  { icon: 'time-outline' as const, text: 'Import usually completes in a few minutes.' },
-];
+function formatImportSource(source: LastImport['import_source']): string {
+  if (source === 'email') return 'Auto-forward';
+  if (source === 'pdf') return 'PDF upload';
+  return 'Legacy email route';
+}
+
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('user_profile')
+    .select('cas_inbox_token, cas_inbox_confirmation_url, cas_auto_forward_setup_completed_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data ?? null;
+}
+
+async function fetchLastImport(userId: string): Promise<LastImport | null> {
+  const { data } = await supabase
+    .from('cas_import')
+    .select('created_at, import_source, import_status, funds_updated, transactions_added')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data as LastImport | null;
+}
 
 export default function PortfolioImportScreen() {
   const router = useRouter();
@@ -45,114 +97,180 @@ export default function PortfolioImportScreen() {
   const userId = session?.user.id;
   const tokens = useClearLensTokens();
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
+  const cl = tokens.colors;
   const [copied, setCopied] = useState(false);
 
-  const { inboundEmail } = useInboundSession(userId);
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: () => fetchProfile(userId!),
+    enabled: !!userId,
+    refetchOnMount: 'always',
+  });
 
-  const { data: lastImportDate } = useQuery({
+  const { data: lastImport } = useQuery({
     queryKey: ['last-cas-import', userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('cas_import')
-        .select('created_at')
-        .eq('user_id', userId!)
-        .eq('import_status', 'success')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data?.created_at as string | null ?? null;
-    },
+    queryFn: () => fetchLastImport(userId!),
     enabled: !!userId,
   });
 
+  const inboxAddress = useMemo(() => {
+    if (!profile?.cas_inbox_token) return null;
+    try {
+      return formatInboxAddress(profile.cas_inbox_token);
+    } catch {
+      return null;
+    }
+  }, [profile?.cas_inbox_token]);
+
+  const autoForwardReady = !!profile?.cas_auto_forward_setup_completed_at;
+  const pendingConfirmationUrl = profile?.cas_inbox_confirmation_url ?? null;
+  const formattedLastImport = formatImportDate(lastImport?.created_at);
+
   async function handleCopy() {
-    if (!inboundEmail) return;
-    await Clipboard.setStringAsync(inboundEmail);
+    if (!inboxAddress) return;
+    await Clipboard.setStringAsync(inboxAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const formattedLastImport = formatImportDate(lastImportDate);
+  function handleOpenConfirmation() {
+    if (!pendingConfirmationUrl) return;
+    if (Platform.OS === 'web') {
+      void Linking.openURL(pendingConfirmationUrl);
+      return;
+    }
+    void WebBrowser.openBrowserAsync(pendingConfirmationUrl);
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <UtilityHeader title="Portfolio import" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <View style={styles.headerCopy}>
+          <Text style={styles.heading}>Import and auto-refresh</Text>
+          <Text style={styles.subheading}>
+            Keep your FolioLens import inbox as the default path, with PDF upload as a fallback.
+          </Text>
+        </View>
 
-        {/* Auto-import */}
-        {inboundEmail && (
-          <>
-            <Text style={styles.sectionLabel}>Auto-import (Email)</Text>
-            <View style={styles.card}>
-              <View style={styles.importAddressBlock}>
-                <Text style={styles.rowLabel}>Your import address</Text>
-                <View style={styles.importAddressRow}>
-                  <Text style={styles.importAddress} numberOfLines={1} selectable>
-                    {inboundEmail}
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.copyBtn, copied && styles.copyBtnDone]}
-                    onPress={handleCopy}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={copied ? 'checkmark' : 'copy-outline'}
-                      size={14}
-                      color={copied ? tokens.colors.emerald : tokens.colors.emerald}
-                    />
-                    <Text style={styles.copyBtnText}>{copied ? 'Copied' : 'Copy'}</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.importAddressSub}>
-                  Forward your CAS email here to auto-import
+        <Text style={styles.sectionLabel}>Auto-forward</Text>
+        <View style={styles.card}>
+          <View style={styles.statusBlock}>
+            <View style={styles.statusTop}>
+              <View style={styles.statusIcon}>
+                <Ionicons name="mail-unread-outline" size={19} color={cl.emeraldDeep} />
+              </View>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowValue}>FolioLens import inbox</Text>
+                <Text style={styles.rowSub}>
+                  {autoForwardReady
+                    ? 'Ready for future CAMS and KFintech CAS emails.'
+                    : 'Set up Gmail or Outlook forwarding once.'}
+                </Text>
+              </View>
+              <View style={[styles.statusBadge, autoForwardReady ? styles.statusBadgeReady : styles.statusBadgeSetup]}>
+                <Text style={[styles.statusBadgeText, autoForwardReady ? styles.statusTextReady : styles.statusTextSetup]}>
+                  {autoForwardReady ? 'Ready' : 'Setup'}
                 </Text>
               </View>
             </View>
-          </>
-        )}
 
-        {/* Manual import */}
-        <Text style={styles.sectionLabel}>Manual Import</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowValue}>Upload a CAS PDF</Text>
-              <Text style={styles.rowSub}>Manually import from a downloaded PDF</Text>
+            <View style={styles.importAddressRow}>
+              <Text style={styles.importAddress} numberOfLines={1} selectable>
+                {profileLoading ? 'Loading address...' : inboxAddress ?? 'Open import flow to create your inbox'}
+              </Text>
+              {inboxAddress ? (
+                <TouchableOpacity
+                  style={[styles.copyBtn, copied && styles.copyBtnDone]}
+                  onPress={handleCopy}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={14} color={cl.emerald} />
+                  <Text style={styles.copyBtnText}>{copied ? 'Copied' : 'Copy'}</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
+
             <TouchableOpacity
-              style={styles.uploadBtn}
-              onPress={() => router.push('/onboarding/pdf')}
-              activeOpacity={0.7}
+              style={styles.primaryAction}
+              onPress={() => router.push('/onboarding')}
+              activeOpacity={0.78}
             >
-              <Ionicons name="cloud-upload-outline" size={14} color={tokens.colors.emerald} />
-              <Text style={styles.uploadBtnText}>Upload</Text>
+              <Ionicons name="settings-outline" size={15} color={cl.textOnDark} />
+              <Text style={styles.primaryActionText}>
+                {autoForwardReady ? 'Review setup' : 'Set up auto-forward'}
+              </Text>
             </TouchableOpacity>
           </View>
+
+          {pendingConfirmationUrl && !autoForwardReady ? (
+            <View style={[styles.row, styles.borderTop]}>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowLabel}>Gmail verification</Text>
+                <Text style={styles.rowSub}>
+                  Google has sent a confirmation link for this inbox.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleOpenConfirmation}
+                style={styles.secondaryAction}
+                activeOpacity={0.76}
+              >
+                <Text style={styles.secondaryActionText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
-        {/* Import tips */}
-        <Text style={styles.sectionLabel}>Import Tips</Text>
+        <Text style={styles.sectionLabel}>Import options</Text>
         <View style={styles.card}>
-          {IMPORT_TIPS.map((tip, idx) => (
-            <View key={idx} style={[styles.tipRow, idx > 0 && styles.borderTop]}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/onboarding')}
+            activeOpacity={0.72}
+          >
+            <View style={styles.optionIcon}>
+              <Ionicons name="cloud-upload-outline" size={18} color={cl.emerald} />
+            </View>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowValue}>Open import flow</Text>
+              <Text style={styles.rowSub}>Upload a CAS PDF or adjust auto-forward setup.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={cl.textTertiary} />
+          </TouchableOpacity>
+        </View>
+
+        {formattedLastImport ? (
+          <>
+            <Text style={styles.sectionLabel}>Latest import</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <View style={styles.optionIcon}>
+                  <Ionicons name="checkmark-circle-outline" size={18} color={cl.emerald} />
+                </View>
+                <View style={styles.rowLeft}>
+                  <Text style={styles.rowValue}>{formatImportSource(lastImport!.import_source)}</Text>
+                  <Text style={styles.rowSub}>
+                    {formattedLastImport} · {lastImport!.import_status} · {lastImport!.transactions_added} transactions
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </>
+        ) : null}
+
+        <Text style={styles.sectionLabel}>Good setup</Text>
+        <View style={styles.card}>
+          {PORTFOLIO_TIPS.map((tip, idx) => (
+            <View key={tip.text} style={[styles.tipRow, idx > 0 && styles.borderTop]}>
               <View style={styles.tipIconWrap}>
-                <Ionicons name={tip.icon} size={16} color={tokens.colors.textTertiary} />
+                <Ionicons name={tip.icon} size={16} color={cl.textTertiary} />
               </View>
               <Text style={styles.tipText}>{tip.text}</Text>
             </View>
           ))}
         </View>
-
-        {/* Last imported */}
-        {formattedLastImport && (
-          <View style={styles.lastImportCard}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowValue}>Last imported</Text>
-              <Text style={styles.rowSub}>{formattedLastImport}</Text>
-            </View>
-          </View>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -163,6 +281,20 @@ function makeStyles(tokens: ClearLensTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: cl.background },
     content: { padding: ClearLensSpacing.md, gap: ClearLensSpacing.sm, paddingBottom: ClearLensSpacing.xxl },
+
+    headerCopy: {
+      gap: 4,
+      paddingBottom: ClearLensSpacing.xs,
+    },
+    heading: {
+      ...ClearLensTypography.h1,
+      fontFamily: ClearLensFonts.extraBold,
+      color: cl.navy,
+    },
+    subheading: {
+      ...ClearLensTypography.body,
+      color: cl.textTertiary,
+    },
 
     sectionLabel: {
       ...ClearLensTypography.label,
@@ -181,24 +313,51 @@ function makeStyles(tokens: ClearLensTokens) {
       ...ClearLensShadow,
     },
 
-    importAddressBlock: {
+    statusBlock: {
       padding: ClearLensSpacing.md,
-      gap: ClearLensSpacing.xs,
+      gap: ClearLensSpacing.sm,
     },
+    statusTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: ClearLensSpacing.sm,
+    },
+    statusIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: ClearLensRadii.full,
+      backgroundColor: cl.mint50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    statusBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: ClearLensRadii.full,
+      flexShrink: 0,
+    },
+    statusBadgeReady: { backgroundColor: cl.positiveBg },
+    statusBadgeSetup: { backgroundColor: cl.mint50 },
+    statusBadgeText: {
+      ...ClearLensTypography.caption,
+      fontFamily: ClearLensFonts.semiBold,
+    },
+    statusTextReady: { color: cl.emerald },
+    statusTextSetup: { color: cl.emeraldDeep },
+
     importAddressRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: ClearLensSpacing.sm,
+      minHeight: 36,
     },
     importAddress: {
       ...ClearLensTypography.body,
       fontFamily: ClearLensFonts.semiBold,
       color: cl.navy,
       flex: 1,
-    },
-    importAddressSub: {
-      ...ClearLensTypography.bodySmall,
-      color: cl.textTertiary,
+      minWidth: 0,
     },
     copyBtn: {
       flexDirection: 'row',
@@ -208,9 +367,37 @@ function makeStyles(tokens: ClearLensTokens) {
       paddingVertical: 6,
       backgroundColor: cl.mint50,
       borderRadius: ClearLensRadii.full,
+      flexShrink: 0,
     },
     copyBtnDone: { backgroundColor: cl.positiveBg },
     copyBtnText: {
+      ...ClearLensTypography.caption,
+      fontFamily: ClearLensFonts.semiBold,
+      color: cl.emerald,
+    },
+
+    primaryAction: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      backgroundColor: cl.emeraldDeep,
+      borderRadius: ClearLensRadii.full,
+    },
+    primaryActionText: {
+      ...ClearLensTypography.caption,
+      fontFamily: ClearLensFonts.semiBold,
+      color: cl.textOnDark,
+    },
+    secondaryAction: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: cl.mint50,
+      borderRadius: ClearLensRadii.full,
+    },
+    secondaryActionText: {
       ...ClearLensTypography.caption,
       fontFamily: ClearLensFonts.semiBold,
       color: cl.emerald,
@@ -224,7 +411,7 @@ function makeStyles(tokens: ClearLensTokens) {
       gap: ClearLensSpacing.md,
     },
     borderTop: { borderTopWidth: 1, borderTopColor: cl.borderLight },
-    rowLeft: { flex: 1, gap: 3 },
+    rowLeft: { flex: 1, gap: 3, minWidth: 0 },
     rowLabel: {
       ...ClearLensTypography.label,
       color: cl.textTertiary,
@@ -238,20 +425,14 @@ function makeStyles(tokens: ClearLensTokens) {
       ...ClearLensTypography.bodySmall,
       color: cl.textTertiary,
     },
-
-    uploadBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      backgroundColor: cl.mint50,
+    optionIcon: {
+      width: 32,
+      height: 32,
       borderRadius: ClearLensRadii.full,
-    },
-    uploadBtnText: {
-      ...ClearLensTypography.caption,
-      fontFamily: ClearLensFonts.semiBold,
-      color: cl.emerald,
+      backgroundColor: cl.mint50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
     },
 
     tipRow: {
@@ -266,16 +447,6 @@ function makeStyles(tokens: ClearLensTokens) {
       ...ClearLensTypography.bodySmall,
       color: cl.textSecondary,
       flex: 1,
-    },
-
-    lastImportCard: {
-      backgroundColor: cl.surface,
-      borderRadius: ClearLensRadii.lg,
-      borderWidth: 1,
-      borderColor: cl.border,
-      paddingHorizontal: ClearLensSpacing.md,
-      paddingVertical: 14,
-      ...ClearLensShadow,
     },
   });
 }

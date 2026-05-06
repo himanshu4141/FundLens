@@ -77,6 +77,18 @@ export interface CASParseResult {
   mutual_funds?: CASFolio[];
 }
 
+export function countParsedTransactions(parsed: CASParseResult): number {
+  return (parsed.mutual_funds ?? []).reduce(
+    (folioTotal, folio) =>
+      folioTotal +
+      (folio.schemes ?? []).reduce(
+        (schemeTotal, scheme) => schemeTotal + (scheme.transactions ?? []).length,
+        0,
+      ),
+    0,
+  );
+}
+
 // ── Date normalisation ────────────────────────────────────────────────────────
 
 const MONTHS: Record<string, string> = {

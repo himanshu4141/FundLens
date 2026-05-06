@@ -1,4 +1,5 @@
 import {
+  countParsedTransactions,
   normaliseTxType,
   parseDate,
   importCASData,
@@ -216,6 +217,36 @@ describe('normaliseTxType()', () => {
       expect(normaliseTxType('SOME_FUTURE_TYPE')).toBeNull();
       expect(normaliseTxType('bonus_units')).toBeNull();
     });
+  });
+});
+
+// ===========================================================================
+// countParsedTransactions()
+// ===========================================================================
+
+describe('countParsedTransactions()', () => {
+  it('counts transactions across folios and schemes', () => {
+    const parsed = {
+      mutual_funds: [
+        {
+          schemes: [
+            { transactions: [{ type: 'PURCHASE' }, { type: 'REDEMPTION' }] },
+            { transactions: [{ type: 'PURCHASE_SIP' }] },
+          ],
+        },
+        {
+          schemes: [{ transactions: [] }],
+        },
+      ],
+    };
+
+    expect(countParsedTransactions(parsed as CASParseResult)).toBe(3);
+  });
+
+  it('returns zero when folios, schemes, or transaction arrays are missing', () => {
+    expect(countParsedTransactions({})).toBe(0);
+    expect(countParsedTransactions({ mutual_funds: [{}] })).toBe(0);
+    expect(countParsedTransactions({ mutual_funds: [{ schemes: [{}] }] })).toBe(0);
   });
 });
 

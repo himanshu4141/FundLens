@@ -22,6 +22,8 @@ This is the operator runbook for the Phase 6 CAS onboarding + Resend inbound wor
 | `<inbound-domain>` | `foliolens.in` |
 | `<resend-svix-secret>` | Resend webhook signing secret for `email.received` |
 | `<resend-api-key>` | Resend API key with send + receiving read access |
+| `<dev-import-template-id>` | Published Resend Template id / alias for DEV CAS import status emails |
+| `<prod-import-template-id>` | Published Resend Template id / alias for PROD CAS import status emails |
 | `<owner-gmail>` | Personal Gmail destination for public aliases |
 | `<your-dev-uuid>` | your `auth.users.id` in DEV Supabase |
 | `<your-prod-uuid>` | your `auth.users.id` in PROD Supabase |
@@ -50,6 +52,11 @@ Resend Dashboard:
   - Event: `email.received`
 - Copy the webhook signing secret as `<resend-svix-secret>`.
 - Create or reuse a Resend API key as `<resend-api-key>`.
+- Create and publish two Resend Templates from `supabase/templates/resend_cas_import_status.html`:
+  - DEV template: alias or id `<dev-import-template-id>`, default From `FolioLens Dev <noreply-dev@foliolens.in>`.
+  - PROD template: alias or id `<prod-import-template-id>`, default From `FolioLens <noreply@foliolens.in>`.
+  - Both templates use these variables: `STATUS_LABEL`, `STATUS_BG`, `STATUS_TEXT_COLOR`, `TITLE`, `INTRO`, `FUNDS_UPDATED`, `TRANSACTIONS_IMPORTED`, `DETAIL_LABEL`, `DETAIL_TEXT`, `NEXT_STEP_LABEL`, `NEXT_STEP_TEXT`, `APP_URL`, `CTA_LABEL`, `FOOTER_TEXT`.
+  - Send a Resend test email for each template before wiring it into Supabase.
 
 Cloudflare DNS:
 
@@ -134,6 +141,7 @@ PR #93 adds:
 
 - `20260504020000_user_profile_cas_inbox_token.sql`
 - `20260505000000_user_profile_cas_inbox_confirmation_url.sql`
+- `20260506000000_user_profile_auto_forward_setup.sql`
 
 DEV:
 
@@ -167,8 +175,10 @@ Set on **both** Supabase projects:
 | `RESEND_INBOUND_SECRET` | `<resend-svix-secret>` | `<resend-svix-secret>` |
 | `INBOUND_DOMAIN` | `foliolens.in` | `foliolens.in` |
 | `RESEND_API_KEY` | `<resend-api-key>` | `<resend-api-key>` |
+| `RESEND_IMPORT_NOTIFICATION_TEMPLATE_ID` | `<dev-import-template-id>` | `<prod-import-template-id>` |
+| `RESEND_NOTIFICATION_FROM` | `FolioLens Dev <noreply-dev@foliolens.in>` | `FolioLens <noreply@foliolens.in>` |
 
-`RESEND_API_KEY` is needed because Resend webhooks carry metadata; the Edge Function fetches email body / attachment download URLs through the Receiving API.
+`RESEND_API_KEY` is needed because Resend webhooks carry metadata; the Edge Function fetches email body / attachment download URLs through the Receiving API and sends the templated import status email. Keep DEV and PROD on distinct From addresses so beta/test messages cannot be confused with production account mail.
 
 Verify deployment config:
 
@@ -186,6 +196,8 @@ The client should render the same domain in every environment, but a different l
 | EAS `production` | `EXPO_PUBLIC_INBOUND_DOMAIN=foliolens.in` |
 | Vercel `foliolens-dev` | `EXPO_PUBLIC_INBOUND_DOMAIN=foliolens.in` |
 | Vercel `foliolens` | `EXPO_PUBLIC_INBOUND_DOMAIN=foliolens.in` |
+
+The app normally infers dev/prod from `APP_VARIANT` or the Supabase URL baked into the bundle. If a preview build ever renders `cas-<token>@foliolens.in` instead of `cas-dev-<token>@foliolens.in`, set `EXPO_PUBLIC_INBOUND_ENV=dev` on that target and republish.
 
 After changing Expo / Vercel env vars, republish OTA or redeploy the relevant app.
 
@@ -235,6 +247,13 @@ select id, import_status, import_source, funds_updated, transactions_added, crea
 -- expect import_source = 'email' and import_status = 'success'
 ```
 
+Also verify that the user's auth email receives a Resend Template message:
+
+- DEV imports must come from `FolioLens Dev <noreply-dev@foliolens.in>`.
+- PROD imports must come from `FolioLens <noreply@foliolens.in>`.
+- Success copy should show funds / transactions imported.
+- A holdings-only or non-detailed CAS should fail the import and send a "Detailed CAS required" next-step email.
+
 ### Test 3 — Gmail forwarding confirmation
 
 - In Gmail, add the matching CAS address as a forwarding destination.
@@ -264,3 +283,5 @@ select id, import_status, import_source, funds_updated, transactions_added, crea
 | Supabase function returns 401 | `RESEND_INBOUND_SECRET` on Supabase does not match the same Resend Svix secret | Re-copy the secret into both Supabase projects and redeploy |
 | Supabase function returns unknown token for a real user | Wrong env prefix or token typo | Compare address to `select cas_inbox_token from user_profile where user_id = ...` in that environment |
 | App shows old address format | PR #93 bundle / OTA not republished after env or code change | Republish the relevant EAS update or redeploy Vercel |
+| CAS import succeeds/fails but no user email arrives | Missing `RESEND_IMPORT_NOTIFICATION_TEMPLATE_ID`, unpublished template, or wrong sender/domain permission | Confirm the template is published, check Supabase logs for `notification skipped` / `notification failed`, and verify the DEV/PROD sender secret |
+| User receives prod-looking email from a dev import | DEV `RESEND_NOTIFICATION_FROM` or template default sender is wrong | Set DEV Supabase secret to `FolioLens Dev <noreply-dev@foliolens.in>` and replay the webhook |

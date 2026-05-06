@@ -26,6 +26,7 @@ import { supabase } from '@/src/lib/supabase';
 import { useSession } from '@/src/hooks/useSession';
 import { FolioLensLogo } from '@/src/components/clearLens/FolioLensLogo';
 import { DesktopFormFrame } from '@/src/components/responsive';
+import { AutoRefreshSetup } from '@/src/components/onboarding/AutoRefreshSetup';
 import { useClearLensTokens } from '@/src/context/ThemeContext';
 import {
   ClearLensFonts,
@@ -81,6 +82,28 @@ const PORTAL_OPTIONS: {
   },
 ];
 
+const DEPOSITORY_OPTIONS: {
+  id: string;
+  name: string;
+  url: string;
+  description: string;
+  recommended?: boolean;
+}[] = [
+  {
+    id: 'cdsl',
+    name: 'CDSL CAS',
+    url: 'https://www.cdslindia.com/cas/logincas.aspx',
+    description: 'Best if your broker / demat account is with CDSL. Download a Detailed CAS PDF.',
+    recommended: true,
+  },
+  {
+    id: 'nsdl',
+    name: 'NSDL e-CAS',
+    url: 'https://nsdlcas.nsdl.com/',
+    description: 'Best if your broker / demat account is with NSDL. Download a Detailed CAS PDF.',
+  },
+];
+
 export default function OnboardingScreen() {
   return (
     <DesktopFormFrame>
@@ -120,25 +143,39 @@ function maskDobInput(raw: string): string {
 async function fetchSavedProfile(userId: string): Promise<SavedProfile | null> {
   const { data } = await supabase
     .from('user_profile')
-    .select('pan, dob, kfintech_email')
+    .select('pan, dob, kfintech_email, cas_inbox_token, cas_inbox_confirmation_url, cas_auto_forward_setup_completed_at')
     .eq('user_id', userId)
     .maybeSingle();
   return data ?? null;
+}
+
+async function markAutoForwardSetupComplete(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_profile')
+    .update({
+      cas_auto_forward_setup_completed_at: new Date().toISOString(),
+      cas_inbox_confirmation_url: null,
+    })
+    .eq('user_id', userId);
+  if (error) throw error;
 }
 
 interface SavedProfile {
   pan: string | null;
   dob: string | null;
   kfintech_email: string | null;
+  cas_inbox_token: string | null;
+  cas_inbox_confirmation_url: string | null;
+  cas_auto_forward_setup_completed_at: string | null;
 }
 
 function OnboardingWizard() {
   const router = useRouter();
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const tokens = useClearLensTokens();
   const cl = tokens.colors;
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
-  const queryClient = useQueryClient();
   const [draft, dispatch] = useReducer(reduceOnboarding, EMPTY_DRAFT);
   const [hydrated, setHydrated] = useState(false);
 
@@ -333,6 +370,16 @@ function OnboardingWizard() {
             draft={draft}
             dispatch={dispatch}
             onSkip={() => dispatch({ type: 'goto', step: 'done' })}
+            inboxToken={profile?.cas_inbox_token ?? null}
+            pendingConfirmationUrl={profile?.cas_inbox_confirmation_url ?? null}
+            autoForwardCompletedAt={profile?.cas_auto_forward_setup_completed_at ?? null}
+            onConfirmClicked={() => {
+              queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
+            }}
+            onAutoForwardCompleted={async () => {
+              await markAutoForwardSetupComplete(session!.user.id);
+              await queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
+            }}
             styles={styles}
             cl={cl}
             tokens={tokens}
@@ -342,6 +389,8 @@ function OnboardingWizard() {
           <DoneStep
             draft={draft}
             onFinish={handleFinish}
+            hasInboxToken={!!profile?.cas_inbox_token}
+            autoForwardCompletedAt={profile?.cas_auto_forward_setup_completed_at ?? null}
             styles={styles}
             cl={cl}
           />
@@ -531,7 +580,7 @@ function IdentityStep({
         <Text style={styles.stepBody}>
           {panLocked
             ? 'These details unlock your CAS PDF and are saved permanently.'
-            : 'Your PAN unlocks the CAS PDF. Date of birth is only needed if you import a CDSL or NSDL statement.'}
+            : 'Your PAN unlocks the CAS PDF, and is saved permanently — double-check before continuing. Date of birth is only needed if you import a CDSL or NSDL statement.'}
         </Text>
       </View>
 
@@ -663,12 +712,19 @@ function IdentityStep({
   );
 }
 
-type ImportSubScreen = 'choose' | 'request';
+type ImportSubScreen = 'choose' | 'request' | 'autoRefresh';
+type HoldingMode = 'soa' | 'demat' | 'unsure';
+type RequestKind = 'rta' | 'depository';
 
 function ImportStep({
   draft,
   dispatch,
   onSkip,
+  inboxToken,
+  pendingConfirmationUrl,
+  autoForwardCompletedAt,
+  onConfirmClicked,
+  onAutoForwardCompleted,
   styles,
   cl,
   tokens,
@@ -679,11 +735,23 @@ function ImportStep({
     | { type: 'goto'; step: OnboardingStep }
   >;
   onSkip: () => void;
+  /** User's stable inbox token. Null while user_profile is still loading. */
+  inboxToken: string | null;
+  /** Captured by Edge Function when Gmail emails the verification link. */
+  pendingConfirmationUrl: string | null;
+  /** Set once the user confirms the advanced auto-forward setup is complete. */
+  autoForwardCompletedAt: string | null;
+  /** Called after the user clicks the Gmail confirm CTA so the parent can refetch. */
+  onConfirmClicked: () => void;
+  /** Called when the user marks the provider-side auto-forward setup complete. */
+  onAutoForwardCompleted: () => Promise<void>;
   styles: WizardStyles;
   cl: Cl;
   tokens: ClearLensTokens;
 }) {
   const [sub, setSub] = useState<ImportSubScreen>('choose');
+  const [holdingMode, setHoldingMode] = useState<HoldingMode>('unsure');
+  const [requestKind, setRequestKind] = useState<RequestKind>('rta');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -770,7 +838,8 @@ function ImportStep({
   }
 
   async function handleOpenPortal(url: string) {
-    const portalId = PORTAL_OPTIONS.find((p) => p.url === url)?.id ?? 'unknown';
+    const portalId =
+      [...PORTAL_OPTIONS, ...DEPOSITORY_OPTIONS].find((p) => p.url === url)?.id ?? 'unknown';
     console.log('[onboarding:portal] open', {
       portal_id: portalId,
       platform: Platform.OS,
@@ -794,7 +863,19 @@ function ImportStep({
     }
   }
 
+  function openRequest(kind: RequestKind) {
+    setRequestKind(kind);
+    setSub('request');
+  }
+
   if (sub === 'request') {
+    const portalOptions = requestKind === 'depository' ? DEPOSITORY_OPTIONS : PORTAL_OPTIONS;
+    const requestTitle =
+      requestKind === 'depository' ? 'Get a depository CAS' : 'Get a fresh CAS';
+    const requestBody =
+      requestKind === 'depository'
+        ? 'Use this if your mutual fund units are held in demat form through a broker. Download a Detailed CAS PDF, then upload it here.'
+        : 'Either portal returns the same combined CAS for folio / SOA mutual fund holdings — pick one, fill the form, and the statement lands in your email in 1–2 minutes.';
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.stepHeader}>
@@ -802,27 +883,22 @@ function ImportStep({
             <Ionicons name="chevron-back" size={18} color={cl.emeraldDeep} />
             <Text style={styles.miniBackText}>Import options</Text>
           </Pressable>
-          <Text style={styles.stepTitle}>Get a fresh CAS</Text>
-          <Text style={styles.stepBody}>
-            Either portal returns the same combined CAS — pick one, fill the
-            form, and the statement lands in your email in 1–2 minutes.
-          </Text>
+          <Text style={styles.stepTitle}>{requestTitle}</Text>
+          <Text style={styles.stepBody}>{requestBody}</Text>
         </View>
 
         <View style={styles.calloutCard}>
           <Ionicons name="time-outline" size={18} color={cl.emeraldDeep} />
           <Text style={styles.calloutText}>
-            <Text style={styles.bold}>Pick a date range that covers all your investments.</Text>{' '}
-            Set <Text style={styles.bold}>From</Text> to before your first ever
-            mutual-fund purchase (when in doubt, use{' '}
-            <Text style={styles.bold}>01/01/2000</Text>) and{' '}
-            <Text style={styles.bold}>To</Text> to today. If you miss anything,
-            you can upload another CAS later — duplicate transactions are
-            skipped and only new ones get added.
+            <Text style={styles.bold}>Download a Detailed CAS, not a holdings summary.</Text>{' '}
+            Pick a date range that starts before your first ever mutual-fund
+            purchase (when in doubt, use <Text style={styles.bold}>01/01/2000</Text>)
+            and ends today. Holdings-only statements cannot build Money Trail or
+            XIRR because they do not contain transaction history.
           </Text>
         </View>
 
-        {PORTAL_OPTIONS.map((portal) => (
+        {portalOptions.map((portal) => (
           <Pressable
             key={portal.id}
             onPress={() => handleOpenPortal(portal.url)}
@@ -848,9 +924,15 @@ function ImportStep({
 
         <View style={styles.tipsCard}>
           <Text style={styles.tipsHeading}>Once you have the email</Text>
-          <Text style={styles.tipsLine}>1. Open the email on this device.</Text>
+          <Text style={styles.tipsLine}>1. Open the email or download page on this device.</Text>
           <Text style={styles.tipsLine}>2. Save the PDF (long-press → Save to Files / Downloads).</Text>
           <Text style={styles.tipsLine}>3. Come back to FolioLens and tap Upload below.</Text>
+          {requestKind === 'depository' ? (
+            <Text style={styles.tipsLine}>
+              4. If prompted, the password is your PAN or PAN + date of birth;
+              FolioLens tries both from your profile.
+            </Text>
+          ) : null}
         </View>
 
         {(browserVisited || Platform.OS === 'web') ? (
@@ -886,16 +968,83 @@ function ImportStep({
     );
   }
 
+  if (sub === 'autoRefresh' && inboxToken) {
+    return (
+      <View style={styles.flex}>
+        <View style={styles.subBackBar}>
+          <Pressable onPress={() => setSub('choose')} style={styles.miniBack} hitSlop={6}>
+            <Ionicons name="chevron-back" size={18} color={cl.emeraldDeep} />
+            <Text style={styles.miniBackText}>Import options</Text>
+          </Pressable>
+        </View>
+        <AutoRefreshSetup
+          inboxToken={inboxToken}
+          pendingConfirmationUrl={pendingConfirmationUrl}
+          autoForwardCompletedAt={autoForwardCompletedAt}
+          onConfirmClicked={onConfirmClicked}
+          onAutoForwardCompleted={onAutoForwardCompleted}
+          onContinue={() => dispatch({ type: 'goto', step: 'done' })}
+        />
+      </View>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>How would you like to start?</Text>
-        <Text style={styles.stepBody}>You can always change this later in Settings.</Text>
+        <Text style={styles.stepBody}>
+          First choose where your mutual fund units are held. This decides
+          whether CAMS / KFintech or CDSL / NSDL is the right source.
+        </Text>
       </View>
 
+      <HoldingModeSelector
+        value={holdingMode}
+        onChange={setHoldingMode}
+        styles={styles}
+        cl={cl}
+      />
+
+      {holdingMode === 'demat' ? (
+        <View style={styles.modeCallout}>
+          <Ionicons name="business-outline" size={18} color={cl.emeraldDeep} />
+          <Text style={styles.modeCalloutText}>
+            For demat or broker-held units, use a{' '}
+            <Text style={styles.bold}>CDSL / NSDL Detailed CAS</Text>. CAMS and
+            KFintech RTA statements may not include those demat holdings.
+          </Text>
+        </View>
+      ) : holdingMode === 'soa' ? (
+        <View style={styles.modeCallout}>
+          <Ionicons name="document-text-outline" size={18} color={cl.emeraldDeep} />
+          <Text style={styles.modeCalloutText}>
+            For AMC / folio / SOA holdings, CAMS or KFintech CAS is the fastest
+            path. Auto-refresh can watch future CAMS / KFintech CAS emails.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.modeCallout}>
+          <Ionicons name="help-circle-outline" size={18} color={cl.emeraldDeep} />
+          <Text style={styles.modeCalloutText}>
+            Not sure? If you invest through a broker or demat account, start
+            with CDSL / NSDL. If you invest directly with an AMC, start with
+            CAMS / KFintech.
+          </Text>
+        </View>
+      )}
+
       <ChoiceCard
-        title="Upload a CAS PDF"
-        description="Got one already? Upload it now and we'll do the rest."
+        title={
+          holdingMode === 'demat'
+            ? 'Upload CDSL / NSDL CAS PDF'
+            : 'Upload a CAS PDF'
+        }
+        description={
+          holdingMode === 'demat'
+            ? 'Use a Detailed CAS from your depository. We ignore equity sections and import only mutual funds.'
+            : 'Got one already? Upload it now and we will do the rest.'
+        }
         icon="cloud-upload-outline"
         recommended
         onPress={handleUpload}
@@ -903,13 +1052,52 @@ function ImportStep({
         cl={cl}
       />
       <ChoiceCard
-        title="Get a fresh CAS"
-        description="We'll show you exactly what to do. Takes about 2 minutes."
-        icon="paper-plane-outline"
-        onPress={() => setSub('request')}
+        title={holdingMode === 'demat' ? 'Get CDSL / NSDL CAS' : 'Get CAMS / KFintech CAS'}
+        description={
+          holdingMode === 'demat'
+            ? 'For demat holdings. Download a Detailed CAS from your depository, then upload it.'
+            : 'For folio / SOA holdings. Takes about 2 minutes and arrives by email.'
+        }
+        icon={holdingMode === 'demat' ? 'business-outline' : 'paper-plane-outline'}
+        onPress={() => openRequest(holdingMode === 'demat' ? 'depository' : 'rta')}
         styles={styles}
         cl={cl}
       />
+      {holdingMode === 'unsure' ? (
+        <ChoiceCard
+          title="Try CDSL / NSDL instead"
+          description="Use this if your broker or demat account holds the mutual fund units."
+          icon="business-outline"
+          onPress={() => openRequest('depository')}
+          styles={styles}
+          cl={cl}
+        />
+      ) : null}
+      {inboxToken ? (
+        holdingMode === 'demat' ? (
+          <View style={styles.modeCallout}>
+            <Ionicons name="mail-unread-outline" size={18} color={cl.emeraldDeep} />
+            <Text style={styles.modeCalloutText}>
+              Auto-refresh is currently tuned for CAMS / KFintech CAS emails.
+              For demat holdings, upload a CDSL / NSDL Detailed CAS when you
+              want to refresh.
+            </Text>
+          </View>
+        ) : (
+          <ChoiceCard
+            title="Set up auto-refresh (advanced)"
+            description={
+              pendingConfirmationUrl
+                ? 'Confirm Gmail forwarding — we captured your verification link.'
+                : 'Forward future CAMS / KFintech CAS emails and your portfolio updates itself.'
+            }
+            icon="mail-unread-outline"
+            onPress={() => setSub('autoRefresh')}
+            styles={styles}
+            cl={cl}
+          />
+        )
+      ) : null}
 
       {uploading ? (
         <View style={styles.uploadingRow}>
@@ -940,30 +1128,40 @@ function ImportStep({
 function DoneStep({
   draft,
   onFinish,
+  hasInboxToken,
+  autoForwardCompletedAt,
   styles,
   cl,
 }: {
   draft: OnboardingDraft;
   onFinish: () => void;
+  /** True if the user has a cas_inbox_token, i.e. the auto-refresh nudge is meaningful. */
+  hasInboxToken: boolean;
+  /** Set once the user confirms provider-side auto-forward setup is complete. */
+  autoForwardCompletedAt: string | null;
   styles: WizardStyles;
   cl: Cl;
 }) {
   const result = draft.importResult;
   const imported = !!result;
+  const autoRefreshReady = !!autoForwardCompletedAt;
+  const doneTitle = imported
+    ? 'Your portfolio is ready'
+    : autoRefreshReady
+      ? 'Auto-refresh is ready'
+      : "We'll be here when you're ready";
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.successHero}>
-        <View style={[styles.successIcon, !imported && styles.successIconMuted]}>
+        <View style={[styles.successIcon, !imported && !autoRefreshReady && styles.successIconMuted]}>
           <Ionicons
-            name={imported ? 'checkmark-circle' : 'time-outline'}
+            name={imported || autoRefreshReady ? 'checkmark-circle' : 'time-outline'}
             size={56}
-            color={imported ? cl.emeraldDeep : cl.textSecondary}
+            color={imported || autoRefreshReady ? cl.emeraldDeep : cl.textSecondary}
           />
         </View>
-        <Text style={styles.stepTitle}>
-          {imported ? 'Your portfolio is ready' : "We'll be here when you're ready"}
-        </Text>
+        <Text style={styles.stepTitle}>{doneTitle}</Text>
         {imported ? (
           <Text style={styles.stepBody}>
             Imported{' '}
@@ -976,22 +1174,56 @@ function DoneStep({
             </Text>
             . XIRR, sector exposure, and Money Trail are calculating now.
           </Text>
+        ) : autoRefreshReady ? (
+          <Text style={styles.stepBody}>
+            FolioLens will import the next forwarded CAMS or KFintech CAS
+            automatically. To see your portfolio now, manually forward your
+            latest CAS email to the same private address.
+          </Text>
         ) : (
           <Text style={styles.stepBody}>
             No CAS imported yet — your home screen will be empty until you upload one.
             Come back anytime via{' '}
-            <Text style={styles.bold}>Settings → Account → Restart import</Text>.
+            <Text style={styles.bold}>Settings → Portfolio import</Text>.
           </Text>
         )}
       </View>
 
+      {hasInboxToken && !autoRefreshReady ? (
+        <View style={styles.nudgeCard}>
+          <View style={styles.nudgeIconWrap}>
+            <Ionicons name="mail-unread-outline" size={20} color={cl.emeraldDeep} />
+          </View>
+          <View style={styles.nudgeBody}>
+            <Text style={styles.nudgeTitle}>Never re-upload again</Text>
+            <Text style={styles.nudgeText}>
+              Forward future CAS emails to your FolioLens import inbox and the
+              portfolio updates automatically. Set it up from Settings → Account →
+              Auto-refresh inbox.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.tipsCard}>
-        <Text style={styles.tipsHeading}>{imported ? "What's next" : 'When you have a CAS'}</Text>
+        <Text style={styles.tipsHeading}>
+          {imported || autoRefreshReady ? "What's next" : 'When you have a CAS'}
+        </Text>
         {imported ? (
           <>
             <Text style={styles.tipsLine}>• Glance at the home screen for your XIRR vs Nifty 50.</Text>
             <Text style={styles.tipsLine}>• Open Money Trail to inspect every transaction.</Text>
-            <Text style={styles.tipsLine}>• Set up auto-refresh later to never re-upload.</Text>
+            <Text style={styles.tipsLine}>
+              • {autoRefreshReady
+                ? 'Future CAS emails should import automatically.'
+                : 'Set up auto-refresh later to never re-upload.'}
+            </Text>
+          </>
+        ) : autoRefreshReady ? (
+          <>
+            <Text style={styles.tipsLine}>• Keep the Gmail filter enabled for CAMS / KFintech CAS emails.</Text>
+            <Text style={styles.tipsLine}>• Forward your latest CAS manually if you want data immediately.</Text>
+            <Text style={styles.tipsLine}>• If a monthly CAS does not appear, upload the PDF from Settings.</Text>
           </>
         ) : (
           <>
@@ -1004,7 +1236,7 @@ function DoneStep({
 
       <View style={styles.footerSpace} />
       <PrimaryButton
-        label={imported ? 'Open my portfolio' : 'Take me home'}
+        label={imported ? 'Open my portfolio' : 'Open FolioLens'}
         onPress={onFinish}
         styles={styles}
         cl={cl}
@@ -1031,6 +1263,96 @@ function Bullet({
       </View>
       <Text style={styles.bulletText}>{text}</Text>
     </View>
+  );
+}
+
+function HoldingModeSelector({
+  value,
+  onChange,
+  styles,
+  cl,
+}: {
+  value: HoldingMode;
+  onChange: (value: HoldingMode) => void;
+  styles: WizardStyles;
+  cl: Cl;
+}) {
+  return (
+    <View style={styles.modeCard}>
+      <Text style={styles.modeLabel}>Holding mode</Text>
+      <Text style={styles.modeTitle}>Where do you hold these mutual funds?</Text>
+      <View style={styles.modeGrid}>
+        <HoldingModeButton
+          value="soa"
+          selected={value === 'soa'}
+          title="AMC / folio"
+          detail="CAMS, KFintech, MFCentral"
+          icon="document-text-outline"
+          onPress={onChange}
+          styles={styles}
+          cl={cl}
+        />
+        <HoldingModeButton
+          value="demat"
+          selected={value === 'demat'}
+          title="Demat / broker"
+          detail="CDSL or NSDL"
+          icon="business-outline"
+          onPress={onChange}
+          styles={styles}
+          cl={cl}
+        />
+        <HoldingModeButton
+          value="unsure"
+          selected={value === 'unsure'}
+          title="Not sure"
+          detail="Show both paths"
+          icon="help-circle-outline"
+          onPress={onChange}
+          styles={styles}
+          cl={cl}
+        />
+      </View>
+    </View>
+  );
+}
+
+function HoldingModeButton({
+  value,
+  selected,
+  title,
+  detail,
+  icon,
+  onPress,
+  styles,
+  cl,
+}: {
+  value: HoldingMode;
+  selected: boolean;
+  title: string;
+  detail: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: (value: HoldingMode) => void;
+  styles: WizardStyles;
+  cl: Cl;
+}) {
+  return (
+    <Pressable
+      onPress={() => onPress(value)}
+      style={[styles.modeOption, selected && styles.modeOptionSelected]}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+    >
+      <Ionicons
+        name={icon}
+        size={18}
+        color={selected ? cl.emeraldDeep : cl.textSecondary}
+      />
+      <Text style={[styles.modeOptionTitle, selected && styles.modeOptionTitleSelected]}>
+        {title}
+      </Text>
+      <Text style={styles.modeOptionDetail}>{detail}</Text>
+    </Pressable>
   );
 }
 
@@ -1226,6 +1548,11 @@ function makeStyles(tokens: ClearLensTokens) {
       gap: 6,
       paddingTop: ClearLensSpacing.sm,
     },
+    subBackBar: {
+      paddingHorizontal: ClearLensSpacing.md,
+      paddingTop: ClearLensSpacing.sm,
+      paddingBottom: ClearLensSpacing.xs,
+    },
     miniBack: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1322,6 +1649,72 @@ function makeStyles(tokens: ClearLensTokens) {
       ...ClearLensTypography.caption,
       flex: 1,
       color: tokens.semantic.sentiment.negativeText,
+    },
+    modeCard: {
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.lg,
+      backgroundColor: cl.surface,
+      borderWidth: 1,
+      borderColor: cl.border,
+      ...ClearLensShadow,
+    },
+    modeLabel: {
+      ...ClearLensTypography.caption,
+      color: cl.textTertiary,
+      fontFamily: ClearLensFonts.bold,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    modeTitle: {
+      ...ClearLensTypography.body,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.bold,
+    },
+    modeGrid: {
+      flexDirection: 'row',
+      gap: ClearLensSpacing.sm,
+      flexWrap: 'wrap',
+    },
+    modeOption: {
+      flexGrow: 1,
+      flexBasis: 150,
+      gap: 4,
+      padding: ClearLensSpacing.sm,
+      borderRadius: ClearLensRadii.md,
+      borderWidth: 1,
+      borderColor: cl.border,
+      backgroundColor: cl.surfaceSoft,
+    },
+    modeOptionSelected: {
+      borderColor: cl.mint,
+      backgroundColor: cl.positiveBg,
+    },
+    modeOptionTitle: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.bold,
+    },
+    modeOptionTitleSelected: {
+      color: cl.emeraldDeep,
+    },
+    modeOptionDetail: {
+      ...ClearLensTypography.caption,
+      color: cl.textSecondary,
+    },
+    modeCallout: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.mint50,
+    },
+    modeCalloutText: {
+      ...ClearLensTypography.bodySmall,
+      flex: 1,
+      color: cl.textSecondary,
+      lineHeight: 20,
     },
     choiceCard: {
       flexDirection: 'row',
@@ -1424,6 +1817,35 @@ function makeStyles(tokens: ClearLensTokens) {
       flex: 1,
       ...ClearLensTypography.bodySmall,
       color: cl.navy,
+      lineHeight: 18,
+    },
+    nudgeCard: {
+      flexDirection: 'row',
+      gap: ClearLensSpacing.sm,
+      padding: ClearLensSpacing.md,
+      borderRadius: ClearLensRadii.lg,
+      backgroundColor: cl.positiveBg,
+      borderWidth: 1,
+      borderColor: cl.mint,
+    },
+    nudgeIconWrap: {
+      width: 28,
+      height: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nudgeBody: {
+      flex: 1,
+      gap: 4,
+    },
+    nudgeTitle: {
+      ...ClearLensTypography.body,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.bold,
+    },
+    nudgeText: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.textSecondary,
       lineHeight: 18,
     },
     tipsCard: {
