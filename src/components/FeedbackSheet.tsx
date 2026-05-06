@@ -64,10 +64,14 @@ export function FeedbackSheet({
   visible,
   kind,
   onClose,
+  initialTitle,
+  initialBody,
 }: {
   visible: boolean;
   kind: FeedbackKind | null;
   onClose: () => void;
+  initialTitle?: string;
+  initialBody?: string;
 }) {
   const tokens = useClearLensTokens();
   const styles = useMemo(() => makeStyles(tokens), [tokens]);
@@ -79,19 +83,26 @@ export function FeedbackSheet({
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    if (!visible) {
-      // Defer state reset so the closing animation finishes cleanly.
-      const timer = setTimeout(() => {
-        setTitle('');
-        setBody('');
-        setAttachment(null);
-        setError(null);
-        setSubmitting(false);
-        setSubmitted(false);
-      }, 220);
-      return () => clearTimeout(timer);
+    if (visible) {
+      // Seed prefill (used when opened as a "Request correction" link from
+      // account settings). Done here, not in the close-reset effect, so a
+      // re-open with different prefill values picks up the new seed instead
+      // of the stale text from the prior open.
+      setTitle(initialTitle ?? '');
+      setBody(initialBody ?? '');
+      return;
     }
-  }, [visible]);
+    // Defer state reset so the closing animation finishes cleanly.
+    const timer = setTimeout(() => {
+      setTitle('');
+      setBody('');
+      setAttachment(null);
+      setError(null);
+      setSubmitting(false);
+      setSubmitted(false);
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [visible, initialTitle, initialBody]);
 
   async function handlePickImage() {
     if (Platform.OS !== 'web') {
