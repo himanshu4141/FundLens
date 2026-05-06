@@ -115,8 +115,8 @@ export default function PDFScreen() {
           <Text style={styles.infoItem}>• CAMS CAS (password = your PAN)</Text>
           <Text style={styles.infoItem}>• KFintech / Karvy CAS (password = your PAN)</Text>
           <Text style={styles.infoItem}>• MFcentral CAS (password = your PAN)</Text>
-          <Text style={styles.infoItem}>• CDSL CAS (password = PAN + date of birth, e.g. ABCDE1234F01011990)</Text>
-          <Text style={styles.infoItem}>• NSDL CAS (password = PAN + date of birth, e.g. ABCDE1234F01011990)</Text>
+          <Text style={styles.infoItem}>• CDSL CAS (password = PAN + date of birth, e.g. ABCPE1234F01011990)</Text>
+          <Text style={styles.infoItem}>• NSDL CAS (password = PAN + date of birth, e.g. ABCPE1234F01011990)</Text>
         </View>
 
         <View style={styles.panel}>

@@ -31,28 +31,44 @@ beforeEach(() => {
 
 describe('isValidPan', () => {
   it('accepts canonical individual PAN', () => {
-    expect(isValidPan('ABCDE1234F')).toBe(true);
+    expect(isValidPan('ABCPE1234F')).toBe(true);
   });
 
-  it('accepts HUF / firm / trust / company PAN with any letter category', () => {
-    expect(isValidPan('AAAAA1234H')).toBe(true);
-    expect(isValidPan('XYZAB9999P')).toBe(true);
-    expect(isValidPan('ZZZZZ0001C')).toBe(true);
+  it('accepts every valid 4th-char entity-type code', () => {
+    expect(isValidPan('AAAPA1234H')).toBe(true); // P — Individual
+    expect(isValidPan('AAACA1234H')).toBe(true); // C — Company
+    expect(isValidPan('AAAHA1234H')).toBe(true); // H — HUF
+    expect(isValidPan('AAAFA1234H')).toBe(true); // F — Firm
+    expect(isValidPan('AAAAA1234H')).toBe(true); // A — Association of Persons
+    expect(isValidPan('AAATA1234H')).toBe(true); // T — Trust
+    expect(isValidPan('AAABA1234H')).toBe(true); // B — Body of Individuals
+    expect(isValidPan('AAALA1234H')).toBe(true); // L — Local authority
+    expect(isValidPan('AAAJA1234H')).toBe(true); // J — Artificial Juridical Person
+    expect(isValidPan('AAAGA1234H')).toBe(true); // G — Government
   });
 
   it('uppercases and trims before validating', () => {
-    expect(isValidPan('  abcde1234f  ')).toBe(true);
+    expect(isValidPan('  abcpe1234f  ')).toBe(true);
   });
 
   it('rejects wrong length', () => {
-    expect(isValidPan('ABCDE1234')).toBe(false);
-    expect(isValidPan('ABCDE1234FG')).toBe(false);
+    expect(isValidPan('ABCPE1234')).toBe(false);
+    expect(isValidPan('ABCPE1234FG')).toBe(false);
   });
 
   it('rejects bad pattern', () => {
-    expect(isValidPan('1BCDE1234F')).toBe(false); // first char digit
+    expect(isValidPan('1BCPE1234F')).toBe(false); // first char digit
     expect(isValidPan('ABCDEFGHIJ')).toBe(false); // no digits
-    expect(isValidPan('ABCDE12345')).toBe(false); // last char digit
+    expect(isValidPan('ABCPE12345')).toBe(false); // last char digit
+  });
+
+  it('rejects invalid 4th-char entity-type codes', () => {
+    // Original regex /^[A-Z]{5}[0-9]{4}[A-Z]$/ accepted these; the typo
+    // case that prompted this validation (P → O) lives here.
+    expect(isValidPan('ABCDE1234F')).toBe(false); // D — not a valid entity code
+    expect(isValidPan('ADNOH4999K')).toBe(false); // O — typo for P (Individual)
+    expect(isValidPan('ZZZZZ0001C')).toBe(false); // Z — not a valid entity code
+    expect(isValidPan('ABCIE1234F')).toBe(false); // I — looks like 1, not a valid code
   });
 
   it('rejects empty', () => {

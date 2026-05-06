@@ -55,7 +55,16 @@ export function reduceOnboarding(state: OnboardingDraft, action: OnboardingActio
   }
 }
 
-const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+// PAN format: AAAA[entity-type][A]NNNN[A]
+// The 4th character is the entity-type code:
+//   P = Individual,  C = Company,           H = HUF (Hindu Undivided Family),
+//   F = Firm,        A = Association of Persons (AOP),
+//   T = Trust,       B = Body of Individuals (BOI),
+//   L = Local authority,  J = Artificial Juridical Person,  G = Government.
+// Restricting to those ten codes catches typos in this position (e.g. D, O,
+// I) that the looser /^[A-Z]{5}[0-9]{4}[A-Z]$/ accepted — and a CAS PDF
+// issued for the real PAN would never unlock with the typo'd one anyway.
+const PAN_REGEX = /^[A-Z]{3}[PCHFATBLJG][A-Z][0-9]{4}[A-Z]$/;
 
 export function isValidPan(pan: string): boolean {
   return PAN_REGEX.test(pan.trim().toUpperCase());

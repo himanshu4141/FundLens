@@ -553,7 +553,7 @@ function IdentityStep({
           <TextInput
             value={draft.pan}
             onChangeText={(value) => dispatch({ type: 'set_pan', pan: value })}
-            placeholder="ABCDE1234F"
+            placeholder="ABCPE1234F"
             placeholderTextColor={cl.textTertiary}
             autoCapitalize="characters"
             autoCorrect={false}
@@ -565,7 +565,7 @@ function IdentityStep({
           <Text style={styles.fieldHint}>PAN is saved and cannot be changed in-app.</Text>
         ) : draft.pan.length > 0 && !panValid ? (
           <Text style={styles.fieldError}>
-            PAN should look like ABCDE1234F (5 letters, 4 digits, 1 letter).
+            PAN should look like ABCPE1234F (5 letters, 4 digits, 1 letter).
           </Text>
         ) : (
           <Text style={styles.fieldHint}>
