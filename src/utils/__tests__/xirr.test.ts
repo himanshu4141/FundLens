@@ -4,6 +4,8 @@ import {
   computeRealizedGains,
   buildCashflowsFromTransactions,
   filterReversedTransactionPairs,
+  buildBenchmarkLookup,
+  simulateBenchmarkInvestment,
   type Cashflow,
   type Transaction,
 } from '../xirr';
@@ -509,5 +511,167 @@ describe('buildCashflowsFromTransactions()', () => {
     expect(result.netUnits).toBe(0);
     expect(result.investedAmount).toBe(0);
     expect(result.historicalCashflows).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildBenchmarkLookup()
+// ---------------------------------------------------------------------------
+
+describe('buildBenchmarkLookup()', () => {
+  const ROWS = [
+    { date: '2025-01-01', value: 100 },
+    { date: '2025-01-03', value: 110 },
+    { date: '2025-01-10', value: 120 },
+  ];
+
+  it('returns exact match when date is present', () => {
+    const lookup = buildBenchmarkLookup(ROWS);
+    expect(lookup('2025-01-03')).toBe(110);
+  });
+
+  it('returns latest-at-or-before for weekend / holiday dates', () => {
+    const lookup = buildBenchmarkLookup(ROWS);
+    expect(lookup('2025-01-04')).toBe(110); // Saturday → uses Friday's close
+    expect(lookup('2025-01-09')).toBe(110); // gap → previous trading day
+  });
+
+  it('returns null when date precedes the entire series', () => {
+    const lookup = buildBenchmarkLookup(ROWS);
+    expect(lookup('2024-12-31')).toBeNull();
+  });
+
+  it('returns the last value when date is after the series', () => {
+    const lookup = buildBenchmarkLookup(ROWS);
+    expect(lookup('2030-01-01')).toBe(120);
+  });
+
+  it('returns null on an empty series', () => {
+    const lookup = buildBenchmarkLookup([]);
+    expect(lookup('2025-01-01')).toBeNull();
+  });
+
+  it('handles unsorted input (sorts internally)', () => {
+    const unsorted = [
+      { date: '2025-01-10', value: 120 },
+      { date: '2025-01-01', value: 100 },
+      { date: '2025-01-03', value: 110 },
+    ];
+    const lookup = buildBenchmarkLookup(unsorted);
+    expect(lookup('2025-01-03')).toBe(110);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// simulateBenchmarkInvestment()
+// ---------------------------------------------------------------------------
+
+describe('simulateBenchmarkInvestment()', () => {
+  const lookup = buildBenchmarkLookup([
+    { date: '2025-01-01', value: 100 },
+    { date: '2025-02-01', value: 110 },
+    { date: '2025-03-01', value: 120 },
+    { date: '2025-04-01', value: 130 },
+  ]);
+
+  it('accumulates units on each purchase', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      { transaction_date: '2025-02-01', transaction_type: 'purchase', units: 50, amount: 600 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+
+    // 1000/100 = 10 + 600/110 ≈ 5.4545
+    expect(sim.finalUnits).toBeCloseTo(10 + 600 / 110, 5);
+    expect(sim.benchmarkFlows).toEqual([
+      { date: new Date('2025-01-01'), amount: -1000 },
+      { date: new Date('2025-02-01'), amount: -600 },
+    ]);
+    expect(sim.unitsHistory).toHaveLength(2);
+  });
+
+  // Regression — prior marketXirr ignored the redemption decrement, inflating
+  // terminal benchmarkUnits and falsely reporting users as "behind benchmark"
+  // when the chart's terminal point clearly showed them ahead.
+  it('decrements units on redemption (apple-to-apple sell of benchmark units)', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      { transaction_date: '2025-03-01', transaction_type: 'redemption', units: 60, amount: 720 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+
+    // Buy 10 units @ 100 = 10 units. Sell 720 worth @ 120 = 6 units.
+    // Final units = 10 - 6 = 4. Terminal value @ 130 = 520.
+    expect(sim.finalUnits).toBeCloseTo(4, 5);
+    expect(sim.benchmarkFlows).toEqual([
+      { date: new Date('2025-01-01'), amount: -1000 },
+      { date: new Date('2025-03-01'), amount: 720 },
+    ]);
+  });
+
+  it('clamps units to zero on over-redemption rather than going negative', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      // Redeems more value than was bought — clamp to 0 so terminal value can't
+      // produce nonsense negatives.
+      { transaction_date: '2025-04-01', transaction_type: 'redemption', units: 100, amount: 5000 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+    expect(sim.finalUnits).toBe(0);
+  });
+
+  it('switch_in is treated as outflow, switch_out as inflow', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-01-01', transaction_type: 'switch_in', units: 100, amount: 1000 },
+      { transaction_date: '2025-03-01', transaction_type: 'switch_out', units: 50, amount: 600 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+    // 1000/100 = 10 - 600/120 = 5 → 5 units
+    expect(sim.finalUnits).toBeCloseTo(5, 5);
+  });
+
+  it('skips transactions that resolve to no benchmark close (pre-history dates)', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2024-06-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      { transaction_date: '2025-02-01', transaction_type: 'purchase', units: 50, amount: 600 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+    // Pre-history purchase ignored; only second purchase counts: 600/110
+    expect(sim.finalUnits).toBeCloseTo(600 / 110, 5);
+    expect(sim.unitsHistory).toHaveLength(1);
+  });
+
+  it('ignores reversed-payment purchase/redemption pairs', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-02-01', transaction_type: 'purchase', units: 100, amount: 25000 },
+      { transaction_date: '2025-02-01', transaction_type: 'redemption', units: 0, amount: 25000 },
+      { transaction_date: '2025-03-01', transaction_type: 'purchase', units: 50, amount: 600 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+    // Only the third (real) purchase should affect units: 600/120
+    expect(sim.finalUnits).toBeCloseTo(600 / 120, 5);
+    expect(sim.benchmarkFlows).toHaveLength(1);
+  });
+
+  it('produces a finite XIRR when fed into xirr() with a terminal inflow', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      { transaction_date: '2025-03-01', transaction_type: 'redemption', units: 60, amount: 720 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+    const flows: Cashflow[] = [
+      ...sim.benchmarkFlows,
+      // Terminal valuation: 4 units × 130 = 520
+      { date: new Date('2025-04-01'), amount: sim.finalUnits * 130 },
+    ];
+    const rate = xirr(flows);
+    expect(isFinite(rate)).toBe(true);
+  });
+
+  it('produces NaN-friendly inputs when there are no transactions', () => {
+    const sim = simulateBenchmarkInvestment([], lookup);
+    expect(sim.finalUnits).toBe(0);
+    expect(sim.benchmarkFlows).toEqual([]);
+    expect(sim.unitsHistory).toEqual([]);
   });
 });

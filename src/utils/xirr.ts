@@ -329,3 +329,97 @@ export function buildCashflowsFromTransactions(
 
   return { historicalCashflows, xirrCashflows, netUnits, investedAmount: totalCost };
 }
+
+// ---------------------------------------------------------------------------
+// Benchmark "what if I'd invested the same in the index" simulation
+// ---------------------------------------------------------------------------
+
+export interface BenchmarkValuePoint {
+  date: string;
+  value: number;
+}
+
+export interface BenchmarkSimulation {
+  /**
+   * Cashflows mirroring the user's investing pattern in the benchmark:
+   * negative on each purchase, positive on each redemption — feed straight
+   * into xirr() with a terminal inflow appended.
+   */
+  benchmarkFlows: Cashflow[];
+  /** Per-transaction running snapshot of simulated benchmark units held. */
+  unitsHistory: { date: string; units: number }[];
+  /** Final units held after all transactions — for terminal valuation. */
+  finalUnits: number;
+}
+
+/**
+ * Returns a "latest-at-or-before" lookup over a benchmark series. Transactions
+ * on weekends/holidays resolve to the prior trading day's close — matching
+ * how a real buy/sell on those dates would clear. Returns null when the date
+ * predates the entire series (no benchmark history yet).
+ *
+ * Input rows do not need to be sorted; the helper sorts internally.
+ */
+export function buildBenchmarkLookup(
+  rows: BenchmarkValuePoint[],
+): (date: string) => number | null {
+  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+  return (date: string): number | null => {
+    let lo = 0;
+    let hi = sorted.length - 1;
+    let found: BenchmarkValuePoint | null = null;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid].date <= date) {
+        found = sorted[mid];
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return found?.value ?? null;
+  };
+}
+
+/**
+ * Simulates investing the same amounts on the same dates in a benchmark index.
+ * Single source of truth for the "vs benchmark" math used by both the
+ * investment-vs-benchmark chart (terminal value) and the portfolio-level
+ * marketXirr (annualised return) — keeping the chart line and the headline
+ * alpha % consistent for the same inputs.
+ */
+export function simulateBenchmarkInvestment(
+  transactions: Transaction[],
+  benchmarkValueAt: (date: string) => number | null,
+): BenchmarkSimulation {
+  let units = 0;
+  const benchmarkFlows: Cashflow[] = [];
+  const unitsHistory: { date: string; units: number }[] = [];
+
+  for (const tx of filterReversedTransactionPairs(transactions)) {
+    const close = benchmarkValueAt(tx.transaction_date);
+    if (close == null || close <= 0) continue;
+
+    const date = new Date(tx.transaction_date);
+    const isOutflow =
+      tx.transaction_type === 'purchase' ||
+      tx.transaction_type === 'switch_in' ||
+      tx.transaction_type === 'dividend_reinvest';
+    const isInflow =
+      tx.transaction_type === 'redemption' || tx.transaction_type === 'switch_out';
+
+    if (isOutflow) {
+      units += tx.amount / close;
+      benchmarkFlows.push({ date, amount: -tx.amount });
+    } else if (isInflow) {
+      units = Math.max(0, units - tx.amount / close);
+      benchmarkFlows.push({ date, amount: tx.amount });
+    } else {
+      continue;
+    }
+
+    unitsHistory.push({ date: tx.transaction_date, units });
+  }
+
+  return { benchmarkFlows, unitsHistory, finalUnits: units };
+}
