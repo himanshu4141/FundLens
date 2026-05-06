@@ -266,7 +266,23 @@ export async function importCASData(
           folio_number: folio.folio_number ?? null,
           cas_import_id: importId,
         }))
-        .filter((tx) => tx.units > 0 && tx.transaction_type !== null);
+        // Drop rows where the parser couldn't surface a real cash amount.
+        // casparser occasionally tags statement-level "balance forward"
+        // markers as SWITCH_IN/SWITCH_OUT with non-zero units but zero rupees;
+        // importing those creates phantom units and corrupts the home-screen
+        // current value, cost basis, and XIRR. A genuine switch always has
+        // both units and money on the line, so amount > 0 is a safe bar.
+        .filter((tx) => {
+          if (tx.transaction_type === null || tx.units <= 0) return false;
+          if (tx.amount <= 0) {
+            console.warn(
+              '[import-cas] dropping phantom %s row for scheme %d on %s — units=%s, amount=0',
+              tx.transaction_type, schemeCode, tx.transaction_date, tx.units,
+            );
+            return false;
+          }
+          return true;
+        });
 
       // If the CAS closing balance is 0 and no real transactions remain after
       // filtering reversals, this fund was never actually owned (e.g. failed SIP).

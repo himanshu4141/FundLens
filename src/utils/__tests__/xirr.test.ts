@@ -373,6 +373,75 @@ describe('computeRealizedGains()', () => {
       redeemedUnits: 0,
     });
   });
+
+  // Defense-in-depth for phantom rows already persisted from older imports.
+  // The CAS importer now drops these at write time, but this read-time pass
+  // protects users whose DB still carries them — they'd otherwise see
+  // ghost holdings on the home screen with no offsetting cost basis.
+  describe('phantom switch_in / switch_out rows (units > 0, amount = 0)', () => {
+    it('drops a switch_in with units > 0 but amount = 0', () => {
+      const txs: Transaction[] = [
+        { transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100, amount: 10000 },
+        { transaction_date: '2024-06-01', transaction_type: 'switch_in', units: 479.242, amount: 0 },
+      ];
+      const filtered = filterReversedTransactionPairs(txs);
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].transaction_type).toBe('purchase');
+    });
+
+    it('drops a switch_out with units > 0 but amount = 0', () => {
+      const txs: Transaction[] = [
+        { transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100, amount: 10000 },
+        { transaction_date: '2024-06-01', transaction_type: 'switch_out', units: 50, amount: 0 },
+      ];
+      const filtered = filterReversedTransactionPairs(txs);
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].transaction_type).toBe('purchase');
+    });
+
+    it('preserves a real switch_in with both units AND amount', () => {
+      const txs: Transaction[] = [
+        { transaction_date: '2024-01-01', transaction_type: 'switch_in', units: 100, amount: 10000 },
+      ];
+      expect(filterReversedTransactionPairs(txs)).toHaveLength(1);
+    });
+
+    // Regression — the user's portfolio showed ₹82.74L instead of ₹79.83L
+    // because three phantom switch_in rows on 2026-03-09 (units=479.242 / 153.376 / 24.975,
+    // each amount=0) inflated netUnits. With the read-time filter, the same
+    // input produces the correct net units.
+    it('buildCashflowsFromTransactions ignores a phantom switch_in (real cashflow only)', () => {
+      const txs: Transaction[] = [
+        { transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100, amount: 10000 },
+        // Phantom — must NOT inflate netUnits
+        { transaction_date: '2024-06-01', transaction_type: 'switch_in', units: 1000, amount: 0 },
+        { transaction_date: '2024-09-01', transaction_type: 'redemption', units: 40, amount: 4500 },
+      ];
+
+      const today = new Date('2025-01-01');
+      const result = buildCashflowsFromTransactions(txs, 7000, today);
+
+      // 100 bought - 40 redeemed = 60 (the phantom 1000 must be ignored)
+      expect(result.netUnits).toBe(60);
+      // Cost basis reflects only the real purchase, minus avg-cost of 40
+      // sold units at original 100/unit: 10000 - 40*100 = 6000
+      expect(result.investedAmount).toBe(6000);
+      // Two real cashflows, not three
+      expect(result.historicalCashflows).toHaveLength(2);
+    });
+
+    it('computeRealizedGains is unaffected by phantom rows (skipped at filter)', () => {
+      const txs: Transaction[] = [
+        { transaction_date: '2024-01-01', transaction_type: 'purchase', units: 100, amount: 10000 },
+        { transaction_date: '2024-06-01', transaction_type: 'switch_in', units: 500, amount: 0 },
+        { transaction_date: '2024-09-01', transaction_type: 'redemption', units: 40, amount: 5000 },
+      ];
+
+      const result = computeRealizedGains(txs);
+      // Without the phantom: avgCost = 100/unit, realizedGain = 5000 - 40*100 = 1000
+      expect(result.realizedGain).toBeCloseTo(1000, 5);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
