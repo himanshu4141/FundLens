@@ -433,6 +433,252 @@ async function sendImportNotification({
   }
 }
 
+// ── Background processor ───────────────────────────────────────────────────────
+//
+// Why background: the full import path takes 20-40 seconds (Resend Receiving
+// API fetch + attachment download + Vercel Python parser POST + importCASData
+// upserts). Resend's Svix webhook delivery has a hard 15-second timeout. If
+// we ran inline, every successful import would trigger a Resend retry and a
+// duplicate `cas_import` row (the dedup upsert protects data integrity but
+// produces double notification emails and bogus "0 transactions" follow-ups).
+//
+// The sync handler now does only what's strictly required to acknowledge the
+// inbound email — signature verify, recipient lookup, audit-row insert with
+// status='pending' — and returns 200 in <1s. Everything heavy runs inside
+// `processImportInBackground`, scheduled via `EdgeRuntime.waitUntil(...)`.
+//
+// Error visibility is preserved by:
+//  - The `cas_import` row is the source of truth. The catch-all at the
+//    bottom of the background processor guarantees it never stays 'pending'
+//    on a hard crash.
+//  - `sendImportNotification` runs in the background and emails the user
+//    on either success or failure with the actual reason.
+//  - `[cas-webhook-resend] background_started/completed/CRITICAL` log lines
+//    are tagged with `import_id` so ops can correlate by SQL.
+
+interface BackgroundJobArgs {
+  supabase: ReturnType<typeof createClient>;
+  importId: string;
+  userId: string;
+  pan: string;
+  dob: string | null;
+  emailId: string | null;
+  attachments: ResendInboundAttachment[];
+  recipients: string;
+}
+
+async function finalizeImportRow(
+  supabase: ReturnType<typeof createClient>,
+  importId: string,
+  status: 'success' | 'failed',
+  funds: number,
+  transactions: number,
+  errors: string[],
+) {
+  const { error: updateErr } = await supabase
+    .from('cas_import')
+    .update({
+      import_status: status,
+      funds_updated: funds,
+      transactions_added: transactions,
+      error_message: errors.length > 0 ? errors.join('; ') : null,
+    })
+    .eq('id', importId);
+  if (updateErr) {
+    console.error(
+      '[cas-webhook-resend] cas_import finalize failed import_id=%s: %s',
+      importId,
+      updateErr.message,
+    );
+  }
+}
+
+async function processImportInBackground(args: BackgroundJobArgs) {
+  const { supabase, importId, userId, pan, dob, emailId, attachments, recipients } = args;
+  const authEmailPromise = getAuthEmail(supabase, userId);
+
+  try {
+    console.log('[cas-webhook-resend] background_started import_id=%s', importId);
+
+    const pdfAttachments = attachments.filter(isPdfAttachment);
+    console.log(
+      '[cas-webhook-resend] import_id=%s, user=%s, pdf_files=%d, total_files=%d',
+      importId,
+      userId,
+      pdfAttachments.length,
+      attachments.length,
+    );
+
+    if (pdfAttachments.length === 0) {
+      const errorMsg = 'No PDF attachments found in email';
+      await finalizeImportRow(supabase, importId, 'failed', 0, 0, [errorMsg]);
+      await sendImportNotification({
+        to: await authEmailPromise,
+        from: notificationFromAddress(recipients),
+        importId,
+        status: 'failed',
+        funds: 0,
+        transactions: 0,
+        errors: [errorMsg],
+      });
+      console.log(
+        '[cas-webhook-resend] background_completed import_id=%s status=no_pdfs',
+        importId,
+      );
+      return;
+    }
+
+    let totalFunds = 0;
+    let totalTransactions = 0;
+    const allErrors: string[] = [];
+    const cdslPassword = dob ? computeCdslPassword(pan, dob) : null;
+
+    for (const attachment of pdfAttachments) {
+      try {
+        const pdfBytes = await getAttachmentBytes(attachment, emailId);
+
+        const parserHeaders: Record<string, string> = {
+          'Content-Type': 'application/octet-stream',
+          'x-file-name': attachment.filename ?? 'cas.pdf',
+          'x-password': pan,
+          'x-parser-secret': CAS_PARSER_SHARED_SECRET,
+        };
+        if (cdslPassword) parserHeaders['x-password-cdsl'] = cdslPassword;
+        if (VERCEL_PROTECTION_BYPASS_TOKEN) {
+          parserHeaders['x-vercel-protection-bypass'] = VERCEL_PROTECTION_BYPASS_TOKEN;
+        }
+
+        const parserRes = await fetch(`${APP_BASE_URL}/api/parse-cas-pdf`, {
+          method: 'POST',
+          headers: parserHeaders,
+          body: pdfBytes,
+        });
+
+        const parserBody = (await parserRes.json().catch(() => ({}))) as
+          | (CASParseResult & { error?: string })
+          | { error?: string };
+
+        if (!parserRes.ok) {
+          throw new Error(
+            (parserBody as { error?: string }).error ?? `Parser failed (${parserRes.status})`,
+          );
+        }
+
+        const parsedResult = parserBody as CASParseResult;
+        const parsedTransactions = countParsedTransactions(parsedResult);
+        console.log(
+          '[cas-webhook-resend] attachment parsed file=%s, raw_txns=%d',
+          attachment.filename ?? 'cas.pdf',
+          parsedTransactions,
+        );
+
+        if (parsedTransactions === 0) {
+          throw new Error(
+            'Detailed CAS required: this PDF has holdings but no transaction history. Download a Detailed CAS covering your full investment date range.',
+          );
+        }
+
+        const { fundsUpdated, transactionsAdded, errors } = await importCASData(
+          supabase,
+          userId,
+          importId,
+          parsedResult,
+        );
+
+        totalFunds += fundsUpdated;
+        totalTransactions += transactionsAdded;
+        allErrors.push(...errors);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[cas-webhook-resend] attachment error: %s', msg);
+        allErrors.push(msg);
+      }
+    }
+
+    const status: 'success' | 'failed' =
+      allErrors.length > 0 && totalFunds === 0 ? 'failed' : 'success';
+
+    await finalizeImportRow(supabase, importId, status, totalFunds, totalTransactions, allErrors);
+
+    console.log(
+      '[cas-webhook-resend] background_completed import_id=%s, status=%s, funds=%d, txns=%d, errors=%d',
+      importId,
+      status,
+      totalFunds,
+      totalTransactions,
+      allErrors.length,
+    );
+
+    await sendImportNotification({
+      to: await authEmailPromise,
+      from: notificationFromAddress(recipients),
+      importId,
+      status,
+      funds: totalFunds,
+      transactions: totalTransactions,
+      errors: allErrors,
+    });
+
+    // Opportunistic clear of cas_inbox_confirmation_url: if a real CAS
+    // email just imported successfully, the Gmail filter is provably
+    // active and the previously-captured verification URL is no longer
+    // useful. Google won't echo the confirm-click back to us, so the
+    // next-import-succeeded heuristic is the closest signal we have.
+    if (status === 'success') {
+      const { error: clearErr } = await supabase
+        .from('user_profile')
+        .update({ cas_inbox_confirmation_url: null })
+        .eq('user_id', userId)
+        .not('cas_inbox_confirmation_url', 'is', null);
+      if (clearErr) {
+        console.warn(
+          '[cas-webhook-resend] opportunistic clear failed: %s (non-fatal)',
+          clearErr.message,
+        );
+      }
+    }
+
+    // Trigger sync-nav so latest NAVs land without waiting for cron
+    if (totalFunds > 0) {
+      fetch(`${SUPABASE_URL}/functions/v1/sync-nav`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      }).catch((err) => console.error('[cas-webhook-resend] sync-nav trigger failed:', err));
+    }
+  } catch (err) {
+    // Catch-all: any unexpected throw must promote the row out of 'pending'
+    // and tell the user. Without this the row would sit at 'pending' forever
+    // and the user would get no feedback.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(
+      '[cas-webhook-resend] CRITICAL background failure import_id=%s: %s',
+      importId,
+      msg,
+    );
+    try {
+      await finalizeImportRow(supabase, importId, 'failed', 0, 0, [
+        `Background processor crashed: ${msg}`,
+      ]);
+      await sendImportNotification({
+        to: await authEmailPromise,
+        from: notificationFromAddress(recipients),
+        importId,
+        status: 'failed',
+        funds: 0,
+        transactions: 0,
+        errors: [`Background processor crashed: ${msg}`],
+      });
+    } catch (innerErr) {
+      const innerMsg = innerErr instanceof Error ? innerErr.message : String(innerErr);
+      console.error(
+        '[cas-webhook-resend] CRITICAL secondary failure import_id=%s while reporting primary failure: %s',
+        importId,
+        innerMsg,
+      );
+    }
+  }
+}
+
 // ── Handler ─────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -461,7 +707,14 @@ Deno.serve(async (req) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[cas-webhook-resend] received email fetch failed: %s', msg);
-    return Response.json({ ok: false, reason: 'resend_email_fetch_failed' }, { status: 502 });
+    // Return 200 — Resend retrying won't help. The DROPPED log is the only
+    // signal; ops can correlate via Resend dashboard email_id.
+    console.warn(
+      '[cas-webhook-resend] DROPPED resend_email_fetch_failed: email_id=%s, error=%s',
+      emailId ?? '(none)',
+      msg,
+    );
+    return Response.json({ ok: false, reason: 'resend_email_fetch_failed' });
   }
 
   const emailData = mergeEmailData(eventData, receivedEmail);
@@ -478,7 +731,6 @@ Deno.serve(async (req) => {
       recipients,
       emailId ?? '(none)',
     );
-    // Return 200 — there's nothing the sender's mail server can do with retries
     return Response.json({ ok: false, reason: 'no_token' });
   }
 
@@ -509,9 +761,8 @@ Deno.serve(async (req) => {
   const pan = profile.pan as string;
   const dob = (profile.dob as string | null) ?? null;
 
-  // Gmail auto-forward verification: capture the confirmation URL on
-  // the profile and return early without running the import path.
-  // The UI surfaces this URL as a "Confirm Gmail forwarding" button.
+  // Gmail auto-forward verification: handle inline. It's a single UPDATE,
+  // doesn't need an audit row, and finishes in <100ms.
   if (isGmailForwardingVerification(emailData)) {
     const url = extractGmailVerificationUrl(emailData);
     if (!url) {
@@ -540,6 +791,9 @@ Deno.serve(async (req) => {
     return Response.json({ ok: true, captured: 'gmail_forwarding_verification' });
   }
 
+  // List attachments via Resend Receiving API. Done in sync so we can
+  // distinguish "no PDF — drop with no audit row" from "has PDF — accept
+  // and process in background".
   let attachments = emailData.attachments ?? [];
   try {
     const listedAttachments = await listReceivedAttachments(emailId);
@@ -549,24 +803,29 @@ Deno.serve(async (req) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[cas-webhook-resend] attachment list failed: %s', msg);
-    return Response.json({ ok: false, reason: 'resend_attachment_list_failed' }, { status: 502 });
+    console.warn(
+      '[cas-webhook-resend] DROPPED resend_attachment_list_failed: email_id=%s, error=%s',
+      emailId ?? '(none)',
+      msg,
+    );
+    return Response.json({ ok: false, reason: 'resend_attachment_list_failed' });
   }
 
   const pdfAttachments = attachments.filter(isPdfAttachment);
-
-  console.log(
-    '[cas-webhook-resend] token=%s, user=%s, pdf_files=%d, total_files=%d',
-    token,
-    userId,
-    pdfAttachments.length,
-    attachments.length,
-  );
-
   if (pdfAttachments.length === 0) {
+    console.warn(
+      '[cas-webhook-resend] DROPPED no_pdfs: token=%s, to=%s, email_id=%s, total_files=%d',
+      token,
+      recipients,
+      emailId ?? '(none)',
+      attachments.length,
+    );
     return Response.json({ ok: false, reason: 'no_pdfs' });
   }
 
-  // Audit row
+  // Audit row — must exist before we hand off to background. The catch-all
+  // in the background processor keys off this `importId` to ensure the row
+  // never stays 'pending' on a hard crash.
   const { data: importRecord, error: importError } = await supabase
     .from('cas_import')
     .insert({
@@ -584,140 +843,31 @@ Deno.serve(async (req) => {
   }
 
   const importId = importRecord.id as string;
-  let totalFunds = 0;
-  let totalTransactions = 0;
-  const allErrors: string[] = [];
-
-  const cdslPassword = dob ? computeCdslPassword(pan, dob) : null;
-
-  for (const attachment of pdfAttachments) {
-    try {
-      const pdfBytes = await getAttachmentBytes(attachment, emailId);
-
-      const parserHeaders: Record<string, string> = {
-        'Content-Type': 'application/octet-stream',
-        'x-file-name': attachment.filename ?? 'cas.pdf',
-        'x-password': pan,
-        'x-parser-secret': CAS_PARSER_SHARED_SECRET,
-      };
-      if (cdslPassword) parserHeaders['x-password-cdsl'] = cdslPassword;
-      if (VERCEL_PROTECTION_BYPASS_TOKEN) {
-        parserHeaders['x-vercel-protection-bypass'] = VERCEL_PROTECTION_BYPASS_TOKEN;
-      }
-
-      const parserRes = await fetch(`${APP_BASE_URL}/api/parse-cas-pdf`, {
-        method: 'POST',
-        headers: parserHeaders,
-        body: pdfBytes,
-      });
-
-      const parserBody = (await parserRes.json().catch(() => ({}))) as
-        | (CASParseResult & { error?: string })
-        | { error?: string };
-
-      if (!parserRes.ok) {
-        throw new Error(
-          (parserBody as { error?: string }).error ?? `Parser failed (${parserRes.status})`,
-        );
-      }
-
-      const parsedResult = parserBody as CASParseResult;
-      const parsedTransactions = countParsedTransactions(parsedResult);
-      console.log(
-        '[cas-webhook-resend] attachment parsed file=%s, raw_txns=%d',
-        attachment.filename ?? 'cas.pdf',
-        parsedTransactions,
-      );
-
-      if (parsedTransactions === 0) {
-        throw new Error(
-          'Detailed CAS required: this PDF has holdings but no transaction history. Download a Detailed CAS covering your full investment date range.',
-        );
-      }
-
-      const { fundsUpdated, transactionsAdded, errors } = await importCASData(
-        supabase,
-        userId,
-        importId,
-        parsedResult,
-      );
-
-      totalFunds += fundsUpdated;
-      totalTransactions += transactionsAdded;
-      allErrors.push(...errors);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error('[cas-webhook-resend] attachment error: %s', msg);
-      allErrors.push(msg);
-    }
-  }
-
-  const status = allErrors.length > 0 && totalFunds === 0 ? 'failed' : 'success';
-
-  await supabase
-    .from('cas_import')
-    .update({
-      import_status: status,
-      funds_updated: totalFunds,
-      transactions_added: totalTransactions,
-      error_message: allErrors.length > 0 ? allErrors.join('; ') : null,
-    })
-    .eq('id', importId);
-
   console.log(
-    '[cas-webhook-resend] done, import_id=%s, status=%s, funds=%d, txns=%d, errors=%d',
+    '[cas-webhook-resend] accepted import_id=%s, user=%s, token=%s, pdf_files=%d',
     importId,
-    status,
-    totalFunds,
-    totalTransactions,
-    allErrors.length,
+    userId,
+    token,
+    pdfAttachments.length,
   );
 
-  await sendImportNotification({
-    to: await getAuthEmail(supabase, userId),
-    from: notificationFromAddress(recipients),
-    importId,
-    status,
-    funds: totalFunds,
-    transactions: totalTransactions,
-    errors: allErrors,
-  });
+  // Hand the heavy lifting off to a background task. Resend will see 200
+  // within ~1s, no Svix-timeout retries, no duplicate cas_import rows.
+  EdgeRuntime.waitUntil(
+    processImportInBackground({
+      supabase,
+      importId,
+      userId,
+      pan,
+      dob,
+      emailId,
+      attachments: pdfAttachments,
+      recipients,
+    }),
+  );
 
-  // Opportunistic clear of cas_inbox_confirmation_url: if a real CAS
-  // email just imported successfully, the Gmail filter is provably
-  // active and the previously-captured verification URL is no longer
-  // useful. Google won't echo the confirm-click back to us, so the
-  // next-import-succeeded heuristic is the closest signal we have.
-  if (status === 'success') {
-    const { error: clearErr } = await supabase
-      .from('user_profile')
-      .update({ cas_inbox_confirmation_url: null })
-      .eq('user_id', userId)
-      .not('cas_inbox_confirmation_url', 'is', null);
-    if (clearErr) {
-      console.warn(
-        '[cas-webhook-resend] opportunistic clear failed: %s (non-fatal)',
-        clearErr.message,
-      );
-    }
-  }
-
-  // Trigger sync-nav in the background so latest NAVs land without waiting for cron
-  if (totalFunds > 0) {
-    fetch(`${SUPABASE_URL}/functions/v1/sync-nav`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-    }).catch((err) => console.error('[cas-webhook-resend] sync-nav trigger failed:', err));
-  }
-
-  return Response.json({
-    ok: status === 'success',
-    funds: totalFunds,
-    transactions: totalTransactions,
-    ...(status === 'success'
-      ? allErrors.length > 0
-        ? { warnings: allErrors }
-        : {}
-      : { reason: 'import_failed', errors: allErrors }),
-  });
+  // 202 Accepted — the audit row exists, the heavy work is in flight, and
+  // Resend gets a fast OK well inside the 15s Svix timeout. The user will
+  // receive a notification email when the background job completes.
+  return Response.json({ ok: true, accepted: true, import_id: importId });
 });
