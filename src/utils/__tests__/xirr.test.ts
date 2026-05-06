@@ -674,4 +674,33 @@ describe('simulateBenchmarkInvestment()', () => {
     expect(sim.benchmarkFlows).toEqual([]);
     expect(sim.unitsHistory).toEqual([]);
   });
+
+  it('skips unknown transaction types without disturbing state', () => {
+    const txs: Transaction[] = [
+      { transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+      // Some imports surface non-portfolio rows (stamp duty, fee debits).
+      // The simulator must not count them as either buys or sells.
+      { transaction_date: '2025-02-01', transaction_type: 'stamp_duty', units: 0, amount: 5 },
+      { transaction_date: '2025-03-01', transaction_type: 'purchase', units: 50, amount: 600 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, lookup);
+
+    // Only 2 flows recorded; the unknown type produced no cashflow and no
+    // history entry.
+    expect(sim.benchmarkFlows).toHaveLength(2);
+    expect(sim.unitsHistory).toHaveLength(2);
+    expect(sim.finalUnits).toBeCloseTo(1000 / 100 + 600 / 120, 5);
+  });
+
+  it('does not touch units when benchmark close is zero (degenerate data)', () => {
+    const zeroLookup = buildBenchmarkLookup([{ date: '2025-01-01', value: 0 }]);
+    const txs: Transaction[] = [
+      { transaction_date: '2025-01-01', transaction_type: 'purchase', units: 100, amount: 1000 },
+    ];
+    const sim = simulateBenchmarkInvestment(txs, zeroLookup);
+
+    // close <= 0 → skipped (would otherwise divide by zero)
+    expect(sim.finalUnits).toBe(0);
+    expect(sim.benchmarkFlows).toEqual([]);
+  });
 });
