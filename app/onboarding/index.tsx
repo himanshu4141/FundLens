@@ -145,13 +145,28 @@ function OnboardingWizard() {
   // skip Welcome (when PAN saved) and Identity (when both PAN + DOB saved),
   // and lock any field already set so a returning user can't accidentally
   // overwrite it.
-  const { data: profile, isLoading: profileLoading } = useQuery<SavedProfile | null>({
+  const { data: profile } = useQuery<SavedProfile | null>({
     queryKey: ['user-profile', session?.user.id],
     queryFn: () => fetchSavedProfile(session!.user.id),
     enabled: !!session?.user.id,
+    // Always refetch on mount. A cached `null` from a previous visit (or a
+    // different navigation stack that opened the wizard before the row was
+    // written) would otherwise look like "no row exists", and hydration
+    // would render the Identity form empty even when PAN + DOB are in DB.
+    refetchOnMount: 'always',
   });
 
   useEffect(() => {
+    // useQuery returns `data === undefined` while the fetch is in flight, and
+    // either `null` (no row) or the SavedProfile object once it settles.
+    // Hydrating before it settles dispatches the wizard into step='welcome'
+    // with empty PAN/DOB, then `setHydrated(true)` flips and the user sees
+    // the welcome screen. If they click Continue before the row arrives,
+    // `handleAdvance` reads `profile?.pan` as undefined and pushes them to
+    // Identity instead of Import — and by the time the row lands, the user
+    // is already past the gate. Wait for the query to settle.
+    if (profile === undefined) return;
+
     let cancelled = false;
     (async () => {
       const saved = await loadOnboardingDraft();
@@ -247,7 +262,10 @@ function OnboardingWizard() {
     router.replace('/(tabs)');
   }
 
-  if (!hydrated || profileLoading) {
+  if (!hydrated) {
+    // hydrated only flips after the user_profile query has settled (see the
+    // hydration effect's `if (profile === undefined) return` guard), so this
+    // doubles as both "draft loaded from storage" and "DB row resolved".
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.centered}>
