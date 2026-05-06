@@ -32,7 +32,9 @@ The web app at `https://app.foliolens.in` runs the same Expo Router code, export
 | `app.foliolens.in` | Vercel (PROD project: `foliolens`) | Production web app |
 | `foliolens-dev.vercel.app` | Vercel (DEV project: `foliolens-dev`) | Dev web app + PR previews |
 | `<*>.vercel.app` | Vercel (DEV project) | Per-PR preview URLs |
-| `cas+<token>@foliolens.in` | Resend Inbound (M2 incoming) | Per-user CAS forwarding inbox |
+| `cas-<token>@foliolens.in` | Resend Inbound → Vercel router → PROD Supabase (M2 incoming) | Production per-user CAS forwarding inbox |
+| `cas-dev-<token>@foliolens.in` | Resend Inbound → Vercel router → DEV Supabase (M2 incoming) | Dev / preview per-user CAS forwarding inbox |
+| `hello@foliolens.in`, `support@foliolens.in`, `privacy@foliolens.in`, `security@foliolens.in` | Resend Inbound → Vercel router | Human-facing aliases forwarded to the owner Gmail |
 | `noreply@foliolens.in` | Resend SMTP (PROD) | Magic-link + transactional email — prod |
 | `noreply-dev@foliolens.in` | Resend SMTP (DEV) | Magic-link + transactional email — dev |
 
@@ -72,7 +74,7 @@ Both run Postgres 17, the same schema (kept in sync via migrations under `supaba
 |---------|---------|---------|--------|
 | `parse-cas-pdf` | Native upload from app | Forwards a binary PDF to the Vercel-hosted Python parser, then runs `_shared/import-cas.ts` | Active |
 | `cas-webhook` | CASParser inbound-email webhook | Receives parsed CAS payload from CASParser and imports it | **Deprecated, replaced by `cas-webhook-resend`** (still on disk while M2.6 retires call sites) |
-| `cas-webhook-resend` | Resend Inbound webhook | Receives raw inbound email + base64 PDF attachments, looks up user via `cas_inbox_token`, calls Vercel parser, imports | M2 (PR #93) |
+| `cas-webhook-resend` | Vercel inbound router | Receives Resend-signed CAS webhook payloads routed by `/api/resend-inbound-router`, looks up user via `cas_inbox_token`, fetches email content / attachments through Resend, calls Vercel parser, imports | M2 (PR #93) |
 | `request-cas` | App "Sync portfolio" tap | Triggers KFintech CAS email via CASParser API | **Deprecated**, retired in M2.6 |
 | `create-inbound-session` | First onboarding | Creates a per-user CASParser inbound mailbox | **Deprecated**, retired in M2.6 |
 | `sync-nav` | pg_cron (hourly) | Pulls NAV history from mfapi.in for every active scheme | Active |
@@ -104,7 +106,11 @@ Single Resend account on the verified domain `foliolens.in`. Used for two purpos
 
 
 1. **Outbound** — Supabase Auth's SMTP setting points at `smtp.resend.com:465` and uses a Resend SMTP key. Two different Resend "addresses" / sender names are configured per Supabase project so dev and prod emails don't blur.
-2. **Inbound** (M2) — a Resend Inbound Route catches `cas+*@foliolens.in` and POSTs to `cas-webhook-resend`. The webhook secret lives at `RESEND_INBOUND_SECRET` on each Supabase Edge runtime separately, so prod and dev receive their own emails.
+2. **Inbound** (M2) — Resend owns the apex MX records for `foliolens.in` and POSTs every `email.received` event to `https://app.foliolens.in/api/resend-inbound-router`. The Vercel router verifies the Resend Svix signature, forwards human aliases to the owner Gmail, and forwards CAS messages to the matching Supabase project:
+   - `cas-dev-<token>@foliolens.in` → DEV `cas-webhook-resend`
+   - `cas-<token>@foliolens.in` → PROD `cas-webhook-resend`
+
+The router intentionally lives on the PROD Vercel project so Resend needs only one webhook endpoint and one verified domain on the free plan. DEV / PROD separation is encoded in the email local-part, not in subdomains.
 
 
 DNS for `foliolens.in` lives at the registrar; Cloudflare proxies the apex (landing page) and lets `app.foliolens.in` pass through unproxied to Vercel. SPF / DKIM / DMARC are managed in Resend's domain panel.
@@ -209,11 +215,24 @@ On the Edge Function runtime (Supabase Dashboard → Functions → Secrets), the
 | `CAS_PARSER_SHARED_SECRET` | shared with the Vercel Python parser | same |
 | `CASPARSER_API_KEY` | (deprecated, kept until M2.6) | (deprecated, kept until M2.6) |
 | `EODHD_API_KEY` | only set if EOD-style index data needed | same |
-| `RESEND_INBOUND_SECRET` | M2: Resend Inbound webhook signing secret | same |
+| `RESEND_INBOUND_SECRET` | M2: same Resend Svix secret used by the Vercel router | same |
 | `VERCEL_PROTECTION_BYPASS_TOKEN` | only when Vercel protection is enabled | same |
 
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are auto-provided by Supabase to every Edge Function — never set them manually.
+
+
+On the PROD Vercel project (`foliolens`), the inbound router needs these production environment variables:
+
+
+| Variable | Purpose |
+|----------|---------|
+| `RESEND_API_KEY` | Reads received email content / attachments and sends forwarded human-alias mail |
+| `RESEND_INBOUND_ROUTER_SECRET` | Resend Svix webhook signing secret for `email.received` |
+| `MAIL_FORWARD_TO` | Owner Gmail destination for `hello@`, `support@`, `privacy@`, and `security@` |
+| `MAIL_FORWARD_FROM` | Verified Resend sender used when forwarding aliases, e.g. `FolioLens Mail <noreply@foliolens.in>` |
+| `SUPABASE_DEV_FUNCTION_URL` | DEV `cas-webhook-resend` endpoint |
+| `SUPABASE_PROD_FUNCTION_URL` | PROD `cas-webhook-resend` endpoint |
 
 
 ## Branching, merging, releasing
@@ -257,11 +276,12 @@ These are configured once and rarely change. If you spin up a fresh fork, you'll
 | Supabase Dashboard → both projects → Auth → Providers → Google | Enable, paste the matching Google Cloud OAuth Client ID + Secret |
 | Supabase Dashboard → both projects → Functions → Secrets | Set per-project secrets from the table above |
 | Resend Dashboard → Domains → `foliolens.in` | DKIM, SPF, DMARC verified; sender addresses configured |
-| Resend Dashboard → Inbound (M2) | Add MX records on `foliolens.in`, create Inbound Route `cas+*@foliolens.in` → both project webhooks |
+| Resend Dashboard → Receiving / Webhooks (M2) | Enable receiving on `foliolens.in`, point `email.received` at `https://app.foliolens.in/api/resend-inbound-router`, copy the Svix signing secret |
 | Google Cloud Console → OAuth consent screen | App name + support email + privacy / terms URLs (TODO once landing-page legal pages are live) |
-| Cloudflare → DNS for `foliolens.in` | A / AAAA records for apex (landing page) + CNAME for `app` → Vercel + Resend MX records |
+| Cloudflare → DNS for `foliolens.in` | A / AAAA records for apex (landing page) + CNAME for `app` → Vercel + Resend outbound TXT/DKIM/SPF + Resend inbound MX records |
 | Vercel → `foliolens` project → Settings → Git | Disconnected from GitHub. Re-connecting accidentally would resume auto-deploys on every push and break the manual-only release gate. |
 | Vercel → both projects → Settings → Domains | DEV: `foliolens-dev.vercel.app` (auto). PROD: `app.foliolens.in` (custom). |
+| Vercel → `foliolens` project → Environment Variables | Set `RESEND_API_KEY`, `RESEND_INBOUND_ROUTER_SECRET`, `MAIL_FORWARD_TO`, `MAIL_FORWARD_FROM`, `SUPABASE_DEV_FUNCTION_URL`, `SUPABASE_PROD_FUNCTION_URL` for the production router |
 | expo.dev → Environment Variables | DEV / preview / production envs each have their `EXPO_PUBLIC_*` values |
 
 
