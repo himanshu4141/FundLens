@@ -9,7 +9,11 @@
 
 import { CORS, json } from '../_shared/cors.ts';
 import { getUserFromRequest } from '../_shared/auth.ts';
-import { importCASData, type CASParseResult } from '../_shared/import-cas.ts';
+import {
+  countParsedTransactions,
+  importCASData,
+  type CASParseResult,
+} from '../_shared/import-cas.ts';
 
 const LOCAL_CAS_PARSER_URL = Deno.env.get('LOCAL_CAS_PARSER_URL') ?? '';
 const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
@@ -244,7 +248,12 @@ Deno.serve(async (req) => {
   }
 
   const parsedFolios = parsed?.mutual_funds ?? [];
-  console.log('[parse-cas-pdf] parser returned %d folios', parsedFolios.length);
+  const parsedTransactions = countParsedTransactions(parsed);
+  console.log(
+    '[parse-cas-pdf] parser returned %d folios and %d raw transactions',
+    parsedFolios.length,
+    parsedTransactions,
+  );
 
   if (parsedFolios.length === 0) {
     const msg = 'No mutual fund data found in this CAS PDF';
@@ -256,6 +265,22 @@ Deno.serve(async (req) => {
     return json(
       {
         error: 'We could not find any mutual fund entries in this PDF. Please upload a detailed CAS statement.',
+      },
+      { status: 422 },
+    );
+  }
+
+  if (parsedTransactions === 0) {
+    const msg = 'Detailed CAS required: parser found holdings but no transaction rows';
+    await supabase
+      .from('cas_import')
+      .update({ import_status: 'failed', error_message: msg })
+      .eq('id', importId);
+
+    return json(
+      {
+        error:
+          'This PDF has holdings but no transaction history. Please upload a Detailed CAS covering your full investment date range.',
       },
       { status: 422 },
     );

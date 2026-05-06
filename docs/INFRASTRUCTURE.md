@@ -110,6 +110,8 @@ Single Resend account on the verified domain `foliolens.in`. Used for two purpos
    - `cas-dev-<token>@foliolens.in` → DEV `cas-webhook-resend`
    - `cas-<token>@foliolens.in` → PROD `cas-webhook-resend`
 
+The inbound CAS path also sends a FolioLens-branded status email to the user's auth email after each PDF import attempt. Success emails include funds / transactions imported; failure emails explain the actionable next step, especially when a holdings-only CAS lacks transaction history.
+
 The router intentionally lives on the PROD Vercel project so Resend needs only one webhook endpoint and one verified domain on the free plan. DEV / PROD separation is encoded in the email local-part, not in subdomains.
 
 
@@ -216,7 +218,8 @@ On the Edge Function runtime (Supabase Dashboard → Functions → Secrets), the
 | `CASPARSER_API_KEY` | (deprecated, kept until M2.6) | (deprecated, kept until M2.6) |
 | `EODHD_API_KEY` | only set if EOD-style index data needed | same |
 | `RESEND_INBOUND_SECRET` | M2: same Resend Svix secret used by the Vercel router | same |
-| `RESEND_API_KEY` | M2: fetches received email bodies / attachment download URLs from Resend | same |
+| `RESEND_API_KEY` | M2: fetches received email bodies / attachment download URLs from Resend and sends inbound-import status emails | same |
+| `RESEND_NOTIFICATION_FROM` | Optional override; defaults to `FolioLens Dev <noreply-dev@foliolens.in>` | Optional override; defaults to `FolioLens <noreply@foliolens.in>` |
 | `VERCEL_PROTECTION_BYPASS_TOKEN` | only when Vercel protection is enabled | same |
 
 

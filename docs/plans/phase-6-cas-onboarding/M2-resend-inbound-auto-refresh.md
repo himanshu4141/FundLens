@@ -275,6 +275,9 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
 - 2026-05-06 — Removed the Clear Lens "Sync portfolio" quick action because FolioLens no longer programmatically asks an RTA to email a CAS. Mobile overflow and desktop sidebar now expose one `Import portfolio` action that opens the onboarding import flow.
 - 2026-05-06 — Reworked Settings → Portfolio import away from the old CASParser inbound session model. The screen now uses the Resend inbox token, shows auto-forward setup state, and routes manual PDF upload through the newer onboarding import flow instead of deep-linking to `/onboarding/pdf`.
 - 2026-05-06 — Removed the unused client hook and tests for `create-inbound-session`. The Edge Functions themselves remain for the explicit M2.6 retirement cleanup.
+- 2026-05-06 — Added a holding-mode branch to onboarding. AMC / folio users are routed to CAMS / KFintech, demat / broker users are routed to CDSL / NSDL Detailed CAS, and unsure users see both paths. Auto-refresh remains scoped to CAMS / KFintech because it depends on predictable RTA CAS emails.
+- 2026-05-06 — Inbound and manual PDF imports now reject parsed PDFs that contain holdings but zero transaction rows with a clear "Detailed CAS required" error instead of recording an apparently successful `0 transactions` import.
+- 2026-05-06 — Inbound PDF imports now send Clear Lens styled status emails through Resend to the user's auth email. Success messages include fund / transaction counts; failures explain the next action and keep the Resend response idempotent by import id.
 
 ## Risks And Mitigations
 
