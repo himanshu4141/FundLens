@@ -34,6 +34,17 @@ describe('projectWealth', () => {
     const points = projectWealth(-1000, -5000, -12, 3, -1000);
     expect(points.every((point) => point.value === 0)).toBe(true);
   });
+
+  it('falls back to a one-year horizon for invalid years', () => {
+    expect(projectWealth(1000, 0, 0, Number.NaN)).toEqual([
+      { year: 1, value: 12000 },
+    ]);
+  });
+
+  it('rounds fractional horizons before projecting', () => {
+    const points = projectWealth(0, 1000, 0, 1.6);
+    expect(points.map((point) => point.year)).toEqual([1, 2]);
+  });
 });
 
 describe('getMilestones', () => {
@@ -45,6 +56,10 @@ describe('getMilestones', () => {
   it('deduplicates when horizon matches a fixed milestone', () => {
     const points = projectWealth(5000, 0, 12, 15);
     expect(getMilestones(points).map((point) => point.year)).toEqual([5, 10, 15]);
+  });
+
+  it('handles an empty trajectory', () => {
+    expect(getMilestones([])).toEqual([]);
   });
 });
 
@@ -67,6 +82,28 @@ describe('projectRetirementIncome', () => {
     expect(projection.riskLabel).toBe('Conservative');
     expect(projection.endCorpus).toBeGreaterThan(0);
   });
+
+  it('uses safe defaults for invalid retirement assumptions', () => {
+    const projection = projectRetirementIncome(
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    );
+
+    expect(projection).toMatchObject({
+      retirementCorpus: 0,
+      annualWithdrawal: 0,
+      monthlyIncome: 0,
+      endCorpus: 0,
+      depletionYear: 1,
+      riskLabel: 'Conservative',
+    });
+    expect(projection.trajectory).toEqual([
+      { year: 0, value: 0 },
+      { year: 1, value: 0 },
+    ]);
+  });
 });
 
 describe('toPresentValueEquivalent', () => {
@@ -77,5 +114,9 @@ describe('toPresentValueEquivalent', () => {
   it('returns the same number when inflation or years are zero', () => {
     expect(toPresentValueEquivalent(500000, 0, 15)).toBe(500000);
     expect(toPresentValueEquivalent(500000, 6, 0)).toBe(500000);
+  });
+
+  it('treats invalid inflation as zero inflation', () => {
+    expect(toPresentValueEquivalent(500000, Number.NaN, 10)).toBe(500000);
   });
 });
