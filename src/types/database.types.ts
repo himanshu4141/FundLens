@@ -395,6 +395,7 @@ export type Database = {
       }
       user_profile: {
         Row: {
+          cas_auto_forward_setup_completed_at: string | null
           cas_inbox_confirmation_url: string | null
           cas_inbox_token: string
           created_at: string
@@ -405,6 +406,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cas_auto_forward_setup_completed_at?: string | null
           cas_inbox_confirmation_url?: string | null
           cas_inbox_token?: string
           created_at?: string
@@ -415,6 +417,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cas_auto_forward_setup_completed_at?: string | null
           cas_inbox_confirmation_url?: string | null
           cas_inbox_token?: string
           created_at?: string

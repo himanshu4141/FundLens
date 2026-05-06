@@ -196,15 +196,16 @@ The Vercel router verifies the Resend Svix signature before any side effects. Th
 
 Implements the hybrid path locked in by M2.0 — manual forward as the universal default, opt-in auto-forward instructions per client family.
 
-**New migration** — `<timestamp>_user_profile_cas_inbox_confirmation_url.sql`:
+**New migrations**:
 
 - Adds `cas_inbox_confirmation_url text` (nullable) to `user_profile`.
+- Adds `cas_auto_forward_setup_completed_at timestamptz` (nullable) to `user_profile` so the user can explicitly mark provider-side auto-forward setup complete after the Gmail / Outlook rule is saved.
 - Updates `database.types.ts`.
 
 **Edge Function update** — `supabase/functions/cas-webhook-resend/index.ts` gains a new branch:
 
 - Detect Gmail's verification email pattern: `from = forwarding-noreply@google.com` AND subject matches `/Gmail Forwarding Confirmation/i`.
-- On match: extract the confirmation URL from the body (the only `https://mail.google.com/mail/vf-…` link in the email body), `update user_profile set cas_inbox_confirmation_url = <url> where cas_inbox_token = <token>`, log `[cas-webhook-resend] gmail-verification-captured`, and return 200 without running the import path or inserting a `cas_import` row.
+- On match: extract the confirmation URL from the body (`https://mail.google.com/mail/vf-…`, `https://mail-settings.google.com/mail/vf-…`, or `https://isolated.mail.google.com/mail/vf-…`), `update user_profile set cas_inbox_confirmation_url = <url> where cas_inbox_token = <token>`, log `[cas-webhook-resend] gmail-verification-captured`, and return 200 without running the import path or inserting a `cas_import` row.
 - Opportunistic clear: on a successful import (an actual CAS PDF), if `cas_inbox_confirmation_url is not null` for the user, set it back to null (the filter is now active and the link is single-use anyway).
 
 **UI** — wizard Step 3 + Settings row + post-import nudge:
@@ -213,21 +214,22 @@ Implements the hybrid path locked in by M2.0 — manual forward as the universal
   - Hero: address built from `EXPO_PUBLIC_INBOUND_DOMAIN` + Copy button.
   - Primary CTA: "Forward your next CAS email" (manual-forward primary path; works on every client without any setup).
   - Below the primary CTA: a collapsible "Or set up auto-forward" expander with platform tabs:
-    - **Gmail**: 3-step instructions, ending with "Come back to FolioLens to confirm" → opens Settings → Auto-refresh which surfaces the confirmation URL once captured.
-    - **Outlook / Microsoft 365**: 3-step rule instructions; no verification step.
+    - **Gmail**: forwarding-address setup, captured verification-link CTA when available, exact filter query for `donotreply@camsonline.com` / `samfS@kfintech.com`, and a checklist the user marks complete before saving "auto-forward ready".
+    - **Outlook / Microsoft 365**: rule instructions using the same CAMS / KFintech senders; no verification step.
     - **iCloud / Yahoo**: copy that explains why auto-forward isn't supported on these clients ("Your inbox doesn't allow filtered auto-forward — please use manual forward instead.").
     - **Other / not sure**: generic guidance, falls back to manual.
 - Settings → Account → Auto-refresh row (M2.5):
   - Address + Copy button.
   - Last refresh timestamp + source ("via auto-refresh" / "via upload").
-  - When `cas_inbox_confirmation_url` is non-null: a "Confirm Gmail forwarding" button that opens the URL in `expo-web-browser` (native) / new tab (web).
+  - When `cas_auto_forward_setup_completed_at` is non-null: status reads "Auto-forward ready for future CAMS / KFintech emails".
+  - When `cas_inbox_confirmation_url` is non-null and setup is not completed: a "Confirm Gmail forwarding" button opens the URL in `expo-web-browser` (native) / new tab (web).
 - After M1.5's Done step, single-card nudge with the same Step 3 card content.
 - All colors via tokens; styles via `makeStyles(tokens)`. Verify in light + dark + system, on mobile + desktop.
 
 **Acceptance**:
 
 - A user can copy the address, forward a CAS email by hand, and receive the import (manual flow works for all clients).
-- A Gmail user can paste the address into their Forwarding settings, see the confirmation button surface in FolioLens within ~30 sec, click it once, and have subsequent CAS emails auto-import.
+- A Gmail user can paste the address into their Forwarding settings, see the confirmation button surface in FolioLens within ~30 sec, create a sender filter for `donotreply@camsonline.com` / `samfS@kfintech.com`, mark the checklist complete, and have subsequent CAS emails auto-import.
 - An Outlook user can create a rule pointing at the address with no verification step and have subsequent CAS emails auto-import.
 - The next successful import after a Gmail verification clears `cas_inbox_confirmation_url`.
 

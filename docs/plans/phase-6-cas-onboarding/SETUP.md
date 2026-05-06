@@ -134,6 +134,7 @@ PR #93 adds:
 
 - `20260504020000_user_profile_cas_inbox_token.sql`
 - `20260505000000_user_profile_cas_inbox_confirmation_url.sql`
+- `20260506000000_user_profile_auto_forward_setup.sql`
 
 DEV:
 

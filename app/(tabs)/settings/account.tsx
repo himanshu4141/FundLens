@@ -36,7 +36,7 @@ import { formatInboxAddress } from '@/src/utils/casInboxToken';
 async function fetchProfile(userId: string) {
   const { data } = await supabase
     .from('user_profile')
-    .select('pan, kfintech_email, dob, cas_inbox_token, cas_inbox_confirmation_url')
+    .select('pan, kfintech_email, dob, cas_inbox_token, cas_inbox_confirmation_url, cas_auto_forward_setup_completed_at')
     .eq('user_id', userId)
     .maybeSingle();
   return data ?? null;
@@ -220,6 +220,7 @@ export default function AccountScreen() {
             userId={userId!}
             inboxToken={profile.cas_inbox_token}
             pendingConfirmationUrl={profile.cas_inbox_confirmation_url ?? null}
+            autoForwardCompletedAt={profile.cas_auto_forward_setup_completed_at ?? null}
             onSetupPress={() => router.push('/onboarding')}
             styles={styles}
             tokens={tokens}
@@ -315,6 +316,7 @@ function AutoRefreshRow({
   userId,
   inboxToken,
   pendingConfirmationUrl,
+  autoForwardCompletedAt,
   onSetupPress,
   styles,
   tokens,
@@ -322,6 +324,7 @@ function AutoRefreshRow({
   userId: string;
   inboxToken: string;
   pendingConfirmationUrl: string | null;
+  autoForwardCompletedAt: string | null;
   onSetupPress: () => void;
   styles: ReturnType<typeof makeStyles>;
   tokens: ClearLensTokens;
@@ -358,7 +361,9 @@ function AutoRefreshRow({
               {inboxAddress || 'Address loading…'}
             </Text>
             <Text style={styles.rowSub} numberOfLines={1}>
-              {lastImport
+              {autoForwardCompletedAt
+                ? 'Auto-forward ready for future CAMS / KFintech emails'
+                : lastImport
                 ? `Last import: ${formatRelativeTime(lastImport.created_at)} (${
                     lastImport.import_source === 'email' ? 'auto-refresh' : 'upload'
                   })`
@@ -368,7 +373,7 @@ function AutoRefreshRow({
           <Ionicons name="chevron-forward" size={18} color={cl.textTertiary} />
         </TouchableOpacity>
 
-        {pendingConfirmationUrl ? (
+        {pendingConfirmationUrl && !autoForwardCompletedAt ? (
           <View style={[styles.row, styles.borderTop]}>
             <View style={styles.rowLeft}>
               <Text style={styles.rowLabel}>Gmail forwarding</Text>

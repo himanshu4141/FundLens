@@ -53,14 +53,25 @@ interface Props {
   inboxToken: string;
   /** Captured by the Edge Function when Gmail emails the verification link. */
   pendingConfirmationUrl?: string | null;
+  /** Set after the user confirms they finished the provider-side rule/filter setup. */
+  autoForwardCompletedAt?: string | null;
   /** Called after the user taps the "Confirm Gmail forwarding" CTA so the parent can refetch. */
   onConfirmClicked?: () => void;
+  /** Persists the user's "auto-forward setup is complete" confirmation. */
+  onAutoForwardCompleted?: () => Promise<void>;
 }
+
+type GmailChecklistKey = 'forwardingAddress' | 'verification' | 'filter';
+
+const GMAIL_CAS_SENDERS = ['donotreply@camsonline.com', 'samfS@kfintech.com'];
+const GMAIL_FILTER_QUERY = `from:(${GMAIL_CAS_SENDERS.join(' OR ')})`;
 
 export function AutoRefreshSetup({
   inboxToken,
   pendingConfirmationUrl,
+  autoForwardCompletedAt,
   onConfirmClicked,
+  onAutoForwardCompleted,
 }: Props) {
   const tokens = useClearLensTokens();
   const cl = tokens.colors;
@@ -70,6 +81,17 @@ export function AutoRefreshSetup({
   const [copied, setCopied] = useState(false);
   const [autoForwardOpen, setAutoForwardOpen] = useState(false);
   const [tab, setTab] = useState<ClientTab>('gmail');
+  const [gmailChecklist, setGmailChecklist] = useState<Record<GmailChecklistKey, boolean>>({
+    forwardingAddress: false,
+    verification: false,
+    filter: false,
+  });
+  const [savingComplete, setSavingComplete] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
+
+  const autoForwardComplete = !!autoForwardCompletedAt;
+  const gmailChecklistComplete =
+    gmailChecklist.forwardingAddress && gmailChecklist.verification && gmailChecklist.filter;
 
   async function handleCopy() {
     await Clipboard.setStringAsync(inboxAddress);
@@ -92,7 +114,26 @@ export function AutoRefreshSetup({
   async function handleConfirmGmail() {
     if (!pendingConfirmationUrl) return;
     await openExternal(pendingConfirmationUrl);
+    setGmailChecklist((current) => ({ ...current, verification: true }));
     onConfirmClicked?.();
+  }
+
+  function toggleGmailChecklist(key: GmailChecklistKey) {
+    if (autoForwardComplete) return;
+    setGmailChecklist((current) => ({ ...current, [key]: !current[key] }));
+  }
+
+  async function handleAutoForwardComplete() {
+    if (!gmailChecklistComplete || autoForwardComplete || !onAutoForwardCompleted) return;
+    setSavingComplete(true);
+    setCompleteError(null);
+    try {
+      await onAutoForwardCompleted();
+    } catch (err) {
+      setCompleteError(err instanceof Error ? err.message : 'Could not save setup status');
+    } finally {
+      setSavingComplete(false);
+    }
   }
 
   return (
@@ -131,7 +172,21 @@ export function AutoRefreshSetup({
         </Text>
       </View>
 
-      {pendingConfirmationUrl ? (
+      {autoForwardComplete ? (
+        <View style={styles.confirmBanner}>
+          <View style={styles.confirmIconWrap}>
+            <Ionicons name="checkmark-circle" size={20} color={cl.emeraldDeep} />
+          </View>
+          <View style={styles.confirmCopy}>
+            <Text style={styles.confirmTitle}>Auto-forward is ready</Text>
+            <Text style={styles.confirmBody}>
+              Future CAS emails from CAMS and KFintech should forward to this
+              inbox automatically. If a monthly CAS does not appear, manually
+              forward that email to the address above.
+            </Text>
+          </View>
+        </View>
+      ) : pendingConfirmationUrl ? (
         <View style={styles.confirmBanner}>
           <View style={styles.confirmIconWrap}>
             <Ionicons name="alert-circle" size={20} color={cl.emeraldDeep} />
@@ -202,14 +257,27 @@ export function AutoRefreshSetup({
               />
               <Step
                 n={3}
-                text="Google will email a verification link to that address. We'll capture it and surface a 'Confirm' button right above this card within ~30 seconds — come back to this screen and tap it once."
+                text="Confirm Google's verification. If FolioLens captured the link, use the button below; if you confirmed in Gmail directly, just check this step."
                 styles={styles}
               />
               <Step
                 n={4}
-                text="Back in Gmail, create a filter from CAMS / KFintech with the action 'Forward to' → your new FolioLens address."
+                text="Create a Gmail filter for the CAS senders, then choose 'Forward it to' → your FolioLens address."
                 styles={styles}
               />
+              <View style={styles.senderBox}>
+                <Text style={styles.senderLabel}>Gmail filter search</Text>
+                <Text style={[styles.senderQuery, styles.mono]} selectable>
+                  {GMAIL_FILTER_QUERY}
+                </Text>
+                <View style={styles.senderRow}>
+                  {GMAIL_CAS_SENDERS.map((sender) => (
+                    <View key={sender} style={styles.senderPill}>
+                      <Text style={styles.senderPillText}>{sender}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
               <TouchableOpacity
                 style={styles.linkRow}
                 onPress={() => openExternal(GMAIL_FILTER_URL)}
@@ -222,6 +290,63 @@ export function AutoRefreshSetup({
                 Gmail Workspace users: an admin may have to allowlist external
                 forwarding for your domain.
               </Text>
+              <View style={styles.checklist}>
+                <ChecklistRow
+                  checked={autoForwardComplete || gmailChecklist.forwardingAddress}
+                  title="Forwarding address added"
+                  detail="Gmail accepted the FolioLens address as a forwarding destination."
+                  onPress={() => toggleGmailChecklist('forwardingAddress')}
+                  styles={styles}
+                  cl={cl}
+                />
+                <ChecklistRow
+                  checked={autoForwardComplete || gmailChecklist.verification}
+                  title="Google verification completed"
+                  detail="You clicked the captured link or completed verification inside Gmail."
+                  onPress={() => toggleGmailChecklist('verification')}
+                  styles={styles}
+                  cl={cl}
+                />
+                {pendingConfirmationUrl && !autoForwardComplete ? (
+                  <TouchableOpacity
+                    style={[styles.confirmCta, styles.inlineConfirmCta]}
+                    onPress={handleConfirmGmail}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.confirmCtaText}>Open verification link</Text>
+                    <Ionicons name="open-outline" size={14} color={cl.textOnDark} />
+                  </TouchableOpacity>
+                ) : null}
+                <ChecklistRow
+                  checked={autoForwardComplete || gmailChecklist.filter}
+                  title="CAMS / KFintech filter created"
+                  detail="The filter forwards matching CAS emails to FolioLens."
+                  onPress={() => toggleGmailChecklist('filter')}
+                  styles={styles}
+                  cl={cl}
+                />
+              </View>
+              {!autoForwardComplete ? (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.completeBtn,
+                      (!gmailChecklistComplete || savingComplete) && styles.completeBtnDisabled,
+                    ]}
+                    onPress={handleAutoForwardComplete}
+                    activeOpacity={0.85}
+                    disabled={!gmailChecklistComplete || savingComplete}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={16} color={cl.textOnDark} />
+                    <Text style={styles.completeBtnText}>
+                      {savingComplete ? 'Saving…' : 'Mark auto-forward ready'}
+                    </Text>
+                  </TouchableOpacity>
+                  {completeError ? (
+                    <Text style={styles.errorText}>{completeError}</Text>
+                  ) : null}
+                </>
+              ) : null}
             </View>
           ) : null}
 
@@ -230,7 +355,7 @@ export function AutoRefreshSetup({
               <Step n={1} text="Open Outlook Settings → Mail → Rules → 'Add new rule'." styles={styles} />
               <Step
                 n={2}
-                text="Condition: From contains 'donotreply@camsonline.com' OR 'donotreply@kfintech.com'."
+                text="Condition: From contains 'donotreply@camsonline.com' OR 'samfS@kfintech.com'."
                 styles={styles}
               />
               <Step
@@ -315,6 +440,43 @@ function Step({
       </View>
       <Text style={styles.stepText}>{text}</Text>
     </View>
+  );
+}
+
+function ChecklistRow({
+  checked,
+  title,
+  detail,
+  onPress,
+  styles,
+  cl,
+}: {
+  checked: boolean;
+  title: string;
+  detail: string;
+  onPress: () => void;
+  styles: ReturnType<typeof makeStyles>;
+  cl: ClearLensTokens['colors'];
+}) {
+  return (
+    <Pressable
+      style={[styles.checkRow, checked && styles.checkRowDone]}
+      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+    >
+      <View style={[styles.checkIcon, checked && styles.checkIconDone]}>
+        <Ionicons
+          name={checked ? 'checkmark' : 'ellipse-outline'}
+          size={14}
+          color={checked ? cl.textOnDark : cl.emeraldDeep}
+        />
+      </View>
+      <View style={styles.checkCopy}>
+        <Text style={styles.checkTitle}>{title}</Text>
+        <Text style={styles.checkDetail}>{detail}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -426,6 +588,10 @@ function makeStyles(tokens: ClearLensTokens) {
       paddingHorizontal: 14,
       paddingVertical: 8,
       marginTop: 4,
+    },
+    inlineConfirmCta: {
+      marginTop: 0,
+      marginLeft: 38,
     },
     confirmCtaText: {
       ...ClearLensTypography.bodySmall,
@@ -547,6 +713,109 @@ function makeStyles(tokens: ClearLensTokens) {
       ...ClearLensTypography.bodySmall,
       color: cl.textSecondary,
       lineHeight: 18,
+    },
+    senderBox: {
+      borderWidth: 1,
+      borderColor: cl.border,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.surface,
+      padding: ClearLensSpacing.sm,
+      gap: 8,
+    },
+    senderLabel: {
+      ...ClearLensTypography.caption,
+      color: cl.textTertiary,
+      fontFamily: ClearLensFonts.bold,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    senderQuery: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.navy,
+      lineHeight: 18,
+    },
+    senderRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    senderPill: {
+      borderRadius: ClearLensRadii.full,
+      backgroundColor: cl.mint50,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    senderPillText: {
+      ...ClearLensTypography.caption,
+      color: cl.emeraldDeep,
+      fontFamily: ClearLensFonts.bold,
+    },
+    checklist: {
+      gap: 8,
+      marginTop: 4,
+    },
+    checkRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: ClearLensSpacing.sm,
+      borderWidth: 1,
+      borderColor: cl.border,
+      borderRadius: ClearLensRadii.md,
+      backgroundColor: cl.surface,
+      padding: ClearLensSpacing.sm,
+    },
+    checkRowDone: {
+      borderColor: cl.mint,
+      backgroundColor: cl.positiveBg,
+    },
+    checkIcon: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: cl.mint50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 1,
+    },
+    checkIconDone: {
+      backgroundColor: cl.emeraldDeep,
+    },
+    checkCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    checkTitle: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.navy,
+      fontFamily: ClearLensFonts.bold,
+    },
+    checkDetail: {
+      ...ClearLensTypography.caption,
+      color: cl.textSecondary,
+      lineHeight: 16,
+    },
+    completeBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: cl.emeraldDeep,
+      borderRadius: ClearLensRadii.full,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    completeBtnDisabled: {
+      opacity: 0.48,
+    },
+    completeBtnText: {
+      ...ClearLensTypography.bodySmall,
+      color: cl.textOnDark,
+      fontFamily: ClearLensFonts.bold,
+    },
+    errorText: {
+      ...ClearLensTypography.caption,
+      color: tokens.semantic.sentiment.negativeText,
+      lineHeight: 16,
     },
     linkRow: {
       flexDirection: 'row',

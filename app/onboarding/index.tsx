@@ -121,10 +121,21 @@ function maskDobInput(raw: string): string {
 async function fetchSavedProfile(userId: string): Promise<SavedProfile | null> {
   const { data } = await supabase
     .from('user_profile')
-    .select('pan, dob, kfintech_email, cas_inbox_token, cas_inbox_confirmation_url')
+    .select('pan, dob, kfintech_email, cas_inbox_token, cas_inbox_confirmation_url, cas_auto_forward_setup_completed_at')
     .eq('user_id', userId)
     .maybeSingle();
   return data ?? null;
+}
+
+async function markAutoForwardSetupComplete(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_profile')
+    .update({
+      cas_auto_forward_setup_completed_at: new Date().toISOString(),
+      cas_inbox_confirmation_url: null,
+    })
+    .eq('user_id', userId);
+  if (error) throw error;
 }
 
 interface SavedProfile {
@@ -133,6 +144,7 @@ interface SavedProfile {
   kfintech_email: string | null;
   cas_inbox_token: string | null;
   cas_inbox_confirmation_url: string | null;
+  cas_auto_forward_setup_completed_at: string | null;
 }
 
 function OnboardingWizard() {
@@ -338,8 +350,13 @@ function OnboardingWizard() {
             onSkip={() => dispatch({ type: 'goto', step: 'done' })}
             inboxToken={profile?.cas_inbox_token ?? null}
             pendingConfirmationUrl={profile?.cas_inbox_confirmation_url ?? null}
+            autoForwardCompletedAt={profile?.cas_auto_forward_setup_completed_at ?? null}
             onConfirmClicked={() => {
               queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
+            }}
+            onAutoForwardCompleted={async () => {
+              await markAutoForwardSetupComplete(session!.user.id);
+              await queryClient.invalidateQueries({ queryKey: ['user-profile', session?.user.id] });
             }}
             styles={styles}
             cl={cl}
@@ -680,7 +697,9 @@ function ImportStep({
   onSkip,
   inboxToken,
   pendingConfirmationUrl,
+  autoForwardCompletedAt,
   onConfirmClicked,
+  onAutoForwardCompleted,
   styles,
   cl,
   tokens,
@@ -695,8 +714,12 @@ function ImportStep({
   inboxToken: string | null;
   /** Captured by Edge Function when Gmail emails the verification link. */
   pendingConfirmationUrl: string | null;
+  /** Set once the user confirms the advanced auto-forward setup is complete. */
+  autoForwardCompletedAt: string | null;
   /** Called after the user clicks the Gmail confirm CTA so the parent can refetch. */
   onConfirmClicked: () => void;
+  /** Called when the user marks the provider-side auto-forward setup complete. */
+  onAutoForwardCompleted: () => Promise<void>;
   styles: WizardStyles;
   cl: Cl;
   tokens: ClearLensTokens;
@@ -916,7 +939,9 @@ function ImportStep({
         <AutoRefreshSetup
           inboxToken={inboxToken}
           pendingConfirmationUrl={pendingConfirmationUrl}
+          autoForwardCompletedAt={autoForwardCompletedAt}
           onConfirmClicked={onConfirmClicked}
+          onAutoForwardCompleted={onAutoForwardCompleted}
         />
       </View>
     );
