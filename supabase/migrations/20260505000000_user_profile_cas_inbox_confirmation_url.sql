@@ -1,8 +1,9 @@
 -- Phase 6 / M2.4 — Gmail auto-forward verification capture.
 --
--- When a user adds their `cas+<token>@<inbound-domain>` address as a
--- "Forward to" destination in Gmail, Google emails a confirmation URL
--- to that address (from forwarding-noreply@google.com). The
+-- When a user adds their `cas-<token>@foliolens.in` (prod) or
+-- `cas-dev-<token>@foliolens.in` (dev) address as a "Forward to"
+-- destination in Gmail, Google emails a confirmation URL to that
+-- address (from forwarding-noreply@google.com). The
 -- `cas-webhook-resend` Edge Function detects the verification email
 -- and stores the URL on this column so the FolioLens UI can surface a
 -- "Confirm Gmail forwarding" button to the user. Clicking the button

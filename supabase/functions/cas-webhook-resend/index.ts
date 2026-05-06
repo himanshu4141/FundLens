@@ -4,22 +4,20 @@
  *
  * Flow:
  *   1. Verify the Svix signature Resend attaches to every webhook (rejects spoofs)
- *   2. Parse the `to` header to extract the user's `cas+<token>@<INBOUND_DOMAIN>`
+ *   2. Parse the `to` header to extract `cas-dev-<token>@foliolens.in` or
+ *      `cas-<token>@foliolens.in`
  *   3. Resolve the user via `user_profile.cas_inbox_token`
- *   4. For each PDF attachment, decode base64 and POST to the existing Vercel
+ *   4. Fetch received email content and attachment download URLs through
+ *      Resend's Receiving API, then POST PDF bytes to the existing Vercel
  *      Python parser at `${APP_BASE_URL}/api/parse-cas-pdf` with the user's PAN
  *      (and a CDSL/NSDL fallback password from PAN+DOB)
  *   5. Run the shared `importCASData` helper to upsert funds and transactions
  *   6. Insert a `cas_import` audit row with status + counts + errors
  *   7. Always return 200 so Resend doesn't retry on user-side errors
  *
- * INBOUND_DOMAIN differs by environment so dev tester emails never land in
- * prod (and vice versa) even though both share one Resend account:
- *   - dev / preview Supabase project: `INBOUND_DOMAIN=dev.foliolens.in`
- *   - prod Supabase project:          `INBOUND_DOMAIN=foliolens.in`
- *
- * Each environment owns its own Resend Inbound Route + signing secret, so a
- * leaked dev secret cannot sign a prod webhook.
+ * INBOUND_DOMAIN is `foliolens.in` for both environments. The production
+ * Vercel router handles dev/prod separation by local-part before forwarding
+ * the original signed Resend payload and svix-* headers here.
  *
  * Deploy with `--no-verify-jwt` (Resend cannot send a Supabase JWT).
  */
@@ -35,17 +33,20 @@ import {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const RESEND_INBOUND_SECRET = Deno.env.get('RESEND_INBOUND_SECRET') ?? '';
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const CAS_PARSER_SHARED_SECRET = Deno.env.get('CAS_PARSER_SHARED_SECRET') ?? '';
 const APP_BASE_URL = Deno.env.get('APP_BASE_URL') ?? 'https://app.foliolens.in';
 const VERCEL_PROTECTION_BYPASS_TOKEN = Deno.env.get('VERCEL_PROTECTION_BYPASS_TOKEN') ?? '';
 
-// Resolve the inbound domain from env so dev (`dev.foliolens.in`) and prod
-// (`foliolens.in`) parse only their own envelopes. Falls back to prod so a
-// missing env var keeps the production webhook working.
+// Resolve the inbound domain from env. Both dev and prod use the apex domain;
+// the Vercel router encodes environment in the local-part.
 const INBOX_DOMAIN = Deno.env.get('INBOUND_DOMAIN') ?? 'foliolens.in';
 // Alphabet matches the SQL generator: A–Z minus I, L, O; 2–9.
 const TOKEN_REGEX = /^[A-HJKMNP-Z2-9]{8}$/;
-const TOKEN_EXTRACT_RE = new RegExp(`cas\\+([A-Za-z0-9]+)@${INBOX_DOMAIN.replace(/\./g, '\\.')}`, 'i');
+const TOKEN_EXTRACT_RE = new RegExp(
+  `cas(?:-dev)?-([A-Za-z0-9]+)@${INBOX_DOMAIN.replace(/\./g, '\\.')}`,
+  'i',
+);
 
 // ── Token parsing (mirrors src/utils/casInboxToken.ts) ──────────────────────────
 
@@ -125,30 +126,129 @@ async function verifyResendSignature(
 // ── Email payload typing ────────────────────────────────────────────────────────
 
 interface ResendInboundAttachment {
+  id?: string;
   filename?: string;
   contentType?: string;
+  content_type?: string;
+  download_url?: string;
   // Resend ships attachment bodies inline as base64 by default
   content?: string;
 }
 
-interface ResendInboundPayload {
-  type?: string;
-  data?: {
-    from?: string | { email?: string; name?: string };
-    to?: string | string[];
-    subject?: string;
-    text?: string;
-    html?: string;
-    headers?: Record<string, string>;
-    attachments?: ResendInboundAttachment[];
-  };
+interface ResendInboundData {
+  id?: string;
+  email_id?: string;
+  from?: string | { email?: string; name?: string };
+  to?: string | string[];
+  subject?: string;
+  text?: string;
+  html?: string;
+  headers?: Record<string, string>;
+  attachments?: ResendInboundAttachment[];
 }
 
-function getRecipientList(payload: ResendInboundPayload): string {
-  const to = payload.data?.to;
+interface ResendInboundPayload {
+  type?: string;
+  data?: ResendInboundData;
+}
+
+function getRecipientList(data: ResendInboundData): string {
+  const to = data.to;
   if (!to) return '';
   if (Array.isArray(to)) return to.join(', ');
   return to;
+}
+
+function getReceivedEmailId(data: ResendInboundData): string | null {
+  return data.email_id ?? data.id ?? null;
+}
+
+function mergeEmailData(base: ResendInboundData, received: ResendInboundData | null): ResendInboundData {
+  if (!received) return base;
+  return {
+    ...base,
+    ...received,
+    from: received.from ?? base.from,
+    to: received.to ?? base.to,
+    subject: received.subject ?? base.subject,
+    text: received.text ?? base.text,
+    html: received.html ?? base.html,
+    headers: received.headers ?? base.headers,
+    attachments: received.attachments ?? base.attachments,
+  };
+}
+
+async function resendApiJson<T>(path: string): Promise<T> {
+  if (!RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not set');
+  }
+  const res = await fetch(`https://api.resend.com${path}`, {
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+  });
+  const body = await res.text();
+  const parsed = body ? JSON.parse(body) : {};
+  if (!res.ok) {
+    const message =
+      typeof parsed?.message === 'string'
+        ? parsed.message
+        : `Resend API request failed (${res.status})`;
+    throw new Error(message);
+  }
+  return parsed as T;
+}
+
+async function fetchReceivedEmail(emailId: string | null): Promise<ResendInboundData | null> {
+  if (!emailId) return null;
+  return await resendApiJson<ResendInboundData>(`/emails/receiving/${emailId}`);
+}
+
+async function listReceivedAttachments(emailId: string | null): Promise<ResendInboundAttachment[]> {
+  if (!emailId) return [];
+  const response = await resendApiJson<{ data?: ResendInboundAttachment[] }>(
+    `/emails/receiving/${emailId}/attachments`,
+  );
+  return response.data ?? [];
+}
+
+function getAttachmentContentType(attachment: ResendInboundAttachment): string {
+  return attachment.contentType ?? attachment.content_type ?? '';
+}
+
+function isPdfAttachment(attachment: ResendInboundAttachment): boolean {
+  const contentType = getAttachmentContentType(attachment).toLowerCase();
+  return (
+    contentType === 'application/pdf' ||
+    (attachment.filename?.toLowerCase().endsWith('.pdf') ?? false)
+  );
+}
+
+async function getAttachmentBytes(
+  attachment: ResendInboundAttachment,
+  emailId: string | null,
+): Promise<Uint8Array> {
+  if (attachment.content) {
+    return decodeBase64(attachment.content);
+  }
+
+  let downloadUrl = attachment.download_url;
+  if (!downloadUrl && emailId && attachment.id) {
+    const details = await resendApiJson<ResendInboundAttachment>(
+      `/emails/receiving/${emailId}/attachments/${attachment.id}`,
+    );
+    downloadUrl = details.download_url;
+  }
+
+  if (!downloadUrl) {
+    throw new Error(`No download URL for attachment ${attachment.filename ?? attachment.id ?? ''}`);
+  }
+
+  const res = await fetch(downloadUrl);
+  if (!res.ok) {
+    throw new Error(`Attachment download failed (${res.status})`);
+  }
+  return new Uint8Array(await res.arrayBuffer());
 }
 
 
@@ -180,7 +280,19 @@ Deno.serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  const recipients = getRecipientList(payload);
+  const eventData = payload.data ?? {};
+  const emailId = getReceivedEmailId(eventData);
+  let receivedEmail: ResendInboundData | null = null;
+  try {
+    receivedEmail = await fetchReceivedEmail(emailId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[cas-webhook-resend] received email fetch failed: %s', msg);
+    return Response.json({ ok: false, reason: 'resend_email_fetch_failed' }, { status: 502 });
+  }
+
+  const emailData = mergeEmailData(eventData, receivedEmail);
+  const recipients = getRecipientList(emailData);
   const token = parseInboxToken(recipients);
   if (!token) {
     console.warn('[cas-webhook-resend] no inbox token in to=%s', recipients);
@@ -213,8 +325,8 @@ Deno.serve(async (req) => {
   // Gmail auto-forward verification: capture the confirmation URL on
   // the profile and return early without running the import path.
   // The UI surfaces this URL as a "Confirm Gmail forwarding" button.
-  if (isGmailForwardingVerification(payload.data ?? {})) {
-    const url = extractGmailVerificationUrl(payload.data ?? {});
+  if (isGmailForwardingVerification(emailData)) {
+    const url = extractGmailVerificationUrl(emailData);
     if (!url) {
       console.warn(
         '[cas-webhook-resend] gmail-verification email matched sender+subject but no URL found, token=%s',
@@ -241,12 +353,19 @@ Deno.serve(async (req) => {
     return Response.json({ ok: true, captured: 'gmail_forwarding_verification' });
   }
 
-  const attachments = payload.data?.attachments ?? [];
-  const pdfAttachments = attachments.filter(
-    (att) =>
-      att.contentType === 'application/pdf' ||
-      att.filename?.toLowerCase().endsWith('.pdf'),
-  );
+  let attachments = emailData.attachments ?? [];
+  try {
+    const listedAttachments = await listReceivedAttachments(emailId);
+    if (listedAttachments.length > 0) {
+      attachments = listedAttachments;
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[cas-webhook-resend] attachment list failed: %s', msg);
+    return Response.json({ ok: false, reason: 'resend_attachment_list_failed' }, { status: 502 });
+  }
+
+  const pdfAttachments = attachments.filter(isPdfAttachment);
 
   console.log(
     '[cas-webhook-resend] token=%s, user=%s, pdf_files=%d, total_files=%d',
@@ -286,10 +405,7 @@ Deno.serve(async (req) => {
 
   for (const attachment of pdfAttachments) {
     try {
-      if (!attachment.content) {
-        throw new Error('Empty attachment content');
-      }
-      const pdfBytes = decodeBase64(attachment.content);
+      const pdfBytes = await getAttachmentBytes(attachment, emailId);
 
       const parserHeaders: Record<string, string> = {
         'Content-Type': 'application/octet-stream',

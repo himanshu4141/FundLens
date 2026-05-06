@@ -94,12 +94,16 @@ describe('isGmailForwardingVerification', () => {
         from: 'malicious-forwarding-noreply@google.com.attacker.example',
         subject: 'Gmail Forwarding Confirmation',
       }),
+    ).toBe(false);
+  });
+
+  it('accepts display-name from headers', () => {
+    expect(
+      isGmailForwardingVerification({
+        from: 'Gmail Team <forwarding-noreply@google.com>',
+        subject: 'Gmail Forwarding Confirmation',
+      }),
     ).toBe(true);
-    // ^ This is the regex matching anywhere in the string. The webhook still
-    // requires a valid Resend signature on the surrounding payload, so a real
-    // attacker would have to also break HMAC signing — the helper alone isn't
-    // the security boundary. Documented here so a future reader doesn't
-    // mistake the `true` above for a vulnerability.
   });
 });
 
@@ -122,6 +126,14 @@ describe('extractGmailVerificationUrl', () => {
       '<p>Click <a href="https://mail.google.com/mail/vf-XYZ123abc">here</a> to confirm.</p>';
     expect(extractGmailVerificationUrl({ html })).toBe(
       'https://mail.google.com/mail/vf-XYZ123abc',
+    );
+  });
+
+  it('keeps query params and unescapes HTML ampersands', () => {
+    const html =
+      '<a href="https://mail.google.com/mail/vf-XYZ123abc?c=1&amp;v=2">confirm</a>';
+    expect(extractGmailVerificationUrl({ html })).toBe(
+      'https://mail.google.com/mail/vf-XYZ123abc?c=1&v=2',
     );
   });
 

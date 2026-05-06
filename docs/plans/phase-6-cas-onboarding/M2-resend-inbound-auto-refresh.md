@@ -65,7 +65,7 @@ This discovery unblocks M2.4 (auto-refresh card UX) and M2.5 (Settings row copy)
 | **Gmail Workspace** | Same as consumer. | Required by default. A Workspace admin can pre-allowlist external destination domains, in which case per-user verification is skipped. We are not the admin of users' orgs. | Same as consumer — surface URL or fall back. |
 | **Outlook.com (consumer)** | Yes — Settings → Mail → Rules → Forward / Forward as attachment | **Not required.** Outlook applies the rule immediately to any destination address. | **Auto-forward works out of the box.** No FolioLens code needed beyond showing rule-creation instructions. |
 | **Microsoft 365 (Exchange Online business)** | Same as Outlook.com — Inbox Rules support Forward. | Not required at the user level. Some tenants enable transport rules that block forwarding to external domains; that's a per-tenant admin setting outside our control. | Works for the majority of users. Tenant-level blocking falls back to manual forward. |
-| **iCloud Mail** | **No filter / rule support.** Settings → Mail → Auto-Reply forwards the *entire inbox* to one address; cannot scope to "from CAMS / KFintech only". | Not required because there's nothing to scope. | **Not viable.** Forwarding everything to `cas+<token>@…` would spam our parser with non-CAS PDFs and is a privacy footgun. Manual forward only. |
+| **iCloud Mail** | **No filter / rule support.** Settings → Mail → Auto-Reply forwards the *entire inbox* to one address; cannot scope to "from CAMS / KFintech only". | Not required because there's nothing to scope. | **Not viable.** Forwarding everything to `cas-<token>@…` would spam our parser with non-CAS PDFs and is a privacy footgun. Manual forward only. |
 | **Yahoo Mail (free)** | **No auto-forward.** Yahoo removed the feature for free accounts in 2014. | N/A | **Not viable.** Manual forward only. |
 | **Yahoo Mail Plus** (paid) | Yes | Required, similar to Gmail. | Niche; treat as Gmail-equivalent if we ever encounter a paid Yahoo user. |
 | **Apple Mail (macOS / iOS) backed by IMAP** | Forwarding is server-side (driven by the IMAP provider, not Apple Mail), so behaviour matches the provider. | Inherits from provider. | Same answer as the underlying provider. |
@@ -173,7 +173,7 @@ The Vercel router verifies the Resend Svix signature before any side effects. Th
 - Create one Resend `email.received` webhook pointing at the router endpoint.
 - Replace Cloudflare Email Routing apex MX records with Resend's apex MX records. Keep outbound TXT/DKIM/SPF intact.
 - Set Vercel production env vars: `RESEND_API_KEY`, `RESEND_INBOUND_ROUTER_SECRET`, `MAIL_FORWARD_TO`, `MAIL_FORWARD_FROM`, `SUPABASE_DEV_FUNCTION_URL`, `SUPABASE_PROD_FUNCTION_URL`.
-- Set the same Resend Svix secret on both Supabase projects as `RESEND_INBOUND_SECRET`, and set `INBOUND_DOMAIN=foliolens.in`.
+- Set the same Resend Svix secret on both Supabase projects as `RESEND_INBOUND_SECRET`, set `RESEND_API_KEY`, and set `INBOUND_DOMAIN=foliolens.in`.
 - Smoke test human forwarding: send to `hello@foliolens.in`; expect a forwarded email in owner Gmail.
 - Smoke test CAS dispatch after PR #93 deploys: send to `cas-dev-TESTTOKEN@foliolens.in`; Resend calls Vercel router, router calls dev Supabase, function returns unknown token.
 - **Acceptance**: one Resend webhook endpoint handles human aliases, dev CAS, and prod CAS without extra Resend domains or subdomains.

@@ -216,6 +216,7 @@ On the Edge Function runtime (Supabase Dashboard → Functions → Secrets), the
 | `CASPARSER_API_KEY` | (deprecated, kept until M2.6) | (deprecated, kept until M2.6) |
 | `EODHD_API_KEY` | only set if EOD-style index data needed | same |
 | `RESEND_INBOUND_SECRET` | M2: same Resend Svix secret used by the Vercel router | same |
+| `RESEND_API_KEY` | M2: fetches received email bodies / attachment download URLs from Resend | same |
 | `VERCEL_PROTECTION_BYPASS_TOKEN` | only when Vercel protection is enabled | same |
 
 

@@ -187,6 +187,8 @@ The client should render the same domain in every environment, but a different l
 | Vercel `foliolens-dev` | `EXPO_PUBLIC_INBOUND_DOMAIN=foliolens.in` |
 | Vercel `foliolens` | `EXPO_PUBLIC_INBOUND_DOMAIN=foliolens.in` |
 
+The app normally infers dev/prod from `APP_VARIANT` or the Supabase URL baked into the bundle. If a preview build ever renders `cas-<token>@foliolens.in` instead of `cas-dev-<token>@foliolens.in`, set `EXPO_PUBLIC_INBOUND_ENV=dev` on that target and republish.
+
 After changing Expo / Vercel env vars, republish OTA or redeploy the relevant app.
 
 ---

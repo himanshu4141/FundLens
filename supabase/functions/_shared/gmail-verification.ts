@@ -4,7 +4,8 @@
  * Exported separately so they can be unit-tested via Jest (the parent
  * `cas-webhook-resend/index.ts` uses Deno-only APIs and is not Jest-runnable).
  *
- * Background: when a user adds `cas+<token>@<inbound-domain>` as a Gmail
+ * Background: when a user adds `cas-<token>@foliolens.in` or
+ * `cas-dev-<token>@foliolens.in` as a Gmail
  * forwarding destination, Google emails a verification message FROM
  * `forwarding-noreply@google.com` containing a confirmation URL of the form
  * `https://mail.google.com/mail/vf-…`. The user must click that URL (or enter
@@ -14,9 +15,9 @@
  * so the FolioLens UI can surface a "Confirm Gmail forwarding" button.
  */
 
-const SENDER_RE = /forwarding-noreply@google\.com/i;
+const SENDER_RE = /(?:^|<|\s)forwarding-noreply@google\.com(?:$|>|\s)/i;
 const SUBJECT_RE = /Gmail Forwarding Confirmation/i;
-const URL_RE = /https:\/\/mail\.google\.com\/mail\/vf-[A-Za-z0-9_\-]+/;
+const URL_RE = /https:\/\/mail\.google\.com\/mail\/vf-[^\s"'<]+/;
 
 export interface GmailVerificationInput {
   /** Either the raw `from` string or an object with email/name. */
@@ -42,5 +43,5 @@ export function isGmailForwardingVerification(input: GmailVerificationInput): bo
 export function extractGmailVerificationUrl(input: GmailVerificationInput): string | null {
   const body = `${input.text ?? ''}\n${input.html ?? ''}`;
   const match = URL_RE.exec(body);
-  return match ? match[0] : null;
+  return match ? match[0].replace(/&amp;/g, '&') : null;
 }

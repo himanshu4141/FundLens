@@ -1,6 +1,7 @@
 -- Each user gets a stable, opaque inbox token. Resend Inbound routes any
--- email addressed to `cas+<token>@foliolens.in` at the cas-webhook-resend
--- Edge Function, which uses this column to identify the owner.
+-- email addressed to `cas-<token>@foliolens.in` (prod) or
+-- `cas-dev-<token>@foliolens.in` (dev) at the cas-webhook-resend Edge
+-- Function, which uses this column to identify the owner.
 --
 -- The token is intentionally short (8 base32 chars), without ambiguous
 -- characters (0/O/1/I/L), so it's safe to render in copy-button UI and

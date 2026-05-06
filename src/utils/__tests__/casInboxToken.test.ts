@@ -1,11 +1,32 @@
 import {
   formatInboxAddress,
   getInboxDomain,
+  getInboxEnvironment,
   isValidInboxToken,
   parseInboxToken,
 } from '../casInboxToken';
+import Constants from 'expo-constants';
+
+jest.mock('expo-constants', () => ({
+  expoConfig: {
+    extra: {
+      appVariant: 'production',
+    },
+  },
+}));
 
 const ENV_BACKUP = process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
+const INBOUND_ENV_BACKUP = process.env.EXPO_PUBLIC_INBOUND_ENV;
+const SUPABASE_URL_BACKUP = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const APP_BASE_URL_BACKUP = process.env.EXPO_PUBLIC_APP_BASE_URL;
+
+type MockConstants = {
+  expoConfig?: {
+    extra?: {
+      appVariant?: string;
+    };
+  };
+};
 
 afterEach(() => {
   if (ENV_BACKUP === undefined) {
@@ -13,6 +34,26 @@ afterEach(() => {
   } else {
     process.env.EXPO_PUBLIC_INBOUND_DOMAIN = ENV_BACKUP;
   }
+  if (INBOUND_ENV_BACKUP === undefined) {
+    delete process.env.EXPO_PUBLIC_INBOUND_ENV;
+  } else {
+    process.env.EXPO_PUBLIC_INBOUND_ENV = INBOUND_ENV_BACKUP;
+  }
+  if (SUPABASE_URL_BACKUP === undefined) {
+    delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+  } else {
+    process.env.EXPO_PUBLIC_SUPABASE_URL = SUPABASE_URL_BACKUP;
+  }
+  if (APP_BASE_URL_BACKUP === undefined) {
+    delete process.env.EXPO_PUBLIC_APP_BASE_URL;
+  } else {
+    process.env.EXPO_PUBLIC_APP_BASE_URL = APP_BASE_URL_BACKUP;
+  }
+  (Constants as MockConstants).expoConfig = {
+    extra: {
+      appVariant: 'production',
+    },
+  };
 });
 
 describe('getInboxDomain', () => {
@@ -21,14 +62,46 @@ describe('getInboxDomain', () => {
     expect(getInboxDomain()).toBe('foliolens.in');
   });
 
-  it('returns the dev subdomain when env is set to it', () => {
-    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'dev.foliolens.in';
-    expect(getInboxDomain()).toBe('dev.foliolens.in');
+  it('returns the configured domain when env is set', () => {
+    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'mail.example.com';
+    expect(getInboxDomain()).toBe('mail.example.com');
   });
 
   it('falls back to prod default when env is empty string', () => {
     process.env.EXPO_PUBLIC_INBOUND_DOMAIN = '';
     expect(getInboxDomain()).toBe('foliolens.in');
+  });
+});
+
+describe('getInboxEnvironment', () => {
+  it('defaults to prod', () => {
+    expect(getInboxEnvironment()).toBe('prod');
+  });
+
+  it('honours an explicit public inbound env', () => {
+    process.env.EXPO_PUBLIC_INBOUND_ENV = 'dev';
+    expect(getInboxEnvironment()).toBe('dev');
+
+    process.env.EXPO_PUBLIC_INBOUND_ENV = 'prod';
+    expect(getInboxEnvironment()).toBe('prod');
+  });
+
+  it('treats non-production app variants as dev', () => {
+    (Constants as MockConstants).expoConfig = {
+      extra: {
+        appVariant: 'preview-pr',
+      },
+    };
+    expect(getInboxEnvironment()).toBe('dev');
+  });
+
+  it('falls back to Supabase project refs for web builds', () => {
+    (Constants as MockConstants).expoConfig = { extra: {} };
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://imkgazlrxtlhkfptkzjc.supabase.co';
+    expect(getInboxEnvironment()).toBe('dev');
+
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://ohcaaioabjvzewfysqgh.supabase.co';
+    expect(getInboxEnvironment()).toBe('prod');
   });
 });
 
@@ -59,14 +132,18 @@ describe('isValidInboxToken', () => {
 });
 
 describe('formatInboxAddress', () => {
-  it('builds the canonical cas+token address on prod', () => {
+  it('builds the canonical cas-token address on prod', () => {
     delete process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
-    expect(formatInboxAddress('A2B3C4D5')).toBe('cas+A2B3C4D5@foliolens.in');
+    expect(formatInboxAddress('A2B3C4D5')).toBe('cas-A2B3C4D5@foliolens.in');
   });
 
-  it('builds the dev address when env points at the dev subdomain', () => {
-    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'dev.foliolens.in';
-    expect(formatInboxAddress('A2B3C4D5')).toBe('cas+A2B3C4D5@dev.foliolens.in');
+  it('builds the dev local-part address when running a dev variant', () => {
+    (Constants as MockConstants).expoConfig = {
+      extra: {
+        appVariant: 'preview-main',
+      },
+    };
+    expect(formatInboxAddress('A2B3C4D5')).toBe('cas-dev-A2B3C4D5@foliolens.in');
   });
 
   it('throws on invalid tokens so UI never renders a broken address', () => {
@@ -77,46 +154,42 @@ describe('formatInboxAddress', () => {
 
 describe('parseInboxToken', () => {
   it('extracts a bare email', () => {
-    expect(parseInboxToken('cas+A2B3C4D5@foliolens.in')).toBe('A2B3C4D5');
+    expect(parseInboxToken('cas-A2B3C4D5@foliolens.in')).toBe('A2B3C4D5');
+    expect(parseInboxToken('cas-dev-A2B3C4D5@foliolens.in')).toBe('A2B3C4D5');
   });
 
   it('handles angle-bracket form', () => {
-    expect(parseInboxToken('<cas+A2B3C4D5@foliolens.in>')).toBe('A2B3C4D5');
+    expect(parseInboxToken('<cas-A2B3C4D5@foliolens.in>')).toBe('A2B3C4D5');
   });
 
   it('handles display-name form', () => {
-    expect(parseInboxToken('FolioLens Inbox <cas+A2B3C4D5@foliolens.in>')).toBe('A2B3C4D5');
+    expect(parseInboxToken('FolioLens Inbox <cas-dev-A2B3C4D5@foliolens.in>')).toBe('A2B3C4D5');
   });
 
   it('uppercases for canonical comparison', () => {
-    expect(parseInboxToken('cas+a2b3c4d5@foliolens.in')).toBe('A2B3C4D5');
+    expect(parseInboxToken('cas-a2b3c4d5@foliolens.in')).toBe('A2B3C4D5');
   });
 
   it('returns first match when multiple recipients are listed', () => {
-    expect(parseInboxToken('foo@bar.com, cas+A2B3C4D5@foliolens.in')).toBe('A2B3C4D5');
+    expect(parseInboxToken('foo@bar.com, cas-dev-A2B3C4D5@foliolens.in')).toBe('A2B3C4D5');
   });
 
   it('returns null when the address lives on a different domain', () => {
-    expect(parseInboxToken('cas+A2B3C4D5@example.com')).toBeNull();
+    expect(parseInboxToken('cas-A2B3C4D5@example.com')).toBeNull();
   });
 
-  it('only matches the env-resolved domain — dev parser ignores prod addresses and vice versa', () => {
-    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'dev.foliolens.in';
-    expect(parseInboxToken('cas+A2B3C4D5@dev.foliolens.in')).toBe('A2B3C4D5');
-    expect(parseInboxToken('cas+A2B3C4D5@foliolens.in')).toBeNull();
-
-    delete process.env.EXPO_PUBLIC_INBOUND_DOMAIN;
-    expect(parseInboxToken('cas+A2B3C4D5@foliolens.in')).toBe('A2B3C4D5');
-    expect(parseInboxToken('cas+A2B3C4D5@dev.foliolens.in')).toBeNull();
+  it('matches the env-resolved domain', () => {
+    process.env.EXPO_PUBLIC_INBOUND_DOMAIN = 'mail.example.com';
+    expect(parseInboxToken('cas-A2B3C4D5@mail.example.com')).toBe('A2B3C4D5');
+    expect(parseInboxToken('cas-A2B3C4D5@foliolens.in')).toBeNull();
   });
 
-  it('returns null when the local part is missing the cas+ prefix', () => {
+  it('returns null when the local part is missing the cas prefix', () => {
     expect(parseInboxToken('inbox@foliolens.in')).toBeNull();
   });
 
   it('returns null when the token portion has invalid characters', () => {
-    // Plus-extension exists but ambiguous chars fail token validation
-    expect(parseInboxToken('cas+0OIL2345@foliolens.in')).toBeNull();
+    expect(parseInboxToken('cas-0OIL2345@foliolens.in')).toBeNull();
   });
 
   it('returns null on empty input', () => {
